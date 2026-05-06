@@ -7,4 +7,5 @@
 
     <include file="changes/0001-init-schema.xml" relativeToChangelogFile="true"/>
     <include file="changes/0002-seed-reference-data.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0003-email-verification-and-sessions.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
