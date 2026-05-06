@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0002-roles-seed" author="sumicare">
+        <insert tableName="roles">
+            <column name="code" value="SUPERADMIN"/>
+            <column name="display_name" value="Superadmin"/>
+            <column name="hierarchy_level" valueNumeric="100"/>
+        </insert>
+        <insert tableName="roles">
+            <column name="code" value="ADMIN"/>
+            <column name="display_name" value="Admin"/>
+            <column name="hierarchy_level" valueNumeric="80"/>
+        </insert>
+        <insert tableName="roles">
+            <column name="code" value="MANAGER"/>
+            <column name="display_name" value="Manager"/>
+            <column name="hierarchy_level" valueNumeric="60"/>
+        </insert>
+        <insert tableName="roles">
+            <column name="code" value="RECEPTIONIST"/>
+            <column name="display_name" value="Receptionist"/>
+            <column name="hierarchy_level" valueNumeric="40"/>
+        </insert>
+        <insert tableName="roles">
+            <column name="code" value="STAFF"/>
+            <column name="display_name" value="Staff"/>
+            <column name="hierarchy_level" valueNumeric="20"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0002-permissions-seed" author="sumicare">
+        <insert tableName="permissions"><column name="code" value="MANAGE_USERS"/><column name="description" value="Create, update, deactivate users"/></insert>
+        <insert tableName="permissions"><column name="code" value="MANAGE_ADMINS"/><column name="description" value="Create, update, deactivate admins"/></insert>
+        <insert tableName="permissions"><column name="code" value="VIEW_AUDIT_LOGS"/><column name="description" value="Read audit log entries"/></insert>
+        <insert tableName="permissions"><column name="code" value="VIEW_REPORTS"/><column name="description" value="Read cutoff/day/monthly reports"/></insert>
+        <insert tableName="permissions"><column name="code" value="EXPORT_REPORTS"/><column name="description" value="Export reports to Excel"/></insert>
+        <insert tableName="permissions"><column name="code" value="OPERATE_POS"/><column name="description" value="Process payments and run cashier shifts"/></insert>
+        <insert tableName="permissions"><column name="code" value="MANAGE_BOOKINGS"/><column name="description" value="Create and adjust sessions and bookings"/></insert>
+        <insert tableName="permissions"><column name="code" value="MANAGE_DECKING"/><column name="description" value="Skip therapists, insert backups, reorder lineup"/></insert>
+        <insert tableName="permissions"><column name="code" value="MANAGE_CONTENT"/><column name="description" value="Edit public website content"/></insert>
+        <insert tableName="permissions"><column name="code" value="MANAGE_BRANDING"/><column name="description" value="Edit organization logo and color scheme"/></insert>
+    </changeSet>
+
+    <changeSet id="0002-default-organization" author="sumicare">
+        <insert tableName="organizations">
+            <column name="slug" value="lasema"/>
+            <column name="display_name" value="New Lasema Spa Jjimjilbang"/>
+            <column name="primary_color" value="#0F766E"/>
+            <column name="secondary_color" value="#14B8A6"/>
+            <column name="accent_color" value="#F59E0B"/>
+            <column name="theme" value="default"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0002-services-seed" author="sumicare">
+        <sql>
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'FOOT_REFLEX',     'Foot Reflex',                60,  120.00,  500.00, 'soft',  false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'SHIATSU',         'Shiatsu',                    60,  120.00,  500.00, 'hard',  false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'SWEDISH',         'Swedish',                    60,  120.00,  500.00, 'oil',   false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'DEEP_TISSUE',     'Deep Tissue',                60,  120.00,  550.00, 'hard',  false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'LOMI_LOMI',       'Lomi-Lomi',                  60,  120.00,  550.00, 'oil',   false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'LYMPHATIC',       'Lymphatic',                  60,  120.00,  550.00, 'soft',  false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'COMBINATION',     'Combination',                60,  120.00,  550.00, 'oil',   false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'SALT_GLOW_SCRUB', 'Salt Glow Scrub',            60,  120.00,  650.00, 'dry',   false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'MILK_BATH_SCRUB', 'Milk Bath Scrub',            60,  120.00,  650.00, 'oil',   false, false, false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'DAEMIDI',         'Dae Mi DI (Korean Scrub)',   45,  200.00,  800.00, 'dry',   false, true,  false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'THAI',            'Thai Massage',               75,  150.00,  700.00, 'hard',  false, true,  false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'AROMA_REFLEX',    'Aromatherapy w/ Reflex',     90,  180.00,  900.00, 'oil',   false, true,  false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'VENTOSA',         'Ventosa Massage',            90,  220.00, 1000.00, 'hard',  false, true,  false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'TANDEM',          'Tandem Massage',             60,  240.00,  900.00, 'oil',   true,  true,  false FROM organizations WHERE slug='lasema';
+            INSERT INTO services_catalogue (organization_id, code, name, duration_minutes, commission_amount, price, category, requires_two_therapists, is_fixed_rate, is_vip)
+            SELECT id, 'VIP',             'VIP (Jacuzzi + Massage)',   120,  240.00, 2000.00, 'oil',   false, true,  true  FROM organizations WHERE slug='lasema';
+        </sql>
+    </changeSet>
+
+    <changeSet id="0002-shifts-seed" author="sumicare">
+        <sql>
+            INSERT INTO shifts (organization_id, label, start_time, end_time, expected_count)
+            SELECT id, 'Shift 1', '07:00', '17:00', 15 FROM organizations WHERE slug='lasema';
+            INSERT INTO shifts (organization_id, label, start_time, end_time, expected_count)
+            SELECT id, 'Shift 2', '12:00', '22:00', 10 FROM organizations WHERE slug='lasema';
+            INSERT INTO shifts (organization_id, label, start_time, end_time, expected_count)
+            SELECT id, 'Shift 3', '14:30', '00:30', 15 FROM organizations WHERE slug='lasema';
+            INSERT INTO shifts (organization_id, label, start_time, end_time, expected_count)
+            SELECT id, 'Shift 4', '17:00', '03:00', 20 FROM organizations WHERE slug='lasema';
+            INSERT INTO shifts (organization_id, label, start_time, end_time, expected_count)
+            SELECT id, 'Shift 5', '19:30', '07:30', 20 FROM organizations WHERE slug='lasema';
+        </sql>
+    </changeSet>
+
+    <changeSet id="0002-recommendation-questions-seed" author="sumicare">
+        <insert tableName="recommendation_questions"><column name="code" value="PRESSURE"/><column name="prompt" value="What pressure do you prefer?"/><column name="display_order" valueNumeric="1"/></insert>
+        <insert tableName="recommendation_questions"><column name="code" value="FOCUS_AREA"/><column name="prompt" value="Which area would you like focused?"/><column name="display_order" valueNumeric="2"/></insert>
+        <insert tableName="recommendation_questions"><column name="code" value="TEXTURE"/><column name="prompt" value="Dry or oil-based?"/><column name="display_order" valueNumeric="3"/></insert>
+        <insert tableName="recommendation_questions"><column name="code" value="DURATION"/><column name="prompt" value="How long do you have?"/><column name="display_order" valueNumeric="4"/></insert>
+        <insert tableName="recommendation_questions"><column name="code" value="GOAL"/><column name="prompt" value="What is your primary goal?"/><column name="display_order" valueNumeric="5"/></insert>
+
+        <sql>
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'LIGHT',     'Light',      1 FROM recommendation_questions WHERE code='PRESSURE';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'MEDIUM',    'Medium',     2 FROM recommendation_questions WHERE code='PRESSURE';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'FIRM',      'Firm',       3 FROM recommendation_questions WHERE code='PRESSURE';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'VERY_FIRM', 'Very firm',  4 FROM recommendation_questions WHERE code='PRESSURE';
+
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'FULL_BODY', 'Full body',          1 FROM recommendation_questions WHERE code='FOCUS_AREA';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'BACK',      'Back and shoulders', 2 FROM recommendation_questions WHERE code='FOCUS_AREA';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'FEET',      'Feet and legs',      3 FROM recommendation_questions WHERE code='FOCUS_AREA';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'HEAD',      'Head and neck',      4 FROM recommendation_questions WHERE code='FOCUS_AREA';
+
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'DRY', 'Dry', 1 FROM recommendation_questions WHERE code='TEXTURE';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'OIL', 'Oil', 2 FROM recommendation_questions WHERE code='TEXTURE';
+
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'HALF',  '30 minutes',  1 FROM recommendation_questions WHERE code='DURATION';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'ONE',   '1 hour',      2 FROM recommendation_questions WHERE code='DURATION';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'NINTY', '1.5 hours',   3 FROM recommendation_questions WHERE code='DURATION';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'TWO',   '2 hours',     4 FROM recommendation_questions WHERE code='DURATION';
+
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'RELAX',       'Relaxation',           1 FROM recommendation_questions WHERE code='GOAL';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'TENSION',     'Muscle tension relief',2 FROM recommendation_questions WHERE code='GOAL';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'FATIGUE',     'Fatigue recovery',     3 FROM recommendation_questions WHERE code='GOAL';
+            INSERT INTO recommendation_options (question_id, code, label, display_order) SELECT id, 'CIRCULATION', 'Circulation',          4 FROM recommendation_questions WHERE code='GOAL';
+        </sql>
+    </changeSet>
+
+    <changeSet id="0002-recommendation-weights-seed" author="sumicare">
+        <sql>
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'PRESSURE', 'VERY_FIRM', s.id, 3 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='DEEP_TISSUE' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'PRESSURE', 'VERY_FIRM', s.id, 2 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='THAI' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'PRESSURE', 'VERY_FIRM', s.id, 2 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='VENTOSA' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'FOCUS_AREA', 'FEET', s.id, 4 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='FOOT_REFLEX' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'TEXTURE', 'OIL', s.id, 3 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='AROMA_REFLEX' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'TEXTURE', 'DRY', s.id, 3 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='DAEMIDI' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'DURATION', 'NINTY', s.id, 3 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='AROMA_REFLEX' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'DURATION', 'TWO', s.id, 4 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='VIP' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'GOAL', 'RELAX', s.id, 3 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='SWEDISH' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'GOAL', 'TENSION', s.id, 3 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='DEEP_TISSUE' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'GOAL', 'CIRCULATION', s.id, 3 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='LYMPHATIC' AND s.organization_id=o.id;
+            INSERT INTO recommendation_weights (organization_id, question_code, option_code, service_id, weight)
+            SELECT o.id, 'GOAL', 'FATIGUE', s.id, 3 FROM organizations o, services_catalogue s WHERE o.slug='lasema' AND s.code='COMBINATION' AND s.organization_id=o.id;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

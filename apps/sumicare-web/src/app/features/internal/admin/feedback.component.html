@@ -1,0 +1,20 @@
+<div class="space-y-6">
+  <header>
+    <h1 class="text-2xl font-semibold text-slate-900">Customer feedback</h1>
+    <p class="text-slate-500">Recent ratings and comments from the public booking site.</p>
+  </header>
+
+  <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    @for (f of feedback(); track f.id) {
+      <article class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-amber-500">{{ stars(f.ratingStars) }}</span>
+          <span class="text-xs text-slate-500">{{ formatDate(f.submittedAt) }}</span>
+        </div>
+        <p class="text-sm text-slate-700">{{ f.comment || '(no comment)' }}</p>
+      </article>
+    } @empty {
+      <p class="text-slate-500 text-center col-span-full">No feedback yet.</p>
+    }
+  </section>
+</div>

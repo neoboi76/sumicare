@@ -1,0 +1,58 @@
+<div class="space-y-6">
+  <header class="flex items-baseline justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Decking</h1>
+      <p class="text-slate-500">Therapist lineup. Heart marks a specifically requested therapist, star marks a scrub massage, line marks an ordinary massage.</p>
+    </div>
+    <button (click)="reload()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm">Refresh</button>
+  </header>
+
+  <section class="bg-white rounded-xl shadow divide-y">
+    @for (entry of lineup(); track entry.therapistId; let i = $index) {
+      <div class="p-3 flex items-center gap-3 flex-wrap">
+        <span class="w-8 text-slate-500 font-mono text-sm">{{ i + 1 }}</span>
+        <span class="text-xl w-6 text-center">{{ glyph(entry.flag) }}</span>
+        <span class="flex-1 font-medium min-w-[120px]">{{ nicknameFor(entry.therapistId) }}</span>
+        @if (entry.skipped) {
+          <span class="text-xs uppercase tracking-wide text-amber-600">skipped</span>
+        }
+        <div class="flex gap-1 flex-wrap">
+          <button (click)="setFlag(entry.therapistId, 'REQUESTED')" class="text-xs rounded px-2 py-1 hover:bg-slate-100">Requested</button>
+          <button (click)="setFlag(entry.therapistId, 'SCRUB')" class="text-xs rounded px-2 py-1 hover:bg-slate-100">Scrub</button>
+          <button (click)="setFlag(entry.therapistId, 'ORDINARY')" class="text-xs rounded px-2 py-1 hover:bg-slate-100">Ordinary</button>
+          @if (!entry.skipped) {
+            <button (click)="skip(entry.therapistId)" class="text-xs rounded px-2 py-1 text-amber-700 hover:bg-amber-50">Skip 30m</button>
+          } @else {
+            <button (click)="cancelSkip(entry.therapistId)" class="text-xs rounded px-2 py-1 text-emerald-700 hover:bg-emerald-50">Resume</button>
+          }
+          <button (click)="rotate(entry.therapistId)" class="text-xs rounded px-2 py-1 hover:bg-slate-100">Move to back</button>
+          <button (click)="remove(entry.therapistId)" class="text-xs rounded px-2 py-1 text-red-700 hover:bg-red-50">Remove</button>
+        </div>
+      </div>
+    } @empty {
+      <div class="p-6 text-center text-slate-500">Lineup is empty.</div>
+    }
+  </section>
+
+  <section class="bg-white rounded-xl shadow p-4 space-y-3">
+    <h2 class="font-semibold">Insert backup therapist</h2>
+    <div class="flex flex-wrap gap-2 items-end">
+      <label class="text-sm">
+        Therapist
+        <select [(ngModel)]="backupTherapistId" name="backupTherapistId" class="block mt-1 rounded border border-slate-300 px-3 py-2">
+          <option [ngValue]="null">Pick backup</option>
+          @for (t of backupTherapists(); track t.id) {
+            <option [ngValue]="t.id">{{ t.nickname }} ({{ t.gender }})</option>
+          }
+        </select>
+      </label>
+      <label class="text-sm">
+        Position from top
+        <input type="number" min="0" [(ngModel)]="backupPosition" name="backupPosition" class="block mt-1 rounded border border-slate-300 px-3 py-2 w-32" />
+      </label>
+      <button (click)="insertBackup()" [disabled]="!backupTherapistId" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50">Insert</button>
+    </div>
+  </section>
+
+  <p class="text-xs text-slate-500">Legend: <span class="mx-1">&#9825;</span>requested · <span class="mx-1">&#9734;</span>scrub · <span class="mx-1">&#8211;</span>ordinary · <span class="mx-1">&#9711;</span>backup</p>
+</div>

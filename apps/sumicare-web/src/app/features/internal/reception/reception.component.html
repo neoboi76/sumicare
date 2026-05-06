@@ -1,0 +1,39 @@
+<div class="space-y-6">
+  <header class="flex items-baseline justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Room map</h1>
+      <p class="text-slate-500">White is available, gray is male occupied, pink is female occupied.</p>
+    </div>
+    <button (click)="reload()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm">Refresh</button>
+  </header>
+
+  <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    @for (room of rooms(); track room.id) {
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-baseline justify-between mb-3">
+          <div class="font-semibold">Room {{ room.roomNumber }}</div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">{{ room.roomType }}</div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          @for (bed of room.beds; track bed.id) {
+            <div [class]="bedClass(bed)">
+              <div class="font-medium">{{ bed.label }}</div>
+              <div class="text-xs text-slate-600 mt-1">{{ bed.occupancy['clientNickname'] || 'Available' }}</div>
+              @if (bed.occupancy['lockerNumber']) {
+                <div class="text-xs text-slate-500">Locker {{ bed.occupancy['lockerNumber'] }}</div>
+              }
+              @if (bed.occupancy['therapistNickname']) {
+                <div class="text-xs text-slate-500">{{ bed.occupancy['therapistNickname'] }}</div>
+              }
+              @if (bed.occupancy['startedAt']; as started) {
+                <div class="text-xs text-slate-400">{{ elapsed(started) }}</div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    } @empty {
+      <p class="text-center text-slate-500">No rooms configured yet.</p>
+    }
+  </section>
+</div>

@@ -1,0 +1,73 @@
+package com.sumicare.service_catalogue.domain;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+@Entity
+@Table(name = "services_catalogue")
+public class Service {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "organization_id", nullable = false, columnDefinition = "uuid")
+    private UUID organizationId;
+
+    @Column(name = "code", nullable = false)
+    private String code;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "duration_minutes", nullable = false)
+    private int durationMinutes;
+
+    @Column(name = "commission_amount", nullable = false)
+    private BigDecimal commissionAmount;
+
+    @Column(name = "price", nullable = false)
+    private BigDecimal price;
+
+    @Column(name = "category")
+    private String category;
+
+    @Column(name = "requires_two_therapists", nullable = false)
+    private boolean requiresTwoTherapists;
+
+    @Column(name = "is_fixed_rate", nullable = false)
+    private boolean fixedRate;
+
+    @Column(name = "is_vip", nullable = false)
+    private boolean vip;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public UUID getOrganizationId() { return organizationId; }
+    public void setOrganizationId(UUID organizationId) { this.organizationId = organizationId; }
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public int getDurationMinutes() { return durationMinutes; }
+    public void setDurationMinutes(int durationMinutes) { this.durationMinutes = durationMinutes; }
+    public BigDecimal getCommissionAmount() { return commissionAmount; }
+    public void setCommissionAmount(BigDecimal commissionAmount) { this.commissionAmount = commissionAmount; }
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+    public boolean isRequiresTwoTherapists() { return requiresTwoTherapists; }
+    public void setRequiresTwoTherapists(boolean requiresTwoTherapists) { this.requiresTwoTherapists = requiresTwoTherapists; }
+    public boolean isFixedRate() { return fixedRate; }
+    public void setFixedRate(boolean fixedRate) { this.fixedRate = fixedRate; }
+    public boolean isVip() { return vip; }
+    public void setVip(boolean vip) { this.vip = vip; }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
+}

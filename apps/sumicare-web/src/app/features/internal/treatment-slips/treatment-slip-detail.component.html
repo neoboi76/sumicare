@@ -1,0 +1,65 @@
+<div class="max-w-2xl mx-auto">
+  <div class="flex justify-between items-baseline mb-4 print:hidden">
+    <a routerLink="/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
+    <button (click)="print()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Print</button>
+  </div>
+  @if (slip(); as s) {
+    <article class="bg-white rounded-xl shadow p-8 space-y-4 border-2 border-slate-200">
+      <header class="text-center border-b pb-3">
+        <h1 class="text-2xl font-bold tracking-wide">TREATMENT SLIP</h1>
+        @if (s.vip) {
+          <p class="text-sm uppercase tracking-widest text-amber-600 mt-1">VIP</p>
+        }
+        <p class="text-sm text-slate-500 mt-1">TSN {{ s.tsn }}</p>
+      </header>
+
+      <dl class="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <dt class="text-slate-500 uppercase text-xs tracking-wide">Client nickname</dt>
+          <dd class="font-medium">{{ s.clientNickname }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500 uppercase text-xs tracking-wide">Locker number</dt>
+          <dd class="font-medium">{{ s.lockerNumber || '-' }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500 uppercase text-xs tracking-wide">Service</dt>
+          <dd class="font-medium">{{ s.serviceName }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500 uppercase text-xs tracking-wide">Room number</dt>
+          <dd class="font-medium">{{ s.roomNumber || '-' }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500 uppercase text-xs tracking-wide">Primary therapist</dt>
+          <dd class="font-medium">{{ s.primaryTherapistNickname || '-' }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500 uppercase text-xs tracking-wide">Secondary therapist</dt>
+          <dd class="font-medium">{{ s.secondaryTherapistNickname || '-' }}</dd>
+        </div>
+        @if (s.requestedTherapistNickname) {
+          <div>
+            <dt class="text-slate-500 uppercase text-xs tracking-wide">Requested therapist</dt>
+            <dd class="font-medium">{{ s.requestedTherapistNickname }}</dd>
+          </div>
+        }
+        <div>
+          <dt class="text-slate-500 uppercase text-xs tracking-wide">Start time</dt>
+          <dd class="font-medium">{{ formatTime(s.startTime) }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500 uppercase text-xs tracking-wide">End time</dt>
+          <dd class="font-medium">{{ formatTime(s.endTime) }}</dd>
+        </div>
+      </dl>
+
+      <footer class="border-t pt-3 mt-2 text-xs text-slate-500">
+        Generated {{ formatTime(s.createdAt) }}.
+        @if (s.signedAt) {
+          <span> Signed {{ formatTime(s.signedAt) }}.</span>
+        }
+      </footer>
+    </article>
+  }
+</div>

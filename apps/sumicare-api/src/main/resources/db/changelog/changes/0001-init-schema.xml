@@ -1,0 +1,900 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0001-organizations" author="sumicare">
+        <createTable tableName="organizations">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="slug" type="VARCHAR(64)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="display_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="logo_url" type="VARCHAR(1024)"/>
+            <column name="primary_color" type="VARCHAR(16)" defaultValue="#0F766E"/>
+            <column name="secondary_color" type="VARCHAR(16)" defaultValue="#14B8A6"/>
+            <column name="accent_color" type="VARCHAR(16)" defaultValue="#F59E0B"/>
+            <column name="theme" type="VARCHAR(32)" defaultValue="default"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0001-roles" author="sumicare">
+        <createTable tableName="roles">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(32)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="display_name" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="hierarchy_level" type="INT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0001-permissions" author="sumicare">
+        <createTable tableName="permissions">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(64)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(255)"/>
+        </createTable>
+        <createTable tableName="role_permissions">
+            <column name="role_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="permission_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="role_permissions" columnNames="role_id, permission_id"/>
+        <addForeignKeyConstraint baseTableName="role_permissions" baseColumnNames="role_id"
+                                 referencedTableName="roles" referencedColumnNames="id"
+                                 constraintName="fk_role_permissions_role"/>
+        <addForeignKeyConstraint baseTableName="role_permissions" baseColumnNames="permission_id"
+                                 referencedTableName="permissions" referencedColumnNames="id"
+                                 constraintName="fk_role_permissions_perm"/>
+    </changeSet>
+
+    <changeSet id="0001-users" author="sumicare">
+        <createTable tableName="users">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="username" type="VARCHAR(64)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints unique="true"/>
+            </column>
+            <column name="password_hash" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_name" type="VARCHAR(128)"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="users" baseColumnNames="role_id"
+                                 referencedTableName="roles" referencedColumnNames="id"
+                                 constraintName="fk_users_role"/>
+        <addForeignKeyConstraint baseTableName="users" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_users_org"/>
+    </changeSet>
+
+    <changeSet id="0001-user-permissions" author="sumicare">
+        <createTable tableName="user_permission_overrides">
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="permission_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="user_permission_overrides" columnNames="user_id, permission_id"/>
+        <addForeignKeyConstraint baseTableName="user_permission_overrides" baseColumnNames="user_id"
+                                 referencedTableName="users" referencedColumnNames="id"
+                                 constraintName="fk_upo_user"/>
+        <addForeignKeyConstraint baseTableName="user_permission_overrides" baseColumnNames="permission_id"
+                                 referencedTableName="permissions" referencedColumnNames="id"
+                                 constraintName="fk_upo_perm"/>
+    </changeSet>
+
+    <changeSet id="0001-services-catalogue" author="sumicare">
+        <createTable tableName="services_catalogue">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="duration_minutes" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="commission_amount" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="VARCHAR(32)"/>
+            <column name="requires_two_therapists" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_fixed_rate" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_vip" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="services_catalogue" columnNames="organization_id, code"
+                             constraintName="uq_services_org_code"/>
+        <addForeignKeyConstraint baseTableName="services_catalogue" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_services_org"/>
+    </changeSet>
+
+    <changeSet id="0001-therapists" author="sumicare">
+        <createTable tableName="therapists">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="staff_number" type="VARCHAR(32)"/>
+            <column name="nickname" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="gender" type="VARCHAR(8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_backup" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="therapists" columnNames="organization_id, staff_number"
+                             constraintName="uq_therapists_org_staff"/>
+        <addForeignKeyConstraint baseTableName="therapists" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_therapists_org"/>
+    </changeSet>
+
+    <changeSet id="0001-shifts" author="sumicare">
+        <createTable tableName="shifts">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_time" type="TIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="end_time" type="TIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expected_count" type="INT" defaultValueNumeric="0"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="shifts" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_shifts_org"/>
+
+        <createTable tableName="shift_assignments">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="shift_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="therapist_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="effective_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="shift_assignments"
+                             columnNames="shift_id, therapist_id, effective_date"
+                             constraintName="uq_shift_assignment"/>
+        <addForeignKeyConstraint baseTableName="shift_assignments" baseColumnNames="shift_id"
+                                 referencedTableName="shifts" referencedColumnNames="id"
+                                 constraintName="fk_sa_shift"/>
+        <addForeignKeyConstraint baseTableName="shift_assignments" baseColumnNames="therapist_id"
+                                 referencedTableName="therapists" referencedColumnNames="id"
+                                 constraintName="fk_sa_therapist"/>
+    </changeSet>
+
+    <changeSet id="0001-attendance" author="sumicare">
+        <createTable tableName="therapist_attendance">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="therapist_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="device_id" type="VARCHAR(64)"/>
+            <column name="remarks" type="VARCHAR(512)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="therapist_attendance" baseColumnNames="therapist_id"
+                                 referencedTableName="therapists" referencedColumnNames="id"
+                                 constraintName="fk_attendance_therapist"/>
+        <createIndex tableName="therapist_attendance" indexName="ix_attendance_therapist_at">
+            <column name="therapist_id"/>
+            <column name="event_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0001-decking-state" author="sumicare">
+        <createTable tableName="decking_state">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="snapshot_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="decking_state" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_decking_org"/>
+    </changeSet>
+
+    <changeSet id="0001-rooms-beds" author="sumicare">
+        <createTable tableName="rooms">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="room_number" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="floor" type="INT" defaultValueNumeric="1"/>
+            <column name="room_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="row_segmented" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="rooms" columnNames="organization_id, room_number"
+                             constraintName="uq_rooms_org_number"/>
+        <addForeignKeyConstraint baseTableName="rooms" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_rooms_org"/>
+
+        <createTable tableName="beds">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="room_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="bed_label" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="row_index" type="INT"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="beds" columnNames="room_id, bed_label"
+                             constraintName="uq_beds_room_label"/>
+        <addForeignKeyConstraint baseTableName="beds" baseColumnNames="room_id"
+                                 referencedTableName="rooms" referencedColumnNames="id"
+                                 constraintName="fk_beds_room"/>
+    </changeSet>
+
+    <changeSet id="0001-clients" author="sumicare">
+        <createTable tableName="clients">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="nickname" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)"/>
+            <column name="facebook_handle" type="VARCHAR(128)"/>
+            <column name="gender" type="VARCHAR(8)"/>
+            <column name="nationality" type="VARCHAR(64)"/>
+            <column name="consent_given" type="BOOLEAN" defaultValueBoolean="false"/>
+            <column name="data_tracking_consent" type="BOOLEAN" defaultValueBoolean="false"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="clients" columnNames="organization_id, nickname"
+                             constraintName="uq_clients_org_nick"/>
+        <addUniqueConstraint tableName="clients" columnNames="organization_id, email"
+                             constraintName="uq_clients_org_email"/>
+        <addForeignKeyConstraint baseTableName="clients" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_clients_org"/>
+    </changeSet>
+
+    <changeSet id="0001-bookings-sessions" author="sumicare">
+        <createTable tableName="bookings">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="UUID"/>
+            <column name="client_nickname" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="locker_number" type="VARCHAR(16)"/>
+            <column name="service_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reservation_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scheduled_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actual_start_at" type="TIMESTAMP"/>
+            <column name="actual_end_at" type="TIMESTAMP"/>
+            <column name="status" type="VARCHAR(32)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="bookings" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_bookings_org"/>
+        <addForeignKeyConstraint baseTableName="bookings" baseColumnNames="client_id"
+                                 referencedTableName="clients" referencedColumnNames="id"
+                                 constraintName="fk_bookings_client"/>
+        <addForeignKeyConstraint baseTableName="bookings" baseColumnNames="service_id"
+                                 referencedTableName="services_catalogue" referencedColumnNames="id"
+                                 constraintName="fk_bookings_service"/>
+        <createIndex tableName="bookings" indexName="ix_bookings_org_scheduled">
+            <column name="organization_id"/>
+            <column name="scheduled_at"/>
+        </createIndex>
+
+        <createTable tableName="sessions">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="booking_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="primary_therapist_id" type="UUID"/>
+            <column name="secondary_therapist_id" type="UUID"/>
+            <column name="room_id" type="UUID"/>
+            <column name="bed_id" type="UUID"/>
+            <column name="is_specifically_requested" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_extension" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="extension_minutes" type="INT" defaultValueNumeric="0"/>
+            <column name="status" type="VARCHAR(32)" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_at" type="TIMESTAMP"/>
+            <column name="ended_at" type="TIMESTAMP"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="sessions" baseColumnNames="booking_id"
+                                 referencedTableName="bookings" referencedColumnNames="id"
+                                 constraintName="fk_sessions_booking"/>
+        <addForeignKeyConstraint baseTableName="sessions" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_sessions_org"/>
+        <addForeignKeyConstraint baseTableName="sessions" baseColumnNames="primary_therapist_id"
+                                 referencedTableName="therapists" referencedColumnNames="id"
+                                 constraintName="fk_sessions_primary"/>
+        <addForeignKeyConstraint baseTableName="sessions" baseColumnNames="secondary_therapist_id"
+                                 referencedTableName="therapists" referencedColumnNames="id"
+                                 constraintName="fk_sessions_secondary"/>
+        <addForeignKeyConstraint baseTableName="sessions" baseColumnNames="room_id"
+                                 referencedTableName="rooms" referencedColumnNames="id"
+                                 constraintName="fk_sessions_room"/>
+        <addForeignKeyConstraint baseTableName="sessions" baseColumnNames="bed_id"
+                                 referencedTableName="beds" referencedColumnNames="id"
+                                 constraintName="fk_sessions_bed"/>
+    </changeSet>
+
+    <changeSet id="0001-treatment-slips" author="sumicare">
+        <createTable tableName="treatment_slips">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tsn" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="booking_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_id" type="UUID"/>
+            <column name="client_nickname" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="locker_number" type="VARCHAR(16)"/>
+            <column name="requested_therapist_nickname" type="VARCHAR(64)"/>
+            <column name="primary_therapist_nickname" type="VARCHAR(64)"/>
+            <column name="secondary_therapist_nickname" type="VARCHAR(64)"/>
+            <column name="service_name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="room_number" type="VARCHAR(16)"/>
+            <column name="start_time" type="TIMESTAMP"/>
+            <column name="end_time" type="TIMESTAMP"/>
+            <column name="is_vip" type="BOOLEAN" defaultValueBoolean="false"/>
+            <column name="signed_at" type="TIMESTAMP"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="treatment_slips" columnNames="organization_id, tsn"
+                             constraintName="uq_ts_org_tsn"/>
+        <addForeignKeyConstraint baseTableName="treatment_slips" baseColumnNames="booking_id"
+                                 referencedTableName="bookings" referencedColumnNames="id"
+                                 constraintName="fk_ts_booking"/>
+        <addForeignKeyConstraint baseTableName="treatment_slips" baseColumnNames="session_id"
+                                 referencedTableName="sessions" referencedColumnNames="id"
+                                 constraintName="fk_ts_session"/>
+        <addForeignKeyConstraint baseTableName="treatment_slips" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_ts_org"/>
+    </changeSet>
+
+    <changeSet id="0001-transactions-pos" author="sumicare">
+        <createTable tableName="transactions">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="receipt_number" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subtotal" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="discount" type="NUMERIC(12,2)" defaultValueNumeric="0"/>
+            <column name="total" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payment_method" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="processed_by" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="processed_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(16)" defaultValue="COMPLETED">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="transactions" columnNames="organization_id, receipt_number"
+                             constraintName="uq_tx_org_receipt"/>
+        <addForeignKeyConstraint baseTableName="transactions" baseColumnNames="session_id"
+                                 referencedTableName="sessions" referencedColumnNames="id"
+                                 constraintName="fk_tx_session"/>
+        <addForeignKeyConstraint baseTableName="transactions" baseColumnNames="processed_by"
+                                 referencedTableName="users" referencedColumnNames="id"
+                                 constraintName="fk_tx_user"/>
+        <addForeignKeyConstraint baseTableName="transactions" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_tx_org"/>
+
+        <createTable tableName="transaction_ledger">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transaction_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="entry_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recorded_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="metadata" type="TEXT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="transaction_ledger" baseColumnNames="transaction_id"
+                                 referencedTableName="transactions" referencedColumnNames="id"
+                                 constraintName="fk_ledger_tx"/>
+
+        <createTable tableName="commissions">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="therapist_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_extension" type="BOOLEAN" defaultValueBoolean="false"/>
+            <column name="is_backup" type="BOOLEAN" defaultValueBoolean="false"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="commissions" baseColumnNames="session_id"
+                                 referencedTableName="sessions" referencedColumnNames="id"
+                                 constraintName="fk_comm_session"/>
+        <addForeignKeyConstraint baseTableName="commissions" baseColumnNames="therapist_id"
+                                 referencedTableName="therapists" referencedColumnNames="id"
+                                 constraintName="fk_comm_therapist"/>
+
+        <createTable tableName="cashier_shifts">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cashier_user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="opened_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="closed_at" type="TIMESTAMP"/>
+            <column name="opening_float" type="NUMERIC(12,2)" defaultValueNumeric="0"/>
+            <column name="closing_total" type="NUMERIC(12,2)"/>
+            <column name="variance" type="NUMERIC(12,2)"/>
+            <column name="status" type="VARCHAR(16)" defaultValue="OPEN">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cashier_shifts" baseColumnNames="cashier_user_id"
+                                 referencedTableName="users" referencedColumnNames="id"
+                                 constraintName="fk_cashier_user"/>
+    </changeSet>
+
+    <changeSet id="0001-reports" author="sumicare">
+        <createTable tableName="cutoff_reports">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="shift_id" type="BIGINT"/>
+            <column name="period_start" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="period_end" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="generated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="day_reports">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="report_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="generated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="day_reports" columnNames="organization_id, report_date"
+                             constraintName="uq_day_report"/>
+
+        <createTable tableName="monthly_reports">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="report_year" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="report_month" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="generated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="monthly_reports"
+                             columnNames="organization_id, report_year, report_month"
+                             constraintName="uq_monthly_report"/>
+    </changeSet>
+
+    <changeSet id="0001-feedback-vouchers" author="sumicare">
+        <createTable tableName="feedback">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_id" type="UUID"/>
+            <column name="client_id" type="UUID"/>
+            <column name="rating_stars" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="comment" type="TEXT"/>
+            <column name="submitted_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="vouchers">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="discount_amount" type="NUMERIC(12,2)"/>
+            <column name="discount_percent" type="INT"/>
+            <column name="valid_from" type="DATE"/>
+            <column name="valid_until" type="DATE"/>
+            <column name="redeemed_at" type="TIMESTAMP"/>
+            <column name="redeemed_by_client_id" type="UUID"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true"/>
+        </createTable>
+        <addUniqueConstraint tableName="vouchers" columnNames="organization_id, code"
+                             constraintName="uq_voucher_code"/>
+    </changeSet>
+
+    <changeSet id="0001-website-content" author="sumicare">
+        <createTable tableName="website_content_blocks">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="section_key" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(255)"/>
+            <column name="body" type="TEXT"/>
+            <column name="image_url" type="VARCHAR(1024)"/>
+            <column name="display_order" type="INT" defaultValueNumeric="0"/>
+            <column name="is_published" type="BOOLEAN" defaultValueBoolean="true"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+        <addUniqueConstraint tableName="website_content_blocks"
+                             columnNames="organization_id, section_key"
+                             constraintName="uq_content_section"/>
+    </changeSet>
+
+    <changeSet id="0001-recommendation" author="sumicare">
+        <createTable tableName="recommendation_questions">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(64)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="prompt" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_order" type="INT" defaultValueNumeric="0"/>
+        </createTable>
+        <createTable tableName="recommendation_options">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="question_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_order" type="INT" defaultValueNumeric="0"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="recommendation_options" baseColumnNames="question_id"
+                                 referencedTableName="recommendation_questions" referencedColumnNames="id"
+                                 constraintName="fk_ro_question"/>
+        <addUniqueConstraint tableName="recommendation_options" columnNames="question_id, code"
+                             constraintName="uq_ro_qcode"/>
+
+        <createTable tableName="recommendation_weights">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="question_code" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="option_code" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="service_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="weight" type="INT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="recommendation_weights" baseColumnNames="service_id"
+                                 referencedTableName="services_catalogue" referencedColumnNames="id"
+                                 constraintName="fk_rw_service"/>
+        <createIndex tableName="recommendation_weights" indexName="ix_rw_org_qo">
+            <column name="organization_id"/>
+            <column name="question_code"/>
+            <column name="option_code"/>
+        </createIndex>
+
+        <createTable tableName="recommendations_log">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="UUID"/>
+            <column name="answers" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="primary_service_id" type="BIGINT"/>
+            <column name="alternative_service_ids" type="VARCHAR(255)"/>
+            <column name="ai_rationale" type="TEXT"/>
+            <column name="ai_used" type="BOOLEAN" defaultValueBoolean="false"/>
+            <column name="generated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0001-audit" author="sumicare">
+        <createTable tableName="audit_logs">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID"/>
+            <column name="actor_user_id" type="UUID"/>
+            <column name="actor_role" type="VARCHAR(32)"/>
+            <column name="action_type" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_entity" type="VARCHAR(64)"/>
+            <column name="target_id" type="VARCHAR(64)"/>
+            <column name="metadata" type="TEXT"/>
+            <column name="ip_address" type="VARCHAR(64)"/>
+            <column name="occurred_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="audit_logs" indexName="ix_audit_org_at">
+            <column name="organization_id"/>
+            <column name="occurred_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

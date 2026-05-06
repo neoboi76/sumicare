@@ -1,0 +1,37 @@
+<section class="max-w-2xl mx-auto px-4 py-10">
+  <h2 class="text-2xl font-semibold text-slate-900">Book a session</h2>
+  <p class="text-slate-600 mb-6">Choose a hard reservation to lock the slot or a soft reservation to signal your intent.</p>
+  <form (submit)="submit($event)" class="bg-white rounded-xl shadow p-6 space-y-4">
+    <label class="block">
+      <span class="text-sm text-slate-700">Nickname</span>
+      <input [(ngModel)]="clientNickname" name="clientNickname" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+    </label>
+    <label class="block">
+      <span class="text-sm text-slate-700">Service</span>
+      <select [(ngModel)]="serviceId" name="serviceId" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+        @for (s of services(); track s.id) {
+          <option [value]="s.id">{{ s.name }} ({{ s.durationMinutes }} min)</option>
+        }
+      </select>
+    </label>
+    <label class="block">
+      <span class="text-sm text-slate-700">Reservation type</span>
+      <select [(ngModel)]="reservationType" name="reservationType" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+        <option value="SOFT">Soft (intent only)</option>
+        <option value="HARD">Hard (paid in full)</option>
+      </select>
+    </label>
+    <label class="block">
+      <span class="text-sm text-slate-700">When</span>
+      <input [(ngModel)]="scheduledAt" name="scheduledAt" type="datetime-local" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+    </label>
+    <label class="flex items-start gap-2 text-sm text-slate-600">
+      <input [(ngModel)]="consent" name="consent" type="checkbox" required />
+      <span>I consent to the spa storing my booking details for the purpose of attending to my reservation.</span>
+    </label>
+    <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Submit booking</button>
+  </form>
+  @if (status(); as msg) {
+    <p class="mt-4 text-sm text-emerald-700">{{ msg }}</p>
+  }
+</section>

@@ -1,0 +1,56 @@
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
+
+export interface AuthSession {
+  accessToken: string;
+  role: string;
+  expiresAt: number;
+}
+
+interface TokenResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  role: string;
+}
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private http = inject(HttpClient);
+  readonly session = signal<AuthSession | null>(null);
+
+  login(username: string, password: string): Observable<TokenResponse> {
+    return this.http
+      .post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/login`, { username, password }, { withCredentials: true })
+      .pipe(tap((response) => this.applyToken(response)));
+  }
+
+  refresh(): Observable<TokenResponse> {
+    return this.http
+      .post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/refresh`, {}, { withCredentials: true })
+      .pipe(tap((response) => this.applyToken(response)));
+  }
+
+  logout(): Observable<void> {
+    return this.http
+      .post<void>(`${environment.apiBaseUrl}/api/auth/logout`, {}, { withCredentials: true })
+      .pipe(tap(() => this.session.set(null)));
+  }
+
+  isAuthenticated(): boolean {
+    const value = this.session();
+    return value !== null && value.expiresAt > Date.now();
+  }
+
+  hasRole(roles: string[]): boolean {
+    const value = this.session();
+    return value !== null && roles.includes(value.role);
+  }
+
+  private applyToken(response: TokenResponse): void {
+    const expiresAt = Date.now() + response.expiresIn * 1000;
+    this.session.set({ accessToken: response.accessToken, role: response.role, expiresAt });
+  }
+}

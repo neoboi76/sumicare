@@ -1,0 +1,33 @@
+<div class="space-y-6">
+  <header>
+    <h1 class="text-2xl font-semibold text-slate-900">Branding</h1>
+    <p class="text-slate-500">Customize your spa's logo, display name, and color scheme. The public booking site and the internal app both pick this up.</p>
+  </header>
+  @if (form(); as f) {
+    <form (submit)="save($event)" class="bg-white rounded-xl shadow p-5 space-y-4 max-w-xl">
+      <label class="block">
+        <span class="text-sm text-slate-700">Display name</span>
+        <input [(ngModel)]="f.displayName" name="displayName" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Logo URL</span>
+        <input [(ngModel)]="f.logoUrl" name="logoUrl" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <div class="grid grid-cols-3 gap-3">
+        <label class="block">
+          <span class="text-sm text-slate-700">Primary</span>
+          <input [(ngModel)]="f.primaryColor" name="primaryColor" type="color" class="mt-1 w-full h-10 rounded border border-slate-300" />
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-700">Secondary</span>
+          <input [(ngModel)]="f.secondaryColor" name="secondaryColor" type="color" class="mt-1 w-full h-10 rounded border border-slate-300" />
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-700">Accent</span>
+          <input [(ngModel)]="f.accentColor" name="accentColor" type="color" class="mt-1 w-full h-10 rounded border border-slate-300" />
+        </label>
+      </div>
+      <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Save</button>
+    </form>
+  }
+</div>

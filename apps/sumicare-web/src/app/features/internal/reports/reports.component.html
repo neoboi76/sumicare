@@ -1,0 +1,81 @@
+<div class="space-y-6">
+  <header>
+    <h1 class="text-2xl font-semibold text-slate-900">Reports</h1>
+    <p class="text-slate-500">Cutoff, end-of-day, and monthly reports. All exportable to Excel.</p>
+  </header>
+
+  <nav class="flex gap-1 border-b border-slate-200">
+    @for (t of tabs; track t.value) {
+      <button (click)="tab.set(t.value)"
+              [class]="tab() === t.value
+                ? 'px-4 py-2 border-b-2 border-[var(--sumi-primary)] text-[var(--sumi-primary)] font-medium text-sm'
+                : 'px-4 py-2 border-b-2 border-transparent text-slate-600 hover:text-slate-900 text-sm'">
+        {{ t.label }}
+      </button>
+    }
+  </nav>
+
+  @switch (tab()) {
+    @case ('cutoff') {
+      <form class="bg-white rounded-xl shadow p-5 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl" (submit)="runCutoff($event)">
+        <label class="text-sm">
+          From
+          <input [(ngModel)]="cutoffFrom" name="from" type="datetime-local" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+        </label>
+        <label class="text-sm">
+          To
+          <input [(ngModel)]="cutoffTo" name="to" type="datetime-local" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+        </label>
+        <div class="flex items-end gap-2">
+          <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Run</button>
+          <button type="button" (click)="downloadCutoff()" class="rounded border border-slate-300 px-4 py-2">Excel</button>
+        </div>
+      </form>
+      @if (cutoffResult(); as result) {
+        <pre class="bg-white rounded-xl shadow p-4 text-xs overflow-auto">{{ result | json }}</pre>
+      }
+    }
+
+    @case ('day') {
+      <form class="bg-white rounded-xl shadow p-5 grid grid-cols-1 sm:grid-cols-4 gap-3 max-w-3xl" (submit)="loadDays($event)">
+        <label class="text-sm">From <input [(ngModel)]="dayFrom" name="dayFrom" type="date" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
+        <label class="text-sm">To <input [(ngModel)]="dayTo" name="dayTo" type="date" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
+        <label class="text-sm">Regenerate date <input [(ngModel)]="regenDate" name="regenDate" type="date" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
+        <div class="flex items-end gap-2">
+          <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Load</button>
+          <button type="button" (click)="regenerateDay()" class="rounded border border-slate-300 px-4 py-2">Regenerate</button>
+        </div>
+      </form>
+      <div class="space-y-3">
+        @for (d of dayReports(); track d.id) {
+          <details class="bg-white rounded-xl shadow p-4">
+            <summary class="cursor-pointer font-medium">{{ d.reportDate }} <span class="text-xs text-slate-500">generated {{ formatDate(d.generatedAt) }}</span></summary>
+            <pre class="mt-2 text-xs overflow-auto">{{ parsePayload(d.payload) | json }}</pre>
+          </details>
+        } @empty {
+          <p class="text-center text-slate-500">No day reports.</p>
+        }
+      </div>
+    }
+
+    @case ('monthly') {
+      <form class="bg-white rounded-xl shadow p-5 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl" (submit)="regenerateMonth($event)">
+        <label class="text-sm">Year <input [(ngModel)]="regenYear" name="regenYear" type="number" min="2000" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
+        <label class="text-sm">Month <input [(ngModel)]="regenMonth" name="regenMonth" type="number" min="1" max="12" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
+        <div class="flex items-end gap-2">
+          <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Regenerate</button>
+        </div>
+      </form>
+      <div class="space-y-3">
+        @for (m of monthlyReports(); track m.id) {
+          <details class="bg-white rounded-xl shadow p-4">
+            <summary class="cursor-pointer font-medium">{{ m.reportYear }}-{{ pad(m.reportMonth) }} <span class="text-xs text-slate-500">generated {{ formatDate(m.generatedAt) }}</span></summary>
+            <pre class="mt-2 text-xs overflow-auto">{{ parsePayload(m.payload) | json }}</pre>
+          </details>
+        } @empty {
+          <p class="text-center text-slate-500">No monthly reports yet.</p>
+        }
+      </div>
+    }
+  }
+</div>

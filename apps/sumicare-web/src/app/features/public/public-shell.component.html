@@ -1,0 +1,25 @@
+<div class="min-h-screen flex flex-col">
+  <header class="bg-white shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <a routerLink="/" class="flex items-center gap-3">
+        @if (branding.branding()?.logoUrl; as logo) {
+          <img [src]="logo" alt="" class="h-10 w-10 rounded object-cover" />
+        }
+        <span class="text-lg font-semibold text-[var(--sumi-primary)]">{{ branding.branding()?.displayName ?? 'SumiCare' }}</span>
+      </a>
+      <nav class="flex gap-4 text-sm">
+        <a routerLink="/" routerLinkActive="text-[var(--sumi-primary)] font-medium" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+        <a routerLink="/services" routerLinkActive="text-[var(--sumi-primary)] font-medium">Services</a>
+        <a routerLink="/recommendation" routerLinkActive="text-[var(--sumi-primary)] font-medium">Recommendation</a>
+        <a routerLink="/book" routerLinkActive="text-[var(--sumi-primary)] font-medium">Book</a>
+        <a routerLink="/feedback" routerLinkActive="text-[var(--sumi-primary)] font-medium">Feedback</a>
+      </nav>
+    </div>
+  </header>
+  <main class="flex-1 bg-slate-50">
+    <router-outlet></router-outlet>
+  </main>
+  <footer class="bg-white border-t py-4 text-center text-xs text-slate-500">
+    Powered by SumiCare
+  </footer>
+</div>

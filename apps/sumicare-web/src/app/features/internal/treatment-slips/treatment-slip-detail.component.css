@@ -1,0 +1,6 @@
+@media print {
+  :host {
+    display: block;
+    background: white;
+  }
+}

@@ -1,0 +1,105 @@
+<div class="space-y-6">
+  <header class="flex items-baseline justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Services catalogue</h1>
+      <p class="text-slate-500">Massage and package types. Fixed-rate services use non-standard durations and commissions.</p>
+    </div>
+    <button (click)="showForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add service</button>
+  </header>
+
+  <section class="bg-white rounded-xl shadow overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100">
+        <tr>
+          <th class="text-left p-3">Code</th>
+          <th class="text-left p-3">Name</th>
+          <th class="text-left p-3">Duration</th>
+          <th class="text-left p-3">Price</th>
+          <th class="text-left p-3">Commission</th>
+          <th class="text-left p-3">Category</th>
+          <th class="text-left p-3">Flags</th>
+          <th class="text-right p-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of services(); track s.id) {
+          <tr class="border-t hover:bg-slate-50">
+            <td class="p-3 font-mono text-xs">{{ s.code }}</td>
+            <td class="p-3 font-medium">{{ s.name }}</td>
+            <td class="p-3">{{ s.durationMinutes }} min</td>
+            <td class="p-3">&#8369; {{ s.price | number:'1.2-2' }}</td>
+            <td class="p-3">&#8369; {{ s.commissionAmount | number:'1.2-2' }}</td>
+            <td class="p-3 capitalize">{{ s.category || '-' }}</td>
+            <td class="p-3 text-xs">
+              @if (s.fixedRate) { <span class="rounded bg-amber-100 text-amber-800 px-1.5 py-0.5 mr-1">fixed</span> }
+              @if (s.requiresTwoTherapists) { <span class="rounded bg-blue-100 text-blue-800 px-1.5 py-0.5 mr-1">tandem</span> }
+              @if (s.vip) { <span class="rounded bg-purple-100 text-purple-800 px-1.5 py-0.5">VIP</span> }
+            </td>
+            <td class="p-3 text-right">
+              <button (click)="deactivate(s)" class="text-red-700 hover:underline text-xs">Deactivate</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="8" class="p-6 text-center text-slate-500">No services.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  @if (showForm()) {
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 space-y-3">
+        <h2 class="text-xl font-semibold">New service</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block col-span-1">
+            <span class="text-sm text-slate-700">Code</span>
+            <input [(ngModel)]="formCode" name="code" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 font-mono" />
+          </label>
+          <label class="block col-span-1">
+            <span class="text-sm text-slate-700">Name</span>
+            <input [(ngModel)]="formName" name="name" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+          </label>
+          <label class="block col-span-1">
+            <span class="text-sm text-slate-700">Duration (min)</span>
+            <input [(ngModel)]="formDuration" name="duration" type="number" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+          </label>
+          <label class="block col-span-1">
+            <span class="text-sm text-slate-700">Category</span>
+            <select [(ngModel)]="formCategory" name="category" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+              <option value="dry">Dry</option>
+              <option value="oil">Oil</option>
+              <option value="hard">Hard</option>
+              <option value="soft">Soft / medium</option>
+            </select>
+          </label>
+          <label class="block col-span-1">
+            <span class="text-sm text-slate-700">Price</span>
+            <input [(ngModel)]="formPrice" name="price" type="number" step="0.01" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+          </label>
+          <label class="block col-span-1">
+            <span class="text-sm text-slate-700">Commission</span>
+            <input [(ngModel)]="formCommission" name="commission" type="number" step="0.01" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+          </label>
+        </div>
+        <div class="space-y-2">
+          <label class="flex items-center gap-2">
+            <input type="checkbox" [(ngModel)]="formFixed" name="fixed" />
+            <span class="text-sm">Fixed rate</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" [(ngModel)]="formTandem" name="tandem" />
+            <span class="text-sm">Requires two therapists (tandem)</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" [(ngModel)]="formVip" name="vip" />
+            <span class="text-sm">VIP package</span>
+          </label>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button (click)="showForm.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+          <button (click)="submit()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sumi-primary: #0F766E;
+  --sumi-secondary: #14B8A6;
+  --sumi-accent: #F59E0B;
+}
+
+html, body { height: 100%; }
+body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
