@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { environment } from '../../../environments/environment';
 
@@ -28,7 +27,6 @@ interface BookingCreated {
 })
 export class BookComponent implements OnInit {
   private http = inject(HttpClient);
-  private router = inject(Router);
 
   services = signal<ServiceItem[]>([]);
   status = signal<string | null>(null);
@@ -37,7 +35,7 @@ export class BookComponent implements OnInit {
   bookingRef = signal<string | null>(null);
 
   clientNickname = '';
-  lockerNumber = '';
+  pax = 1;
   serviceId = 0;
   reservationType = 'SOFT';
   scheduledAt = '';
@@ -56,7 +54,7 @@ export class BookComponent implements OnInit {
     this.error.set(null);
     const payload = {
       clientNickname: this.clientNickname,
-      lockerNumber: this.lockerNumber || null,
+      pax: Number(this.pax) || 1,
       serviceId: Number(this.serviceId),
       reservationType: this.reservationType,
       scheduledAt: new Date(this.scheduledAt).toISOString()
@@ -66,13 +64,9 @@ export class BookComponent implements OnInit {
       .subscribe({
         next: (booking) => {
           this.submitting.set(false);
-          if (booking.reservationType === 'HARD') {
-            this.router.navigate(['/pay', booking.id]);
-          } else {
-            const ref = booking.id.slice(0, 8).toUpperCase();
-            this.bookingRef.set(ref);
-            this.status.set(`Soft reservation confirmed. Reference: ${ref}. We will reach out to confirm.`);
-          }
+          const ref = booking.id.slice(0, 8).toUpperCase();
+          this.bookingRef.set(ref);
+          this.status.set(`Reservation received. Reference: ${ref}. We will reach out to confirm your slot.`);
         },
         error: (err) => {
           this.submitting.set(false);

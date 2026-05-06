@@ -84,7 +84,7 @@ public class BookingController {
                         s.getPrimaryTherapistId(), s.getSecondaryTherapistId(),
                         s.getRoomId(), s.getBedId(), s.isSpecificallyRequested(),
                         s.isExtension(), s.getExtensionMinutes(),
-                        s.getStartedAt(), s.getEndedAt(), s.getStatus()))
+                        s.getStartedAt(), s.getExpectedEndAt(), s.getEndedAt(), s.getStatus()))
                 .orElseThrow();
     }
 }

@@ -1,7 +1,7 @@
 <section class="max-w-2xl mx-auto px-4 py-12">
   <h2 class="text-3xl font-serif font-semibold text-gray-900 mb-2">Book a session</h2>
   <p class="text-gray-500 mb-8 text-sm leading-relaxed">
-    A <strong>hard reservation</strong> locks your slot and requires payment upfront. A <strong>soft reservation</strong> signals your intent; your slot is not guaranteed until confirmed.
+    Reserve your preferred date and service. The front desk will reach out to confirm and finalize your slot.
     <br/>Sessions begin 15 minutes after your scheduled time to allow room preparation.
   </p>
 
@@ -27,10 +27,10 @@
                placeholder="e.g. Kayla"/>
       </label>
       <label class="block text-sm text-gray-700">
-        Locker number (optional)
-        <input [(ngModel)]="lockerNumber" name="lockerNumber"
+        Number of guests (PAX) <span class="text-red-500">*</span>
+        <input [(ngModel)]="pax" name="pax" type="number" min="1" max="20" required
                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
-               placeholder="e.g. 14"/>
+               placeholder="1"/>
       </label>
       <label class="block text-sm text-gray-700">
         Service <span class="text-red-500">*</span>
@@ -42,11 +42,11 @@
         </select>
       </label>
       <label class="block text-sm text-gray-700">
-        Reservation type <span class="text-red-500">*</span>
-        <select [(ngModel)]="reservationType" name="reservationType" required
+        Reservation type
+        <select [(ngModel)]="reservationType" name="reservationType"
                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
           <option value="SOFT">Soft reservation (intent only)</option>
-          <option value="HARD">Hard reservation (paid in full — slot secured)</option>
+          <option value="HARD">Hard reservation</option>
         </select>
       </label>
       <label class="block text-sm text-gray-700">
@@ -60,7 +60,7 @@
       </label>
       <button type="submit" [disabled]="submitting()"
               class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50">
-        {{ submitting() ? 'Processing...' : reservationType === 'HARD' ? 'Continue to payment' : 'Submit reservation' }}
+        {{ submitting() ? 'Processing...' : 'Submit reservation' }}
       </button>
     </form>
   }

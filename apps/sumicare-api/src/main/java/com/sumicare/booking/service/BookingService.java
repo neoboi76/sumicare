@@ -115,12 +115,10 @@ public class BookingService {
             }
         }
 
-        notificationService.broadcastRoomUpdate(organizationId, Map.of(
-                "event", "SESSION_STARTED",
-                "sessionId", session.getId(),
-                "roomId", String.valueOf(request.roomId()),
-                "bedId", String.valueOf(request.bedId())
-        ));
+        if (request.roomId() != null && request.bedId() != null) {
+            notificationService.broadcastRoomUpdate(organizationId, request.roomId(), request.bedId(),
+                    Map.of("event", "SESSION_STARTED", "sessionId", session.getId()));
+        }
 
         return toSessionResponse(session);
     }
@@ -138,12 +136,10 @@ public class BookingService {
         booking.setActualEndAt(session.getEndedAt());
         booking.setStatus("COMPLETED");
 
-        notificationService.broadcastRoomUpdate(organizationId, Map.of(
-                "event", "SESSION_ENDED",
-                "sessionId", session.getId(),
-                "roomId", String.valueOf(session.getRoomId()),
-                "bedId", String.valueOf(session.getBedId())
-        ));
+        if (session.getRoomId() != null && session.getBedId() != null) {
+            notificationService.broadcastRoomUpdate(organizationId, session.getRoomId(), session.getBedId(),
+                    Map.of("event", "SESSION_ENDED", "sessionId", session.getId()));
+        }
 
         return toSessionResponse(session);
     }
