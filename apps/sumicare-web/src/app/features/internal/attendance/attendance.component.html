@@ -1,0 +1,61 @@
+<div class="space-y-5">
+  <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+    <div>
+      <h1 class="text-xl font-semibold text-gray-900">Attendance</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Clock-in and clock-out records from biometrics</p>
+    </div>
+    <div class="sm:ml-auto flex items-end gap-2 flex-wrap">
+      <label class="flex flex-col gap-1 text-xs text-gray-600">
+        From
+        <input type="date" [value]="fromDate()" (change)="fromDate.set($any($event.target).value)"
+               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"/>
+      </label>
+      <label class="flex flex-col gap-1 text-xs text-gray-600">
+        To
+        <input type="date" [value]="toDate()" (change)="toDate.set($any($event.target).value)"
+               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"/>
+      </label>
+      <button (click)="load()"
+              class="px-4 py-2 bg-[var(--sumi-primary)] text-white rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors">
+        Filter
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="text-center text-gray-400 py-12 text-sm">Loading...</div>
+  } @else if (records().length === 0) {
+    <div class="text-center text-gray-400 py-12 text-sm">No records found for the selected date range.</div>
+  } @else {
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+              <th class="text-left px-4 py-3 font-medium text-gray-600">Therapist ID</th>
+              <th class="text-left px-4 py-3 font-medium text-gray-600">Event</th>
+              <th class="text-left px-4 py-3 font-medium text-gray-600">Time</th>
+              <th class="text-left px-4 py-3 font-medium text-gray-600">Device</th>
+              <th class="text-left px-4 py-3 font-medium text-gray-600">Remarks</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            @for (r of records(); track r.id) {
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ r.therapistId.slice(0, 8) }}...</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ eventBadgeClass(r.eventType) }}">
+                    {{ r.eventType.replace('_', ' ') }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-gray-700">{{ formatTime(r.eventAt) }}</td>
+                <td class="px-4 py-3 text-gray-500">{{ r.deviceId ?? '—' }}</td>
+                <td class="px-4 py-3 text-gray-500">{{ r.remarks ?? '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

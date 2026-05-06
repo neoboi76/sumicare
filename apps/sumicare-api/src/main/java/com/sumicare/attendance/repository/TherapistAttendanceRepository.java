@@ -9,4 +9,5 @@ import java.util.UUID;
 
 public interface TherapistAttendanceRepository extends JpaRepository<TherapistAttendance, Long> {
     List<TherapistAttendance> findAllByTherapistIdAndEventAtBetween(UUID therapistId, OffsetDateTime from, OffsetDateTime to);
+    List<TherapistAttendance> findAllByEventAtBetween(OffsetDateTime from, OffsetDateTime to);
 }
