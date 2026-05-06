@@ -8,6 +8,7 @@ import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.notification.service.NotificationService;
 import com.sumicare.room.domain.Bed;
 import com.sumicare.room.domain.Room;
 import com.sumicare.room.repository.BedRepository;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @org.springframework.stereotype.Service
@@ -38,11 +40,13 @@ public class BookingService {
     private final BedRepository bedRepository;
     private final RoomOccupancyService occupancyService;
     private final DeckingService deckingService;
+    private final NotificationService notificationService;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
                           RoomRepository roomRepository, BedRepository bedRepository,
-                          RoomOccupancyService occupancyService, DeckingService deckingService) {
+                          RoomOccupancyService occupancyService, DeckingService deckingService,
+                          NotificationService notificationService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -51,6 +55,7 @@ public class BookingService {
         this.bedRepository = bedRepository;
         this.occupancyService = occupancyService;
         this.deckingService = deckingService;
+        this.notificationService = notificationService;
     }
 
     @PreAuthorize("permitAll()")
@@ -83,7 +88,10 @@ public class BookingService {
         session.setRoomId(request.roomId());
         session.setBedId(request.bedId());
         session.setSpecificallyRequested(request.specificallyRequested());
-        session.setStartedAt(OffsetDateTime.now());
+
+        OffsetDateTime now = OffsetDateTime.now();
+        session.setStartedAt(now);
+        session.setExpectedEndAt(now.plusMinutes(service.getDurationMinutes()));
         session.setStatus("ACTIVE");
         sessionRepository.save(session);
 
@@ -106,6 +114,14 @@ public class BookingService {
                 deckingService.rotateToBack(organizationId, request.primaryTherapistId());
             }
         }
+
+        notificationService.broadcastRoomUpdate(organizationId, Map.of(
+                "event", "SESSION_STARTED",
+                "sessionId", session.getId(),
+                "roomId", String.valueOf(request.roomId()),
+                "bedId", String.valueOf(request.bedId())
+        ));
+
         return toSessionResponse(session);
     }
 
@@ -121,7 +137,24 @@ public class BookingService {
         Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
         booking.setActualEndAt(session.getEndedAt());
         booking.setStatus("COMPLETED");
+
+        notificationService.broadcastRoomUpdate(organizationId, Map.of(
+                "event", "SESSION_ENDED",
+                "sessionId", session.getId(),
+                "roomId", String.valueOf(session.getRoomId()),
+                "bedId", String.valueOf(session.getBedId())
+        ));
+
         return toSessionResponse(session);
+    }
+
+    @Transactional
+    public void autoEndSession(UUID sessionId) {
+        sessionRepository.findById(sessionId).ifPresent(session -> {
+            if ("ACTIVE".equals(session.getStatus())) {
+                endSession(session.getOrganizationId(), sessionId);
+            }
+        });
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -130,6 +163,9 @@ public class BookingService {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
         session.setExtension(true);
         session.setExtensionMinutes(session.getExtensionMinutes() + additionalMinutes);
+        if (session.getExpectedEndAt() != null) {
+            session.setExpectedEndAt(session.getExpectedEndAt().plusMinutes(additionalMinutes));
+        }
         return toSessionResponse(session);
     }
 
@@ -138,7 +174,10 @@ public class BookingService {
     public SessionResponse adjustTimes(UUID sessionId, OffsetDateTime startAt, OffsetDateTime endAt) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
         if (startAt != null) session.setStartedAt(startAt);
-        if (endAt != null) session.setEndedAt(endAt);
+        if (endAt != null) {
+            session.setEndedAt(endAt);
+            session.setExpectedEndAt(endAt);
+        }
         return toSessionResponse(session);
     }
 
@@ -147,6 +186,10 @@ public class BookingService {
                 .stream()
                 .map(b -> toBookingResponse(b, requireService(b.getServiceId())))
                 .toList();
+    }
+
+    public List<Session> findExpiredActiveSessions() {
+        return sessionRepository.findAllByStatusAndExpectedEndAtBefore("ACTIVE", OffsetDateTime.now());
     }
 
     private Service requireService(Long serviceId) {
@@ -167,6 +210,6 @@ public class BookingService {
                 s.getPrimaryTherapistId(), s.getSecondaryTherapistId(),
                 s.getRoomId(), s.getBedId(), s.isSpecificallyRequested(),
                 s.isExtension(), s.getExtensionMinutes(),
-                s.getStartedAt(), s.getEndedAt(), s.getStatus());
+                s.getStartedAt(), s.getExpectedEndAt(), s.getEndedAt(), s.getStatus());
     }
 }

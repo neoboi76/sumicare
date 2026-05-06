@@ -1,27 +1,43 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+import { QRCodeComponent } from 'angularx-qrcode';
 import { environment } from '../../../environments/environment';
 
 interface ServiceItem {
   id: number;
   name: string;
   durationMinutes: number;
+  price: number;
+  fixedRate: boolean;
+}
+
+interface BookingCreated {
+  id: string;
+  reservationType: string;
+  shortRef?: string;
 }
 
 @Component({
   selector: 'sumi-book',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, QRCodeComponent],
   templateUrl: './book.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BookComponent implements OnInit {
   private http = inject(HttpClient);
+  private router = inject(Router);
+
   services = signal<ServiceItem[]>([]);
   status = signal<string | null>(null);
+  error = signal<string | null>(null);
+  submitting = signal(false);
+  bookingRef = signal<string | null>(null);
 
   clientNickname = '';
+  lockerNumber = '';
   serviceId = 0;
   reservationType = 'SOFT';
   scheduledAt = '';
@@ -30,23 +46,38 @@ export class BookComponent implements OnInit {
   ngOnInit(): void {
     this.http
       .get<ServiceItem[]>(`${environment.apiBaseUrl}/api/public/services/${environment.defaultOrganizationSlug}`)
-      .subscribe({ next: (s) => this.services.set(s), error: () => this.services.set([]) });
+      .subscribe({ next: (s) => { this.services.set(s); if (s.length > 0) this.serviceId = s[0].id; }, error: () => this.services.set([]) });
   }
 
   submit(event: Event): void {
     event.preventDefault();
-    if (!this.consent) return;
+    if (!this.consent || this.submitting()) return;
+    this.submitting.set(true);
+    this.error.set(null);
     const payload = {
       clientNickname: this.clientNickname,
+      lockerNumber: this.lockerNumber || null,
       serviceId: Number(this.serviceId),
       reservationType: this.reservationType,
       scheduledAt: new Date(this.scheduledAt).toISOString()
     };
     this.http
-      .post(`${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}`, payload)
+      .post<BookingCreated>(`${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}`, payload)
       .subscribe({
-        next: () => this.status.set('Booking received. Expect a confirmation by email if you provided one.'),
-        error: () => this.status.set('Booking failed. Please try again.')
+        next: (booking) => {
+          this.submitting.set(false);
+          if (booking.reservationType === 'HARD') {
+            this.router.navigate(['/pay', booking.id]);
+          } else {
+            const ref = booking.id.slice(0, 8).toUpperCase();
+            this.bookingRef.set(ref);
+            this.status.set(`Soft reservation confirmed. Reference: ${ref}. We will reach out to confirm.`);
+          }
+        },
+        error: (err) => {
+          this.submitting.set(false);
+          this.error.set(err?.error?.message ?? 'Booking failed. Please try again or visit us in person.');
+        }
       });
   }
 }

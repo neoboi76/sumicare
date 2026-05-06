@@ -1,0 +1,22 @@
+<div class="min-h-[60vh] flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-md w-full text-center">
+    @if (success()) {
+      <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <h2 class="text-xl font-semibold text-gray-900 mb-2">Payment confirmed</h2>
+      <p class="text-sm text-gray-500">Your reservation is secured. We look forward to seeing you.</p>
+    } @else {
+      <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </div>
+      <h2 class="text-xl font-semibold text-gray-900 mb-2">Payment failed</h2>
+      <p class="text-sm text-gray-500">Your payment could not be processed. Please try again or pay at the desk.</p>
+    }
+    <a routerLink="/" class="mt-6 inline-block text-sm text-[var(--sumi-primary)] hover:underline">Back to home</a>
+  </div>
+</div>

@@ -1,5 +1,5 @@
 <div class="max-w-2xl mx-auto">
-  <div class="flex justify-between items-baseline mb-4 print:hidden">
+  <div class="flex justify-between items-baseline mb-4 no-print print:hidden">
     <a routerLink="/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
     <button (click)="print()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Print</button>
   </div>
@@ -54,11 +54,17 @@
         </div>
       </dl>
 
-      <footer class="border-t pt-3 mt-2 text-xs text-slate-500">
-        Generated {{ formatTime(s.createdAt) }}.
-        @if (s.signedAt) {
-          <span> Signed {{ formatTime(s.signedAt) }}.</span>
-        }
+      <footer class="border-t pt-3 mt-2 flex items-start justify-between">
+        <p class="text-xs text-slate-500">
+          Generated {{ formatTime(s.createdAt) }}.
+          @if (s.signedAt) {
+            <span> Signed {{ formatTime(s.signedAt) }}.</span>
+          }
+        </p>
+        <div class="text-center">
+          <qrcode [qrdata]="feedbackUrl(s.tsn)" [width]="80" [errorCorrectionLevel]="'M'"></qrcode>
+          <p class="text-xs text-slate-400 mt-1">Leave feedback</p>
+        </div>
       </footer>
     </article>
   }

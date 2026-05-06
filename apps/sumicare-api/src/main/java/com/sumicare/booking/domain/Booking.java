@@ -44,6 +44,12 @@ public class Booking {
     @Column(name = "status", nullable = false)
     private String status = "PENDING";
 
+    @Column(name = "payment_status", nullable = false)
+    private String paymentStatus = "UNPAID";
+
+    @Column(name = "gateway_payment_id")
+    private String gatewayPaymentId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -69,6 +75,10 @@ public class Booking {
     public void setActualEndAt(OffsetDateTime actualEndAt) { this.actualEndAt = actualEndAt; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+    public String getGatewayPaymentId() { return gatewayPaymentId; }
+    public void setGatewayPaymentId(String gatewayPaymentId) { this.gatewayPaymentId = gatewayPaymentId; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

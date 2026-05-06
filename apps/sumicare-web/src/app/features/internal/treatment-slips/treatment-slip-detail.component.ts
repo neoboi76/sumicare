@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { QRCodeComponent } from 'angularx-qrcode';
 import { environment } from '../../../../environments/environment';
 
 interface TreatmentSlip {
@@ -23,7 +24,7 @@ interface TreatmentSlip {
 @Component({
   selector: 'sumi-treatment-slip-detail',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, QRCodeComponent],
   templateUrl: './treatment-slip-detail.component.html',
   styleUrls: ['./treatment-slip-detail.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -44,6 +45,10 @@ export class TreatmentSlipDetailComponent implements OnInit {
   formatTime(iso: string | null): string {
     if (!iso) return '-';
     return new Date(iso).toLocaleString();
+  }
+
+  feedbackUrl(tsn: string): string {
+    return `${window.location.origin}/feedback?session=${tsn}`;
   }
 
   print(): void {

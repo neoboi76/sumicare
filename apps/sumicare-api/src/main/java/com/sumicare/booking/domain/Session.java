@@ -47,6 +47,9 @@ public class Session {
     @Column(name = "started_at")
     private OffsetDateTime startedAt;
 
+    @Column(name = "expected_end_at")
+    private OffsetDateTime expectedEndAt;
+
     @Column(name = "ended_at")
     private OffsetDateTime endedAt;
 
@@ -77,6 +80,8 @@ public class Session {
     public void setStatus(String status) { this.status = status; }
     public OffsetDateTime getStartedAt() { return startedAt; }
     public void setStartedAt(OffsetDateTime startedAt) { this.startedAt = startedAt; }
+    public OffsetDateTime getExpectedEndAt() { return expectedEndAt; }
+    public void setExpectedEndAt(OffsetDateTime expectedEndAt) { this.expectedEndAt = expectedEndAt; }
     public OffsetDateTime getEndedAt() { return endedAt; }
     public void setEndedAt(OffsetDateTime endedAt) { this.endedAt = endedAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface SessionRepository extends JpaRepository<Session, UUID> {
     Optional<Session> findFirstByBookingId(UUID bookingId);
     List<Session> findAllByOrganizationIdAndStartedAtBetween(UUID organizationId, OffsetDateTime from, OffsetDateTime to);
+    List<Session> findAllByStatusAndExpectedEndAtBefore(String status, OffsetDateTime cutoff);
 }
