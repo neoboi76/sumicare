@@ -11,4 +11,5 @@ import { BrandingService } from '../../core/branding/branding.service';
 })
 export class PublicShellComponent {
   protected branding = inject(BrandingService);
+  readonly currentYear = new Date().getFullYear();
 }

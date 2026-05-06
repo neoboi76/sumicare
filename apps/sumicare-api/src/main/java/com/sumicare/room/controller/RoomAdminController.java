@@ -78,6 +78,12 @@ public class RoomAdminController {
     @Transactional
     public void deactivateBed(@PathVariable UUID bedId) {
         Bed bed = bedRepository.findById(bedId).orElseThrow();
+        UUID roomId = bed.getRoomId();
         bed.setActive(false);
+        bedRepository.flush();
+        List<Bed> remaining = bedRepository.findAllByRoomIdAndActiveTrueOrderByRowIndex(roomId);
+        for (int i = 0; i < remaining.size(); i++) {
+            remaining.get(i).setRowIndex(i + 1);
+        }
     }
 }

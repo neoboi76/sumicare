@@ -43,6 +43,12 @@ public class Service {
     @Column(name = "is_vip", nullable = false)
     private boolean vip;
 
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
+    @Column(name = "image_url", length = 512)
+    private String imageUrl;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -68,6 +74,10 @@ public class Service {
     public void setFixedRate(boolean fixedRate) { this.fixedRate = fixedRate; }
     public boolean isVip() { return vip; }
     public void setVip(boolean vip) { this.vip = vip; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 }

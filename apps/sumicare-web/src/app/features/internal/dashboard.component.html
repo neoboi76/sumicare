@@ -1,24 +1,77 @@
 <div class="space-y-6">
-  <header>
-    <h1 class="text-2xl font-semibold text-slate-900">Welcome to {{ branding.branding()?.displayName ?? 'SumiCare' }}</h1>
-    <p class="text-slate-500">Signed in as {{ auth.session()?.role }}.</p>
-  </header>
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="bg-white rounded-xl shadow p-5">
-      <div class="text-sm text-slate-500">Active sessions today</div>
-      <div class="text-2xl font-semibold mt-2">{{ activeSessions() }}</div>
+  <div>
+    <h1 class="text-xl font-semibold text-gray-900">Dashboard</h1>
+    <p class="text-sm text-gray-500 mt-0.5">{{ branding.branding()?.displayName ?? 'SumiCare' }} &mdash; {{ role() }}</p>
+  </div>
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
+      <span class="text-xs text-gray-500 uppercase tracking-wider">Today's bookings</span>
+      <span class="text-3xl font-bold text-gray-900">{{ todaysBookings() }}</span>
     </div>
-    <div class="bg-white rounded-xl shadow p-5">
-      <div class="text-sm text-slate-500">Therapists in lineup</div>
-      <div class="text-2xl font-semibold mt-2">{{ lineupCount() }}</div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
+      <span class="text-xs text-gray-500 uppercase tracking-wider">Active sessions</span>
+      <span class="text-3xl font-bold text-gray-900">{{ activeSessions() }}</span>
     </div>
-    <div class="bg-white rounded-xl shadow p-5">
-      <div class="text-sm text-slate-500">Occupied beds</div>
-      <div class="text-2xl font-semibold mt-2">{{ occupiedBeds() }} / {{ totalBeds() }}</div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
+      <span class="text-xs text-gray-500 uppercase tracking-wider">Therapists in lineup</span>
+      <span class="text-3xl font-bold text-gray-900">{{ lineupCount() }}</span>
     </div>
-    <div class="bg-white rounded-xl shadow p-5">
-      <div class="text-sm text-slate-500">Bookings today</div>
-      <div class="text-2xl font-semibold mt-2">{{ todaysBookings() }}</div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
+      <span class="text-xs text-gray-500 uppercase tracking-wider">Beds occupied</span>
+      <span class="text-3xl font-bold text-gray-900">{{ occupiedBeds() }} / {{ totalBeds() }}</span>
     </div>
   </div>
+
+  @if (isReceptionist()) {
+    <div>
+      <h2 class="text-sm font-medium text-gray-600 mb-3">Quick actions</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a routerLink="../bookings" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-gray-900">New walk-in</span>
+          <span class="text-xs text-gray-500">Create a booking and assign a therapist</span>
+        </a>
+        <a routerLink="../reception" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-gray-900">Room map</span>
+          <span class="text-xs text-gray-500">View live bed and room occupancy</span>
+        </a>
+        <a routerLink="../decking" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-gray-900">Therapist lineup</span>
+          <span class="text-xs text-gray-500">Manage the decking queue</span>
+        </a>
+      </div>
+    </div>
+  }
+
+  @if (isManager()) {
+    <div>
+      <h2 class="text-sm font-medium text-gray-600 mb-3">Finance</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a routerLink="../reports" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-gray-900">Reports</span>
+          <span class="text-xs text-gray-500">View cutoff, day, and monthly summaries</span>
+        </a>
+        <a routerLink="../ledger" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-gray-900">Transaction ledger</span>
+          <span class="text-xs text-gray-500">Immutable record of all financial entries</span>
+        </a>
+      </div>
+    </div>
+  }
+
+  @if (isAdmin()) {
+    <div>
+      <h2 class="text-sm font-medium text-gray-600 mb-3">Administration</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a routerLink="../users" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-gray-900">User management</span>
+          <span class="text-xs text-gray-500">Add and manage staff accounts</span>
+        </a>
+        <a routerLink="../audit" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-gray-900">Audit log</span>
+          <span class="text-xs text-gray-500">Immutable record of all system actions</span>
+        </a>
+      </div>
+    </div>
+  }
 </div>

@@ -4,6 +4,11 @@
     <p class="text-slate-600">Your feedback helps the team improve. All comments are reviewed by management.</p>
   </header>
 
+  @if (sessionRef()) {
+    <div class="bg-[var(--sumi-primary)]/10 border border-[var(--sumi-primary)]/30 rounded-lg px-4 py-3 text-sm text-slate-700">
+      Leaving feedback for session <strong>{{ sessionRef() }}</strong>.
+    </div>
+  }
   <form (submit)="submit($event)" class="bg-white rounded-xl shadow p-6 space-y-4">
     <div>
       <span class="text-sm font-medium text-slate-700">Your rating</span>

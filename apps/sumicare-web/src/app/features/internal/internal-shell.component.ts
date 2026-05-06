@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { BrandingService } from '../../core/branding/branding.service';
@@ -31,6 +31,8 @@ export class InternalShellComponent implements OnInit {
   protected branding = inject(BrandingService);
   session = this.auth.session;
 
+  readonly sidebarOpen = signal(true);
+
   groups: NavGroup[] = [
     {
       title: 'Overview',
@@ -43,12 +45,16 @@ export class InternalShellComponent implements OnInit {
         { label: 'Room map', route: 'reception', roles: STAFF_ROLES },
         { label: 'Decking', route: 'decking', roles: STAFF_ROLES },
         { label: 'Treatment slips', route: 'treatment-slips', roles: STAFF_ROLES },
-        { label: 'POS', route: 'pos', roles: STAFF_ROLES }
+        { label: 'POS', route: 'pos', roles: STAFF_ROLES },
+        { label: 'Attendance', route: 'attendance', roles: STAFF_ROLES }
       ]
     },
     {
-      title: 'Reports',
-      items: [{ label: 'Reports', route: 'reports', roles: MANAGER_PLUS }]
+      title: 'Finance',
+      items: [
+        { label: 'Reports', route: 'reports', roles: MANAGER_PLUS },
+        { label: 'Ledger', route: 'ledger', roles: MANAGER_PLUS }
+      ]
     },
     {
       title: 'Configure',
@@ -59,7 +65,8 @@ export class InternalShellComponent implements OnInit {
         { label: 'Services', route: 'admin/services', roles: MANAGER_PLUS },
         { label: 'Vouchers', route: 'admin/vouchers', roles: MANAGER_PLUS },
         { label: 'Feedback', route: 'admin/feedback', roles: MANAGER_PLUS },
-        { label: 'Branding', route: 'branding', roles: MANAGER_PLUS }
+        { label: 'Branding', route: 'branding', roles: MANAGER_PLUS },
+        { label: 'Content', route: 'content', roles: MANAGER_PLUS }
       ]
     },
     {
@@ -81,6 +88,18 @@ export class InternalShellComponent implements OnInit {
 
   ngOnInit(): void {
     this.branding.loadCurrentBranding();
+    const saved = localStorage.getItem('sumi_sidebar_open');
+    if (saved !== null) {
+      this.sidebarOpen.set(saved === 'true');
+    }
+  }
+
+  toggleSidebar(): void {
+    this.sidebarOpen.update(v => {
+      const next = !v;
+      localStorage.setItem('sumi_sidebar_open', String(next));
+      return next;
+    });
   }
 
   signOut(): void {
