@@ -9,7 +9,9 @@ public record AppProperties(
         Biometrics biometrics,
         Anthropic anthropic,
         Bcrypt bcrypt,
-        RateLimit rateLimit
+        RateLimit rateLimit,
+        App app,
+        Payment payment
 ) {
     public record Jwt(String secret, long accessExpiryMs, long refreshExpiryMs) {}
     public record Cors(String allowedOrigins) {}
@@ -17,4 +19,9 @@ public record AppProperties(
     public record Anthropic(String apiKey) {}
     public record Bcrypt(int cost) {}
     public record RateLimit(int loginPerMinute) {}
+    public record App(String publicBaseUrl, String emailFrom) {}
+    public record Payment(Stripe stripe, Paymongo paymongo) {
+        public record Stripe(String secretKey, String webhookSecret) {}
+        public record Paymongo(String secretKey, String webhookSecret) {}
+    }
 }

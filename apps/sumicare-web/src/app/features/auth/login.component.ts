@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
@@ -10,14 +10,22 @@ import { AuthService } from '../../core/auth/auth.service';
   templateUrl: './login.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   username = '';
   password = '';
   busy = signal(false);
   error = signal<string | null>(null);
+  verifiedBanner = signal<'success' | 'expired' | null>(null);
+
+  ngOnInit(): void {
+    const verified = this.route.snapshot.queryParamMap.get('verified');
+    if (verified === '1') this.verifiedBanner.set('success');
+    else if (verified === 'expired') this.verifiedBanner.set('expired');
+  }
 
   submit(event: Event): void {
     event.preventDefault();

@@ -16,6 +16,8 @@ interface Service {
   fixedRate: boolean;
   vip: boolean;
   active: boolean;
+  description: string | null;
+  imageUrl: string | null;
 }
 
 @Component({
@@ -39,6 +41,12 @@ export class ServicesAdminComponent implements OnInit {
   formFixed = false;
   formTandem = false;
   formVip = false;
+  formDescription = '';
+  formImageUrl = '';
+
+  editingId = signal<number | null>(null);
+  editDescription = '';
+  editImageUrl = '';
 
   ngOnInit(): void {
     this.reload();
@@ -60,22 +68,53 @@ export class ServicesAdminComponent implements OnInit {
       commissionAmount: Number(this.formCommission),
       fixedRate: this.formFixed,
       requiresTwoTherapists: this.formTandem,
-      vip: this.formVip
+      vip: this.formVip,
+      description: this.formDescription || null,
+      imageUrl: this.formImageUrl || null
     };
     this.http.post(`${environment.apiBaseUrl}/api/admin/services`, payload).subscribe({
       next: () => {
         this.showForm.set(false);
         this.formCode = '';
         this.formName = '';
+        this.formDescription = '';
+        this.formImageUrl = '';
         this.reload();
       }
     });
+  }
+
+  openEdit(s: Service): void {
+    this.editingId.set(s.id);
+    this.editDescription = s.description ?? '';
+    this.editImageUrl = s.imageUrl ?? '';
+  }
+
+  saveMedia(s: Service): void {
+    this.http.patch(`${environment.apiBaseUrl}/api/admin/services/${s.id}`, {
+      description: this.editDescription || null,
+      imageUrl: this.editImageUrl || null
+    }).subscribe({ next: () => { this.editingId.set(null); this.reload(); } });
   }
 
   deactivate(s: Service): void {
     if (!window.confirm(`Deactivate ${s.name}?`)) return;
     this.http.delete(`${environment.apiBaseUrl}/api/admin/services/${s.id}`).subscribe({
       next: () => this.reload()
+    });
+  }
+
+  exportCsv(): void {
+    this.http.get(`${environment.apiBaseUrl}/api/services/export`,
+      { responseType: 'blob' }
+    ).subscribe(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `services-catalogue-${stamp}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
     });
   }
 }

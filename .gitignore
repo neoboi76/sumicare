@@ -1,8 +1,11 @@
 .env
 .env.*
 !.env.example
+application-local.yml
+application-local.yaml
 
 reference/
+Reference/
 docs/
 
 CLAUDE.md

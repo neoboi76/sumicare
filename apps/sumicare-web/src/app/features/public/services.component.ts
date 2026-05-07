@@ -12,6 +12,8 @@ interface ServiceItem {
   category: string;
   vip: boolean;
   fixedRate: boolean;
+  description: string | null;
+  imageUrl: string | null;
 }
 
 @Component({

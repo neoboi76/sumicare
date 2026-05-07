@@ -12,6 +12,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -52,6 +55,10 @@ public class TreatmentSlipService {
         slip.setStartTime(session.getStartedAt());
         slip.setEndTime(session.getEndedAt());
         slip.setVip(service.isVip());
+        slip.setPax(booking.getPax());
+        if (!service.isVip()) {
+            slip.setTreatmentMinutes(service.getDurationMinutes());
+        }
         if (session.getPrimaryTherapistId() != null) {
             therapistRepository.findById(session.getPrimaryTherapistId())
                     .ifPresent(t -> slip.setPrimaryTherapistNickname(t.getNickname()));
@@ -65,6 +72,52 @@ public class TreatmentSlipService {
                     .ifPresent(t -> slip.setRequestedTherapistNickname(t.getNickname()));
         }
         return slipRepository.save(slip);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public byte[] exportToCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
+        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        StringBuilder sb = new StringBuilder();
+        sb.append("Slip Type,TSN,Date,Customer,Locker,Room,Therapist,Secondary Therapist,Requested Therapist,")
+          .append("Service,Service Duration (min),Jacuzzi (min),Massage (min),Pax,Wine,")
+          .append("Start,End,OR#,Add-on OR#,Others/Add-on,Remarks,Total,Waiver,Generated At\n");
+        for (TreatmentSlip s : slips) {
+            sb.append(csvCell(s.isVip() ? "VIP" : "Regular")).append(',')
+              .append(csvCell(s.getTsn())).append(',')
+              .append(csvCell(s.getCreatedAt() != null ? s.getCreatedAt().format(fmt) : "")).append(',')
+              .append(csvCell(s.getClientNickname())).append(',')
+              .append(csvCell(s.getLockerNumber())).append(',')
+              .append(csvCell(s.getRoomNumber())).append(',')
+              .append(csvCell(s.getPrimaryTherapistNickname())).append(',')
+              .append(csvCell(s.getSecondaryTherapistNickname())).append(',')
+              .append(csvCell(s.getRequestedTherapistNickname())).append(',')
+              .append(csvCell(s.getServiceName())).append(',')
+              .append(s.getTreatmentMinutes() != null ? s.getTreatmentMinutes() : "").append(',')
+              .append(s.getJacuzziMinutes() != null ? s.getJacuzziMinutes() : "").append(',')
+              .append(s.getMassageMinutes() != null ? s.getMassageMinutes() : "").append(',')
+              .append(s.getPax() != null ? s.getPax() : "").append(',')
+              .append(s.getWineIncluded() == null ? "" : (s.getWineIncluded() ? "Yes" : "No")).append(',')
+              .append(csvCell(s.getStartTime() != null ? s.getStartTime().format(fmt) : "")).append(',')
+              .append(csvCell(s.getEndTime() != null ? s.getEndTime().format(fmt) : "")).append(',')
+              .append(csvCell(s.getOrNumber())).append(',')
+              .append(csvCell(s.getAddOnOrNumber())).append(',')
+              .append(csvCell(s.getOthersAddOn())).append(',')
+              .append(csvCell(s.getRemarks())).append(',')
+              .append(s.getTotalAmount() != null ? s.getTotalAmount().toPlainString() : "").append(',')
+              .append(s.isWaiverAccepted() ? "Yes" : "No").append(',')
+              .append(csvCell(s.getCreatedAt() != null ? s.getCreatedAt().format(fmt) : ""))
+              .append('\n');
+        }
+        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private String csvCell(String value) {
+        if (value == null || value.isBlank()) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private String generateTsn() {

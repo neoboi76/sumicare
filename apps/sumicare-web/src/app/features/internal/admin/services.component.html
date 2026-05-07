@@ -4,7 +4,13 @@
       <h1 class="text-2xl font-semibold text-slate-900">Services catalogue</h1>
       <p class="text-slate-500">Massage and package types. Fixed-rate services use non-standard durations and commissions.</p>
     </div>
-    <button (click)="showForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add service</button>
+    <div class="flex items-center gap-2">
+      <button (click)="exportCsv()"
+              class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">
+        Export to CSV
+      </button>
+      <button (click)="showForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add service</button>
+    </div>
   </header>
 
   <section class="bg-white rounded-xl shadow overflow-hidden">
@@ -18,6 +24,7 @@
           <th class="text-left p-3">Commission</th>
           <th class="text-left p-3">Category</th>
           <th class="text-left p-3">Flags</th>
+          <th class="text-left p-3">Description</th>
           <th class="text-right p-3"></th>
         </tr>
       </thead>
@@ -30,17 +37,44 @@
             <td class="p-3">&#8369; {{ s.price | number:'1.2-2' }}</td>
             <td class="p-3">&#8369; {{ s.commissionAmount | number:'1.2-2' }}</td>
             <td class="p-3 capitalize">{{ s.category || '-' }}</td>
+            <td class="p-3 text-xs text-slate-500 max-w-[12rem] truncate">{{ s.description || '-' }}</td>
             <td class="p-3 text-xs">
               @if (s.fixedRate) { <span class="rounded bg-amber-100 text-amber-800 px-1.5 py-0.5 mr-1">fixed</span> }
               @if (s.requiresTwoTherapists) { <span class="rounded bg-blue-100 text-blue-800 px-1.5 py-0.5 mr-1">tandem</span> }
               @if (s.vip) { <span class="rounded bg-purple-100 text-purple-800 px-1.5 py-0.5">VIP</span> }
             </td>
-            <td class="p-3 text-right">
+            <td class="p-3 text-right space-x-3">
+              <button (click)="openEdit(s)" class="text-[var(--sumi-primary)] hover:underline text-xs">Edit media</button>
               <button (click)="deactivate(s)" class="text-red-700 hover:underline text-xs">Deactivate</button>
             </td>
           </tr>
+          @if (editingId() === s.id) {
+            <tr class="bg-slate-50 border-t">
+              <td colspan="9" class="p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label class="block">
+                    <span class="text-xs text-slate-600">Description</span>
+                    <textarea [(ngModel)]="editDescription" rows="3"
+                              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"></textarea>
+                  </label>
+                  <label class="block">
+                    <span class="text-xs text-slate-600">Image URL (or /uploads/...)</span>
+                    <input [(ngModel)]="editImageUrl"
+                           class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm" />
+                    @if (editImageUrl) {
+                      <img [src]="editImageUrl" alt="" class="mt-2 h-24 rounded object-cover" />
+                    }
+                  </label>
+                </div>
+                <div class="flex gap-2 mt-3">
+                  <button (click)="saveMedia(s)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Save</button>
+                  <button (click)="editingId.set(null)" class="rounded border border-slate-300 px-4 py-1.5 text-sm">Cancel</button>
+                </div>
+              </td>
+            </tr>
+          }
         } @empty {
-          <tr><td colspan="8" class="p-6 text-center text-slate-500">No services.</td></tr>
+          <tr><td colspan="9" class="p-6 text-center text-slate-500">No services.</td></tr>
         }
       </tbody>
     </table>
@@ -81,6 +115,16 @@
             <input [(ngModel)]="formCommission" name="commission" type="number" step="0.01" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
           </label>
         </div>
+        <label class="block col-span-2">
+          <span class="text-sm text-slate-700">Description (optional)</span>
+          <textarea [(ngModel)]="formDescription" name="description" rows="2"
+                    class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"></textarea>
+        </label>
+        <label class="block col-span-2">
+          <span class="text-sm text-slate-700">Image URL (optional)</span>
+          <input [(ngModel)]="formImageUrl" name="imageUrl"
+                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm" />
+        </label>
         <div class="space-y-2">
           <label class="flex items-center gap-2">
             <input type="checkbox" [(ngModel)]="formFixed" name="fixed" />

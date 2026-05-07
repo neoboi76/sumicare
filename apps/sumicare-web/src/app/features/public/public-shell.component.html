@@ -1,25 +1,84 @@
 <div class="min-h-screen flex flex-col">
-  <header class="bg-white shadow-sm">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <a routerLink="/" class="flex items-center gap-3">
+  <header class="bg-white shadow-sm sticky top-0 z-20">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a routerLink="/" class="flex items-center gap-2.5">
         @if (branding.branding()?.logoUrl; as logo) {
-          <img [src]="logo" alt="" class="h-10 w-10 rounded object-cover" />
+          <img [src]="logo" alt="" class="h-9 w-9 rounded object-cover" />
+        } @else {
+          <div class="h-9 w-9 rounded bg-[var(--sumi-primary)] flex items-center justify-center text-white text-sm font-bold">S</div>
         }
-        <span class="text-lg font-semibold text-[var(--sumi-primary)]">{{ branding.branding()?.displayName ?? 'SumiCare' }}</span>
+        <span class="text-base font-semibold text-[var(--sumi-primary)]">{{ branding.branding()?.displayName ?? 'SumiCare' }}</span>
       </a>
-      <nav class="flex gap-4 text-sm">
-        <a routerLink="/" routerLinkActive="text-[var(--sumi-primary)] font-medium" [routerLinkActiveOptions]="{ exact: true }">Home</a>
-        <a routerLink="/services" routerLinkActive="text-[var(--sumi-primary)] font-medium">Services</a>
-        <a routerLink="/recommendation" routerLinkActive="text-[var(--sumi-primary)] font-medium">Recommendation</a>
-        <a routerLink="/book" routerLinkActive="text-[var(--sumi-primary)] font-medium">Book</a>
-        <a routerLink="/feedback" routerLinkActive="text-[var(--sumi-primary)] font-medium">Feedback</a>
+      <nav class="hidden sm:flex gap-5 text-sm">
+        <a routerLink="/" routerLinkActive="text-[var(--sumi-primary)] font-medium" [routerLinkActiveOptions]="{ exact: true }" class="text-gray-600 hover:text-[var(--sumi-primary)] transition-colors">Home</a>
+        <a routerLink="/services" routerLinkActive="text-[var(--sumi-primary)] font-medium" class="text-gray-600 hover:text-[var(--sumi-primary)] transition-colors">Services</a>
+        <a routerLink="/recommendation" routerLinkActive="text-[var(--sumi-primary)] font-medium" class="text-gray-600 hover:text-[var(--sumi-primary)] transition-colors">Recommendation</a>
+        <a routerLink="/book" routerLinkActive="text-[var(--sumi-primary)] font-medium" class="text-gray-600 hover:text-[var(--sumi-primary)] transition-colors">Book</a>
+        <a routerLink="/feedback" routerLinkActive="text-[var(--sumi-primary)] font-medium" class="text-gray-600 hover:text-[var(--sumi-primary)] transition-colors">Feedback</a>
+        <a routerLink="/contact" routerLinkActive="text-[var(--sumi-primary)] font-medium" class="text-gray-600 hover:text-[var(--sumi-primary)] transition-colors">Contact</a>
       </nav>
+      <button (click)="toggleMenu()" type="button"
+              class="sm:hidden p-2 rounded-lg hover:bg-gray-100"
+              [attr.aria-expanded]="menuOpen()"
+              aria-controls="public-mobile-nav"
+              aria-label="Toggle menu">
+        @if (menuOpen()) {
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        } @else {
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        }
+      </button>
     </div>
+    @if (menuOpen()) {
+      <nav id="public-mobile-nav" class="sm:hidden border-t border-gray-100 bg-white">
+        <div class="max-w-6xl mx-auto px-4 py-2 flex flex-col text-sm">
+          <a routerLink="/" routerLinkActive="text-[var(--sumi-primary)] font-medium" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMenu()" class="py-2.5 text-gray-700 hover:text-[var(--sumi-primary)] transition-colors">Home</a>
+          <a routerLink="/services" routerLinkActive="text-[var(--sumi-primary)] font-medium" (click)="closeMenu()" class="py-2.5 text-gray-700 hover:text-[var(--sumi-primary)] transition-colors">Services</a>
+          <a routerLink="/recommendation" routerLinkActive="text-[var(--sumi-primary)] font-medium" (click)="closeMenu()" class="py-2.5 text-gray-700 hover:text-[var(--sumi-primary)] transition-colors">Recommendation</a>
+          <a routerLink="/book" routerLinkActive="text-[var(--sumi-primary)] font-medium" (click)="closeMenu()" class="py-2.5 text-gray-700 hover:text-[var(--sumi-primary)] transition-colors">Book</a>
+          <a routerLink="/feedback" routerLinkActive="text-[var(--sumi-primary)] font-medium" (click)="closeMenu()" class="py-2.5 text-gray-700 hover:text-[var(--sumi-primary)] transition-colors">Feedback</a>
+          <a routerLink="/contact" routerLinkActive="text-[var(--sumi-primary)] font-medium" (click)="closeMenu()" class="py-2.5 text-gray-700 hover:text-[var(--sumi-primary)] transition-colors">Contact</a>
+        </div>
+      </nav>
+    }
   </header>
-  <main class="flex-1 bg-slate-50">
+
+  <main class="flex-1 bg-white">
     <router-outlet></router-outlet>
   </main>
-  <footer class="bg-white border-t py-4 text-center text-xs text-slate-500">
-    Powered by SumiCare
+
+  <footer class="bg-gray-900 text-gray-400 pt-12 pb-6">
+    <div class="max-w-6xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
+      <div>
+        <div class="text-white font-semibold mb-3">{{ branding.branding()?.displayName ?? 'SumiCare' }}</div>
+        <p class="text-xs leading-relaxed">A wellness and relaxation spa providing quality massage services in the Philippines.</p>
+      </div>
+      <div>
+        <div class="text-white text-sm font-medium mb-3">Quick links</div>
+        <ul class="space-y-2 text-xs">
+          <li><a routerLink="/services" class="hover:text-white transition-colors">Services</a></li>
+          <li><a routerLink="/book" class="hover:text-white transition-colors">Book appointment</a></li>
+          <li><a routerLink="/recommendation" class="hover:text-white transition-colors">Recommendation quiz</a></li>
+          <li><a routerLink="/feedback" class="hover:text-white transition-colors">Leave feedback</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-white text-sm font-medium mb-3">Contact</div>
+        <ul class="space-y-2 text-xs">
+          <li>8846 Sampaloc St, corner Estrella St, Makati City, 1203 Metro Manila</li>
+          <li><a href="tel:+639957830094" class="hover:text-white transition-colors">0995 783 0094</a></li>
+          <li><a href="https://lasemaspa.com/" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Website</a></li>
+          <li><a href="https://www.facebook.com/KingsQueensBowling" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Facebook</a></li>
+          <li><a href="https://www.instagram.com/lasemajimjilbangspa/" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Instagram</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="max-w-6xl mx-auto px-4 border-t border-gray-800 pt-4 text-xs text-center">
+      &copy; {{ currentYear }} {{ branding.branding()?.displayName ?? 'SumiCare' }}. All rights reserved.
+    </div>
   </footer>
 </div>

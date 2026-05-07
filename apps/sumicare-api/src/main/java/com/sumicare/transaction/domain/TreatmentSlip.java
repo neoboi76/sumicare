@@ -2,6 +2,7 @@ package com.sumicare.transaction.domain;
 
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -56,6 +57,42 @@ public class TreatmentSlip {
     @Column(name = "is_vip")
     private boolean vip = false;
 
+    @Column(name = "pax")
+    private Integer pax;
+
+    @Column(name = "treatment_minutes")
+    private Integer treatmentMinutes;
+
+    @Column(name = "jacuzzi_minutes")
+    private Integer jacuzziMinutes;
+
+    @Column(name = "massage_minutes")
+    private Integer massageMinutes;
+
+    @Column(name = "wine_included")
+    private Boolean wineIncluded;
+
+    @Column(name = "or_number", length = 64)
+    private String orNumber;
+
+    @Column(name = "add_on_or_number", length = 64)
+    private String addOnOrNumber;
+
+    @Column(name = "others_add_on", columnDefinition = "text")
+    private String othersAddOn;
+
+    @Column(name = "remarks", columnDefinition = "text")
+    private String remarks;
+
+    @Column(name = "total_amount", precision = 12, scale = 2)
+    private BigDecimal totalAmount;
+
+    @Column(name = "waiver_accepted", nullable = false)
+    private boolean waiverAccepted = false;
+
+    @Column(name = "waiver_accepted_at")
+    private OffsetDateTime waiverAcceptedAt;
+
     @Column(name = "signed_at")
     private OffsetDateTime signedAt;
 
@@ -92,6 +129,30 @@ public class TreatmentSlip {
     public void setEndTime(OffsetDateTime endTime) { this.endTime = endTime; }
     public boolean isVip() { return vip; }
     public void setVip(boolean vip) { this.vip = vip; }
+    public Integer getPax() { return pax; }
+    public void setPax(Integer pax) { this.pax = pax; }
+    public Integer getTreatmentMinutes() { return treatmentMinutes; }
+    public void setTreatmentMinutes(Integer treatmentMinutes) { this.treatmentMinutes = treatmentMinutes; }
+    public Integer getJacuzziMinutes() { return jacuzziMinutes; }
+    public void setJacuzziMinutes(Integer jacuzziMinutes) { this.jacuzziMinutes = jacuzziMinutes; }
+    public Integer getMassageMinutes() { return massageMinutes; }
+    public void setMassageMinutes(Integer massageMinutes) { this.massageMinutes = massageMinutes; }
+    public Boolean getWineIncluded() { return wineIncluded; }
+    public void setWineIncluded(Boolean wineIncluded) { this.wineIncluded = wineIncluded; }
+    public String getOrNumber() { return orNumber; }
+    public void setOrNumber(String orNumber) { this.orNumber = orNumber; }
+    public String getAddOnOrNumber() { return addOnOrNumber; }
+    public void setAddOnOrNumber(String addOnOrNumber) { this.addOnOrNumber = addOnOrNumber; }
+    public String getOthersAddOn() { return othersAddOn; }
+    public void setOthersAddOn(String othersAddOn) { this.othersAddOn = othersAddOn; }
+    public String getRemarks() { return remarks; }
+    public void setRemarks(String remarks) { this.remarks = remarks; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+    public boolean isWaiverAccepted() { return waiverAccepted; }
+    public void setWaiverAccepted(boolean waiverAccepted) { this.waiverAccepted = waiverAccepted; }
+    public OffsetDateTime getWaiverAcceptedAt() { return waiverAcceptedAt; }
+    public void setWaiverAcceptedAt(OffsetDateTime waiverAcceptedAt) { this.waiverAcceptedAt = waiverAcceptedAt; }
     public OffsetDateTime getSignedAt() { return signedAt; }
     public void setSignedAt(OffsetDateTime signedAt) { this.signedAt = signedAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

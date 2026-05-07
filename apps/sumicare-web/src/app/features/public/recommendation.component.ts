@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -49,16 +49,40 @@ export class RecommendationComponent {
       { code: 'FATIGUE', label: 'Fatigue recovery' }, { code: 'CIRCULATION', label: 'Circulation' }
     ]}
   ];
-  answers: Record<string, string> = {};
+
+  answers = signal<Record<string, string>>({});
   result = signal<RecommendationResponse | null>(null);
+  submittedOnce = signal(false);
+  submitting = signal(false);
+
+  allAnswered = computed(() =>
+    this.questions.every(q => this.answers()[q.code] != null)
+  );
+
+  setAnswer(code: string, value: string): void {
+    this.answers.update(prev => ({ ...prev, [code]: value }));
+  }
+
+  getAnswer(code: string): string {
+    return this.answers()[code] ?? '';
+  }
 
   submit(event: Event): void {
     event.preventDefault();
+    this.submittedOnce.set(true);
+    if (!this.allAnswered() || this.submitting()) return;
+    this.submitting.set(true);
     const payload = {
-      answers: Object.entries(this.answers).map(([questionCode, optionCode]) => ({ questionCode, optionCode }))
+      answers: Object.entries(this.answers()).map(([questionCode, optionCode]) => ({ questionCode, optionCode }))
     };
     this.http
       .post<RecommendationResponse>(`${environment.apiBaseUrl}/api/public/recommendation/${environment.defaultOrganizationSlug}`, payload)
-      .subscribe({ next: (r) => this.result.set(r) });
+      .subscribe({
+        next: (r) => {
+          this.result.set(r);
+          this.submitting.set(false);
+        },
+        error: () => this.submitting.set(false)
+      });
   }
 }

@@ -1,0 +1,31 @@
+<div class="min-h-[60vh] flex items-center justify-center px-4 py-12">
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 max-w-md w-full">
+    <h2 class="text-xl font-semibold text-gray-900 mb-1">Complete payment</h2>
+    <p class="text-sm text-gray-500 mb-6">Booking reference: <span class="font-mono text-xs">{{ bookingId() }}</span></p>
+
+    @if (loading()) {
+      <div class="flex justify-center py-10">
+        <div class="w-8 h-8 border-4 border-[var(--sumi-primary)] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 mb-4">{{ error() }}</div>
+      <p class="text-sm text-gray-500">You may also pay in person at the spa reception desk.</p>
+    }
+
+    @if (!loading() && !error() && clientSecret()) {
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-6">
+        <strong>Stripe sandbox active.</strong> Use test card <span class="font-mono">4242 4242 4242 4242</span> with any future expiry and CVC.
+      </div>
+      <div id="stripe-payment-element" class="mb-4 min-h-16 bg-gray-50 rounded-lg p-3 text-xs text-gray-400 flex items-center justify-center">
+        Stripe Elements mount target (requires Stripe.js loaded on page)
+      </div>
+      <p class="text-xs text-gray-400 text-center">Payment is processed securely by Stripe. SumiCare does not store card details.</p>
+    }
+
+    <div class="mt-6">
+      <a routerLink="/" class="text-sm text-[var(--sumi-primary)] hover:underline">Back to home</a>
+    </div>
+  </div>
+</div>

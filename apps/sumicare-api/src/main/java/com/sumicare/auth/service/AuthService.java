@@ -49,6 +49,9 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid credentials");
         }
+        if (!user.isEmailVerified()) {
+            throw new AccessDeniedException("Email address not verified. Please check your inbox for the verification link.");
+        }
         String access = jwtService.issueAccessToken(user.getId(), user.getOrganizationId(), user.getRole().getCode());
         String refresh = jwtService.issueRefreshToken(user.getId(), user.getOrganizationId());
         writeRefreshCookie(response, refresh);

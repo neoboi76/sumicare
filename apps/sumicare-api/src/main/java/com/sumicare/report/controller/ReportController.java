@@ -14,7 +14,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
@@ -47,14 +46,15 @@ public class ReportController {
         return reportService.buildCutoffReport(UUID.fromString(principal.organizationId()), from, to);
     }
 
-    @GetMapping("/cutoff/export")
-    public ResponseEntity<byte[]> cutoffExcel(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                              @RequestParam OffsetDateTime from,
-                                              @RequestParam OffsetDateTime to) throws IOException {
-        byte[] data = reportService.exportCutoffToExcel(UUID.fromString(principal.organizationId()), from, to);
+    @GetMapping("/cutoff/export.csv")
+    public ResponseEntity<byte[]> cutoffCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                            @RequestParam OffsetDateTime from,
+                                            @RequestParam OffsetDateTime to) {
+        byte[] data = reportService.exportCutoffToCsv(UUID.fromString(principal.organizationId()), from, to);
+        String filename = "cutoff-" + from.toLocalDate() + "-to-" + to.toLocalDate() + ".csv";
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=cutoff.xlsx")
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
                 .body(data);
     }
 

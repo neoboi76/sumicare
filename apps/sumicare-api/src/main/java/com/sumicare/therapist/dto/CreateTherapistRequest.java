@@ -6,5 +6,6 @@ public record CreateTherapistRequest(
         String staffNumber,
         @NotBlank String nickname,
         @NotBlank String gender,
-        boolean backup
+        boolean backup,
+        Long shiftId
 ) {}

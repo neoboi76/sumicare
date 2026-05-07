@@ -5,8 +5,10 @@
       <p class="text-slate-500">Today's reservations and walk-ins. Always allow 15 minutes between sessions for room preparation.</p>
     </div>
     <div class="flex gap-2">
-      <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate" class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
-      <button (click)="showWalkIn.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">New walk-in</button>
+      <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate"
+             class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
+      <button (click)="exportCsv()" class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">Export CSV</button>
+      <button (click)="openWalkIn()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">New walk-in</button>
     </div>
   </header>
 
@@ -58,40 +60,271 @@
   </section>
 
   @if (showWalkIn()) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-        <h2 class="text-xl font-semibold">New walk-in booking</h2>
-        <label class="block">
-          <span class="text-sm text-slate-700">Client nickname</span>
-          <input [(ngModel)]="walkInNickname" name="walkInNickname" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Locker number</span>
-          <input [(ngModel)]="walkInLocker" name="walkInLocker" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Service</span>
-          <select [(ngModel)]="walkInServiceId" name="walkInServiceId" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-            @for (s of services(); track s.id) {
-              <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min)</option>
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
+        <header class="px-6 py-4 border-b sticky top-0 bg-white z-10">
+          <h2 class="text-lg font-semibold text-slate-900">New walk-in</h2>
+          <p class="text-xs text-slate-500">Captures every field on the LASEMA paper slip and creates the booking, session, and treatment slip in one step.</p>
+        </header>
+
+        @if (walkInError(); as err) {
+          <div class="mx-6 mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{{ err }}</div>
+        }
+
+        <div class="px-6 py-4 space-y-5">
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Service</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block text-sm">
+                Treatment <span class="text-red-500">*</span>
+                <select [ngModel]="walkInServiceId()" (ngModelChange)="walkInServiceId.set($event)" name="walkInServiceId"
+                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+                  <option [ngValue]="0" disabled>Select treatment</option>
+                  @for (s of services(); track s.id) {
+                    <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min){{ s.vip ? ' — VIP' : '' }}</option>
+                  }
+                </select>
+              </label>
+              <label class="block text-sm">
+                Reservation type
+                <select [(ngModel)]="walkInReservationType" name="walkInReservationType"
+                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+                  <option value="WALK_IN">Walk-in</option>
+                  <option value="SOFT">Soft reservation</option>
+                  <option value="HARD">Hard reservation</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              {{ isWalkInVip() ? 'VIP package details' : 'Session details' }}
+            </h3>
+            @if (isWalkInVip()) {
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block text-sm">
+                  Jacuzzi time (min)
+                  <input type="number" min="0" max="180" [(ngModel)]="walkInJacuzziMinutes" name="walkInJacuzziMinutes"
+                         class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+                </label>
+                <label class="block text-sm">
+                  Massage time (min)
+                  <input type="number" min="0" max="180" [(ngModel)]="walkInMassageMinutes" name="walkInMassageMinutes"
+                         class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+                </label>
+              </div>
+              <div>
+                <span class="text-sm text-slate-700">Wine included</span>
+                <div class="mt-1 flex gap-4 text-sm">
+                  <label class="flex items-center gap-1.5">
+                    <input type="radio" [(ngModel)]="walkInWine" [value]="true" name="walkInWine" /> Yes
+                  </label>
+                  <label class="flex items-center gap-1.5">
+                    <input type="radio" [(ngModel)]="walkInWine" [value]="false" name="walkInWine" /> No
+                  </label>
+                </div>
+              </div>
+            } @else {
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block text-sm">
+                  Service Duration
+                  <input type="text"
+                         [value]="(selectedWalkInService()?.durationMinutes ?? '') + (selectedWalkInService() ? ' min' : '')"
+                         class="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500"
+                         readonly />
+                </label>
+                <label class="block text-sm">
+                  Pax
+                  <input type="number" min="1" max="20" [(ngModel)]="walkInPax" name="walkInPax"
+                         class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+                </label>
+              </div>
             }
-          </select>
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Reservation type</span>
-          <select [(ngModel)]="walkInReservationType" name="walkInReservationType" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-            <option value="HARD">Hard (paid in full)</option>
-            <option value="SOFT">Soft (intent only)</option>
-          </select>
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Scheduled at</span>
-          <input [(ngModel)]="walkInScheduledAt" name="walkInScheduledAt" type="datetime-local" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <div class="flex justify-end gap-2 pt-2">
-          <button (click)="showWalkIn.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-          <button (click)="submitWalkIn()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Create booking</button>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Client</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block text-sm">
+                Customer name (nickname) <span class="text-red-500">*</span>
+                <input [(ngModel)]="walkInNickname" name="walkInNickname" required
+                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+                       placeholder="e.g. Maria" />
+              </label>
+              <label class="block text-sm">
+                Locker key #
+                <input [(ngModel)]="walkInLocker" name="walkInLocker"
+                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+                       placeholder="e.g. L-12" />
+              </label>
+            </div>
+            <fieldset class="text-sm text-slate-700">
+              <legend class="mb-1">Sex <span class="text-red-500">*</span></legend>
+              <div class="flex gap-6">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" [(ngModel)]="walkInClientGender" name="walkInClientGender" value="F" class="accent-[var(--sumi-primary)]" />
+                  Female
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" [(ngModel)]="walkInClientGender" name="walkInClientGender" value="M" class="accent-[var(--sumi-primary)]" />
+                  Male
+                </label>
+              </div>
+            </fieldset>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block text-sm">
+                Date
+                <input type="text" [value]="walkInStartTime ? walkInStartTime.slice(0, 10) : ''"
+                       class="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500" readonly />
+              </label>
+              <label class="block text-sm">
+                TS #
+                <input type="text" value="Pending"
+                       class="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500" readonly />
+              </label>
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Time &amp; room</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block text-sm">
+                Start time <span class="text-red-500">*</span>
+                <input type="datetime-local" [(ngModel)]="walkInStartTime" name="walkInStartTime" required
+                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+              </label>
+              <label class="block text-sm">
+                End time
+                <input type="datetime-local" [(ngModel)]="walkInEndTimeOverride" name="walkInEndTimeOverride"
+                       [placeholder]="walkInComputedEnd()"
+                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+                <span class="text-[11px] text-slate-400 mt-0.5 block">Auto-computed: {{ walkInComputedEnd() || '—' }}</span>
+              </label>
+            </div>
+            <div>
+              <label class="block text-sm">
+                Room
+                <select [ngModel]="walkInRoomId()" (ngModelChange)="onWalkInRoomChange($event)" name="walkInRoomId"
+                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+                  <option [ngValue]="null">No room assigned</option>
+                  @for (r of rooms(); track r.id) {
+                    <option [ngValue]="r.id">Room {{ r.roomNumber }} ({{ r.roomType }})</option>
+                  }
+                </select>
+              </label>
+              @if (walkInBedsForRoom().length > 0) {
+                <div class="mt-2 grid grid-cols-3 gap-1">
+                  @for (bed of walkInBedsForRoom(); track bed.id) {
+                    <button type="button" (click)="pickWalkInBed(bed)" [class]="walkInBedClass(bed)"
+                            [title]="bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : ''">
+                      {{ bed.label }}
+                      @if (walkInBedIds.includes(bed.id)) { [x] }
+                    </button>
+                  }
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">
+                  {{ walkInBedIds.length }} of {{ walkInPax }} bed{{ walkInPax !== 1 ? 's' : '' }} selected. Click to toggle.
+                </p>
+              }
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Therapist</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block text-sm">
+                Primary therapist
+                <select [(ngModel)]="walkInPrimaryTherapistId" name="walkInPrimaryTherapistId"
+                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+                  <option [ngValue]="null">Unassigned</option>
+                  @for (t of lineup(); track t.therapistId) {
+                    <option [ngValue]="t.therapistId">
+                      #{{ t.position }} — {{ t.nickname }} ({{ t.gender === 'M' ? 'Male' : 'Female' }})
+                      @if (t.skipped) {
+                        — on break
+                      }
+                    </option>
+                  }
+                </select>
+                <span class="text-[11px] text-slate-400 mt-0.5 block">Sourced from current lineup. Therapists outside their shift do not appear.</span>
+              </label>
+              @if (walkInNeedsSecondary()) {
+                <label class="block text-sm">
+                  Secondary therapist (tandem)
+                  <select [(ngModel)]="walkInSecondaryTherapistId" name="walkInSecondaryTherapistId"
+                          class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+                    <option [ngValue]="null">None</option>
+                    @for (t of lineup(); track t.therapistId) {
+                      <option [ngValue]="t.therapistId">{{ t.nickname }}</option>
+                    }
+                  </select>
+                </label>
+              }
+            </div>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" [(ngModel)]="walkInSpecificallyRequested" name="walkInSpecificallyRequested" />
+              Client specifically requested this therapist
+            </label>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Billing</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block text-sm">
+                OR #
+                <input [(ngModel)]="walkInOrNumber" name="walkInOrNumber"
+                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+                       placeholder="Treatment receipt #" />
+              </label>
+              <label class="block text-sm">
+                Add-on OR #
+                <input [(ngModel)]="walkInAddOnOrNumber" name="walkInAddOnOrNumber"
+                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+                       placeholder="Others / add-on receipt #" />
+              </label>
+            </div>
+            <label class="block text-sm">
+              Others / add on
+              <textarea rows="2" [(ngModel)]="walkInOthersAddOn" name="walkInOthersAddOn"
+                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></textarea>
+            </label>
+            <label class="block text-sm">
+              Remarks
+              <textarea rows="2" [(ngModel)]="walkInRemarks" name="walkInRemarks"
+                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></textarea>
+            </label>
+            <label class="block text-sm">
+              Total amount (₱)
+              <input type="number" min="0" step="0.01" [(ngModel)]="walkInTotalAmount" name="walkInTotalAmount"
+                     class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+            </label>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Waiver</h3>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-600">
+              I understand that the services provided are for relaxation and general wellness purposes only.
+              I confirm that I have no known medical conditions that would contraindicate massage or spa
+              treatments and release the establishment and its staff from any liability arising from
+              undisclosed pre-existing conditions. Recommendations are recreational and do not constitute
+              medical advice.
+            </div>
+            <label class="flex items-start gap-2 text-sm">
+              <input type="checkbox" [(ngModel)]="walkInWaiver" name="walkInWaiver" class="mt-0.5" required />
+              <span>Client has read and accepted the waiver above.</span>
+            </label>
+          </section>
         </div>
+
+        <footer class="px-6 py-4 border-t flex justify-end gap-2 sticky bottom-0 bg-white">
+          <button (click)="showWalkIn.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+          <button (click)="submitWalkIn()" [disabled]="walkInSubmitting() || !walkInWaiver"
+                  class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm disabled:opacity-50">
+            {{ walkInSubmitting() ? 'Creating...' : 'Create walk-in & open slip' }}
+          </button>
+        </footer>
       </div>
     </div>
   }
@@ -111,10 +344,11 @@
           <span class="text-sm text-slate-700">Primary therapist</span>
           <select [(ngModel)]="startPrimaryTherapistId" name="primary" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
             <option [ngValue]="null">Choose therapist</option>
-            @for (t of therapists(); track t.id) {
-              <option [ngValue]="t.id">{{ t.nickname }} ({{ t.gender }})</option>
+            @for (t of lineup(); track t.therapistId) {
+              <option [ngValue]="t.therapistId">#{{ t.position }} — {{ t.nickname }} ({{ t.gender }})</option>
             }
           </select>
+          <span class="text-[11px] text-slate-400 mt-0.5 block">Sourced from current lineup. Therapists outside their shift do not appear.</span>
         </div>
 
         @if (needsSecondary()) {
@@ -122,8 +356,8 @@
             <span class="text-sm text-slate-700">Secondary therapist (tandem)</span>
             <select [(ngModel)]="startSecondaryTherapistId" name="secondary" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
               <option [ngValue]="null">Choose therapist</option>
-              @for (t of therapists(); track t.id) {
-                <option [ngValue]="t.id">{{ t.nickname }} ({{ t.gender }})</option>
+              @for (t of lineup(); track t.therapistId) {
+                <option [ngValue]="t.therapistId">{{ t.nickname }} ({{ t.gender }})</option>
               }
             </select>
           </div>

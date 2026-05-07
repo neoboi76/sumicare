@@ -12,5 +12,7 @@ public record CreateBookingRequest(
         String lockerNumber,
         @NotNull Long serviceId,
         @NotBlank String reservationType,
-        @NotNull OffsetDateTime scheduledAt
+        @NotNull OffsetDateTime scheduledAt,
+        Integer pax,
+        String clientGender
 ) {}

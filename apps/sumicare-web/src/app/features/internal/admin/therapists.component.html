@@ -15,6 +15,7 @@
           <th class="text-left p-3">Nickname</th>
           <th class="text-left p-3">Gender</th>
           <th class="text-left p-3">Type</th>
+          <th class="text-left p-3">Shift</th>
           <th class="text-left p-3">Active</th>
           <th class="text-right p-3"></th>
         </tr>
@@ -26,13 +27,14 @@
             <td class="p-3 font-medium">{{ t.nickname }}</td>
             <td class="p-3">{{ t.gender }}</td>
             <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
+            <td class="p-3 text-slate-500">{{ t.currentShiftLabel || 'Unassigned' }}</td>
             <td class="p-3">{{ t.active ? 'Yes' : 'No' }}</td>
             <td class="p-3 text-right">
               <button (click)="deactivate(t)" class="text-red-700 hover:underline text-xs">Deactivate</button>
             </td>
           </tr>
         } @empty {
-          <tr><td colspan="6" class="p-6 text-center text-slate-500">No therapists yet.</td></tr>
+          <tr><td colspan="7" class="p-6 text-center text-slate-500">No therapists yet.</td></tr>
         }
       </tbody>
     </table>
@@ -55,6 +57,15 @@
           <select [(ngModel)]="formGender" name="gender" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
             <option value="F">Female</option>
             <option value="M">Male</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-700">Shift</span>
+          <select [(ngModel)]="formShiftId" name="shiftId" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+            <option [ngValue]="null">No shift assigned</option>
+            @for (s of shifts(); track s.id) {
+              <option [ngValue]="s.id">{{ s.label }} ({{ s.startTime }}–{{ s.endTime }})</option>
+            }
           </select>
         </label>
         <label class="flex items-center gap-2">

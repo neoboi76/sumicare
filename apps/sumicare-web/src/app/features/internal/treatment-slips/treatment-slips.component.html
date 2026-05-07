@@ -4,7 +4,14 @@
       <h1 class="text-2xl font-semibold text-slate-900">Treatment slips</h1>
       <p class="text-slate-500">Digitized slips. All identification by nickname only.</p>
     </div>
-    <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="date" class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
+    <div class="flex items-center gap-2">
+      <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="date"
+             class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
+      <button (click)="exportCsv()"
+              class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">
+        Export CSV
+      </button>
+    </div>
   </header>
 
   <section class="bg-white rounded-xl shadow overflow-hidden">

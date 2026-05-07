@@ -10,6 +10,15 @@ interface Therapist {
   gender: string;
   backup: boolean;
   active: boolean;
+  currentShiftId: number | null;
+  currentShiftLabel: string | null;
+}
+
+interface Shift {
+  id: number;
+  label: string;
+  startTime: string;
+  endTime: string;
 }
 
 @Component({
@@ -22,15 +31,21 @@ interface Therapist {
 export class TherapistsAdminComponent implements OnInit {
   private http = inject(HttpClient);
   therapists = signal<Therapist[]>([]);
+  shifts = signal<Shift[]>([]);
   showForm = signal(false);
 
   formStaffNumber = '';
   formNickname = '';
   formGender = 'F';
   formBackup = false;
+  formShiftId: number | null = null;
 
   ngOnInit(): void {
     this.reload();
+    this.http.get<Shift[]>(`${environment.apiBaseUrl}/api/shifts`).subscribe({
+      next: (s) => this.shifts.set(s),
+      error: () => this.shifts.set([])
+    });
   }
 
   reload(): void {
@@ -44,7 +59,8 @@ export class TherapistsAdminComponent implements OnInit {
       staffNumber: this.formStaffNumber || null,
       nickname: this.formNickname,
       gender: this.formGender,
-      backup: this.formBackup
+      backup: this.formBackup,
+      shiftId: this.formShiftId
     };
     this.http.post(`${environment.apiBaseUrl}/api/therapists`, payload).subscribe({
       next: () => {
@@ -52,6 +68,7 @@ export class TherapistsAdminComponent implements OnInit {
         this.formStaffNumber = '';
         this.formNickname = '';
         this.formBackup = false;
+        this.formShiftId = null;
         this.reload();
       }
     });

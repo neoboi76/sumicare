@@ -14,12 +14,20 @@ export const APP_ROUTES: Routes = [
       { path: 'services', loadComponent: () => import('./features/public/services.component').then(m => m.ServicesComponent) },
       { path: 'recommendation', loadComponent: () => import('./features/public/recommendation.component').then(m => m.RecommendationComponent) },
       { path: 'book', loadComponent: () => import('./features/public/book.component').then(m => m.BookComponent) },
-      { path: 'feedback', loadComponent: () => import('./features/public/feedback.component').then(m => m.FeedbackComponent) }
+      { path: 'feedback', loadComponent: () => import('./features/public/feedback.component').then(m => m.FeedbackComponent) },
+      { path: 'contact', loadComponent: () => import('./features/public/contact.component').then(m => m.ContactComponent) },
+      { path: 'pay/:bookingId', loadComponent: () => import('./features/public/pay.component').then(m => m.PayComponent) },
+      { path: 'pay/success', loadComponent: () => import('./features/public/pay-result.component').then(m => m.PayResultComponent) },
+      { path: 'pay/failed', loadComponent: () => import('./features/public/pay-result.component').then(m => m.PayResultComponent) }
     ]
   },
   {
     path: 'login',
     loadComponent: () => import('./features/auth/login.component').then(m => m.LoginComponent)
+  },
+  {
+    path: 'verify',
+    loadComponent: () => import('./features/auth/verify.component').then(m => m.VerifyComponent)
   },
   {
     path: 'app',
@@ -30,14 +38,18 @@ export const APP_ROUTES: Routes = [
       { path: 'dashboard', loadComponent: () => import('./features/internal/dashboard.component').then(m => m.DashboardComponent) },
       { path: 'bookings', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/bookings/bookings.component').then(m => m.BookingsComponent) },
       { path: 'reception', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/reception/reception.component').then(m => m.ReceptionComponent) },
+      { path: 'lineup', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/lineup/lineup.component').then(m => m.LineupComponent) },
       { path: 'decking', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/decking/decking.component').then(m => m.DeckingComponent) },
       { path: 'pos', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/pos/pos.component').then(m => m.PosComponent) },
       { path: 'treatment-slips', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slips.component').then(m => m.TreatmentSlipsComponent) },
       { path: 'treatment-slips/:id', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slip-detail.component').then(m => m.TreatmentSlipDetailComponent) },
       { path: 'reports', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/reports/reports.component').then(m => m.ReportsComponent) },
+      { path: 'attendance', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/attendance/attendance.component').then(m => m.AttendanceComponent) },
+      { path: 'ledger', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/ledger/ledger.component').then(m => m.LedgerComponent) },
       { path: 'users', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/users.component').then(m => m.UsersComponent) },
       { path: 'audit', canActivate: [roleGuard(ADMIN_PLUS)], loadComponent: () => import('./features/internal/admin/audit.component').then(m => m.AuditComponent) },
       { path: 'branding', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/branding.component').then(m => m.BrandingComponent) },
+      { path: 'content', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/content/content.component').then(m => m.ContentComponent) },
       { path: 'admin/therapists', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/therapists.component').then(m => m.TherapistsAdminComponent) },
       { path: 'admin/shifts', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/shifts.component').then(m => m.ShiftsAdminComponent) },
       { path: 'admin/rooms', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/rooms.component').then(m => m.RoomsAdminComponent) },

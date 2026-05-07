@@ -14,6 +14,7 @@ public record SessionResponse(
         boolean extension,
         int extensionMinutes,
         OffsetDateTime startedAt,
+        OffsetDateTime expectedEndAt,
         OffsetDateTime endedAt,
         String status
 ) {}

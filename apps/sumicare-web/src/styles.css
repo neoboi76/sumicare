@@ -3,10 +3,78 @@
 @tailwind utilities;
 
 :root {
-  --sumi-primary: #0F766E;
-  --sumi-secondary: #14B8A6;
-  --sumi-accent: #F59E0B;
+  --sumi-primary: #c42441;
+  --sumi-secondary: #1735d3;
+  --sumi-accent: #ffb94f;
 }
 
 html, body { height: 100%; }
-body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body {
+  margin: 0;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Smooth transitions for interactive elements */
+a, button {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* Print: isolate .print-area-wrapper, hide everything else */
+@media print {
+  @page {
+    margin: 8mm;
+  }
+
+  html, body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  /* Hide every element by default */
+  body * {
+    visibility: hidden !important;
+    box-shadow: none !important;
+  }
+
+  /* Reveal only the print area and its descendants */
+  .print-area-wrapper,
+  .print-area-wrapper * {
+    visibility: visible !important;
+  }
+
+  /* Position the print area at the page origin so the hidden shell
+     doesn't push it off the printable area */
+  .print-area-wrapper {
+    position: absolute !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    max-width: none !important;
+  }
+
+  /* Compact the slip article for paper */
+  .print-area-wrapper article {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

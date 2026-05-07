@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
@@ -19,14 +20,18 @@ interface Feedback {
 })
 export class FeedbackComponent implements OnInit {
   private http = inject(HttpClient);
+  private route = inject(ActivatedRoute);
 
   rating = signal(0);
   comment = '';
+  sessionRef = signal<string | null>(null);
   submitted = signal(false);
   recent = signal<Feedback[]>([]);
   starButtons = [1, 2, 3, 4, 5];
 
   ngOnInit(): void {
+    const session = this.route.snapshot.queryParamMap.get('session');
+    if (session) this.sessionRef.set(session);
     this.loadRecent();
   }
 
@@ -40,7 +45,7 @@ export class FeedbackComponent implements OnInit {
   submit(event: Event): void {
     event.preventDefault();
     if (this.rating() === 0) return;
-    const payload = { ratingStars: this.rating(), comment: this.comment };
+    const payload = { ratingStars: this.rating(), comment: this.comment, sessionRef: this.sessionRef() };
     this.http.post(`${environment.apiBaseUrl}/api/public/feedback/${environment.defaultOrganizationSlug}`, payload).subscribe({
       next: () => {
         this.submitted.set(true);

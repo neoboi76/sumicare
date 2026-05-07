@@ -1,5 +1,8 @@
 package com.sumicare.user.service;
 
+import com.sumicare.auth.domain.EmailVerificationToken;
+import com.sumicare.auth.repository.EmailVerificationTokenRepository;
+import com.sumicare.auth.service.EmailService;
 import com.sumicare.user.domain.Role;
 import com.sumicare.user.domain.User;
 import com.sumicare.user.dto.CreateUserRequest;
@@ -22,11 +25,17 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationTokenRepository tokenRepository;
+    private final EmailService emailService;
 
-    public UserService(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, RoleRepository roleRepository,
+                       PasswordEncoder passwordEncoder, EmailVerificationTokenRepository tokenRepository,
+                       EmailService emailService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.tokenRepository = tokenRepository;
+        this.emailService = emailService;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
@@ -48,7 +57,18 @@ public class UserService {
         user.setRole(role);
         user.setDisplayName(request.displayName());
         user.setActive(true);
+        user.setEmailVerified(false);
         userRepository.save(user);
+
+        if (request.email() != null && !request.email().isBlank()) {
+            EmailVerificationToken evToken = new EmailVerificationToken();
+            evToken.setUserId(user.getId());
+            evToken.setToken(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""));
+            evToken.setExpiresAt(OffsetDateTime.now().plusHours(24));
+            tokenRepository.save(evToken);
+            emailService.sendVerificationEmail(request.email(), request.displayName(), evToken.getToken());
+        }
+
         return toResponse(user);
     }
 

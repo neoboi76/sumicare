@@ -1,37 +1,131 @@
-<section class="max-w-2xl mx-auto px-4 py-10">
-  <h2 class="text-2xl font-semibold text-slate-900">Book a session</h2>
-  <p class="text-slate-600 mb-6">Choose a hard reservation to lock the slot or a soft reservation to signal your intent.</p>
-  <form (submit)="submit($event)" class="bg-white rounded-xl shadow p-6 space-y-4">
-    <label class="block">
-      <span class="text-sm text-slate-700">Nickname</span>
-      <input [(ngModel)]="clientNickname" name="clientNickname" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-    </label>
-    <label class="block">
-      <span class="text-sm text-slate-700">Service</span>
-      <select [(ngModel)]="serviceId" name="serviceId" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-        @for (s of services(); track s.id) {
-          <option [value]="s.id">{{ s.name }} ({{ s.durationMinutes }} min)</option>
-        }
-      </select>
-    </label>
-    <label class="block">
-      <span class="text-sm text-slate-700">Reservation type</span>
-      <select [(ngModel)]="reservationType" name="reservationType" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-        <option value="SOFT">Soft (intent only)</option>
-        <option value="HARD">Hard (paid in full)</option>
-      </select>
-    </label>
-    <label class="block">
-      <span class="text-sm text-slate-700">When</span>
-      <input [(ngModel)]="scheduledAt" name="scheduledAt" type="datetime-local" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-    </label>
-    <label class="flex items-start gap-2 text-sm text-slate-600">
-      <input [(ngModel)]="consent" name="consent" type="checkbox" required />
-      <span>I consent to the spa storing my booking details for the purpose of attending to my reservation.</span>
-    </label>
-    <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Submit booking</button>
-  </form>
-  @if (status(); as msg) {
-    <p class="mt-4 text-sm text-emerald-700">{{ msg }}</p>
+<section class="max-w-2xl mx-auto px-4 py-12">
+  <h2 class="text-3xl font-serif font-semibold text-gray-900 mb-2">Book a session</h2>
+  <p class="text-gray-500 mb-8 text-sm leading-relaxed">
+    Reserve your preferred date and service. The front desk will reach out to confirm and finalize your slot.
+    <br />Sessions begin 15 minutes after your scheduled time to allow room preparation.
+  </p>
+
+  @if (confirmation(); as booking) {
+    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 mb-6 space-y-4">
+      <div class="flex items-start gap-3">
+        <svg class="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div class="flex-1">
+          <h3 class="font-semibold text-emerald-900 text-lg">Reservation received</h3>
+          <p class="text-sm text-emerald-800 mt-1">
+            Thank you, {{ booking.clientNickname }}. Your reservation has been recorded and the
+            front desk will reach out to confirm shortly.
+          </p>
+        </div>
+      </div>
+
+      <dl class="bg-white rounded-lg border border-emerald-100 px-4 py-3 grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Reference</dt>
+          <dd class="font-mono text-emerald-900">{{ bookingRef() }}</dd>
+        </div>
+        <div>
+          <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Type</dt>
+          <dd class="text-emerald-900">{{ booking.reservationType === 'HARD' ? 'Hard reservation' : 'Soft reservation' }}</dd>
+        </div>
+        <div>
+          <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Service</dt>
+          <dd class="text-emerald-900">{{ serviceLabel() }}</dd>
+        </div>
+        <div>
+          <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Scheduled</dt>
+          <dd class="text-emerald-900">{{ formatDateTime(booking.scheduledAt) }}</dd>
+        </div>
+        <div class="col-span-2">
+          <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Effective start</dt>
+          <dd class="text-emerald-900">{{ formatDateTime(booking.effectiveStartAt) }}</dd>
+        </div>
+      </dl>
+
+      @if (bookingRef()) {
+        <div class="flex flex-col items-center gap-2 pt-2 border-t border-emerald-100">
+          <qrcode [qrdata]="bookingRef()!" [width]="128" [errorCorrectionLevel]="'M'"></qrcode>
+          <p class="text-[11px] text-emerald-700">Save or screenshot this QR code as your booking reference.</p>
+        </div>
+      }
+
+      <button (click)="bookAnother()"
+              class="w-full py-2.5 bg-white border border-emerald-300 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors">
+        Book another session
+      </button>
+    </div>
+  } @else {
+    @if (error(); as err) {
+      <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+        <p class="text-sm text-red-700">{{ err }}</p>
+      </div>
+    }
+    <form (submit)="submit($event)" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+      <label class="block text-sm text-gray-700">
+        Nickname <span class="text-red-500">*</span>
+        <input [(ngModel)]="clientNickname" name="clientNickname" required
+               class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
+               placeholder="e.g. Kayla" />
+      </label>
+      <label class="block text-sm text-gray-700">
+        Number of guests (PAX) <span class="text-red-500">*</span>
+        <input [(ngModel)]="pax" name="pax" type="number" min="1" max="20" required
+               class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
+               placeholder="1" />
+      </label>
+      <label class="block text-sm text-gray-700">
+        Service <span class="text-red-500">*</span>
+        <select [(ngModel)]="serviceId" name="serviceId" required
+                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+          <option [ngValue]="null" disabled>Select a service</option>
+          @for (s of services(); track s.id) {
+            <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min)</option>
+          }
+        </select>
+      </label>
+      <label class="block text-sm text-gray-700">
+        Reservation type
+        <select [(ngModel)]="reservationType" name="reservationType"
+                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+          <option value="SOFT">Soft reservation (intent only)</option>
+          <option value="HARD">Hard reservation</option>
+        </select>
+      </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-sm text-gray-700">
+          Date <span class="text-red-500">*</span>
+          <input [(ngModel)]="scheduledDate" name="scheduledDate" type="date" required
+                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+        </label>
+        <label class="block text-sm text-gray-700">
+          Time <span class="text-red-500">*</span>
+          <input [(ngModel)]="scheduledTime" name="scheduledTime" type="time" required
+                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+        </label>
+      </div>
+      <span class="text-xs text-gray-400 -mt-2 block">Both date and time are required.</span>
+      <fieldset class="block text-sm text-gray-700">
+        <legend class="mb-1">Sex <span class="text-red-500">*</span></legend>
+        <div class="flex gap-6">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" [(ngModel)]="clientGender" name="clientGender" value="F" class="accent-[var(--sumi-primary)]" />
+            Female
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" [(ngModel)]="clientGender" name="clientGender" value="M" class="accent-[var(--sumi-primary)]" />
+            Male
+          </label>
+        </div>
+      </fieldset>
+      <label class="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
+        <input [(ngModel)]="consent" name="consent" type="checkbox" required class="mt-0.5 rounded" />
+        <span>I consent to the spa storing my booking details for the purpose of attending to my reservation.</span>
+      </label>
+      <button type="submit" [disabled]="submitting()"
+              class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50">
+        {{ submitting() ? 'Processing...' : 'Submit reservation' }}
+      </button>
+    </form>
   }
 </section>

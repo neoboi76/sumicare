@@ -2,16 +2,23 @@ package com.sumicare.pos.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.pos.domain.CashierShift;
+import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.dto.PaymentResponse;
 import com.sumicare.pos.dto.ProcessPaymentRequest;
+import com.sumicare.pos.gateway.StripeGateway;
 import com.sumicare.pos.repository.CashierShiftRepository;
+import com.sumicare.pos.repository.TransactionLedgerRepository;
 import com.sumicare.pos.service.PosService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -20,10 +27,15 @@ public class PosController {
 
     private final PosService posService;
     private final CashierShiftRepository cashierShiftRepository;
+    private final TransactionLedgerRepository ledgerRepository;
+    private final StripeGateway stripeGateway;
 
-    public PosController(PosService posService, CashierShiftRepository cashierShiftRepository) {
+    public PosController(PosService posService, CashierShiftRepository cashierShiftRepository,
+                         TransactionLedgerRepository ledgerRepository, StripeGateway stripeGateway) {
         this.posService = posService;
         this.cashierShiftRepository = cashierShiftRepository;
+        this.ledgerRepository = ledgerRepository;
+        this.stripeGateway = stripeGateway;
     }
 
     @PostMapping("/payments")
@@ -31,6 +43,16 @@ public class PosController {
                                           @Valid @RequestBody ProcessPaymentRequest request) {
         return posService.processPayment(UUID.fromString(principal.organizationId()),
                 UUID.fromString(principal.userId()), request);
+    }
+
+    @PostMapping("/payment-intent")
+    @PreAuthorize("isAuthenticated()")
+    public Map<String, String> createPaymentIntent(@RequestBody Map<String, Object> body) {
+        BigDecimal amount = new BigDecimal(body.get("amount").toString());
+        String currency = body.getOrDefault("currency", "PHP").toString();
+        String bookingId = body.getOrDefault("bookingId", "").toString();
+        String clientSecret = stripeGateway.createIntent(amount, currency, Map.of("bookingId", bookingId));
+        return Map.of("clientSecret", clientSecret);
     }
 
     @PostMapping("/cashier-shifts/open")
@@ -52,5 +74,24 @@ public class PosController {
                 .findFirstByCashierUserIdAndStatus(UUID.fromString(principal.userId()), "OPEN")
                 .map(List::of)
                 .orElseGet(List::of);
+    }
+
+    @GetMapping("/ledger")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public List<TransactionLedgerEntry> ledger(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to) {
+
+        UUID orgId = UUID.fromString(principal.organizationId());
+        OffsetDateTime start = from != null ? from : OffsetDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        OffsetDateTime end = to != null ? to : start.plusDays(1);
+
+        if (type != null && !type.isBlank()) {
+            return ledgerRepository.findAllByOrganizationIdAndEntryTypeAndRecordedAtBetweenOrderByRecordedAtDesc(
+                    orgId, type, start, end);
+        }
+        return ledgerRepository.findAllByOrganizationIdAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, start, end);
     }
 }

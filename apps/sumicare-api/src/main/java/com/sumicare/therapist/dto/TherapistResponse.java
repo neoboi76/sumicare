@@ -8,5 +8,7 @@ public record TherapistResponse(
         String nickname,
         String gender,
         boolean backup,
-        boolean active
+        boolean active,
+        Long currentShiftId,
+        String currentShiftLabel
 ) {}
