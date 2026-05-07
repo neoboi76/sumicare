@@ -2,7 +2,7 @@ package com.sumicare.shift.domain;
 
 import jakarta.persistence.*;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -19,13 +19,14 @@ public class ShiftAssignment {
     @Column(name = "therapist_id", nullable = false, columnDefinition = "uuid")
     private UUID therapistId;
 
-    @Column(name = "assigned_at", nullable = false, updatable = false)
-    private OffsetDateTime assignedAt = OffsetDateTime.now();
+    @Column(name = "effective_date", nullable = false)
+    private LocalDate effectiveDate = LocalDate.now();
 
     public Long getId() { return id; }
     public Long getShiftId() { return shiftId; }
     public void setShiftId(Long shiftId) { this.shiftId = shiftId; }
     public UUID getTherapistId() { return therapistId; }
     public void setTherapistId(UUID therapistId) { this.therapistId = therapistId; }
-    public OffsetDateTime getAssignedAt() { return assignedAt; }
+    public LocalDate getEffectiveDate() { return effectiveDate; }
+    public void setEffectiveDate(LocalDate effectiveDate) { this.effectiveDate = effectiveDate; }
 }

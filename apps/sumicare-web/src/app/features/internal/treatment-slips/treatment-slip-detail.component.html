@@ -1,71 +1,246 @@
 <div class="max-w-2xl mx-auto">
-  <div class="flex justify-between items-baseline mb-4 no-print print:hidden">
+  <div class="flex justify-between items-baseline mb-4 no-print">
     <a routerLink="/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
     <button (click)="print()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Print</button>
   </div>
+
+  <div class="print-area-wrapper">
   @if (slip(); as s) {
-    <article class="bg-white rounded-xl shadow p-8 space-y-4 border-2 border-slate-200">
-      <header class="text-center border-b pb-3">
-        <h1 class="text-2xl font-bold tracking-wide">TREATMENT SLIP</h1>
-        @if (s.vip) {
-          <p class="text-sm uppercase tracking-widest text-amber-600 mt-1">VIP</p>
-        }
-        <p class="text-sm text-slate-500 mt-1">TSN {{ s.tsn }}</p>
-      </header>
+    @if (s.vip) {
+      <article class="bg-white rounded-xl shadow border-2 border-amber-400 overflow-hidden text-sm">
+        <header class="bg-amber-400 text-white text-center py-3 px-4">
+          <div class="font-bold text-base tracking-widest uppercase">La Sema Jjimjilbang Spa</div>
+          <div class="text-[11px] uppercase tracking-widest mt-0.5">VIP Treatment Slip</div>
+        </header>
 
-      <dl class="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt class="text-slate-500 uppercase text-xs tracking-wide">Client nickname</dt>
-          <dd class="font-medium">{{ s.clientNickname }}</dd>
-        </div>
-        <div>
-          <dt class="text-slate-500 uppercase text-xs tracking-wide">Locker number</dt>
-          <dd class="font-medium">{{ s.lockerNumber || '-' }}</dd>
-        </div>
-        <div>
-          <dt class="text-slate-500 uppercase text-xs tracking-wide">Service</dt>
-          <dd class="font-medium">{{ s.serviceName }}</dd>
-        </div>
-        <div>
-          <dt class="text-slate-500 uppercase text-xs tracking-wide">Room number</dt>
-          <dd class="font-medium">{{ s.roomNumber || '-' }}</dd>
-        </div>
-        <div>
-          <dt class="text-slate-500 uppercase text-xs tracking-wide">Primary therapist</dt>
-          <dd class="font-medium">{{ s.primaryTherapistNickname || '-' }}</dd>
-        </div>
-        <div>
-          <dt class="text-slate-500 uppercase text-xs tracking-wide">Secondary therapist</dt>
-          <dd class="font-medium">{{ s.secondaryTherapistNickname || '-' }}</dd>
-        </div>
-        @if (s.requestedTherapistNickname) {
-          <div>
-            <dt class="text-slate-500 uppercase text-xs tracking-wide">Requested therapist</dt>
-            <dd class="font-medium">{{ s.requestedTherapistNickname }}</dd>
+        <div class="grid grid-cols-4 border-b border-amber-200 text-xs">
+          <div class="border-r border-amber-200 px-3 py-2">
+            <div class="text-amber-700 font-semibold uppercase tracking-wide">Jacuzzi</div>
+            <div class="font-mono">{{ s.jacuzziMinutes ?? '—' }}{{ s.jacuzziMinutes != null ? ' min' : '' }}</div>
           </div>
-        }
-        <div>
-          <dt class="text-slate-500 uppercase text-xs tracking-wide">Start time</dt>
-          <dd class="font-medium">{{ formatTime(s.startTime) }}</dd>
+          <div class="border-r border-amber-200 px-3 py-2">
+            <div class="text-amber-700 font-semibold uppercase tracking-wide">Massage</div>
+            <div class="font-mono">{{ s.massageMinutes ?? '—' }}{{ s.massageMinutes != null ? ' min' : '' }}</div>
+          </div>
+          <div class="border-r border-amber-200 px-3 py-2">
+            <div class="text-amber-700 font-semibold uppercase tracking-wide">Room</div>
+            <div>{{ s.roomNumber || '—' }}</div>
+          </div>
+          <div class="px-3 py-2">
+            <div class="text-amber-700 font-semibold uppercase tracking-wide">Wine</div>
+            <div>{{ s.wineIncluded === true ? 'Yes' : (s.wineIncluded === false ? 'No' : '—') }}</div>
+          </div>
         </div>
-        <div>
-          <dt class="text-slate-500 uppercase text-xs tracking-wide">End time</dt>
-          <dd class="font-medium">{{ formatTime(s.endTime) }}</dd>
-        </div>
-      </dl>
 
-      <footer class="border-t pt-3 mt-2 flex items-start justify-between">
-        <p class="text-xs text-slate-500">
-          Generated {{ formatTime(s.createdAt) }}.
-          @if (s.signedAt) {
-            <span> Signed {{ formatTime(s.signedAt) }}.</span>
-          }
-        </p>
-        <div class="text-center">
-          <qrcode [qrdata]="feedbackUrl(s.tsn)" [width]="80" [errorCorrectionLevel]="'M'"></qrcode>
-          <p class="text-xs text-slate-400 mt-1">Leave feedback</p>
+        <div class="grid grid-cols-2 border-b border-amber-200 text-xs">
+          <div class="border-r border-amber-200 px-3 py-2">
+            <span class="text-amber-700 font-semibold uppercase tracking-wide">TS # </span>
+            <span class="font-mono">{{ s.tsn }}</span>
+          </div>
+          <div class="px-3 py-2">
+            <span class="text-amber-700 font-semibold uppercase tracking-wide">Date </span>
+            {{ formatDate(s.createdAt) }}
+          </div>
         </div>
-      </footer>
-    </article>
+
+        <div class="px-4 py-3 space-y-1.5 text-xs border-b border-amber-200">
+          <div class="grid grid-cols-2 gap-x-4">
+            <div><span class="font-semibold">Customer:</span> {{ s.clientNickname }}</div>
+            <div><span class="font-semibold">Locker:</span> {{ s.lockerNumber || '—' }}</div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4">
+            <div><span class="font-semibold">Start:</span> {{ formatTime(s.startTime) }}</div>
+            <div><span class="font-semibold">End:</span> {{ formatTime(s.endTime) }}</div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4">
+            <div><span class="font-semibold">Therapist:</span> {{ s.primaryTherapistNickname || '—' }}</div>
+            @if (s.secondaryTherapistNickname) {
+              <div><span class="font-semibold">Secondary:</span> {{ s.secondaryTherapistNickname }}</div>
+            }
+          </div>
+          @if (s.requestedTherapistNickname) {
+            <div><span class="font-semibold">Requested:</span> {{ s.requestedTherapistNickname }}</div>
+          }
+        </div>
+
+        <div class="px-4 py-3 space-y-1 text-xs border-b border-amber-200">
+          <div class="grid grid-cols-3 gap-x-4">
+            <div class="col-span-2"><span class="font-semibold">Treatment:</span> {{ s.serviceName }}</div>
+            <div><span class="font-semibold">OR#:</span> {{ s.orNumber || '—' }}</div>
+          </div>
+          @if (s.othersAddOn) {
+            <div class="grid grid-cols-3 gap-x-4">
+              <div class="col-span-2"><span class="font-semibold">Others/Add-on:</span> {{ s.othersAddOn }}</div>
+              <div><span class="font-semibold">Add-on OR#:</span> {{ s.addOnOrNumber || '—' }}</div>
+            </div>
+          }
+          @if (s.remarks) {
+            <div><span class="font-semibold">Remarks:</span> {{ s.remarks }}</div>
+          }
+        </div>
+
+        <div class="grid grid-cols-2 border-b border-amber-200 text-xs">
+          <div class="border-r border-amber-200 px-3 py-2">
+            <span class="font-semibold">Total:</span>
+            @if (s.totalAmount != null) {
+              ₱ {{ s.totalAmount | number:'1.2-2' }}
+            } @else { — }
+          </div>
+          <div class="px-3 py-2">
+            <span class="font-semibold">Waiver:</span>
+            {{ s.waiverAccepted ? 'Accepted' : 'Pending' }}
+            @if (s.waiverAcceptedAt) {
+              <span class="text-slate-400"> · {{ formatTime(s.waiverAcceptedAt) }}</span>
+            }
+          </div>
+        </div>
+
+        <div class="px-4 py-3 text-[11px] text-slate-600 leading-relaxed border-b border-amber-200">
+          I understand that the services provided by New Lasema Spa Jjimjilbang are for relaxation and general
+          wellness purposes only. I confirm that I have no known medical conditions that would contraindicate
+          massage or spa treatments. I release the establishment and its staff from any liability arising from
+          undisclosed pre-existing conditions.
+        </div>
+
+        <div class="grid grid-cols-2 text-[11px]">
+          <div class="border-r border-amber-200 px-3 py-3">
+            <div class="border-t border-slate-400 mt-6 pt-1 text-center text-slate-500">Client signature</div>
+          </div>
+          <div class="px-3 py-3">
+            <div class="border-t border-slate-400 mt-6 pt-1 text-center text-slate-500">Staff signature</div>
+          </div>
+        </div>
+
+        <footer class="border-t border-amber-200 px-4 py-3 flex items-start justify-between text-[11px]">
+          <p class="text-slate-500">
+            Generated {{ formatTime(s.createdAt) }}.
+            @if (s.signedAt) {
+              <span> Signed {{ formatTime(s.signedAt) }}.</span>
+            }
+          </p>
+          <div class="text-center">
+            <qrcode [qrdata]="feedbackUrl(s.tsn)" [width]="72" [errorCorrectionLevel]="'M'"></qrcode>
+            <p class="text-[10px] text-slate-400 mt-1">Leave feedback</p>
+          </div>
+        </footer>
+      </article>
+
+    } @else {
+
+      <article class="bg-white rounded-xl shadow border border-slate-700 overflow-hidden text-sm">
+        <header class="bg-slate-800 text-white text-center py-3 px-4">
+          <div class="font-bold text-base tracking-widest uppercase">Lasema</div>
+          <div class="text-[11px] uppercase tracking-widest mt-0.5">Treatment Slip</div>
+        </header>
+
+        <div class="grid grid-cols-3 border-b border-slate-300 text-xs">
+          <div class="border-r border-slate-300 px-3 py-2">
+            <div class="text-slate-500 font-semibold uppercase tracking-wide">Treatment time</div>
+            <div class="font-mono">{{ s.treatmentMinutes ?? '—' }}{{ s.treatmentMinutes != null ? ' min' : '' }}</div>
+          </div>
+          <div class="border-r border-slate-300 px-3 py-2">
+            <div class="text-slate-500 font-semibold uppercase tracking-wide">Pax</div>
+            <div>{{ s.pax ?? 1 }}</div>
+          </div>
+          <div class="px-3 py-2">
+            <div class="text-slate-500 font-semibold uppercase tracking-wide">Room</div>
+            <div>{{ s.roomNumber || '—' }}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 border-b border-slate-300 text-xs">
+          <div class="border-r border-slate-300 px-3 py-2">
+            <span class="text-slate-500 font-semibold uppercase tracking-wide">TS # </span>
+            <span class="font-mono">{{ s.tsn }}</span>
+          </div>
+          <div class="px-3 py-2">
+            <span class="text-slate-500 font-semibold uppercase tracking-wide">Date </span>
+            {{ formatDate(s.createdAt) }}
+          </div>
+        </div>
+
+        <div class="px-4 py-3 space-y-1.5 text-xs border-b border-slate-300">
+          <div class="grid grid-cols-2 gap-x-4">
+            <div><span class="font-semibold">Customer:</span> {{ s.clientNickname }}</div>
+            <div><span class="font-semibold">Locker:</span> {{ s.lockerNumber || '—' }}</div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4">
+            <div><span class="font-semibold">Start:</span> {{ formatTime(s.startTime) }}</div>
+            <div><span class="font-semibold">End:</span> {{ formatTime(s.endTime) }}</div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4">
+            <div><span class="font-semibold">Therapist:</span> {{ s.primaryTherapistNickname || '—' }}</div>
+            @if (s.secondaryTherapistNickname) {
+              <div><span class="font-semibold">Secondary:</span> {{ s.secondaryTherapistNickname }}</div>
+            }
+          </div>
+          @if (s.requestedTherapistNickname) {
+            <div><span class="font-semibold">Requested:</span> {{ s.requestedTherapistNickname }}</div>
+          }
+        </div>
+
+        <div class="px-4 py-3 space-y-1 text-xs border-b border-slate-300">
+          <div class="grid grid-cols-3 gap-x-4">
+            <div class="col-span-2"><span class="font-semibold">Treatment:</span> {{ s.serviceName }}</div>
+            <div><span class="font-semibold">OR#:</span> {{ s.orNumber || '—' }}</div>
+          </div>
+          @if (s.othersAddOn) {
+            <div class="grid grid-cols-3 gap-x-4">
+              <div class="col-span-2"><span class="font-semibold">Others/Add-on:</span> {{ s.othersAddOn }}</div>
+              <div><span class="font-semibold">Add-on OR#:</span> {{ s.addOnOrNumber || '—' }}</div>
+            </div>
+          }
+          @if (s.remarks) {
+            <div><span class="font-semibold">Remarks:</span> {{ s.remarks }}</div>
+          }
+        </div>
+
+        <div class="grid grid-cols-2 border-b border-slate-300 text-xs">
+          <div class="border-r border-slate-300 px-3 py-2">
+            <span class="font-semibold">Total:</span>
+            @if (s.totalAmount != null) {
+              ₱ {{ s.totalAmount | number:'1.2-2' }}
+            } @else { — }
+          </div>
+          <div class="px-3 py-2">
+            <span class="font-semibold">Waiver:</span>
+            {{ s.waiverAccepted ? 'Accepted' : 'Pending' }}
+            @if (s.waiverAcceptedAt) {
+              <span class="text-slate-400"> · {{ formatTime(s.waiverAcceptedAt) }}</span>
+            }
+          </div>
+        </div>
+
+        <div class="px-4 py-3 text-[11px] text-slate-600 leading-relaxed border-b border-slate-300">
+          I understand that the services provided by New Lasema Spa Jjimjilbang are for relaxation and general
+          wellness purposes only. I confirm that I have no known medical conditions that would contraindicate
+          massage or spa treatments. I release the establishment and its staff from any liability arising from
+          undisclosed pre-existing conditions.
+        </div>
+
+        <div class="grid grid-cols-2 text-[11px]">
+          <div class="border-r border-slate-300 px-3 py-3">
+            <div class="border-t border-slate-400 mt-6 pt-1 text-center text-slate-500">Client signature</div>
+          </div>
+          <div class="px-3 py-3">
+            <div class="border-t border-slate-400 mt-6 pt-1 text-center text-slate-500">Staff signature</div>
+          </div>
+        </div>
+
+        <footer class="border-t border-slate-300 px-4 py-3 flex items-start justify-between text-[11px]">
+          <p class="text-slate-500">
+            Generated {{ formatTime(s.createdAt) }}.
+            @if (s.signedAt) {
+              <span> Signed {{ formatTime(s.signedAt) }}.</span>
+            }
+          </p>
+          <div class="text-center">
+            <qrcode [qrdata]="feedbackUrl(s.tsn)" [width]="72" [errorCorrectionLevel]="'M'"></qrcode>
+            <p class="text-[10px] text-slate-400 mt-1">Leave feedback</p>
+          </div>
+        </footer>
+      </article>
+    }
   }
+  </div>
 </div>

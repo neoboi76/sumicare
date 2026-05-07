@@ -26,23 +26,55 @@ a, button {
   transition-timing-function: ease;
 }
 
-/* Print: hide everything except .print-area */
+/* Print: isolate .print-area-wrapper, hide everything else */
 @media print {
-  .no-print,
-  header,
-  nav,
-  aside,
-  .sidebar,
-  .topbar,
-  sumi-internal-shell > .flex > div:first-child,
-  sumi-internal-shell > .flex > .flex:first-child {
+  @page {
+    margin: 8mm;
+  }
+
+  html, body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  /* Hide every element by default */
+  body * {
+    visibility: hidden !important;
+    box-shadow: none !important;
+  }
+
+  /* Reveal only the print area and its descendants */
+  .print-area-wrapper,
+  .print-area-wrapper * {
+    visibility: visible !important;
+  }
+
+  /* Position the print area at the page origin so the hidden shell
+     doesn't push it off the printable area */
+  .print-area-wrapper {
+    position: absolute !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    max-width: none !important;
+  }
+
+  /* Compact the slip article for paper */
+  .print-area-wrapper article {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  .no-print {
     display: none !important;
-  }
-  body {
-    background: white;
-    font-family: 'Inter', sans-serif;
-  }
-  .print-area {
-    display: block !important;
   }
 }

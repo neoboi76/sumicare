@@ -3,14 +3,17 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 
-interface DeckingEntry {
+interface LineupTherapist {
   therapistId: string;
-  position: number;
+  nickname: string;
+  gender: string;
+  shiftLabel: string | null;
   flag: string;
   skipped: boolean;
+  position: number;
 }
 
-interface TherapistItem {
+interface BackupTherapist {
   id: string;
   staffNumber: string | null;
   nickname: string;
@@ -28,37 +31,46 @@ interface TherapistItem {
 })
 export class DeckingComponent implements OnInit {
   private http = inject(HttpClient);
-  lineup = signal<DeckingEntry[]>([]);
-  therapists = signal<TherapistItem[]>([]);
+  lineup = signal<LineupTherapist[]>([]);
+  allTherapists = signal<BackupTherapist[]>([]);
   backupTherapistId: string | null = null;
   backupPosition = 0;
 
-  backupTherapists = computed(() => this.therapists().filter(t => t.backup && t.active));
+  backupTherapists = computed(() => this.allTherapists().filter(t => t.backup && t.active));
 
   ngOnInit(): void {
     this.reload();
-    this.http.get<TherapistItem[]>(`${environment.apiBaseUrl}/api/therapists`).subscribe({
-      next: (t) => this.therapists.set(t)
+    this.http.get<BackupTherapist[]>(`${environment.apiBaseUrl}/api/therapists`).subscribe({
+      next: (t) => this.allTherapists.set(t)
     });
   }
 
   reload(): void {
-    this.http.get<DeckingEntry[]>(`${environment.apiBaseUrl}/api/decking`).subscribe({
+    this.http.get<LineupTherapist[]>(`${environment.apiBaseUrl}/api/decking/lineup`).subscribe({
       next: (entries) => this.lineup.set(entries),
       error: () => this.lineup.set([])
     });
   }
 
-  nicknameFor(id: string): string {
-    return this.therapists().find(t => t.id === id)?.nickname ?? id.substring(0, 8);
+  avatarClass(gender: string): string {
+    return gender === 'M'
+      ? 'bg-blue-100 text-blue-700'
+      : 'bg-pink-100 text-pink-700';
   }
 
-  glyph(flag: string): string {
-    if (flag === 'REQUESTED') return '♥';
-    if (flag === 'SCRUB') return '★';
-    if (flag === 'ORDINARY') return '–';
-    if (flag === 'BACKUP') return '◯';
-    return ' ';
+  statusLabel(t: LineupTherapist): string {
+    if (t.skipped) return 'On break';
+    if (t.flag === 'REQUESTED') return 'Requested';
+    if (t.flag === 'BACKUP') return 'Backup';
+    if (t.flag === 'SCRUB') return 'Scrub';
+    return 'Available';
+  }
+
+  statusClass(t: LineupTherapist): string {
+    if (t.skipped) return 'bg-amber-100 text-amber-700';
+    if (t.flag === 'REQUESTED') return 'bg-indigo-100 text-indigo-700';
+    if (t.flag === 'BACKUP') return 'bg-slate-100 text-slate-600';
+    return 'bg-emerald-100 text-emerald-700';
   }
 
   setFlag(therapistId: string, flag: string): void {

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0004-00-backfill-gateway-payment-id" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="bookings" columnName="gateway_payment_id"/></not>
+        </preConditions>
+        <addColumn tableName="bookings">
+            <column name="gateway_payment_id" type="varchar(255)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0004-00-backfill-payment-status" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="bookings" columnName="payment_status"/></not>
+        </preConditions>
+        <addColumn tableName="bookings">
+            <column name="payment_status" type="varchar(20)" defaultValue="UNPAID">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0004-00-backfill-session-expected-end" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="sessions" columnName="expected_end_at"/></not>
+        </preConditions>
+        <addColumn tableName="sessions">
+            <column name="expected_end_at" type="timestamptz"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0004-00-backfill-service-media-description" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="services_catalogue" columnName="description"/></not>
+        </preConditions>
+        <addColumn tableName="services_catalogue">
+            <column name="description" type="text"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0004-00-backfill-service-media-image" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="services_catalogue" columnName="image_url"/></not>
+        </preConditions>
+        <addColumn tableName="services_catalogue">
+            <column name="image_url" type="varchar(512)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0004-00-backfill-email-verified" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="users" columnName="email_verified"/></not>
+        </preConditions>
+        <addColumn tableName="users">
+            <column name="email_verified" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0004-01-bookings-pax" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="bookings" columnName="pax"/></not>
+        </preConditions>
+        <addColumn tableName="bookings">
+            <column name="pax" type="int"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0004-02-treatment-slips-walkin-fields" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="treatment_slips" columnName="waiver_accepted"/></not>
+        </preConditions>
+        <addColumn tableName="treatment_slips">
+            <column name="pax" type="int"/>
+            <column name="treatment_minutes" type="int"/>
+            <column name="jacuzzi_minutes" type="int"/>
+            <column name="massage_minutes" type="int"/>
+            <column name="wine_included" type="boolean"/>
+            <column name="or_number" type="varchar(64)"/>
+            <column name="add_on_or_number" type="varchar(64)"/>
+            <column name="others_add_on" type="text"/>
+            <column name="remarks" type="text"/>
+            <column name="total_amount" type="numeric(12,2)"/>
+            <column name="waiver_accepted" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="waiver_accepted_at" type="timestamptz"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

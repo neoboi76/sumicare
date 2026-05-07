@@ -41,6 +41,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      TZ: ${TZ:-Asia/Manila}
       DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-sumicare}
       DB_USERNAME: ${POSTGRES_USER:-sumicare}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}

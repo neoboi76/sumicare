@@ -4,7 +4,13 @@
       <h1 class="text-2xl font-semibold text-slate-900">Services catalogue</h1>
       <p class="text-slate-500">Massage and package types. Fixed-rate services use non-standard durations and commissions.</p>
     </div>
-    <button (click)="showForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add service</button>
+    <div class="flex items-center gap-2">
+      <button (click)="exportCsv()"
+              class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">
+        Export to CSV
+      </button>
+      <button (click)="showForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add service</button>
+    </div>
   </header>
 
   <section class="bg-white rounded-xl shadow overflow-hidden">

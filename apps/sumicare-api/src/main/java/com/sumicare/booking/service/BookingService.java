@@ -70,6 +70,7 @@ public class BookingService {
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
         booking.setScheduledAt(request.scheduledAt());
+        booking.setPax(request.pax());
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
         return toBookingResponse(booking, service);

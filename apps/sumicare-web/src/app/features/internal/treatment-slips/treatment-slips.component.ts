@@ -39,18 +39,39 @@ export class TreatmentSlipsComponent implements OnInit {
   }
 
   reload(): void {
-    const d = this.selectedDate();
-    const start = `${d}T00:00:00.000Z`;
-    const end = `${d}T23:59:59.999Z`;
-    const params = `?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
+    const { from, to } = this.dayBounds();
+    const params = `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     this.http.get<TreatmentSlip[]>(`${environment.apiBaseUrl}/api/treatment-slips${params}`).subscribe({
       next: (s) => this.slips.set(s),
       error: () => this.slips.set([])
     });
   }
 
+  exportExcel(): void {
+    const { from, to } = this.dayBounds();
+    const params = `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    this.http.get(`${environment.apiBaseUrl}/api/treatment-slips/export${params}`,
+      { responseType: 'blob' }
+    ).subscribe(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `treatment-slips-${this.selectedDate()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
   formatRange(start: string | null, end: string | null): string {
     const f = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
     return `${f(start)} - ${f(end)}`;
+  }
+
+  private dayBounds(): { from: string; to: string } {
+    const d = this.selectedDate();
+    return {
+      from: `${d}T00:00:00.000Z`,
+      to: `${d}T23:59:59.999Z`
+    };
   }
 }

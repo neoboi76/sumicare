@@ -18,7 +18,7 @@ spring:
       hibernate:
         format_sql: false
         jdbc:
-          time_zone: UTC
+          time_zone: ${HIBERNATE_TIME_ZONE:Asia/Manila}
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     enabled: true

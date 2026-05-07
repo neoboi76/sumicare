@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { DecimalPipe } from '@angular/common';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { environment } from '../../../../environments/environment';
 
@@ -17,6 +18,18 @@ interface TreatmentSlip {
   startTime: string | null;
   endTime: string | null;
   vip: boolean;
+  pax: number | null;
+  treatmentMinutes: number | null;
+  jacuzziMinutes: number | null;
+  massageMinutes: number | null;
+  wineIncluded: boolean | null;
+  orNumber: string | null;
+  addOnOrNumber: string | null;
+  othersAddOn: string | null;
+  remarks: string | null;
+  totalAmount: number | null;
+  waiverAccepted: boolean;
+  waiverAcceptedAt: string | null;
   signedAt: string | null;
   createdAt: string;
 }
@@ -24,7 +37,7 @@ interface TreatmentSlip {
 @Component({
   selector: 'sumi-treatment-slip-detail',
   standalone: true,
-  imports: [RouterLink, QRCodeComponent],
+  imports: [RouterLink, QRCodeComponent, DecimalPipe],
   templateUrl: './treatment-slip-detail.component.html',
   styleUrls: ['./treatment-slip-detail.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -43,8 +56,13 @@ export class TreatmentSlipDetailComponent implements OnInit {
   }
 
   formatTime(iso: string | null): string {
-    if (!iso) return '-';
+    if (!iso) return '—';
     return new Date(iso).toLocaleString();
+  }
+
+  formatDate(iso: string | null): string {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString();
   }
 
   feedbackUrl(tsn: string): string {

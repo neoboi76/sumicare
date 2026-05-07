@@ -3,10 +3,13 @@ package com.sumicare.booking.controller;
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
+import com.sumicare.booking.dto.CreateWalkInRequest;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
+import com.sumicare.booking.dto.WalkInResponse;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.booking.service.BookingService;
+import com.sumicare.booking.service.WalkInService;
 import com.sumicare.organization.repository.OrganizationRepository;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,15 +23,24 @@ import java.util.UUID;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final WalkInService walkInService;
     private final OrganizationRepository organizationRepository;
     private final SessionRepository sessionRepository;
 
     public BookingController(BookingService bookingService,
+                             WalkInService walkInService,
                              OrganizationRepository organizationRepository,
                              SessionRepository sessionRepository) {
         this.bookingService = bookingService;
+        this.walkInService = walkInService;
         this.organizationRepository = organizationRepository;
         this.sessionRepository = sessionRepository;
+    }
+
+    @PostMapping("/api/walk-in")
+    public WalkInResponse walkIn(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                 @Valid @RequestBody CreateWalkInRequest request) {
+        return walkInService.createWalkIn(UUID.fromString(principal.organizationId()), request);
     }
 
     @PostMapping("/api/public/bookings/{slug}")

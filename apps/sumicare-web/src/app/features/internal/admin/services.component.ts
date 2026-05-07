@@ -103,4 +103,18 @@ export class ServicesAdminComponent implements OnInit {
       next: () => this.reload()
     });
   }
+
+  exportCsv(): void {
+    this.http.get(`${environment.apiBaseUrl}/api/services/export`,
+      { responseType: 'blob' }
+    ).subscribe(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `services-catalogue-${stamp}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
 }
