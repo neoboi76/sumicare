@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --sumi-primary: #0F766E;
-  --sumi-secondary: #14B8A6;
-  --sumi-accent: #F59E0B;
+  --sumi-primary: #c42441;
+  --sumi-secondary: #1735d3;
+  --sumi-accent: #ffb94f;
 }
 
 html, body { height: 100%; }

@@ -9,4 +9,6 @@
     <include file="changes/0002-seed-reference-data.xml" relativeToChangelogFile="true"/>
     <include file="changes/0003-email-verification-and-sessions.xml" relativeToChangelogFile="true"/>
     <include file="changes/0004-walkin-and-slip-fields.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0005-client-gender.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0006-client-gender-varchar.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

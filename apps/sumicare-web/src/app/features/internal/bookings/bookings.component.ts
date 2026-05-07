@@ -48,6 +48,7 @@ interface LineupTherapist {
   flag: string;
   skipped: boolean;
   position: number;
+  onCall: boolean;
 }
 
 interface BedItem {
@@ -96,6 +97,7 @@ export class BookingsComponent implements OnInit {
 
   walkInNickname = '';
   walkInLocker = '';
+  walkInClientGender = 'F';
   walkInServiceId = signal<number>(0);
   walkInReservationType = 'WALK_IN';
   walkInPax = 1;
@@ -104,7 +106,7 @@ export class BookingsComponent implements OnInit {
   walkInPrimaryTherapistId: string | null = null;
   walkInSecondaryTherapistId: string | null = null;
   walkInRoomId = signal<string | null>(null);
-  walkInBedId: string | null = null;
+  walkInBedIds: string[] = [];
   walkInSpecificallyRequested = false;
   walkInJacuzziMinutes = 60;
   walkInMassageMinutes = 60;
@@ -223,15 +225,23 @@ export class BookingsComponent implements OnInit {
 
   walkInBedClass(bed: BedItem): string {
     const base = 'rounded border text-xs px-2 py-1 ';
-    if (this.walkInBedId === bed.id) return base + 'bg-[var(--sumi-primary)] text-white border-transparent';
+    if (this.walkInBedIds.includes(bed.id)) return base + 'bg-[var(--sumi-primary)] text-white border-transparent';
     const status = bed.occupancy['status'];
-    if (status === 'OCCUPIED') return base + 'bg-slate-200 text-slate-500 cursor-not-allowed';
+    const lock = bed.occupancy['genderLock'];
+    if (status === 'OCCUPIED') {
+      return base + (lock === 'M' ? 'bg-slate-200 text-slate-600 cursor-not-allowed' : 'bg-pink-100 text-pink-700 cursor-not-allowed');
+    }
     return base + 'bg-white hover:bg-slate-100';
   }
 
   pickWalkInBed(bed: BedItem): void {
     if (bed.occupancy['status'] === 'OCCUPIED') return;
-    this.walkInBedId = bed.id;
+    const idx = this.walkInBedIds.indexOf(bed.id);
+    if (idx >= 0) {
+      this.walkInBedIds = this.walkInBedIds.filter(id => id !== bed.id);
+    } else {
+      this.walkInBedIds = [...this.walkInBedIds, bed.id];
+    }
   }
 
   pickBed(room: RoomItem, bed: BedItem): void {
@@ -313,11 +323,47 @@ export class BookingsComponent implements OnInit {
     });
   }
 
+  exportCsv(): void {
+    const d = this.selectedDate();
+    const from = encodeURIComponent(`${d}T00:00:00.000Z`);
+    const to = encodeURIComponent(`${d}T23:59:59.999Z`);
+    this.http.get(`${environment.apiBaseUrl}/api/bookings/export.csv?from=${from}&to=${to}`,
+      { responseType: 'blob' as const, observe: 'response' as const }
+    ).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (!blob) {
+          alert('Export returned no data.');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bookings-${d}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        const status = err?.status ?? 0;
+        if (status === 401 || status === 403) {
+          alert('You do not have permission to export bookings, or your session has expired.');
+        } else if (status === 0) {
+          alert('Could not reach the server. Please check your connection.');
+        } else {
+          alert('Export failed (status ' + status + '). Please try again.');
+        }
+      }
+    });
+  }
+
   openWalkIn(): void {
     this.walkInError.set(null);
     this.walkInSubmitting.set(false);
     this.walkInNickname = '';
     this.walkInLocker = '';
+    this.walkInClientGender = 'F';
     this.walkInPax = 1;
     this.walkInReservationType = 'WALK_IN';
     this.walkInStartTime = this.nowDatetimeLocal();
@@ -325,7 +371,7 @@ export class BookingsComponent implements OnInit {
     this.walkInPrimaryTherapistId = null;
     this.walkInSecondaryTherapistId = null;
     this.walkInRoomId.set(null);
-    this.walkInBedId = null;
+    this.walkInBedIds = [];
     this.walkInSpecificallyRequested = false;
     this.walkInJacuzziMinutes = 60;
     this.walkInMassageMinutes = 60;
@@ -342,7 +388,7 @@ export class BookingsComponent implements OnInit {
 
   onWalkInRoomChange(value: string): void {
     this.walkInRoomId.set(value || null);
-    this.walkInBedId = null;
+    this.walkInBedIds = [];
   }
 
   submitWalkIn(): void {
@@ -355,23 +401,29 @@ export class BookingsComponent implements OnInit {
       this.walkInError.set('Customer name and treatment are required.');
       return;
     }
+    const isVip = this.isWalkInVip();
+    const pax = isVip ? 1 : (Number(this.walkInPax) || 1);
+    if (!isVip && this.walkInRoomId() && this.walkInBedIds.length !== pax) {
+      this.walkInError.set(`Select exactly ${pax} bed${pax !== 1 ? 's' : ''} for ${pax} guest${pax !== 1 ? 's' : ''}.`);
+      return;
+    }
     this.walkInError.set(null);
     this.walkInSubmitting.set(true);
 
-    const isVip = this.isWalkInVip();
     const endTimeStr = this.walkInEndTimeOverride || this.walkInComputedEnd();
     const payload = {
       clientNickname: this.walkInNickname,
       serviceId: Number(this.walkInServiceId()),
       reservationType: this.walkInReservationType,
-      pax: isVip ? null : (Number(this.walkInPax) || 1),
+      pax: isVip ? null : pax,
+      clientGender: this.walkInClientGender,
       lockerNumber: this.walkInLocker || null,
       startTime: new Date(this.walkInStartTime).toISOString(),
       endTime: endTimeStr ? new Date(endTimeStr).toISOString() : null,
       primaryTherapistId: this.walkInPrimaryTherapistId,
       secondaryTherapistId: this.walkInSecondaryTherapistId,
       roomId: this.walkInRoomId(),
-      bedId: this.walkInBedId,
+      bedIds: this.walkInBedIds.length > 0 ? this.walkInBedIds : null,
       specificallyRequested: this.walkInSpecificallyRequested,
       jacuzziMinutes: isVip ? (Number(this.walkInJacuzziMinutes) || null) : null,
       massageMinutes: isVip ? (Number(this.walkInMassageMinutes) || null) : null,

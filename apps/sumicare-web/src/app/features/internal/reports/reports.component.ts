@@ -66,7 +66,16 @@ export class ReportsComponent implements OnInit {
 
   downloadCutoff(): void {
     const params = `?from=${encodeURIComponent(this.cutoffFrom)}&to=${encodeURIComponent(this.cutoffTo)}`;
-    window.open(`${environment.apiBaseUrl}/api/reports/cutoff/export${params}`, '_blank');
+    this.http.get(`${environment.apiBaseUrl}/api/reports/cutoff/export.csv${params}`,
+      { responseType: 'blob' }
+    ).subscribe(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cutoff-${this.cutoffFrom.slice(0, 10)}-to-${this.cutoffTo.slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   loadDays(event: Event): void {

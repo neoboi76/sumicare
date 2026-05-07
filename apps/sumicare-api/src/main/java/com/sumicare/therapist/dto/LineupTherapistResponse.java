@@ -9,5 +9,6 @@ public record LineupTherapistResponse(
         String shiftLabel,
         String flag,
         boolean skipped,
-        int position
+        int position,
+        boolean onCall
 ) {}

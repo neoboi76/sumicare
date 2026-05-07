@@ -7,9 +7,9 @@
     <div class="flex items-center gap-2">
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="date"
              class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
-      <button (click)="exportExcel()"
+      <button (click)="exportCsv()"
               class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">
-        Export to Excel
+        Export CSV
       </button>
     </div>
   </header>

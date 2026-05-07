@@ -19,6 +19,7 @@ import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.therapist.domain.Therapist;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.therapist.service.DeckingService;
+import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,12 +42,14 @@ public class BookingService {
     private final RoomOccupancyService occupancyService;
     private final DeckingService deckingService;
     private final NotificationService notificationService;
+    private final TreatmentSlipRepository slipRepository;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
                           RoomRepository roomRepository, BedRepository bedRepository,
                           RoomOccupancyService occupancyService, DeckingService deckingService,
-                          NotificationService notificationService) {
+                          NotificationService notificationService,
+                          TreatmentSlipRepository slipRepository) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -56,6 +59,7 @@ public class BookingService {
         this.occupancyService = occupancyService;
         this.deckingService = deckingService;
         this.notificationService = notificationService;
+        this.slipRepository = slipRepository;
     }
 
     @PreAuthorize("permitAll()")
@@ -71,6 +75,7 @@ public class BookingService {
         booking.setReservationType(request.reservationType());
         booking.setScheduledAt(request.scheduledAt());
         booking.setPax(request.pax());
+        booking.setClientGender(request.clientGender());
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
         return toBookingResponse(booking, service);
@@ -128,14 +133,20 @@ public class BookingService {
     @Transactional
     public SessionResponse endSession(UUID organizationId, UUID sessionId) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
-        session.setEndedAt(OffsetDateTime.now());
+        OffsetDateTime now = OffsetDateTime.now();
+        session.setEndedAt(now);
         session.setStatus("COMPLETED");
         if (session.getRoomId() != null && session.getBedId() != null) {
             occupancyService.release(organizationId, session.getRoomId(), session.getBedId());
         }
         Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
-        booking.setActualEndAt(session.getEndedAt());
+        booking.setActualEndAt(now);
         booking.setStatus("COMPLETED");
+
+        slipRepository.findBySessionId(sessionId).ifPresent(slip -> {
+            slip.setEndTime(now);
+            slipRepository.save(slip);
+        });
 
         if (session.getRoomId() != null && session.getBedId() != null) {
             notificationService.broadcastRoomUpdate(organizationId, session.getRoomId(), session.getBedId(),

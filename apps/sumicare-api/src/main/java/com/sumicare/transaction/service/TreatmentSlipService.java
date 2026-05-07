@@ -8,19 +8,10 @@ import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -84,66 +75,49 @@ public class TreatmentSlipService {
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
-    public byte[] exportToExcel(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
+    public byte[] exportToCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
         List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
-        try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet regular = wb.createSheet("Regular slips");
-            Sheet vip = wb.createSheet("VIP slips");
-            String[] headers = {"TSN", "Date", "Customer", "Locker", "Room", "Therapist",
-                    "Service", "Treatment min", "Jacuzzi min", "Massage min", "Pax", "Wine",
-                    "Start", "End", "OR#", "Others/Add-on", "Add-on OR#", "Remarks", "Total",
-                    "Waiver", "Created"};
-            writeHeaderRow(regular, headers, wb);
-            writeHeaderRow(vip, headers, wb);
-            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-            for (TreatmentSlip s : slips) {
-                Sheet sheet = s.isVip() ? vip : regular;
-                Row row = sheet.createRow(sheet.getLastRowNum() + 1);
-                int c = 0;
-                row.createCell(c++).setCellValue(s.getTsn());
-                row.createCell(c++).setCellValue(s.getCreatedAt() != null ? s.getCreatedAt().format(fmt) : "");
-                row.createCell(c++).setCellValue(nullToEmpty(s.getClientNickname()));
-                row.createCell(c++).setCellValue(nullToEmpty(s.getLockerNumber()));
-                row.createCell(c++).setCellValue(nullToEmpty(s.getRoomNumber()));
-                row.createCell(c++).setCellValue(nullToEmpty(s.getPrimaryTherapistNickname()));
-                row.createCell(c++).setCellValue(nullToEmpty(s.getServiceName()));
-                row.createCell(c++).setCellValue(s.getTreatmentMinutes() != null ? s.getTreatmentMinutes() : 0);
-                row.createCell(c++).setCellValue(s.getJacuzziMinutes() != null ? s.getJacuzziMinutes() : 0);
-                row.createCell(c++).setCellValue(s.getMassageMinutes() != null ? s.getMassageMinutes() : 0);
-                row.createCell(c++).setCellValue(s.getPax() != null ? s.getPax() : 0);
-                row.createCell(c++).setCellValue(s.getWineIncluded() == null ? "" : (s.getWineIncluded() ? "Yes" : "No"));
-                row.createCell(c++).setCellValue(s.getStartTime() != null ? s.getStartTime().format(fmt) : "");
-                row.createCell(c++).setCellValue(s.getEndTime() != null ? s.getEndTime().format(fmt) : "");
-                row.createCell(c++).setCellValue(nullToEmpty(s.getOrNumber()));
-                row.createCell(c++).setCellValue(nullToEmpty(s.getOthersAddOn()));
-                row.createCell(c++).setCellValue(nullToEmpty(s.getAddOnOrNumber()));
-                row.createCell(c++).setCellValue(nullToEmpty(s.getRemarks()));
-                row.createCell(c++).setCellValue(s.getTotalAmount() != null ? s.getTotalAmount().doubleValue() : 0);
-                row.createCell(c++).setCellValue(s.isWaiverAccepted() ? "Yes" : "No");
-                row.createCell(c).setCellValue(s.getCreatedAt() != null ? s.getCreatedAt().format(fmt) : "");
-            }
-            wb.write(out);
-            return out.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException("Treatment slip Excel export failed", e);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        StringBuilder sb = new StringBuilder();
+        sb.append("Slip Type,TSN,Date,Customer,Locker,Room,Therapist,Secondary Therapist,Requested Therapist,")
+          .append("Service,Service Duration (min),Jacuzzi (min),Massage (min),Pax,Wine,")
+          .append("Start,End,OR#,Add-on OR#,Others/Add-on,Remarks,Total,Waiver,Generated At\n");
+        for (TreatmentSlip s : slips) {
+            sb.append(csvCell(s.isVip() ? "VIP" : "Regular")).append(',')
+              .append(csvCell(s.getTsn())).append(',')
+              .append(csvCell(s.getCreatedAt() != null ? s.getCreatedAt().format(fmt) : "")).append(',')
+              .append(csvCell(s.getClientNickname())).append(',')
+              .append(csvCell(s.getLockerNumber())).append(',')
+              .append(csvCell(s.getRoomNumber())).append(',')
+              .append(csvCell(s.getPrimaryTherapistNickname())).append(',')
+              .append(csvCell(s.getSecondaryTherapistNickname())).append(',')
+              .append(csvCell(s.getRequestedTherapistNickname())).append(',')
+              .append(csvCell(s.getServiceName())).append(',')
+              .append(s.getTreatmentMinutes() != null ? s.getTreatmentMinutes() : "").append(',')
+              .append(s.getJacuzziMinutes() != null ? s.getJacuzziMinutes() : "").append(',')
+              .append(s.getMassageMinutes() != null ? s.getMassageMinutes() : "").append(',')
+              .append(s.getPax() != null ? s.getPax() : "").append(',')
+              .append(s.getWineIncluded() == null ? "" : (s.getWineIncluded() ? "Yes" : "No")).append(',')
+              .append(csvCell(s.getStartTime() != null ? s.getStartTime().format(fmt) : "")).append(',')
+              .append(csvCell(s.getEndTime() != null ? s.getEndTime().format(fmt) : "")).append(',')
+              .append(csvCell(s.getOrNumber())).append(',')
+              .append(csvCell(s.getAddOnOrNumber())).append(',')
+              .append(csvCell(s.getOthersAddOn())).append(',')
+              .append(csvCell(s.getRemarks())).append(',')
+              .append(s.getTotalAmount() != null ? s.getTotalAmount().toPlainString() : "").append(',')
+              .append(s.isWaiverAccepted() ? "Yes" : "No").append(',')
+              .append(csvCell(s.getCreatedAt() != null ? s.getCreatedAt().format(fmt) : ""))
+              .append('\n');
         }
+        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    private void writeHeaderRow(Sheet sheet, String[] headers, Workbook wb) {
-        Row row = sheet.createRow(0);
-        CellStyle style = wb.createCellStyle();
-        Font font = wb.createFont();
-        font.setBold(true);
-        style.setFont(font);
-        for (int i = 0; i < headers.length; i++) {
-            Cell cell = row.createCell(i);
-            cell.setCellValue(headers[i]);
-            cell.setCellStyle(style);
+    private String csvCell(String value) {
+        if (value == null || value.isBlank()) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
         }
-    }
-
-    private String nullToEmpty(String s) {
-        return s == null ? "" : s;
+        return value;
     }
 
     private String generateTsn() {

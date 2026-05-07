@@ -44,6 +44,9 @@ public class Booking {
     @Column(name = "pax")
     private Integer pax;
 
+    @Column(name = "client_gender", length = 1)
+    private String clientGender;
+
     @Column(name = "status", nullable = false)
     private String status = "PENDING";
 
@@ -78,6 +81,8 @@ public class Booking {
     public void setActualEndAt(OffsetDateTime actualEndAt) { this.actualEndAt = actualEndAt; }
     public Integer getPax() { return pax; }
     public void setPax(Integer pax) { this.pax = pax; }
+    public String getClientGender() { return clientGender; }
+    public void setClientGender(String clientGender) { this.clientGender = clientGender; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getPaymentStatus() { return paymentStatus; }

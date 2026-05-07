@@ -2,17 +2,13 @@ package com.sumicare.report.service;
 
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.transaction.repository.CommissionRepository;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -50,27 +46,21 @@ public class ReportService {
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
-    public byte[] exportCutoffToExcel(UUID organizationId, OffsetDateTime from, OffsetDateTime to) throws IOException {
+    public byte[] exportCutoffToCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
         ReportSummary summary = buildCutoffReport(organizationId, from, to);
-        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet("Cutoff");
-            int row = 0;
-            Row header = sheet.createRow(row++);
-            header.createCell(0).setCellValue("Therapist ID");
-            header.createCell(1).setCellValue("Sessions");
-            header.createCell(2).setCellValue("Specifically Requested");
-            header.createCell(3).setCellValue("Total Commission");
-            for (var entry : summary.sessionCountByTherapist().entrySet()) {
-                Row r = sheet.createRow(row++);
-                r.createCell(0).setCellValue(entry.getKey().toString());
-                r.createCell(1).setCellValue(entry.getValue());
-                r.createCell(2).setCellValue(summary.requestedCountByTherapist().getOrDefault(entry.getKey(), 0));
-                BigDecimal commission = summary.commissionsByTherapist().getOrDefault(entry.getKey(), BigDecimal.ZERO);
-                r.createCell(3).setCellValue(commission.doubleValue());
-            }
-            workbook.write(out);
-            return out.toByteArray();
+        StringBuilder sb = new StringBuilder();
+        sb.append("Therapist ID,Sessions,Specifically Requested,Total Commission\n");
+        for (var entry : summary.sessionCountByTherapist().entrySet()) {
+            UUID therapistId = entry.getKey();
+            int sessions = entry.getValue();
+            int requested = summary.requestedCountByTherapist().getOrDefault(therapistId, 0);
+            BigDecimal commission = summary.commissionsByTherapist().getOrDefault(therapistId, BigDecimal.ZERO);
+            sb.append(therapistId).append(',')
+              .append(sessions).append(',')
+              .append(requested).append(',')
+              .append(commission.toPlainString()).append('\n');
         }
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     public record ReportSummary(

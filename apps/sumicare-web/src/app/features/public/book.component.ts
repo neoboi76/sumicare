@@ -41,7 +41,9 @@ export class BookComponent implements OnInit {
   pax = 1;
   serviceId: number | null = null;
   reservationType = 'SOFT';
-  scheduledAt = '';
+  scheduledDate = '';
+  scheduledTime = '';
+  clientGender = 'F';
   consent = false;
 
   serviceLabel = computed(() => {
@@ -65,23 +67,33 @@ export class BookComponent implements OnInit {
   submit(event: Event): void {
     event.preventDefault();
     if (this.submitting()) return;
-    if (!this.consent) {
-      this.error.set('Please confirm the consent checkbox before submitting.');
+    const missing: string[] = [];
+    if (!this.clientNickname.trim()) missing.push('nickname');
+    if (this.serviceId == null) missing.push('service');
+    if (!this.scheduledDate) missing.push('date');
+    if (!this.scheduledTime) missing.push('time');
+    if (!this.consent) missing.push('consent');
+    if (missing.length > 0) {
+      this.error.set('Please complete: ' + missing.join(', ') + '.');
       return;
     }
-    if (!this.clientNickname || this.serviceId == null || !this.scheduledAt) {
-      this.error.set('Nickname, service, and date/time are required.');
+
+    const combined = new Date(`${this.scheduledDate}T${this.scheduledTime}`);
+    if (isNaN(combined.getTime())) {
+      this.error.set('Please enter a valid date and time.');
       return;
     }
+
     this.submitting.set(true);
     this.error.set(null);
 
     const payload = {
-      clientNickname: this.clientNickname,
+      clientNickname: this.clientNickname.trim(),
       pax: Number(this.pax) || 1,
       serviceId: Number(this.serviceId),
       reservationType: this.reservationType,
-      scheduledAt: new Date(this.scheduledAt).toISOString()
+      scheduledAt: combined.toISOString(),
+      clientGender: this.clientGender
     };
 
     this.http
@@ -109,7 +121,9 @@ export class BookComponent implements OnInit {
     this.error.set(null);
     this.clientNickname = '';
     this.pax = 1;
-    this.scheduledAt = '';
+    this.scheduledDate = '';
+    this.scheduledTime = '';
+    this.clientGender = 'F';
     this.consent = false;
     if (this.services().length > 0) this.serviceId = this.services()[0].id;
   }

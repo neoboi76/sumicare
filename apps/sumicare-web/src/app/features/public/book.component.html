@@ -92,11 +92,32 @@
           <option value="HARD">Hard reservation</option>
         </select>
       </label>
-      <label class="block text-sm text-gray-700">
-        Date and time <span class="text-red-500">*</span>
-        <input [(ngModel)]="scheduledAt" name="scheduledAt" type="datetime-local" required
-               class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
-      </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-sm text-gray-700">
+          Date <span class="text-red-500">*</span>
+          <input [(ngModel)]="scheduledDate" name="scheduledDate" type="date" required
+                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+        </label>
+        <label class="block text-sm text-gray-700">
+          Time <span class="text-red-500">*</span>
+          <input [(ngModel)]="scheduledTime" name="scheduledTime" type="time" required
+                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+        </label>
+      </div>
+      <span class="text-xs text-gray-400 -mt-2 block">Both date and time are required.</span>
+      <fieldset class="block text-sm text-gray-700">
+        <legend class="mb-1">Sex <span class="text-red-500">*</span></legend>
+        <div class="flex gap-6">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" [(ngModel)]="clientGender" name="clientGender" value="F" class="accent-[var(--sumi-primary)]" />
+            Female
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" [(ngModel)]="clientGender" name="clientGender" value="M" class="accent-[var(--sumi-primary)]" />
+            Male
+          </label>
+        </div>
+      </fieldset>
       <label class="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
         <input [(ngModel)]="consent" name="consent" type="checkbox" required class="mt-0.5 rounded" />
         <span>I consent to the spa storing my booking details for the purpose of attending to my reservation.</span>

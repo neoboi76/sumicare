@@ -1,61 +1,97 @@
-<section class="max-w-4xl mx-auto px-4 py-16">
-  <h1 class="text-3xl font-serif font-semibold text-gray-900 mb-2">Contact us</h1>
-  <p class="text-gray-500 mb-10">Reach out with any questions or inquiries. We are happy to help.</p>
+<section class="max-w-3xl mx-auto px-4 py-12 space-y-8">
+  <div>
+    <h2 class="text-3xl font-serif font-semibold text-gray-900 mb-2">Visit us</h2>
+    <p class="text-gray-500 text-sm">We are open daily. Drop in or book a session in advance.</p>
+  </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-    <div class="space-y-6">
-      <div>
-        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Location</h2>
-        <p class="text-gray-600 text-sm">New Lasema Spa Jjimjilbang<br/>Metro Manila, Philippines</p>
-      </div>
-      <div>
-        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Hours</h2>
-        <p class="text-gray-600 text-sm">Open daily &mdash; please call to confirm holiday hours.</p>
-      </div>
-      <div>
-        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Follow us</h2>
-        <div class="flex gap-4 text-sm">
-          <a href="#" class="text-[var(--sumi-primary)] hover:underline">Facebook</a>
-          <a href="#" class="text-[var(--sumi-primary)] hover:underline">Instagram</a>
-        </div>
-      </div>
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+    <div>
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-1">Address</h3>
+      <p class="text-gray-800">8846 Sampaloc St, corner Estrella St, Makati City, 1203 Metro Manila</p>
     </div>
 
     <div>
-      @if (success()) {
-        <div class="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
-          <p class="text-green-800 font-medium">Message sent</p>
-          <p class="text-sm text-green-600 mt-1">Thank you for reaching out. We will get back to you soon.</p>
-        </div>
-      } @else {
-        <form (ngSubmit)="submit()" class="space-y-4">
-          @if (error()) {
-            <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{{ error() }}</div>
-          }
-          <label class="block text-sm text-gray-700">
-            Name
-            <input type="text" [value]="name()" (input)="name.set($any($event.target).value)"
-                   class="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
-                   placeholder="Your name"/>
-          </label>
-          <label class="block text-sm text-gray-700">
-            Email
-            <input type="email" [value]="email()" (input)="email.set($any($event.target).value)"
-                   class="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
-                   placeholder="your@email.com"/>
-          </label>
-          <label class="block text-sm text-gray-700">
-            Message
-            <textarea [value]="message()" (input)="message.set($any($event.target).value)" rows="4"
-                      class="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)] resize-none"
-                      placeholder="How can we help?"></textarea>
-          </label>
-          <button type="submit" [disabled]="submitting()"
-                  class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50">
-            {{ submitting() ? 'Sending...' : 'Send message' }}
-          </button>
-        </form>
-      }
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-1">Phone</h3>
+      <a href="tel:+639957830094" class="text-[var(--sumi-primary)] hover:underline">0995 783 0094</a>
     </div>
+
+    <div>
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-1">Online</h3>
+      <ul class="space-y-1 text-sm">
+        <li>
+          Website:
+          <a href="https://lasemaspa.com/" target="_blank" rel="noopener noreferrer"
+             class="text-[var(--sumi-primary)] hover:underline">lasemaspa.com</a>
+        </li>
+        <li>
+          Facebook:
+          <a href="https://www.facebook.com/KingsQueensBowling" target="_blank" rel="noopener noreferrer"
+             class="text-[var(--sumi-primary)] hover:underline">facebook.com/KingsQueensBowling</a>
+        </li>
+        <li>
+          Instagram:
+          <a href="https://www.instagram.com/lasemajimjilbangspa/" target="_blank" rel="noopener noreferrer"
+             class="text-[var(--sumi-primary)] hover:underline">&#64;lasemajimjilbangspa</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-1">Send us a message</h3>
+    <p class="text-sm text-gray-500 mb-5">We will reach out by email within one business day.</p>
+
+    @if (submitted()) {
+      <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-3">
+        <p class="text-sm text-emerald-800">
+          Thanks for reaching out. We have received your message and will reply by email shortly.
+        </p>
+        <button (click)="sendAnother()"
+                class="text-sm text-emerald-700 underline hover:text-emerald-900">
+          Send another message
+        </button>
+      </div>
+    } @else {
+      @if (error(); as err) {
+        <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <p class="text-sm text-red-700">{{ err }}</p>
+        </div>
+      }
+      <form (submit)="submit($event)" class="space-y-4">
+        <label class="block text-sm text-gray-700">
+          Name <span class="text-red-500">*</span>
+          <input [(ngModel)]="name" name="name" required
+                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
+                 placeholder="Your full name" />
+        </label>
+        <label class="block text-sm text-gray-700">
+          Email <span class="text-red-500">*</span>
+          <input [(ngModel)]="email" name="email" type="email" required
+                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
+                 placeholder="you@example.com" />
+        </label>
+        <label class="block text-sm text-gray-700">
+          Message <span class="text-red-500">*</span>
+          <textarea [(ngModel)]="message" name="message" rows="5" required
+                    class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)] resize-y"
+                    placeholder="How can we help?"></textarea>
+        </label>
+        <button type="submit" [disabled]="submitting()"
+                class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50">
+          {{ submitting() ? 'Sending...' : 'Send message' }}
+        </button>
+      </form>
+    }
+  </div>
+
+  <div class="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+    <iframe
+      [src]="mapUrl"
+      class="w-full h-96 border-0"
+      allowfullscreen
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade"
+      title="New Lasema Spa Jjimjilbang location map">
+    </iframe>
   </div>
 </section>

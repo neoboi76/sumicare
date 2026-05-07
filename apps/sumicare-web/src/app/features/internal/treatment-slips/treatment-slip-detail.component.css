@@ -1,7 +1,144 @@
+.slip {
+  width: 105mm;
+  margin: 0 auto;
+  background: #fff;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8pt;
+  line-height: 1.25;
+  border: 1.5px solid #000;
+}
+
+.slip .row {
+  display: grid;
+  border-bottom: 1px solid #000;
+}
+
+.slip .row:last-child {
+  border-bottom: none;
+}
+
+.slip .cell {
+  padding: 1.5mm 2mm;
+  border-right: 1px solid #000;
+  min-height: 7mm;
+}
+
+.slip .cell:last-child {
+  border-right: none;
+}
+
+.slip .cell .label {
+  font-size: 6.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #000;
+  display: block;
+}
+
+.slip .cell .value {
+  font-size: 9pt;
+  font-weight: 600;
+  margin-top: 0.5mm;
+}
+
+.slip .brand {
+  text-align: center;
+  font-weight: 800;
+  font-size: 16pt;
+  letter-spacing: 0.18em;
+  padding: 2mm 2mm 1mm;
+  border-bottom: 1.5px solid #000;
+}
+
+.slip .brand-sub {
+  text-align: center;
+  font-size: 7pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-top: -1mm;
+  padding-bottom: 1.5mm;
+  border-bottom: 1.5px solid #000;
+}
+
+.slip .top-meta {
+  grid-template-columns: 1fr 1fr;
+}
+
+.slip .row-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.slip .row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.slip .treatment-cell {
+  min-height: 11mm;
+}
+
+.slip .waiver {
+  padding: 2mm;
+  font-size: 6pt;
+  line-height: 1.35;
+  text-align: justify;
+  border-bottom: 1px solid #000;
+}
+
+.slip .waiver-title {
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  font-size: 8pt;
+  padding-top: 1mm;
+}
+
+.slip .signature-line {
+  padding: 6mm 2mm 1.5mm;
+  text-align: center;
+  font-size: 6.5pt;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  position: relative;
+}
+
+.slip .signature-line::before {
+  content: "";
+  position: absolute;
+  left: 6mm;
+  right: 6mm;
+  top: 6mm;
+  border-top: 1px solid #000;
+}
+
+.slip .qr-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5mm 2mm;
+  font-size: 6pt;
+  border-bottom: 1px solid #000;
+}
+
+.slip.vip {
+  border: 2px solid #000;
+}
+
+.slip .vip-tag {
+  background: #000;
+  color: #fff;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  font-size: 8pt;
+  padding: 1mm 0;
+}
+
 @media print {
   @page {
-    size: A5 portrait;
-    margin: 8mm;
+    size: A6 portrait;
+    margin: 4mm;
   }
 
   :host {
@@ -13,9 +150,24 @@
     display: none !important;
   }
 
-  :host article {
-    box-shadow: none;
+  :host .slip {
+    width: 100%;
     margin: 0;
-    border-radius: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area-wrapper,
+  .print-area-wrapper * {
+    visibility: visible;
+  }
+
+  .print-area-wrapper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
   }
 }

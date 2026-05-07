@@ -47,16 +47,16 @@ export class TreatmentSlipsComponent implements OnInit {
     });
   }
 
-  exportExcel(): void {
+  exportCsv(): void {
     const { from, to } = this.dayBounds();
     const params = `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-    this.http.get(`${environment.apiBaseUrl}/api/treatment-slips/export${params}`,
+    this.http.get(`${environment.apiBaseUrl}/api/treatment-slips/export.csv${params}`,
       { responseType: 'blob' }
     ).subscribe(blob => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `treatment-slips-${this.selectedDate()}.xlsx`;
+      a.download = `treatment-slips-${this.selectedDate()}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     });

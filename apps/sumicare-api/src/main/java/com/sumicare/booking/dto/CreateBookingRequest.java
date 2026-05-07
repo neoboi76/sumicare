@@ -13,5 +13,6 @@ public record CreateBookingRequest(
         @NotNull Long serviceId,
         @NotBlank String reservationType,
         @NotNull OffsetDateTime scheduledAt,
-        Integer pax
+        Integer pax,
+        String clientGender
 ) {}

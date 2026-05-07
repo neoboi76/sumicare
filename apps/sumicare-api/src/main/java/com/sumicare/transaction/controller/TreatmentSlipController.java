@@ -32,14 +32,15 @@ public class TreatmentSlipController {
         return service.generateForSession(UUID.fromString(principal.organizationId()), sessionId);
     }
 
-    @GetMapping(value = "/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    public ResponseEntity<byte[]> export(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                         @RequestParam OffsetDateTime from,
-                                         @RequestParam OffsetDateTime to) {
-        byte[] data = service.exportToExcel(UUID.fromString(principal.organizationId()), from, to);
+    @GetMapping(value = "/export.csv", produces = "text/csv")
+    public ResponseEntity<byte[]> exportCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                             @RequestParam OffsetDateTime from,
+                                             @RequestParam OffsetDateTime to) {
+        byte[] data = service.exportToCsv(UUID.fromString(principal.organizationId()), from, to);
+        String filename = "treatment-slips-" + from.toLocalDate() + "-to-" + to.toLocalDate() + ".csv";
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"treatment-slips.xlsx\"")
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
                 .body(data);
     }
 

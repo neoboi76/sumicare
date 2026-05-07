@@ -1,73 +1,7 @@
-<div class="space-y-6">
-  <header class="flex items-baseline justify-between">
-    <div>
-      <h1 class="text-2xl font-semibold text-slate-900">Decking</h1>
-      <p class="text-slate-500">Therapist lineup. Members enter automatically when their shift starts and leave when it ends.</p>
-    </div>
-    <button (click)="reload()" class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Refresh</button>
-  </header>
-
-  @if (lineup().length === 0) {
-    <div class="bg-white rounded-xl shadow p-8 text-center text-slate-500">
-      Lineup is empty. Therapists appear here automatically when their assigned shift becomes active.
-    </div>
-  }
-
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-    @for (entry of lineup(); track entry.therapistId) {
-      <article class="bg-white rounded-xl shadow p-4 transition-all duration-300 animate-fade-in">
-        <div class="flex items-start gap-3">
-          <div [class]="'w-11 h-11 rounded-full flex items-center justify-center font-bold text-base flex-shrink-0 ' + avatarClass(entry.gender)">
-            {{ entry.nickname.charAt(0).toUpperCase() }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-2">
-              <div class="font-semibold text-slate-900 truncate">{{ entry.nickname }}</div>
-              <span class="text-xs rounded-full px-2 py-0.5 font-medium flex-shrink-0" [class]="statusClass(entry)">
-                {{ statusLabel(entry) }}
-              </span>
-            </div>
-            <div class="text-[11px] text-slate-400 mt-0.5">
-              #{{ entry.position }} · {{ entry.gender === 'M' ? 'Male' : 'Female' }}
-              @if (entry.shiftLabel) {
-                · {{ entry.shiftLabel }}
-              }
-            </div>
-            <div class="mt-2 flex flex-wrap gap-1">
-              <button (click)="setFlag(entry.therapistId, 'REQUESTED')" class="text-[11px] rounded px-2 py-0.5 hover:bg-slate-100">Requested</button>
-              <button (click)="setFlag(entry.therapistId, 'SCRUB')" class="text-[11px] rounded px-2 py-0.5 hover:bg-slate-100">Scrub</button>
-              <button (click)="setFlag(entry.therapistId, 'ORDINARY')" class="text-[11px] rounded px-2 py-0.5 hover:bg-slate-100">Ordinary</button>
-              @if (!entry.skipped) {
-                <button (click)="skip(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-amber-700 hover:bg-amber-50">Skip 30m</button>
-              } @else {
-                <button (click)="cancelSkip(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-emerald-700 hover:bg-emerald-50">Resume</button>
-              }
-              <button (click)="rotate(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 hover:bg-slate-100">To back</button>
-              <button (click)="remove(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-red-700 hover:bg-red-50">Remove</button>
-            </div>
-          </div>
-        </div>
-      </article>
-    }
-  </div>
-
-  <section class="bg-white rounded-xl shadow p-4 space-y-3">
-    <h2 class="font-semibold">Insert backup therapist</h2>
-    <div class="flex flex-wrap gap-2 items-end">
-      <label class="text-sm">
-        Therapist
-        <select [(ngModel)]="backupTherapistId" name="backupTherapistId" class="block mt-1 rounded border border-slate-300 px-3 py-2">
-          <option [ngValue]="null">Pick backup</option>
-          @for (t of backupTherapists(); track t.id) {
-            <option [ngValue]="t.id">{{ t.nickname }} ({{ t.gender }})</option>
-          }
-        </select>
-      </label>
-      <label class="text-sm">
-        Position from top
-        <input type="number" min="0" [(ngModel)]="backupPosition" name="backupPosition" class="block mt-1 rounded border border-slate-300 px-3 py-2 w-32" />
-      </label>
-      <button (click)="insertBackup()" [disabled]="!backupTherapistId" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50">Insert</button>
-    </div>
-  </section>
+<div class="max-w-2xl mx-auto py-16 text-center space-y-3">
+  <h1 class="text-2xl font-semibold text-slate-900">Decking</h1>
+  <p class="text-slate-500">Per-day analytics view — request counts, services rendered, and therapist commissions.</p>
+  <p class="text-sm text-slate-400 bg-slate-50 rounded-xl border border-slate-200 px-6 py-4">
+    Reserved for the upcoming reports iteration. This page will display daily activity analytics once the reports module is wired.
+  </p>
 </div>

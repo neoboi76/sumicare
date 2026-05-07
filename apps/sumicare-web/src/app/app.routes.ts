@@ -38,6 +38,7 @@ export const APP_ROUTES: Routes = [
       { path: 'dashboard', loadComponent: () => import('./features/internal/dashboard.component').then(m => m.DashboardComponent) },
       { path: 'bookings', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/bookings/bookings.component').then(m => m.BookingsComponent) },
       { path: 'reception', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/reception/reception.component').then(m => m.ReceptionComponent) },
+      { path: 'lineup', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/lineup/lineup.component').then(m => m.LineupComponent) },
       { path: 'decking', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/decking/decking.component').then(m => m.DeckingComponent) },
       { path: 'pos', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/pos/pos.component').then(m => m.PosComponent) },
       { path: 'treatment-slips', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slips.component').then(m => m.TreatmentSlipsComponent) },

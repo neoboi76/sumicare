@@ -1,4 +1,4 @@
-<div class="max-w-2xl mx-auto">
+<div class="max-w-md mx-auto">
   <div class="flex justify-between items-baseline mb-4 no-print">
     <a routerLink="/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
     <button (click)="print()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Print</button>
@@ -6,241 +6,189 @@
 
   <div class="print-area-wrapper">
   @if (slip(); as s) {
-    @if (s.vip) {
-      <article class="bg-white rounded-xl shadow border-2 border-amber-400 overflow-hidden text-sm">
-        <header class="bg-amber-400 text-white text-center py-3 px-4">
-          <div class="font-bold text-base tracking-widest uppercase">La Sema Jjimjilbang Spa</div>
-          <div class="text-[11px] uppercase tracking-widest mt-0.5">VIP Treatment Slip</div>
-        </header>
+    <article class="slip" [class.vip]="s.vip">
+      @if (s.vip) {
+        <div class="vip-tag">VIP TREATMENT SLIP</div>
+      }
 
-        <div class="grid grid-cols-4 border-b border-amber-200 text-xs">
-          <div class="border-r border-amber-200 px-3 py-2">
-            <div class="text-amber-700 font-semibold uppercase tracking-wide">Jacuzzi</div>
-            <div class="font-mono">{{ s.jacuzziMinutes ?? '—' }}{{ s.jacuzziMinutes != null ? ' min' : '' }}</div>
+      <div class="row top-meta">
+        @if (s.vip) {
+          <div class="cell">
+            <span class="label">Jacuzzi</span>
+            <div class="value">{{ s.jacuzziMinutes != null ? s.jacuzziMinutes + ' min' : '' }}</div>
           </div>
-          <div class="border-r border-amber-200 px-3 py-2">
-            <div class="text-amber-700 font-semibold uppercase tracking-wide">Massage</div>
-            <div class="font-mono">{{ s.massageMinutes ?? '—' }}{{ s.massageMinutes != null ? ' min' : '' }}</div>
+          <div class="cell">
+            <span class="label">Massage</span>
+            <div class="value">{{ s.massageMinutes != null ? s.massageMinutes + ' min' : '' }}</div>
           </div>
-          <div class="border-r border-amber-200 px-3 py-2">
-            <div class="text-amber-700 font-semibold uppercase tracking-wide">Room</div>
-            <div>{{ s.roomNumber || '—' }}</div>
+        } @else {
+          <div class="cell">
+            <span class="label">Treatment Time</span>
+            <div class="value">{{ s.treatmentMinutes != null ? s.treatmentMinutes + ' min' : '' }}</div>
           </div>
-          <div class="px-3 py-2">
-            <div class="text-amber-700 font-semibold uppercase tracking-wide">Wine</div>
-            <div>{{ s.wineIncluded === true ? 'Yes' : (s.wineIncluded === false ? 'No' : '—') }}</div>
+          <div class="cell">
+            <span class="label">Pax</span>
+            <div class="value">{{ s.pax ?? 1 }}</div>
+          </div>
+        }
+      </div>
+
+      <div class="brand">LASEMA</div>
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">Customer Name</span>
+          <div class="value">{{ s.clientNickname }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">Nationality</span>
+          <div class="value">&nbsp;</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">TS #</span>
+          <div class="value">{{ s.tsn }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">Date</span>
+          <div class="value">{{ formatDate(s.createdAt) }}</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">Locker Key #</span>
+          <div class="value">{{ s.lockerNumber || '' }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">Room</span>
+          <div class="value">{{ s.roomNumber || '' }}</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">Start Time</span>
+          <div class="value">{{ formatTimeOnly(s.startTime) }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">End Time</span>
+          <div class="value">{{ formatTimeOnly(s.endTime) }}</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">Therapist</span>
+          <div class="value">
+            {{ s.primaryTherapistNickname || '' }}@if (s.secondaryTherapistNickname) { / {{ s.secondaryTherapistNickname }} }
           </div>
         </div>
+        <div class="cell">
+          <span class="label">Signature</span>
+          <div class="value">&nbsp;</div>
+        </div>
+      </div>
 
-        <div class="grid grid-cols-2 border-b border-amber-200 text-xs">
-          <div class="border-r border-amber-200 px-3 py-2">
-            <span class="text-amber-700 font-semibold uppercase tracking-wide">TS # </span>
-            <span class="font-mono">{{ s.tsn }}</span>
-          </div>
-          <div class="px-3 py-2">
-            <span class="text-amber-700 font-semibold uppercase tracking-wide">Date </span>
-            {{ formatDate(s.createdAt) }}
+      @if (s.requestedTherapistNickname) {
+        <div class="row">
+          <div class="cell" style="grid-column: span 2;">
+            <span class="label">Requested Therapist</span>
+            <div class="value">{{ s.requestedTherapistNickname }}</div>
           </div>
         </div>
+      }
 
-        <div class="px-4 py-3 space-y-1.5 text-xs border-b border-amber-200">
-          <div class="grid grid-cols-2 gap-x-4">
-            <div><span class="font-semibold">Customer:</span> {{ s.clientNickname }}</div>
-            <div><span class="font-semibold">Locker:</span> {{ s.lockerNumber || '—' }}</div>
+      <div class="row" style="grid-template-columns: 2fr 1fr;">
+        <div class="cell treatment-cell">
+          <span class="label">Treatment</span>
+          <div class="value">{{ s.serviceName }}</div>
+        </div>
+        <div class="cell treatment-cell">
+          <span class="label">OR #</span>
+          <div class="value">{{ s.orNumber || '' }}</div>
+        </div>
+      </div>
+
+      <div class="row" style="grid-template-columns: 2fr 1fr;">
+        <div class="cell">
+          <span class="label">Others / Add On</span>
+          <div class="value">{{ s.othersAddOn || '' }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">OR #</span>
+          <div class="value">{{ s.addOnOrNumber || '' }}</div>
+        </div>
+      </div>
+
+      <div class="row" style="grid-template-columns: 2fr 1fr;">
+        <div class="cell">
+          <span class="label">Remarks</span>
+          <div class="value">{{ s.remarks || '' }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">Total</span>
+          <div class="value">@if (s.totalAmount != null) { ₱ {{ s.totalAmount | number:'1.2-2' }} }</div>
+        </div>
+      </div>
+
+      @if (s.vip) {
+        <div class="row row-2">
+          <div class="cell">
+            <span class="label">Wine</span>
+            <div class="value">{{ s.wineIncluded === true ? 'Yes' : (s.wineIncluded === false ? 'No' : '') }}</div>
           </div>
-          <div class="grid grid-cols-2 gap-x-4">
-            <div><span class="font-semibold">Start:</span> {{ formatTime(s.startTime) }}</div>
-            <div><span class="font-semibold">End:</span> {{ formatTime(s.endTime) }}</div>
+          <div class="cell">
+            <span class="label">Waiver</span>
+            <div class="value">{{ s.waiverAccepted ? 'Accepted' : 'Pending' }}</div>
           </div>
-          <div class="grid grid-cols-2 gap-x-4">
-            <div><span class="font-semibold">Therapist:</span> {{ s.primaryTherapistNickname || '—' }}</div>
-            @if (s.secondaryTherapistNickname) {
-              <div><span class="font-semibold">Secondary:</span> {{ s.secondaryTherapistNickname }}</div>
-            }
+        </div>
+      } @else {
+        <div class="row">
+          <div class="cell" style="grid-column: span 2;">
+            <span class="label">Waiver</span>
+            <div class="value">{{ s.waiverAccepted ? 'Accepted' : 'Pending' }}</div>
           </div>
-          @if (s.requestedTherapistNickname) {
-            <div><span class="font-semibold">Requested:</span> {{ s.requestedTherapistNickname }}</div>
+        </div>
+      }
+
+      <div class="waiver-title">WAIVER</div>
+      <div class="waiver">
+        I understand that the massage or body scrub received is provided for the basic purpose of relaxation and relief of MUSCULAR TENSION.
+        If I experience any pain or discomfort during the session, I will immediately inform the practitioner so that the pressure and/or
+        strokes may be adjusted to my level of comfort. I further understand that the massage or body scrub should not be construed as a
+        substitute for medical examination, diagnosis or treatment and that I should see physician, chiropractor, dermatologist or other
+        qualified for any physical/mental ailment that I am aware of. I understand that the massage/body scrub practitioners are not
+        qualified to perform spinal or skeletal adjustment, diagnose, prescribe or treat any skin disorders or any physical or mental
+        illness, and that nothing said in the course of the session given should be construed as such, because massage or body scrub
+        should not be performed under certain conditions. I affirm that I have stated all my known medical conditions especially in my
+        physical and skin conditions, and answered all questions honestly. I will declare my skin condition prior to body scrub so that
+        my practitioner will be aware and able to use strokes that will fit my level of comfort upon session. I agree to keep the
+        practitioner update as to any changes in my medical profile/skin condition and understand that THERE SHALL BE NO LIABILITY ON
+        THE PRACTITIONER'S PART OR THE LASEMA Management if I fail to do so. It is also understood that any illicit or sexually
+        suggestive remarks or advances made by me will result in immediate termination of the session, and I will be liable for payment
+        of the scheduled appointment. The Management of LASEMA accepts no responsibility for any loss or damage to any personal items of
+        money or any refund brought into the LASEMA PREMISES.
+      </div>
+
+      <div class="signature-line">Signature over printed name</div>
+
+      <div class="qr-block no-print-hide">
+        <div>
+          <div style="font-weight: 700;">Generated:</div>
+          <div>{{ formatTime(s.createdAt) }}</div>
+          @if (s.signedAt) {
+            <div>Signed: {{ formatTime(s.signedAt) }}</div>
           }
         </div>
-
-        <div class="px-4 py-3 space-y-1 text-xs border-b border-amber-200">
-          <div class="grid grid-cols-3 gap-x-4">
-            <div class="col-span-2"><span class="font-semibold">Treatment:</span> {{ s.serviceName }}</div>
-            <div><span class="font-semibold">OR#:</span> {{ s.orNumber || '—' }}</div>
-          </div>
-          @if (s.othersAddOn) {
-            <div class="grid grid-cols-3 gap-x-4">
-              <div class="col-span-2"><span class="font-semibold">Others/Add-on:</span> {{ s.othersAddOn }}</div>
-              <div><span class="font-semibold">Add-on OR#:</span> {{ s.addOnOrNumber || '—' }}</div>
-            </div>
-          }
-          @if (s.remarks) {
-            <div><span class="font-semibold">Remarks:</span> {{ s.remarks }}</div>
-          }
+        <div style="text-align: center;">
+          <qrcode [qrdata]="feedbackUrl(s.tsn)" [width]="56" [errorCorrectionLevel]="'M'"></qrcode>
+          <div style="font-size: 5pt; margin-top: 0.5mm;">Leave feedback</div>
         </div>
-
-        <div class="grid grid-cols-2 border-b border-amber-200 text-xs">
-          <div class="border-r border-amber-200 px-3 py-2">
-            <span class="font-semibold">Total:</span>
-            @if (s.totalAmount != null) {
-              ₱ {{ s.totalAmount | number:'1.2-2' }}
-            } @else { — }
-          </div>
-          <div class="px-3 py-2">
-            <span class="font-semibold">Waiver:</span>
-            {{ s.waiverAccepted ? 'Accepted' : 'Pending' }}
-            @if (s.waiverAcceptedAt) {
-              <span class="text-slate-400"> · {{ formatTime(s.waiverAcceptedAt) }}</span>
-            }
-          </div>
-        </div>
-
-        <div class="px-4 py-3 text-[11px] text-slate-600 leading-relaxed border-b border-amber-200">
-          I understand that the services provided by New Lasema Spa Jjimjilbang are for relaxation and general
-          wellness purposes only. I confirm that I have no known medical conditions that would contraindicate
-          massage or spa treatments. I release the establishment and its staff from any liability arising from
-          undisclosed pre-existing conditions.
-        </div>
-
-        <div class="grid grid-cols-2 text-[11px]">
-          <div class="border-r border-amber-200 px-3 py-3">
-            <div class="border-t border-slate-400 mt-6 pt-1 text-center text-slate-500">Client signature</div>
-          </div>
-          <div class="px-3 py-3">
-            <div class="border-t border-slate-400 mt-6 pt-1 text-center text-slate-500">Staff signature</div>
-          </div>
-        </div>
-
-        <footer class="border-t border-amber-200 px-4 py-3 flex items-start justify-between text-[11px]">
-          <p class="text-slate-500">
-            Generated {{ formatTime(s.createdAt) }}.
-            @if (s.signedAt) {
-              <span> Signed {{ formatTime(s.signedAt) }}.</span>
-            }
-          </p>
-          <div class="text-center">
-            <qrcode [qrdata]="feedbackUrl(s.tsn)" [width]="72" [errorCorrectionLevel]="'M'"></qrcode>
-            <p class="text-[10px] text-slate-400 mt-1">Leave feedback</p>
-          </div>
-        </footer>
-      </article>
-
-    } @else {
-
-      <article class="bg-white rounded-xl shadow border border-slate-700 overflow-hidden text-sm">
-        <header class="bg-slate-800 text-white text-center py-3 px-4">
-          <div class="font-bold text-base tracking-widest uppercase">Lasema</div>
-          <div class="text-[11px] uppercase tracking-widest mt-0.5">Treatment Slip</div>
-        </header>
-
-        <div class="grid grid-cols-3 border-b border-slate-300 text-xs">
-          <div class="border-r border-slate-300 px-3 py-2">
-            <div class="text-slate-500 font-semibold uppercase tracking-wide">Treatment time</div>
-            <div class="font-mono">{{ s.treatmentMinutes ?? '—' }}{{ s.treatmentMinutes != null ? ' min' : '' }}</div>
-          </div>
-          <div class="border-r border-slate-300 px-3 py-2">
-            <div class="text-slate-500 font-semibold uppercase tracking-wide">Pax</div>
-            <div>{{ s.pax ?? 1 }}</div>
-          </div>
-          <div class="px-3 py-2">
-            <div class="text-slate-500 font-semibold uppercase tracking-wide">Room</div>
-            <div>{{ s.roomNumber || '—' }}</div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 border-b border-slate-300 text-xs">
-          <div class="border-r border-slate-300 px-3 py-2">
-            <span class="text-slate-500 font-semibold uppercase tracking-wide">TS # </span>
-            <span class="font-mono">{{ s.tsn }}</span>
-          </div>
-          <div class="px-3 py-2">
-            <span class="text-slate-500 font-semibold uppercase tracking-wide">Date </span>
-            {{ formatDate(s.createdAt) }}
-          </div>
-        </div>
-
-        <div class="px-4 py-3 space-y-1.5 text-xs border-b border-slate-300">
-          <div class="grid grid-cols-2 gap-x-4">
-            <div><span class="font-semibold">Customer:</span> {{ s.clientNickname }}</div>
-            <div><span class="font-semibold">Locker:</span> {{ s.lockerNumber || '—' }}</div>
-          </div>
-          <div class="grid grid-cols-2 gap-x-4">
-            <div><span class="font-semibold">Start:</span> {{ formatTime(s.startTime) }}</div>
-            <div><span class="font-semibold">End:</span> {{ formatTime(s.endTime) }}</div>
-          </div>
-          <div class="grid grid-cols-2 gap-x-4">
-            <div><span class="font-semibold">Therapist:</span> {{ s.primaryTherapistNickname || '—' }}</div>
-            @if (s.secondaryTherapistNickname) {
-              <div><span class="font-semibold">Secondary:</span> {{ s.secondaryTherapistNickname }}</div>
-            }
-          </div>
-          @if (s.requestedTherapistNickname) {
-            <div><span class="font-semibold">Requested:</span> {{ s.requestedTherapistNickname }}</div>
-          }
-        </div>
-
-        <div class="px-4 py-3 space-y-1 text-xs border-b border-slate-300">
-          <div class="grid grid-cols-3 gap-x-4">
-            <div class="col-span-2"><span class="font-semibold">Treatment:</span> {{ s.serviceName }}</div>
-            <div><span class="font-semibold">OR#:</span> {{ s.orNumber || '—' }}</div>
-          </div>
-          @if (s.othersAddOn) {
-            <div class="grid grid-cols-3 gap-x-4">
-              <div class="col-span-2"><span class="font-semibold">Others/Add-on:</span> {{ s.othersAddOn }}</div>
-              <div><span class="font-semibold">Add-on OR#:</span> {{ s.addOnOrNumber || '—' }}</div>
-            </div>
-          }
-          @if (s.remarks) {
-            <div><span class="font-semibold">Remarks:</span> {{ s.remarks }}</div>
-          }
-        </div>
-
-        <div class="grid grid-cols-2 border-b border-slate-300 text-xs">
-          <div class="border-r border-slate-300 px-3 py-2">
-            <span class="font-semibold">Total:</span>
-            @if (s.totalAmount != null) {
-              ₱ {{ s.totalAmount | number:'1.2-2' }}
-            } @else { — }
-          </div>
-          <div class="px-3 py-2">
-            <span class="font-semibold">Waiver:</span>
-            {{ s.waiverAccepted ? 'Accepted' : 'Pending' }}
-            @if (s.waiverAcceptedAt) {
-              <span class="text-slate-400"> · {{ formatTime(s.waiverAcceptedAt) }}</span>
-            }
-          </div>
-        </div>
-
-        <div class="px-4 py-3 text-[11px] text-slate-600 leading-relaxed border-b border-slate-300">
-          I understand that the services provided by New Lasema Spa Jjimjilbang are for relaxation and general
-          wellness purposes only. I confirm that I have no known medical conditions that would contraindicate
-          massage or spa treatments. I release the establishment and its staff from any liability arising from
-          undisclosed pre-existing conditions.
-        </div>
-
-        <div class="grid grid-cols-2 text-[11px]">
-          <div class="border-r border-slate-300 px-3 py-3">
-            <div class="border-t border-slate-400 mt-6 pt-1 text-center text-slate-500">Client signature</div>
-          </div>
-          <div class="px-3 py-3">
-            <div class="border-t border-slate-400 mt-6 pt-1 text-center text-slate-500">Staff signature</div>
-          </div>
-        </div>
-
-        <footer class="border-t border-slate-300 px-4 py-3 flex items-start justify-between text-[11px]">
-          <p class="text-slate-500">
-            Generated {{ formatTime(s.createdAt) }}.
-            @if (s.signedAt) {
-              <span> Signed {{ formatTime(s.signedAt) }}.</span>
-            }
-          </p>
-          <div class="text-center">
-            <qrcode [qrdata]="feedbackUrl(s.tsn)" [width]="72" [errorCorrectionLevel]="'M'"></qrcode>
-            <p class="text-[10px] text-slate-400 mt-1">Leave feedback</p>
-          </div>
-        </footer>
-      </article>
-    }
+      </div>
+    </article>
   }
   </div>
 </div>

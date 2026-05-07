@@ -7,6 +7,7 @@
     <div class="flex gap-2">
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate"
              class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
+      <button (click)="exportCsv()" class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">Export CSV</button>
       <button (click)="openWalkIn()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">New walk-in</button>
     </div>
   </header>
@@ -128,7 +129,7 @@
             } @else {
               <div class="grid grid-cols-2 gap-3">
                 <label class="block text-sm">
-                  Treatment time
+                  Service Duration
                   <input type="text"
                          [value]="(selectedWalkInService()?.durationMinutes ?? '') + (selectedWalkInService() ? ' min' : '')"
                          class="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500"
@@ -159,6 +160,19 @@
                        placeholder="e.g. L-12" />
               </label>
             </div>
+            <fieldset class="text-sm text-slate-700">
+              <legend class="mb-1">Sex <span class="text-red-500">*</span></legend>
+              <div class="flex gap-6">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" [(ngModel)]="walkInClientGender" name="walkInClientGender" value="F" class="accent-[var(--sumi-primary)]" />
+                  Female
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" [(ngModel)]="walkInClientGender" name="walkInClientGender" value="M" class="accent-[var(--sumi-primary)]" />
+                  Male
+                </label>
+              </div>
+            </fieldset>
             <div class="grid grid-cols-2 gap-3">
               <label class="block text-sm">
                 Date
@@ -203,11 +217,16 @@
               @if (walkInBedsForRoom().length > 0) {
                 <div class="mt-2 grid grid-cols-3 gap-1">
                   @for (bed of walkInBedsForRoom(); track bed.id) {
-                    <button type="button" (click)="pickWalkInBed(bed)" [class]="walkInBedClass(bed)">
+                    <button type="button" (click)="pickWalkInBed(bed)" [class]="walkInBedClass(bed)"
+                            [title]="bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : ''">
                       {{ bed.label }}
+                      @if (walkInBedIds.includes(bed.id)) { [x] }
                     </button>
                   }
                 </div>
+                <p class="text-[11px] text-slate-400 mt-1">
+                  {{ walkInBedIds.length }} of {{ walkInPax }} bed{{ walkInPax !== 1 ? 's' : '' }} selected. Click to toggle.
+                </p>
               }
             </div>
           </section>

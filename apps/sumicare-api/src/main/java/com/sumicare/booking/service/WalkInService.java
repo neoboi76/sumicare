@@ -7,6 +7,9 @@ import com.sumicare.booking.dto.WalkInResponse;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.notification.service.NotificationService;
+import com.sumicare.room.domain.Bed;
+import com.sumicare.room.exception.RoomGenderConflictException;
+import com.sumicare.room.repository.BedRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.room.service.RoomOccupancyService;
 import com.sumicare.service_catalogue.domain.Service;
@@ -20,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -31,6 +35,7 @@ public class WalkInService {
     private final ServiceRepository serviceRepository;
     private final TherapistRepository therapistRepository;
     private final RoomRepository roomRepository;
+    private final BedRepository bedRepository;
     private final TreatmentSlipRepository slipRepository;
     private final RoomOccupancyService occupancyService;
     private final DeckingService deckingService;
@@ -41,6 +46,7 @@ public class WalkInService {
                          ServiceRepository serviceRepository,
                          TherapistRepository therapistRepository,
                          RoomRepository roomRepository,
+                         BedRepository bedRepository,
                          TreatmentSlipRepository slipRepository,
                          RoomOccupancyService occupancyService,
                          DeckingService deckingService,
@@ -50,6 +56,7 @@ public class WalkInService {
         this.serviceRepository = serviceRepository;
         this.therapistRepository = therapistRepository;
         this.roomRepository = roomRepository;
+        this.bedRepository = bedRepository;
         this.slipRepository = slipRepository;
         this.occupancyService = occupancyService;
         this.deckingService = deckingService;
@@ -67,6 +74,12 @@ public class WalkInService {
                 ? request.endTime()
                 : startTime.plusMinutes(service.getDurationMinutes());
 
+        List<UUID> bedIds = request.bedIds() != null ? request.bedIds() : List.of();
+
+        if (request.roomId() != null && !bedIds.isEmpty() && request.clientGender() != null) {
+            enforceGenderLock(organizationId, request.roomId(), bedIds, request.clientGender());
+        }
+
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientNickname(request.clientNickname());
@@ -76,8 +89,11 @@ public class WalkInService {
         booking.setScheduledAt(startTime);
         booking.setActualStartAt(startTime);
         booking.setPax(request.pax());
+        booking.setClientGender(request.clientGender());
         booking.setStatus("ACTIVE");
         bookingRepository.save(booking);
+
+        UUID primaryBedId = bedIds.isEmpty() ? null : bedIds.get(0);
 
         Session session = new Session();
         session.setOrganizationId(organizationId);
@@ -85,21 +101,24 @@ public class WalkInService {
         session.setPrimaryTherapistId(request.primaryTherapistId());
         session.setSecondaryTherapistId(request.secondaryTherapistId());
         session.setRoomId(request.roomId());
-        session.setBedId(request.bedId());
+        session.setBedId(primaryBedId);
         session.setSpecificallyRequested(request.specificallyRequested());
         session.setStartedAt(startTime);
         session.setExpectedEndAt(expectedEnd);
         session.setStatus("ACTIVE");
         sessionRepository.save(session);
 
-        if (request.roomId() != null && request.bedId() != null) {
+        if (request.roomId() != null && !bedIds.isEmpty()) {
             String therapistNickname = request.primaryTherapistId() == null ? "" :
                     therapistRepository.findById(request.primaryTherapistId())
                             .map(Therapist::getNickname).orElse("");
-            occupancyService.occupy(organizationId, request.roomId(), request.bedId(),
-                    request.clientNickname(), request.lockerNumber(), therapistNickname, null);
-            notificationService.broadcastRoomUpdate(organizationId, request.roomId(), request.bedId(),
-                    Map.of("event", "SESSION_STARTED", "sessionId", session.getId()));
+            for (UUID bedId : bedIds) {
+                occupancyService.occupy(organizationId, request.roomId(), bedId,
+                        request.clientNickname(), request.lockerNumber(), therapistNickname,
+                        request.clientGender());
+                notificationService.broadcastRoomUpdate(organizationId, request.roomId(), bedId,
+                        Map.of("event", "SESSION_STARTED", "sessionId", session.getId()));
+            }
         }
 
         if (request.primaryTherapistId() != null) {
@@ -160,6 +179,41 @@ public class WalkInService {
 
         TreatmentSlip saved = slipRepository.save(slip);
         return new WalkInResponse(saved.getId(), booking.getId(), session.getId(), saved.getTsn());
+    }
+
+    private void enforceGenderLock(UUID organizationId, UUID roomId, List<UUID> bedIds, String clientGender) {
+        var roomOpt = roomRepository.findById(roomId);
+        if (roomOpt.isEmpty()) return;
+        var room = roomOpt.get();
+
+        if ("PRIVATE".equalsIgnoreCase(room.getRoomType()) || "VIP".equalsIgnoreCase(room.getRoomType())) {
+            return;
+        }
+
+        List<Bed> allBeds = bedRepository.findAllByRoomIdAndActiveTrue(roomId);
+
+        for (Bed bed : allBeds) {
+            if (bedIds.contains(bed.getId())) continue;
+
+            Map<Object, Object> occupancy = occupancyService.read(roomId, bed.getId());
+            String existingLock = (String) occupancy.get("genderLock");
+            if (existingLock == null || existingLock.isBlank()) continue;
+
+            if (room.isRowSegmented()) {
+                boolean sameRow = bedIds.stream().anyMatch(reqBedId ->
+                        allBeds.stream()
+                                .filter(b -> b.getId().equals(reqBedId))
+                                .findFirst()
+                                .map(b -> b.getRowIndex() != null && b.getRowIndex().equals(bed.getRowIndex()))
+                                .orElse(false));
+                if (!sameRow) continue;
+            }
+
+            if (!existingLock.equals(clientGender)) {
+                String label = "F".equals(existingLock) ? "Female" : "Male";
+                throw new RoomGenderConflictException(label);
+            }
+        }
     }
 
     private String generateTsn() {

@@ -9,32 +9,44 @@
         <div class="font-medium text-slate-900 mb-2">{{ q.label }}</div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
           @for (opt of q.options; track opt.code) {
-            <label class="flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
-              <input type="radio" [name]="q.code" [value]="opt.code" [(ngModel)]="answers[q.code]" required />
+            <label class="flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer"
+                   [class.border-[var(--sumi-primary)]]="getAnswer(q.code) === opt.code"
+                   [class.bg-red-50]="submittedOnce() && !getAnswer(q.code)">
+              <input type="radio" [name]="q.code" [value]="opt.code"
+                     [ngModel]="getAnswer(q.code)"
+                     (ngModelChange)="setAnswer(q.code, $event)" />
               <span>{{ opt.label }}</span>
             </label>
           }
         </div>
       </div>
     }
-    <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Get my recommendation</button>
+    @if (submittedOnce() && !allAnswered()) {
+      <p class="text-sm text-red-600">Please answer all 5 questions before submitting.</p>
+    }
+    <button [disabled]="submitting()"
+            class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50">
+      {{ submitting() ? 'Finding your match...' : 'Get my recommendation' }}
+    </button>
   </form>
   @if (result(); as r) {
-    <article class="bg-white rounded-xl shadow p-6 space-y-3">
-      <div class="text-sm text-slate-500 uppercase tracking-wide">Your recommendation</div>
-      <div class="text-2xl font-semibold text-slate-900">{{ r.primary?.name ?? 'No match found' }}</div>
-      @if (r.rationale) {
-        <p class="text-slate-700">{{ r.rationale }}</p>
-      }
-      @if (r.alternatives.length) {
-        <div class="text-sm text-slate-600">
-          Alternatives:
-          @for (a of r.alternatives; track a.id; let last = $last) {
-            <span>{{ a.name }}@if (!last) {, }</span>
-          }
-        </div>
-      }
-      <p class="text-xs italic text-slate-500 pt-2 border-t">{{ r.disclaimer }}</p>
-    </article>
+    @if (allAnswered()) {
+      <article class="bg-white rounded-xl shadow p-6 space-y-3">
+        <div class="text-sm text-slate-500 uppercase tracking-wide">Your recommendation</div>
+        <div class="text-2xl font-semibold text-slate-900">{{ r.primary?.name ?? 'No match found' }}</div>
+        @if (r.rationale) {
+          <p class="text-slate-700">{{ r.rationale }}</p>
+        }
+        @if (r.alternatives.length) {
+          <div class="text-sm text-slate-600">
+            Alternatives:
+            @for (a of r.alternatives; track a.id; let last = $last) {
+              <span>{{ a.name }}@if (!last) {, }</span>
+            }
+          </div>
+        }
+        <p class="text-xs italic text-slate-500 pt-2 border-t">{{ r.disclaimer }}</p>
+      </article>
+    }
   }
 </section>
