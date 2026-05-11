@@ -38,7 +38,9 @@
             </div>
             <div class="mt-2 flex flex-wrap gap-1">
               @if (!entry.skipped) {
-                <button (click)="skip(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-amber-700 hover:bg-amber-50">Skip 30m</button>
+                <button (click)="skip(entry.therapistId)" [disabled]="entry.onCall"
+                        class="text-[11px] rounded px-2 py-0.5 text-amber-700 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        [title]="entry.onCall ? 'Cannot skip while on call' : 'Skip 30 minutes'">Skip 30m</button>
               } @else {
                 <button (click)="cancelSkip(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-emerald-700 hover:bg-emerald-50">Resume</button>
               }

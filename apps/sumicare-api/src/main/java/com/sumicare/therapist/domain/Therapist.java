@@ -6,7 +6,10 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "therapists")
+@Table(name = "therapists", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"organization_id", "staff_number"}),
+        @UniqueConstraint(columnNames = {"organization_id", "nickname"})
+})
 public class Therapist {
 
     @Id

@@ -56,7 +56,8 @@ public class OrderController {
     public OrderResponse recordPayment(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                        @PathVariable UUID id,
                                        @Valid @RequestBody RecordPaymentRequest request) {
-        return orderService.recordPayment(UUID.fromString(principal.organizationId()), id, request);
+        return orderService.recordPayment(UUID.fromString(principal.organizationId()), id,
+                UUID.fromString(principal.userId()), request);
     }
 
     @PostMapping("/{id}/mark-paid")

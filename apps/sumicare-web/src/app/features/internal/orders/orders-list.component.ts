@@ -40,9 +40,11 @@ export class OrdersListComponent implements OnInit {
     this.loading.set(true);
     let statusParam = '';
     const f = this.filter();
-    if (f === 'PAID') statusParam = '?status=PENDING,PAID';
+    if (f === 'PAID') statusParam = '?status=PAID';
     else if (f === 'COMPLETED') statusParam = '?status=COMPLETED';
     else if (f === 'CANCELLED') statusParam = '?status=CANCELLED';
+    else if (f === 'PENDING') statusParam = '?status=PENDING';
+    else if (f === 'ALL') statusParam = '';
     this.http.get<Order[]>(`${environment.apiBaseUrl}/api/cashier/orders${statusParam}`).subscribe({
       next: (o) => {
         this.orders.set(o);

@@ -108,6 +108,7 @@ public class PosService {
     @Transactional
     public void recordCommissionsForSession(UUID organizationId, Session session) {
         if (session.getPrimaryTherapistId() == null) return;
+        if (commissionRepository.existsBySessionIdAndTherapistId(session.getId(), session.getPrimaryTherapistId())) return;
         Booking booking = bookingRepository.findById(session.getBookingId()).orElse(null);
         if (booking == null) return;
         var service = serviceRepository.findById(booking.getServiceId()).orElse(null);

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 
 interface Service {
@@ -23,12 +23,13 @@ interface RecommendationResponse {
 @Component({
   selector: 'sumi-recommendation',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule],
   templateUrl: './recommendation.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RecommendationComponent {
   private http = inject(HttpClient);
+  private router = inject(Router);
   questions = [
     { code: 'PRESSURE', label: 'Pressure preference', options: [
       { code: 'LIGHT', label: 'Light' }, { code: 'MEDIUM', label: 'Medium' },
@@ -85,5 +86,9 @@ export class RecommendationComponent {
         },
         error: () => this.submitting.set(false)
       });
+  }
+
+  goToBook(serviceId: number): void {
+    this.router.navigate(['/book'], { queryParams: { serviceId } });
   }
 }

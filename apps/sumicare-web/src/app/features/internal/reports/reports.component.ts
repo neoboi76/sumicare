@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -39,38 +39,37 @@ export class ReportsComponent implements OnInit {
   tab = signal<Tab>('services');
   commissionTab = signal<CommissionTab>('cutoff');
 
-  // Service breakdown
   cutoffFrom = new Date().toISOString().slice(0, 10);
   cutoffTo = new Date().toISOString().slice(0, 10);
   cutoffShiftId: number | null = null;
   servicesReport = signal<CutoffServicesReport | null>(null);
 
-  // Daily
+  selectedShiftLabel = (): string => {
+    if (!this.cutoffShiftId) return 'All shifts';
+    const s = this.shifts().find(sh => sh.id === this.cutoffShiftId);
+    return s ? `${s.label} (${s.startTime} - ${s.endTime})` : 'All shifts';
+  };
+
   dailyDate = new Date().toISOString().slice(0, 10);
   dailyReport = signal<DailyReport | null>(null);
 
-  // Monthly
   monthlyYear = new Date().getFullYear();
   monthlyMonth = new Date().getMonth() + 1;
   monthlyReport = signal<MonthlyReport | null>(null);
 
-  // Commissions - shift
   shifts = signal<Shift[]>([]);
   commissionShiftId: number | null = null;
   commissionShiftDate = new Date().toISOString().slice(0, 10);
   commissionShiftReport = signal<CommissionShiftReport | null>(null);
 
-  // Commissions - daily
   commissionDailyDate = new Date().toISOString().slice(0, 10);
   commissionDailyReport = signal<CommissionDailyReport | null>(null);
 
-  // Commissions - cutoff
   commissionCutoffYear = new Date().getFullYear();
   commissionCutoffMonth = new Date().getMonth() + 1;
   commissionCutoffHalf: 1 | 2 = new Date().getDate() <= 15 ? 1 : 2;
   commissionCutoffReport = signal<MatrixReport | null>(null);
 
-  // Commissions - monthly
   commissionMonthlyYear = new Date().getFullYear();
   commissionMonthlyMonth = new Date().getMonth() + 1;
   commissionMonthlyReport = signal<MatrixReport | null>(null);
@@ -89,7 +88,6 @@ export class ReportsComponent implements OnInit {
     });
   }
 
-  // ---- Service breakdown ----
   loadServices(): void {
     const from = `${this.cutoffFrom}T00:00:00Z`;
     const to = `${this.cutoffTo}T23:59:59Z`;
@@ -109,7 +107,6 @@ export class ReportsComponent implements OnInit {
     this.downloadBlob(url, `cutoff-services-${this.cutoffFrom}-to-${this.cutoffTo}.csv`);
   }
 
-  // ---- Daily ----
   loadDaily(): void {
     this.http.get<DailyReport>(`${environment.apiBaseUrl}/api/reports/daily?date=${this.dailyDate}`).subscribe({
       next: (r) => this.dailyReport.set(r),
@@ -123,7 +120,6 @@ export class ReportsComponent implements OnInit {
     );
   }
 
-  // ---- Monthly ----
   loadMonthly(): void {
     this.http.get<MonthlyReport>(
       `${environment.apiBaseUrl}/api/reports/monthly-detailed?year=${this.monthlyYear}&month=${this.monthlyMonth}`
@@ -139,7 +135,6 @@ export class ReportsComponent implements OnInit {
     );
   }
 
-  // ---- Commission shift ----
   loadCommissionShift(): void {
     if (!this.commissionShiftId) return;
     this.http.get<CommissionShiftReport>(
@@ -157,7 +152,6 @@ export class ReportsComponent implements OnInit {
     );
   }
 
-  // ---- Commission daily ----
   loadCommissionDaily(): void {
     this.http.get<CommissionDailyReport>(
       `${environment.apiBaseUrl}/api/reports/commissions/daily?date=${this.commissionDailyDate}`
@@ -173,7 +167,6 @@ export class ReportsComponent implements OnInit {
     );
   }
 
-  // ---- Commission cutoff ----
   loadCommissionCutoff(): void {
     this.http.get<MatrixReport>(
       `${environment.apiBaseUrl}/api/reports/commissions/cutoff?year=${this.commissionCutoffYear}&month=${this.commissionCutoffMonth}&half=${this.commissionCutoffHalf}`
@@ -189,7 +182,6 @@ export class ReportsComponent implements OnInit {
     );
   }
 
-  // ---- Commission monthly ----
   loadCommissionMonthly(): void {
     this.http.get<MatrixReport>(
       `${environment.apiBaseUrl}/api/reports/commissions/monthly?year=${this.commissionMonthlyYear}&month=${this.commissionMonthlyMonth}`

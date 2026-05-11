@@ -10,6 +10,7 @@ import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.notification.service.NotificationService;
+import com.sumicare.pos.service.PosService;
 import com.sumicare.room.domain.Bed;
 import com.sumicare.room.domain.Room;
 import com.sumicare.room.repository.BedRepository;
@@ -20,7 +21,9 @@ import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.therapist.domain.Therapist;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.therapist.service.DeckingService;
+import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
+import com.sumicare.transaction.service.TreatmentSlipService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +47,9 @@ public class BookingService {
     private final DeckingService deckingService;
     private final NotificationService notificationService;
     private final TreatmentSlipRepository slipRepository;
+    private final TreatmentSlipService treatmentSlipService;
     private final OrderRepository orderRepository;
+    private final PosService posService;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
@@ -52,7 +57,9 @@ public class BookingService {
                           RoomOccupancyService occupancyService, DeckingService deckingService,
                           NotificationService notificationService,
                           TreatmentSlipRepository slipRepository,
-                          OrderRepository orderRepository) {
+                          TreatmentSlipService treatmentSlipService,
+                          OrderRepository orderRepository,
+                          PosService posService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -63,7 +70,9 @@ public class BookingService {
         this.deckingService = deckingService;
         this.notificationService = notificationService;
         this.slipRepository = slipRepository;
+        this.treatmentSlipService = treatmentSlipService;
         this.orderRepository = orderRepository;
+        this.posService = posService;
     }
 
     @PreAuthorize("permitAll()")
@@ -100,14 +109,14 @@ public class BookingService {
         Booking booking = bookingRepository.findById(bookingId).orElseThrow();
         Service service = requireService(booking.getServiceId());
 
-        // Enforce: order must be PAID before session can start
+
         orderRepository.findByBookingId(bookingId).ifPresent(order -> {
             if (!"PAID".equals(order.getStatus())) {
                 throw new IllegalStateException("Order must be paid before starting a session. Current status: " + order.getStatus());
             }
         });
 
-        // Enforce: therapists can only be assigned to one session at a time
+
         if (request.primaryTherapistId() != null) {
             boolean onCall = sessionRepository.existsByPrimaryTherapistIdAndStatus(
                     request.primaryTherapistId(), "ACTIVE");
@@ -182,10 +191,9 @@ public class BookingService {
         booking.setActualEndAt(now);
         booking.setStatus("COMPLETED");
 
-        slipRepository.findBySessionId(sessionId).ifPresent(slip -> {
-            slip.setEndTime(now);
-            slipRepository.save(slip);
-        });
+        TreatmentSlip slip = treatmentSlipService.generateForSession(organizationId, sessionId);
+        slip.setEndTime(now);
+        slipRepository.save(slip);
 
         orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
             if (!"COMPLETED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
@@ -199,6 +207,8 @@ public class BookingService {
             notificationService.broadcastRoomUpdate(organizationId, session.getRoomId(), session.getBedId(),
                     Map.of("event", "SESSION_ENDED", "sessionId", session.getId()));
         }
+
+        posService.recordCommissionsForSession(organizationId, session);
 
         return toSessionResponse(session);
     }

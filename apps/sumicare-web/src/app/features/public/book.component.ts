@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { QRCodeComponent } from 'angularx-qrcode';
+import { ActivatedRoute } from '@angular/router';
 import { environment } from '../../../environments/environment';
 
 interface ServiceItem {
@@ -30,6 +31,7 @@ interface BookingCreated {
 })
 export class BookComponent implements OnInit {
   private http = inject(HttpClient);
+  private route = inject(ActivatedRoute);
 
   services = signal<ServiceItem[]>([]);
   error = signal<string | null>(null);
@@ -58,7 +60,12 @@ export class BookComponent implements OnInit {
       .subscribe({
         next: (s) => {
           this.services.set(s);
-          if (s.length > 0 && this.serviceId === null) this.serviceId = s[0].id;
+          const queryId = Number(this.route.snapshot.queryParamMap.get('serviceId'));
+          if (queryId && s.find(svc => svc.id === queryId)) {
+            this.serviceId = queryId;
+          } else if (s.length > 0 && this.serviceId === null) {
+            this.serviceId = s[0].id;
+          }
         },
         error: () => this.services.set([])
       });

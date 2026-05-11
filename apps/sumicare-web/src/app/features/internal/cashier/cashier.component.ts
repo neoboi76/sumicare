@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -88,7 +88,6 @@ export class CashierComponent implements OnInit {
   newClient = { nickname: '', email: '', gender: 'F', nationality: '' };
   registerError = signal<string | null>(null);
 
-  // Discount modal
   showDiscountModal = signal(false);
   discountConfig = signal<DiscountConfig>({
     name: '',
@@ -188,11 +187,9 @@ export class CashierComponent implements OnInit {
 
   removeItem(idx: number): void {
     this.cart.update(items => items.filter((_, i) => i !== idx));
-    // Re-apply any active discount
     this.recalcDiscount();
   }
 
-  // --- Discount Modal ---
   openDiscountModal(): void {
     const cfg = this.discountConfig();
     cfg.appliedItemIndices = this.cart().map((_, i) => i);
@@ -246,7 +243,7 @@ export class CashierComponent implements OnInit {
       }
     }
 
-    const name = cfg.name || (cfg.amountType === 'PERCENT' ? `${cfg.percent}% discount` : `₱${cfg.fixedAmount} discount`);
+    const name = cfg.name || (cfg.amountType === 'PERCENT' ? `${cfg.percent}% discount` : `â‚±${cfg.fixedAmount} discount`);
     this.discountSummary.set(totalDiscount > 0 ? [{ name, amount: totalDiscount }] : []);
     this.showDiscountModal.set(false);
   }
@@ -269,7 +266,6 @@ export class CashierComponent implements OnInit {
     }
   }
 
-  // --- Payments ---
   setPaymentMethod(method: 'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'): void {
     this.paymentMethod.set(method);
   }
@@ -329,7 +325,6 @@ export class CashierComponent implements OnInit {
       .post<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders`, payload)
       .subscribe({
         next: (order) => {
-          // record any additional payments after the first
           const extra = this.payments().slice(1);
           if (extra.length === 0) {
             this.submitting.set(false);

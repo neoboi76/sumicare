@@ -31,6 +31,7 @@
         <button (click)="exportServicesCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
       </div>
       @if (servicesReport(); as r) {
+        <div class="text-xs text-slate-500 mb-1">Shift: {{ selectedShiftLabel() }}</div>
         <table class="w-full text-sm mt-2">
           <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr><th class="text-left px-3 py-2">Service</th><th class="text-right px-3 py-2">Qty</th><th class="text-right px-3 py-2">Unit Price</th><th class="text-right px-3 py-2">Line Total</th></tr>

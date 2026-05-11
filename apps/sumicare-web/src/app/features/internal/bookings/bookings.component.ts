@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -92,7 +92,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
   rooms = signal<RoomItem[]>([]);
   orderStatuses = signal<Map<string, string>>(new Map());
 
-  // Start session modal
   startBooking = signal<BookingResponse | null>(null);
   startPrimaryTherapistId = signal<string | null>(null);
   startSecondaryTherapistId = signal<string | null>(null);
@@ -100,14 +99,12 @@ export class BookingsComponent implements OnInit, OnDestroy {
   startBedId = signal<string | null>(null);
   startSpecificallyRequested = signal(false);
 
-  // Edit booking modal
   editBooking = signal<BookingResponse | null>(null);
   editServiceId = signal<number>(0);
   editLockerNumber = '';
   editClientNickname = '';
   editError = signal<string | null>(null);
 
-  // Adjust session modal
   adjustBooking = signal<BookingResponse | null>(null);
   adjustNewStart = '';
   adjustNewEnd = '';
@@ -145,7 +142,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.reload();
     this.loadReference();
-    // Auto-refresh therapist lineup every 30 seconds
     this.therapistRefreshTimer = setInterval(() => this.refreshLineup(), 30000);
   }
 
@@ -175,24 +171,23 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   private loadOrderStatuses(bookings: BookingResponse[]): void {
-    // For each booking, get order status to determine if session can be started
-    for (const b of bookings) {
-      this.http.get<any[]>(`${environment.apiBaseUrl}/api/cashier/orders?status=PENDING,PAID,COMPLETED`).subscribe({
-        next: (orders) => {
-          const map = new Map(this.orderStatuses());
-          for (const order of orders) {
-            if (order.bookingId) {
-              map.set(order.bookingId, order.status);
-            }
+    if (bookings.length === 0) return;
+    this.http.get<any[]>(`${environment.apiBaseUrl}/api/cashier/orders`).subscribe({
+      next: (orders) => {
+        const map = new Map<string, string>();
+        for (const order of orders) {
+          if (order.bookingId) {
+            map.set(order.bookingId, order.status);
           }
-          this.orderStatuses.set(map);
         }
-      });
-      break; // Only need one call
-    }
+        this.orderStatuses.set(map);
+      }
+    });
   }
 
   getOrderStatus(bookingId: string): string {
+    const booking = this.bookings().find(b => b.id === bookingId);
+    if (booking && booking.status === 'CANCELLED') return 'CANCELLED';
     return this.orderStatuses().get(bookingId) ?? 'PENDING';
   }
 
@@ -226,7 +221,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.services().find(s => s.id === id)?.name ?? '-';
   }
 
-  // Gender-based bed filtering: beds occupied by opposing gender are unselectable
   isBedSelectableForGender(bed: BedItem, clientGender: string | null | undefined): boolean {
     if (bed.occupancy['status'] === 'OCCUPIED') {
       const lock = bed.occupancy['genderLock'];
@@ -258,7 +252,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startBedId.set(bed.id);
   }
 
-  // --- Start Session ---
   openStart(b: BookingResponse): void {
     this.startBooking.set(b);
     this.startPrimaryTherapistId.set(null);
@@ -294,7 +287,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  // --- End / Extend ---
   endSession(b: BookingResponse): void {
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
@@ -313,7 +305,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  // --- Adjust Session Modal (replaces window.prompt) ---
   openAdjust(b: BookingResponse): void {
     this.adjustBooking.set(b);
     this.adjustNewStart = '';
@@ -342,7 +333,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  // --- Generate Treatment Slip ---
   generateSlip(b: BookingResponse): void {
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
@@ -352,7 +342,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  // --- Edit Booking ---
   openEdit(b: BookingResponse): void {
     this.editBooking.set(b);
     this.editServiceId.set(b.serviceId);
@@ -381,7 +370,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  // --- Export ---
   exportCsv(): void {
     const d = this.selectedDate();
     const from = encodeURIComponent(`${d}T00:00:00.000Z`);

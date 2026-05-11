@@ -149,8 +149,12 @@ public class TreatmentSlipService {
         if (!slip.getOrganizationId().equals(organizationId)) {
             throw new IllegalArgumentException("Slip not in organization");
         }
-        if (!"DRAFT".equals(slip.getStatus())) {
+        if (!"DRAFT".equals(slip.getStatus()) && !"VOIDED".equals(slip.getStatus())) {
             throw new IllegalStateException("Treatment slip is " + slip.getStatus().toLowerCase() + " and cannot be edited");
+        }
+        if ("VOIDED".equals(slip.getStatus())) {
+            slip.setWaiverAccepted(false);
+            slip.setWaiverAcceptedAt(null);
         }
         if (request.lockerNumber() != null) slip.setLockerNumber(request.lockerNumber());
         if (request.roomNumber() != null) slip.setRoomNumber(request.roomNumber());
@@ -162,7 +166,7 @@ public class TreatmentSlipService {
         if (request.jacuzziMinutes() != null) slip.setJacuzziMinutes(request.jacuzziMinutes());
         if (request.massageMinutes() != null) slip.setMassageMinutes(request.massageMinutes());
         if (request.wineIncluded() != null) slip.setWineIncluded(request.wineIncluded());
-        if (request.waiverAccepted() != null && request.waiverAccepted() && !slip.isWaiverAccepted()) {
+        if (!"VOIDED".equals(slip.getStatus()) && request.waiverAccepted() != null && request.waiverAccepted() && !slip.isWaiverAccepted()) {
             slip.setWaiverAccepted(true);
             slip.setWaiverAcceptedAt(OffsetDateTime.now());
         }

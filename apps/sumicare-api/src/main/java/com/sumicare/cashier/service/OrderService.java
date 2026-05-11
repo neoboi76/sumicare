@@ -109,7 +109,7 @@ public class OrderService {
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
         Booking booking = bookingRepository.findById(bookingResponse.id()).orElseThrow();
 
-        // Update the order that was auto-created by BookingService.createBooking
+
         Order order = orderRepository.findByBookingId(booking.getId()).orElseGet(() -> {
             Order o = new Order();
             o.setOrganizationId(organizationId);
@@ -129,7 +129,7 @@ public class OrderService {
 
         if (request.initialPayment() != null
                 && request.initialPayment().amount().compareTo(BigDecimal.ZERO) > 0) {
-            recordPaymentInternal(order, null, request.initialPayment().paymentMethod(),
+            recordPaymentInternal(order, null, cashierUserId, request.initialPayment().paymentMethod(),
                     request.initialPayment().amount(), request.initialPayment().referenceNumber());
         }
 
@@ -138,14 +138,14 @@ public class OrderService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
-    public OrderResponse recordPayment(UUID organizationId, UUID orderId, RecordPaymentRequest request) {
+    public OrderResponse recordPayment(UUID organizationId, UUID orderId, UUID actorUserId, RecordPaymentRequest request) {
         Order order = requireOrder(organizationId, orderId);
         if ("CANCELLED".equals(order.getStatus()) || "FINISHED".equals(order.getStatus())) {
             throw new IllegalStateException("Cannot add payment to a " + order.getStatus().toLowerCase() + " order");
         }
         UUID sessionId = sessionRepository.findFirstByBookingId(order.getBookingId())
                 .map(Session::getId).orElse(null);
-        recordPaymentInternal(order, sessionId, request.paymentMethod(), request.amount(), request.referenceNumber());
+        recordPaymentInternal(order, sessionId, actorUserId, request.paymentMethod(), request.amount(), request.referenceNumber());
         Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
         return toResponse(order, booking);
     }
@@ -166,7 +166,7 @@ public class OrderService {
         if (order.getAmountPaid().compareTo(order.getTotal()) < 0) {
             throw new IllegalStateException("Outstanding balance must be settled before marking paid");
         }
-        // Mark as PAID — session can now be started by the receptionist
+
         order.setStatus("PAID");
         order.setFinishedAt(OffsetDateTime.now());
         Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
@@ -226,7 +226,7 @@ public class OrderService {
                 order.setCompletedAt(endedAt != null ? endedAt : OffsetDateTime.now());
                 orderRepository.save(order);
 
-                // Finalize treatment slip
+
                 if (order.getTreatmentSlipId() != null) {
                     slipRepository.findById(order.getTreatmentSlipId()).ifPresent(slip -> {
                         slip.setStatus("FINALIZED");
@@ -235,7 +235,7 @@ public class OrderService {
                     });
                 }
 
-                // Auto-compute commissions when service is completed
+
                 Session session = sessionRepository.findFirstByBookingId(bookingId).orElse(null);
                 if (session != null) {
                     posService.recordCommissionsForSession(order.getOrganizationId(), session);
@@ -252,15 +252,13 @@ public class OrderService {
             order.setBookingId(bookingId);
             order.setTotal(total == null ? BigDecimal.ZERO : total);
             order.setSubtotal(total == null ? BigDecimal.ZERO : total);
-            order.setStatus("PENDING");
+            order.setStatus("OPEN");
             return orderRepository.save(order);
         });
     }
 
-    private void recordPaymentInternal(Order order, UUID sessionId, String paymentMethod,
+    private void recordPaymentInternal(Order order, UUID sessionId, UUID actorUserId, String paymentMethod,
                                        BigDecimal amount, String referenceNumber) {
-        UUID processedBy = order.getCashierUserId();
-
         PosTransaction tx = new PosTransaction();
         tx.setOrganizationId(order.getOrganizationId());
         tx.setSessionId(sessionId);
@@ -269,7 +267,7 @@ public class OrderService {
         tx.setDiscount(BigDecimal.ZERO);
         tx.setTotal(amount);
         tx.setPaymentMethod(paymentMethod);
-        tx.setProcessedBy(processedBy);
+        tx.setProcessedBy(actorUserId);
         tx.setProcessedAt(OffsetDateTime.now());
         tx.setStatus("COMPLETED");
         transactionRepository.save(tx);

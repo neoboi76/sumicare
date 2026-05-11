@@ -19,4 +19,8 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
     @Modifying
     @Query("DELETE FROM ShiftAssignment sa WHERE sa.shiftId = :shiftId AND sa.therapistId = :therapistId")
     void deleteByShiftIdAndTherapistId(Long shiftId, UUID therapistId);
+
+    @Modifying
+    @Query("DELETE FROM ShiftAssignment sa WHERE sa.therapistId = :therapistId")
+    void deleteAllByTherapistId(UUID therapistId);
 }
