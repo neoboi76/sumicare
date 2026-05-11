@@ -53,6 +53,7 @@ public class SuperadminBootstrap implements ApplicationRunner {
         user.setRole(role);
         user.setDisplayName("Default Superadmin");
         user.setActive(true);
+        user.setEmailVerified(true);
         userRepository.save(user);
     }
 }

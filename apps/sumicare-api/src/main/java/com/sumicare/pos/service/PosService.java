@@ -90,6 +90,7 @@ public class PosService {
         entry.setTransactionId(tx.getId());
         entry.setEntryType("PAYMENT_RECEIVED");
         entry.setAmount(total);
+        entry.setPaymentMethod(request.paymentMethod());
         ledgerRepository.save(entry);
 
         if (redeemedVoucher != null) {
@@ -98,13 +99,14 @@ public class PosService {
                             .map(Booking::getClientId).orElse(null));
         }
 
-        recordCommissions(organizationId, session);
+        recordCommissionsForSession(organizationId, session);
         return new PaymentResponse(tx.getId(), tx.getReceiptNumber(),
                 tx.getSubtotal(), tx.getDiscount(), tx.getTotal(),
                 tx.getPaymentMethod(), tx.getProcessedAt());
     }
 
-    private void recordCommissions(UUID organizationId, Session session) {
+    @Transactional
+    public void recordCommissionsForSession(UUID organizationId, Session session) {
         if (session.getPrimaryTherapistId() == null) return;
         Booking booking = bookingRepository.findById(session.getBookingId()).orElse(null);
         if (booking == null) return;

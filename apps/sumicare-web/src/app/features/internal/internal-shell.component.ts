@@ -46,7 +46,9 @@ export class InternalShellComponent implements OnInit {
         { label: 'Lineup', route: 'lineup', roles: STAFF_ROLES },
         { label: 'Decking', route: 'decking', roles: STAFF_ROLES },
         { label: 'Treatment slips', route: 'treatment-slips', roles: STAFF_ROLES },
-        { label: 'POS', route: 'pos', roles: STAFF_ROLES },
+        { label: 'Cashier', route: 'cashier', roles: STAFF_ROLES },
+        { label: 'Orders', route: 'orders', roles: STAFF_ROLES },
+        { label: 'Messages', route: 'messages', roles: STAFF_ROLES },
         { label: 'Attendance', route: 'attendance', roles: STAFF_ROLES }
       ]
     },

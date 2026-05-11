@@ -1,8 +1,60 @@
 <div class="max-w-md mx-auto">
-  <div class="flex justify-between items-baseline mb-4 no-print">
+  <div class="flex justify-between items-baseline mb-2 no-print">
     <a routerLink="/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
-    <button (click)="print()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Print</button>
+    <div class="flex gap-2">
+      @if (slip()?.status === 'DRAFT' && !editing()) {
+        <button (click)="startEdit()" class="rounded border border-slate-300 px-4 py-1.5 text-sm">Edit</button>
+      }
+      <button (click)="print()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Print</button>
+    </div>
   </div>
+  <p class="no-print text-xs text-slate-500 mb-3">Tip: in your browser print dialog, uncheck "Headers and footers" for a clean slip.</p>
+
+  @if (editing() && slip(); as s) {
+    <div class="no-print bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4 space-y-3">
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Edit slip (DRAFT)</h3>
+      @if (saveError(); as e) { <p class="text-sm text-red-600">{{ e }}</p> }
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="block">Locker
+          <input [(ngModel)]="edit.lockerNumber" name="elocker" maxlength="16" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">Room
+          <input [(ngModel)]="edit.roomNumber" name="eroom" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">OR#
+          <input [(ngModel)]="edit.orNumber" name="eor" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">Add-on OR#
+          <input [(ngModel)]="edit.addOnOrNumber" name="eaor" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block col-span-2">Others / Add-on
+          <input [(ngModel)]="edit.othersAddOn" name="eothers" maxlength="500" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block col-span-2">Remarks
+          <textarea [(ngModel)]="edit.remarks" name="eremarks" maxlength="1000" rows="2" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"></textarea>
+        </label>
+        <label class="block">Total amount
+          <input [(ngModel)]="edit.totalAmount" name="etotal" type="number" min="0" step="0.01" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        @if (s.vip) {
+          <label class="block">Jacuzzi (min)
+            <input [(ngModel)]="edit.jacuzziMinutes" name="ejacuzzi" type="number" min="0" max="120" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+          </label>
+          <label class="block">Massage (min)
+            <input [(ngModel)]="edit.massageMinutes" name="emassage" type="number" min="0" max="120" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+          </label>
+          <label class="flex items-center gap-2">
+            <input [(ngModel)]="edit.wineIncluded" name="ewine" type="checkbox" />
+            Wine included
+          </label>
+        }
+      </div>
+      <div class="flex justify-end gap-2">
+        <button (click)="cancelEdit()" class="px-3 py-1.5 text-sm text-slate-600">Cancel</button>
+        <button (click)="saveEdit()" class="px-3 py-1.5 text-sm bg-[var(--sumi-primary)] text-white rounded">Save</button>
+      </div>
+    </div>
+  }
 
   <div class="print-area-wrapper">
   @if (slip(); as s) {

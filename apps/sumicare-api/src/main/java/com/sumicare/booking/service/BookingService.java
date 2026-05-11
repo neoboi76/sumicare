@@ -8,6 +8,7 @@ import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.notification.service.NotificationService;
 import com.sumicare.room.domain.Bed;
 import com.sumicare.room.domain.Room;
@@ -43,13 +44,15 @@ public class BookingService {
     private final DeckingService deckingService;
     private final NotificationService notificationService;
     private final TreatmentSlipRepository slipRepository;
+    private final OrderRepository orderRepository;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
                           RoomRepository roomRepository, BedRepository bedRepository,
                           RoomOccupancyService occupancyService, DeckingService deckingService,
                           NotificationService notificationService,
-                          TreatmentSlipRepository slipRepository) {
+                          TreatmentSlipRepository slipRepository,
+                          OrderRepository orderRepository) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -60,6 +63,7 @@ public class BookingService {
         this.deckingService = deckingService;
         this.notificationService = notificationService;
         this.slipRepository = slipRepository;
+        this.orderRepository = orderRepository;
     }
 
     @PreAuthorize("permitAll()")
@@ -78,6 +82,15 @@ public class BookingService {
         booking.setClientGender(request.clientGender());
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
+
+        com.sumicare.cashier.domain.Order order = new com.sumicare.cashier.domain.Order();
+        order.setOrganizationId(organizationId);
+        order.setBookingId(booking.getId());
+        order.setSubtotal(service.getPrice() == null ? java.math.BigDecimal.ZERO : service.getPrice());
+        order.setTotal(service.getPrice() == null ? java.math.BigDecimal.ZERO : service.getPrice());
+        order.setStatus("PENDING");
+        orderRepository.save(order);
+
         return toBookingResponse(booking, service);
     }
 
@@ -103,6 +116,13 @@ public class BookingService {
 
         booking.setActualStartAt(session.getStartedAt());
         booking.setStatus("ACTIVE");
+
+        orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
+            if (!"FINISHED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
+                order.setStatus("ACTIVE");
+                orderRepository.save(order);
+            }
+        });
 
         if (request.roomId() != null && request.bedId() != null) {
             Therapist primary = request.primaryTherapistId() == null ? null
@@ -146,6 +166,14 @@ public class BookingService {
         slipRepository.findBySessionId(sessionId).ifPresent(slip -> {
             slip.setEndTime(now);
             slipRepository.save(slip);
+        });
+
+        orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
+            if (!"FINISHED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
+                order.setStatus("COMPLETED");
+                order.setCompletedAt(now);
+                orderRepository.save(order);
+            }
         });
 
         if (session.getRoomId() != null && session.getBedId() != null) {

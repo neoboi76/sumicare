@@ -7,6 +7,7 @@ import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
+import com.sumicare.transaction.dto.UpdateTreatmentSlipRequest;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -122,5 +123,32 @@ public class TreatmentSlipService {
 
     private String generateTsn() {
         return "TS" + System.currentTimeMillis() % 100000;
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
+    public TreatmentSlip update(UUID organizationId, UUID slipId, UpdateTreatmentSlipRequest request) {
+        TreatmentSlip slip = slipRepository.findById(slipId).orElseThrow();
+        if (!slip.getOrganizationId().equals(organizationId)) {
+            throw new IllegalArgumentException("Slip not in organization");
+        }
+        if (!"DRAFT".equals(slip.getStatus())) {
+            throw new IllegalStateException("Treatment slip is " + slip.getStatus().toLowerCase() + " and cannot be edited");
+        }
+        if (request.lockerNumber() != null) slip.setLockerNumber(request.lockerNumber());
+        if (request.roomNumber() != null) slip.setRoomNumber(request.roomNumber());
+        if (request.othersAddOn() != null) slip.setOthersAddOn(request.othersAddOn());
+        if (request.remarks() != null) slip.setRemarks(request.remarks());
+        if (request.orNumber() != null) slip.setOrNumber(request.orNumber());
+        if (request.addOnOrNumber() != null) slip.setAddOnOrNumber(request.addOnOrNumber());
+        if (request.totalAmount() != null) slip.setTotalAmount(request.totalAmount());
+        if (request.jacuzziMinutes() != null) slip.setJacuzziMinutes(request.jacuzziMinutes());
+        if (request.massageMinutes() != null) slip.setMassageMinutes(request.massageMinutes());
+        if (request.wineIncluded() != null) slip.setWineIncluded(request.wineIncluded());
+        if (request.waiverAccepted() != null && request.waiverAccepted() && !slip.isWaiverAccepted()) {
+            slip.setWaiverAccepted(true);
+            slip.setWaiverAcceptedAt(OffsetDateTime.now());
+        }
+        return slipRepository.save(slip);
     }
 }

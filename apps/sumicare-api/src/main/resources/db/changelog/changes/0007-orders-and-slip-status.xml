@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0007-1-create-orders" author="sumicare">
+        <createTable tableName="orders">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="booking_id" type="UUID">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="treatment_slip_id" type="UUID"/>
+            <column name="cashier_user_id" type="UUID"/>
+            <column name="or_number" type="VARCHAR(50)"/>
+            <column name="reference_number" type="VARCHAR(100)"/>
+            <column name="notes" type="TEXT"/>
+            <column name="subtotal" type="NUMERIC(12,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="discount" type="NUMERIC(12,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total" type="NUMERIC(12,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount_paid" type="NUMERIC(12,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(20)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="completed_at" type="TIMESTAMP"/>
+            <column name="finished_at" type="TIMESTAMP"/>
+            <column name="cancelled_at" type="TIMESTAMP"/>
+            <column name="cancelled_reason" type="TEXT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="orders" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_orders_organization"/>
+        <addForeignKeyConstraint baseTableName="orders" baseColumnNames="booking_id"
+                                 referencedTableName="bookings" referencedColumnNames="id"
+                                 constraintName="fk_orders_booking"/>
+        <addForeignKeyConstraint baseTableName="orders" baseColumnNames="treatment_slip_id"
+                                 referencedTableName="treatment_slips" referencedColumnNames="id"
+                                 constraintName="fk_orders_treatment_slip"/>
+        <createIndex tableName="orders" indexName="idx_orders_org_status_created">
+            <column name="organization_id"/>
+            <column name="status"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0007-2-treatment-slip-status" author="sumicare">
+        <addColumn tableName="treatment_slips">
+            <column name="status" type="VARCHAR(20)" defaultValue="DRAFT">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <sql>UPDATE treatment_slips SET status = 'FINALIZED' WHERE created_at &lt; CURRENT_TIMESTAMP</sql>
+    </changeSet>
+
+    <changeSet id="0007-3-ledger-payment-method" author="sumicare">
+        <addColumn tableName="transaction_ledger">
+            <column name="payment_method" type="VARCHAR(20)"/>
+        </addColumn>
+        <sql>UPDATE transaction_ledger tl SET payment_method = t.payment_method
+             FROM transactions t WHERE tl.transaction_id = t.id AND tl.payment_method IS NULL</sql>
+        <createIndex tableName="transaction_ledger" indexName="idx_ledger_org_method_recorded">
+            <column name="organization_id"/>
+            <column name="payment_method"/>
+            <column name="recorded_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0007-4-backfill-orders-from-bookings" author="sumicare">
+        <sql>
+            INSERT INTO orders (id, organization_id, booking_id, treatment_slip_id, status, subtotal, total, amount_paid, created_at, completed_at, finished_at)
+            SELECT
+                gen_random_uuid(),
+                b.organization_id,
+                b.id,
+                ts_one.slip_id,
+                CASE
+                    WHEN b.status = 'CANCELLED' THEN 'CANCELLED'
+                    WHEN b.status = 'COMPLETED' THEN 'COMPLETED'
+                    WHEN b.status = 'ACTIVE' THEN 'ACTIVE'
+                    ELSE 'PENDING'
+                END,
+                COALESCE(ts_one.total_amount, 0),
+                COALESCE(ts_one.total_amount, 0),
+                0,
+                b.created_at,
+                CASE WHEN b.status = 'COMPLETED' THEN b.actual_end_at ELSE NULL END,
+                NULL
+            FROM bookings b
+            LEFT JOIN LATERAL (
+                SELECT id AS slip_id, total_amount
+                FROM treatment_slips
+                WHERE booking_id = b.id
+                ORDER BY created_at ASC
+                LIMIT 1
+            ) ts_one ON TRUE
+            WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.booking_id = b.id);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/pos")
+@RequestMapping("/api/cashier")
 public class PosController {
 
     private final PosService posService;
@@ -76,22 +76,4 @@ public class PosController {
                 .orElseGet(List::of);
     }
 
-    @GetMapping("/ledger")
-    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
-    public List<TransactionLedgerEntry> ledger(
-            @AuthenticationPrincipal AuthenticatedPrincipal principal,
-            @RequestParam(required = false) String type,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to) {
-
-        UUID orgId = UUID.fromString(principal.organizationId());
-        OffsetDateTime start = from != null ? from : OffsetDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
-        OffsetDateTime end = to != null ? to : start.plusDays(1);
-
-        if (type != null && !type.isBlank()) {
-            return ledgerRepository.findAllByOrganizationIdAndEntryTypeAndRecordedAtBetweenOrderByRecordedAtDesc(
-                    orgId, type, start, end);
-        }
-        return ledgerRepository.findAllByOrganizationIdAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, start, end);
-    }
 }

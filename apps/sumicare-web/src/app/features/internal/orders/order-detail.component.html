@@ -1,0 +1,133 @@
+<section class="max-w-5xl mx-auto p-4 space-y-4">
+  <div class="flex items-center justify-between">
+    <button (click)="back()" class="text-sm text-slate-600 hover:underline">← Orders</button>
+    @if (order()?.treatmentSlipId) {
+      <a [routerLink]="['/app/treatment-slips', order()!.treatmentSlipId]" class="text-sm text-[var(--sumi-primary)] hover:underline">View treatment slip</a>
+    }
+  </div>
+
+  @if (error(); as e) {
+    <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">{{ e }}</div>
+  }
+
+  @if (order(); as o) {
+    <article class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+      <header class="flex items-start justify-between border-b border-slate-100 pb-3">
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Order</div>
+          <div class="text-xl font-semibold">{{ o.clientNickname || 'Walk-in' }}</div>
+          <div class="text-xs text-slate-500">OR# {{ o.orNumber || '—' }} · Created {{ formatDate(o.createdAt) }}</div>
+        </div>
+        <span class="inline-block rounded px-2 py-0.5 text-xs font-semibold" [class]="statusClass(o.status)">{{ o.status }}</span>
+      </header>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Subtotal</div>
+          <div>&#8369; {{ o.subtotal | number:'1.2-2' }}</div>
+        </div>
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Discount</div>
+          <div>&#8369; {{ o.discount | number:'1.2-2' }}</div>
+        </div>
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Total</div>
+          <div class="font-semibold">&#8369; {{ o.total | number:'1.2-2' }}</div>
+        </div>
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Paid / Balance</div>
+          <div class="text-emerald-700">&#8369; {{ o.amountPaid | number:'1.2-2' }}</div>
+          <div class="text-rose-700">&#8369; {{ o.balance | number:'1.2-2' }}</div>
+        </div>
+      </div>
+
+      @if (o.referenceNumber || o.notes) {
+        <div class="text-sm text-slate-700 border-t border-slate-100 pt-3 space-y-1">
+          @if (o.referenceNumber) { <div><span class="text-xs uppercase text-slate-500">Reference:</span> {{ o.referenceNumber }}</div> }
+          @if (o.notes) { <div><span class="text-xs uppercase text-slate-500">Notes:</span> {{ o.notes }}</div> }
+        </div>
+      }
+
+      @if (o.cancelledAt) {
+        <div class="text-sm bg-rose-50 border border-rose-200 rounded p-3">
+          <div class="text-xs uppercase text-rose-600">Cancelled at {{ formatDate(o.cancelledAt) }}</div>
+          <div>{{ o.cancelledReason || 'No reason given.' }}</div>
+        </div>
+      }
+    </article>
+
+    @if (o.status !== 'CANCELLED') {
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Record payment</h3>
+        @if (o.status === 'FINISHED') {
+          <p class="text-sm text-slate-500">Order is finished. No further payments.</p>
+        } @else {
+          <div class="flex flex-wrap gap-2">
+            @for (m of ['CASH', 'GCASH', 'CREDIT', 'DEBIT']; track m) {
+              <button (click)="newPaymentMethod = $any(m)"
+                      class="px-3 py-1.5 text-xs rounded border"
+                      [class.bg-\[var\(--sumi-primary\)\]]="newPaymentMethod === m"
+                      [class.text-white]="newPaymentMethod === m"
+                      [class.border-slate-300]="newPaymentMethod !== m"
+                      [class.text-slate-700]="newPaymentMethod !== m">{{ m }}</button>
+            }
+          </div>
+          <div class="flex gap-2 items-end">
+            <label class="block flex-1">
+              <span class="text-xs text-slate-500">Amount</span>
+              <input [(ngModel)]="newPaymentAmount" name="amt" type="number" min="0" step="0.01"
+                     class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
+            </label>
+            <label class="block flex-1">
+              <span class="text-xs text-slate-500">Reference (optional)</span>
+              <input [(ngModel)]="newPaymentRef" name="ref" maxlength="100"
+                     class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
+            </label>
+            <button (click)="recordPayment()" [disabled]="busy()"
+                    class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2 disabled:opacity-50">Record</button>
+          </div>
+          <div class="flex gap-2 pt-3 border-t border-slate-100">
+            <button (click)="markPaid()" [disabled]="busy() || o.balance > 0 || o.status === 'FINISHED'"
+                    class="rounded bg-emerald-600 text-white text-sm px-4 py-2 disabled:opacity-50">Mark as paid</button>
+            <button (click)="openCancel()" [disabled]="busy()"
+                    class="rounded border border-rose-300 text-rose-700 text-sm px-4 py-2">Cancel order</button>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-3">Audit trail</h3>
+      @if (audits().length === 0) {
+        <p class="text-sm text-slate-500">No audit entries yet.</p>
+      } @else {
+        <ul class="space-y-2 text-sm">
+          @for (a of audits(); track a.id) {
+            <li class="border-l-2 border-slate-200 pl-3">
+              <div class="font-mono text-xs text-slate-500">{{ formatDate(a.occurredAt) }}</div>
+              <div class="font-medium">{{ a.actionType }}</div>
+              @if (a.metadata) { <div class="text-xs text-slate-500">{{ a.metadata }}</div> }
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  }
+
+  @if (showCancel()) {
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="closeCancel()">
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
+        <h3 class="text-lg font-semibold mb-3">Cancel order</h3>
+        <label class="block text-sm">
+          Reason
+          <textarea [(ngModel)]="cancelReason" name="cancelReason" rows="3"
+                    class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"></textarea>
+        </label>
+        <div class="flex justify-end gap-2 mt-4">
+          <button (click)="closeCancel()" class="px-3 py-1.5 text-sm text-slate-600">Back</button>
+          <button (click)="confirmCancel()" class="px-3 py-1.5 text-sm bg-rose-600 text-white rounded">Confirm cancel</button>
+        </div>
+      </div>
+    </div>
+  }
+</section>

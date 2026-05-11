@@ -14,4 +14,7 @@ public interface TransactionLedgerRepository extends JpaRepository<TransactionLe
 
     List<TransactionLedgerEntry> findAllByOrganizationIdAndEntryTypeAndRecordedAtBetweenOrderByRecordedAtDesc(
             UUID organizationId, String entryType, OffsetDateTime from, OffsetDateTime to);
+
+    List<TransactionLedgerEntry> findAllByOrganizationIdAndPaymentMethodAndRecordedAtBetweenOrderByRecordedAtDesc(
+            UUID organizationId, String paymentMethod, OffsetDateTime from, OffsetDateTime to);
 }

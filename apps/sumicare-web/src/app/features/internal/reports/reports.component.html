@@ -1,81 +1,239 @@
-<div class="space-y-6">
-  <header>
-    <h1 class="text-2xl font-semibold text-slate-900">Reports</h1>
-    <p class="text-slate-500">Cutoff, end-of-day, and monthly reports. All exportable as CSV.</p>
-  </header>
+<section class="max-w-7xl mx-auto p-4 space-y-4">
+  <h1 class="text-2xl font-semibold text-slate-900">Reports</h1>
 
-  <nav class="flex gap-1 border-b border-slate-200">
-    @for (t of tabs; track t.value) {
-      <button (click)="tab.set(t.value)"
-              [class]="tab() === t.value
-                ? 'px-4 py-2 border-b-2 border-[var(--sumi-primary)] text-[var(--sumi-primary)] font-medium text-sm'
-                : 'px-4 py-2 border-b-2 border-transparent text-slate-600 hover:text-slate-900 text-sm'">
-        {{ t.label }}
-      </button>
+  <div class="flex flex-wrap gap-2 border-b border-slate-200">
+    @for (t of [{ k: 'services', label: 'Cutoff (services)' }, { k: 'daily', label: 'Daily' }, { k: 'monthly', label: 'Monthly' }, { k: 'commissions', label: 'Therapist commissions' }]; track t.k) {
+      <button (click)="setTab($any(t.k))"
+              class="px-3 py-2 text-sm border-b-2"
+              [class.border-\[var\(--sumi-primary\)\]]="tab() === t.k"
+              [class.text-\[var\(--sumi-primary\)\]]="tab() === t.k"
+              [class.font-semibold]="tab() === t.k"
+              [class.border-transparent]="tab() !== t.k"
+              [class.text-slate-600]="tab() !== t.k">{{ t.label }}</button>
     }
-  </nav>
+  </div>
 
-  @switch (tab()) {
-    @case ('cutoff') {
-      <form class="bg-white rounded-xl shadow p-5 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl" (submit)="runCutoff($event)">
-        <label class="text-sm">
-          From
-          <input [(ngModel)]="cutoffFrom" name="from" type="datetime-local" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="text-sm">
-          To
-          <input [(ngModel)]="cutoffTo" name="to" type="datetime-local" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <div class="flex items-end gap-2">
-          <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Run</button>
-          <button type="button" (click)="downloadCutoff()" class="rounded border border-slate-300 px-4 py-2">CSV</button>
-        </div>
-      </form>
-      @if (cutoffResult(); as result) {
-        <pre class="bg-white rounded-xl shadow p-4 text-xs overflow-auto">{{ result | json }}</pre>
+  @if (tab() === 'services') {
+    <div class="space-y-3 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Services rendered (cutoff)</h2>
+      <div class="flex flex-wrap items-end gap-2">
+        <label class="flex flex-col text-xs">From <input type="date" [(ngModel)]="cutoffFrom" name="cf" class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+        <label class="flex flex-col text-xs">To <input type="date" [(ngModel)]="cutoffTo" name="ct" class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+        <button (click)="loadServices()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
+        <button (click)="exportServicesCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+      </div>
+      @if (servicesReport(); as r) {
+        <table class="w-full text-sm mt-2">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr><th class="text-left px-3 py-2">Service</th><th class="text-right px-3 py-2">Qty</th><th class="text-right px-3 py-2">Unit Price</th><th class="text-right px-3 py-2">Line Total</th></tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (l of r.lines; track l.serviceName) {
+              <tr><td class="px-3 py-2">{{ l.serviceName }}</td><td class="text-right px-3 py-2">{{ l.qty }}</td><td class="text-right px-3 py-2">&#8369; {{ l.unitPrice | number:'1.2-2' }}</td><td class="text-right px-3 py-2">&#8369; {{ l.lineTotal | number:'1.2-2' }}</td></tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="bg-slate-50 font-semibold"><td class="px-3 py-2" colspan="3">Grand total</td><td class="text-right px-3 py-2">&#8369; {{ r.grandTotal | number:'1.2-2' }}</td></tr>
+          </tfoot>
+        </table>
       }
-    }
-
-    @case ('day') {
-      <form class="bg-white rounded-xl shadow p-5 grid grid-cols-1 sm:grid-cols-4 gap-3 max-w-3xl" (submit)="loadDays($event)">
-        <label class="text-sm">From <input [(ngModel)]="dayFrom" name="dayFrom" type="date" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
-        <label class="text-sm">To <input [(ngModel)]="dayTo" name="dayTo" type="date" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
-        <label class="text-sm">Regenerate date <input [(ngModel)]="regenDate" name="regenDate" type="date" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
-        <div class="flex items-end gap-2">
-          <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Load</button>
-          <button type="button" (click)="regenerateDay()" class="rounded border border-slate-300 px-4 py-2">Regenerate</button>
-        </div>
-      </form>
-      <div class="space-y-3">
-        @for (d of dayReports(); track d.id) {
-          <details class="bg-white rounded-xl shadow p-4">
-            <summary class="cursor-pointer font-medium">{{ d.reportDate }} <span class="text-xs text-slate-500">generated {{ formatDate(d.generatedAt) }}</span></summary>
-            <pre class="mt-2 text-xs overflow-auto">{{ parsePayload(d.payload) | json }}</pre>
-          </details>
-        } @empty {
-          <p class="text-center text-slate-500">No day reports.</p>
-        }
-      </div>
-    }
-
-    @case ('monthly') {
-      <form class="bg-white rounded-xl shadow p-5 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl" (submit)="regenerateMonth($event)">
-        <label class="text-sm">Year <input [(ngModel)]="regenYear" name="regenYear" type="number" min="2000" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
-        <label class="text-sm">Month <input [(ngModel)]="regenMonth" name="regenMonth" type="number" min="1" max="12" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" /></label>
-        <div class="flex items-end gap-2">
-          <button class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2">Regenerate</button>
-        </div>
-      </form>
-      <div class="space-y-3">
-        @for (m of monthlyReports(); track m.id) {
-          <details class="bg-white rounded-xl shadow p-4">
-            <summary class="cursor-pointer font-medium">{{ m.reportYear }}-{{ pad(m.reportMonth) }} <span class="text-xs text-slate-500">generated {{ formatDate(m.generatedAt) }}</span></summary>
-            <pre class="mt-2 text-xs overflow-auto">{{ parsePayload(m.payload) | json }}</pre>
-          </details>
-        } @empty {
-          <p class="text-center text-slate-500">No monthly reports yet.</p>
-        }
-      </div>
-    }
+    </div>
   }
-</div>
+
+  @if (tab() === 'daily') {
+    <div class="space-y-3 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Daily report</h2>
+      <div class="flex items-end gap-2">
+        <label class="flex flex-col text-xs">Date <input type="date" [(ngModel)]="dailyDate" name="dd" class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+        <button (click)="loadDaily()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
+        <button (click)="exportDailyCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+      </div>
+      @if (dailyReport(); as r) {
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="text-left px-2 py-2">Check-in</th>
+                <th class="text-left px-2 py-2">OR#</th>
+                <th class="text-left px-2 py-2">Locker</th>
+                <th class="text-left px-2 py-2">Treatment</th>
+                <th class="text-right px-2 py-2">Amount</th>
+                <th class="text-left px-2 py-2">TS#</th>
+                <th class="text-left px-2 py-2">Therapist</th>
+                <th class="text-left px-2 py-2">Room</th>
+                <th class="text-left px-2 py-2">Start</th>
+                <th class="text-left px-2 py-2">End</th>
+                <th class="text-left px-2 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              @for (row of r.rows; track $index) {
+                <tr>
+                  <td class="px-2 py-1.5">{{ row.checkInTime }}</td>
+                  <td class="px-2 py-1.5 font-mono">{{ row.orNumber }}</td>
+                  <td class="px-2 py-1.5">{{ row.lockerNumber }}</td>
+                  <td class="px-2 py-1.5">{{ row.treatment }}</td>
+                  <td class="px-2 py-1.5 text-right">&#8369; {{ row.amount | number:'1.2-2' }}</td>
+                  <td class="px-2 py-1.5 font-mono">{{ row.tsn }}</td>
+                  <td class="px-2 py-1.5">{{ row.therapist }}</td>
+                  <td class="px-2 py-1.5">{{ row.room }}</td>
+                  <td class="px-2 py-1.5">{{ row.massageStart }}</td>
+                  <td class="px-2 py-1.5">{{ row.massageEnd }}</td>
+                  <td class="px-2 py-1.5">{{ row.status }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="bg-slate-50 font-semibold">
+                <td class="px-2 py-2" colspan="4">Grand total</td>
+                <td class="px-2 py-2 text-right">&#8369; {{ r.grandTotal | number:'1.2-2' }}</td>
+                <td colspan="6"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+  }
+
+  @if (tab() === 'monthly') {
+    <div class="space-y-3 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Monthly report</h2>
+      <div class="flex items-end gap-2">
+        <label class="flex flex-col text-xs">Year <input type="number" [(ngModel)]="monthlyYear" name="my" class="w-24 border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+        <label class="flex flex-col text-xs">Month <input type="number" min="1" max="12" [(ngModel)]="monthlyMonth" name="mm" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+        <button (click)="loadMonthly()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
+        <button (click)="exportMonthlyCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+      </div>
+      @if (monthlyReport(); as r) {
+        <p class="text-xs text-slate-500">{{ r.rows.length }} rows · Grand total &#8369; {{ r.grandTotal | number:'1.2-2' }}</p>
+        <p class="text-xs text-slate-500">Use the CSV export for the detailed table.</p>
+      }
+    </div>
+  }
+
+  @if (tab() === 'commissions') {
+    <div class="space-y-3 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Therapist commissions</h2>
+      <div class="flex flex-wrap gap-2">
+        @for (s of [{ k: 'shift', label: 'Shift' }, { k: 'daily', label: 'Daily' }, { k: 'cutoff', label: 'Payroll cutoff' }, { k: 'monthly', label: 'Monthly' }]; track s.k) {
+          <button (click)="setCommissionTab($any(s.k))"
+                  class="px-3 py-1.5 text-xs rounded border"
+                  [class.bg-\[var\(--sumi-primary\)\]]="commissionTab() === s.k"
+                  [class.text-white]="commissionTab() === s.k"
+                  [class.border-slate-300]="commissionTab() !== s.k"
+                  [class.text-slate-700]="commissionTab() !== s.k">{{ s.label }}</button>
+        }
+      </div>
+
+      @if (commissionTab() === 'shift') {
+        <div class="space-y-2">
+          <div class="flex items-end gap-2">
+            <label class="flex flex-col text-xs">Shift
+              <select [(ngModel)]="commissionShiftId" name="csi" class="border border-slate-300 rounded px-2 py-1 text-sm min-w-40">
+                <option [ngValue]="null" disabled>Select shift</option>
+                @for (sh of shifts(); track sh.id) { <option [ngValue]="sh.id">{{ sh.label }} ({{ sh.startTime }}-{{ sh.endTime }})</option> }
+              </select>
+            </label>
+            <label class="flex flex-col text-xs">Date <input type="date" [(ngModel)]="commissionShiftDate" name="csd" class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+            <button (click)="loadCommissionShift()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
+            <button (click)="exportCommissionShiftCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+          </div>
+          @if (commissionShiftReport(); as r) {
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="text-left px-3 py-2">Therapist</th><th class="text-right px-3 py-2">Commission</th></tr></thead>
+              <tbody class="divide-y divide-slate-100">
+                @for (row of r.rows; track row.therapistId) {
+                  <tr><td class="px-3 py-2">{{ row.nickname }}</td><td class="px-3 py-2 text-right">&#8369; {{ row.total | number:'1.2-2' }}</td></tr>
+                }
+              </tbody>
+              <tfoot><tr class="bg-slate-50 font-semibold"><td class="px-3 py-2">Total</td><td class="px-3 py-2 text-right">&#8369; {{ r.grandTotal | number:'1.2-2' }}</td></tr></tfoot>
+            </table>
+          }
+        </div>
+      }
+
+      @if (commissionTab() === 'daily') {
+        <div class="space-y-2">
+          <div class="flex items-end gap-2">
+            <label class="flex flex-col text-xs">Date <input type="date" [(ngModel)]="commissionDailyDate" name="cdd" class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+            <button (click)="loadCommissionDaily()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
+            <button (click)="exportCommissionDailyCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+          </div>
+          @if (commissionDailyReport(); as r) {
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="text-left px-3 py-2">Therapist</th><th class="text-right px-3 py-2">Commission</th></tr></thead>
+              <tbody class="divide-y divide-slate-100">
+                @for (row of r.rows; track row.therapistId) {
+                  <tr><td class="px-3 py-2">{{ row.nickname }}</td><td class="px-3 py-2 text-right">&#8369; {{ row.total | number:'1.2-2' }}</td></tr>
+                }
+              </tbody>
+              <tfoot><tr class="bg-slate-50 font-semibold"><td class="px-3 py-2">Total</td><td class="px-3 py-2 text-right">&#8369; {{ r.grandTotal | number:'1.2-2' }}</td></tr></tfoot>
+            </table>
+          }
+        </div>
+      }
+
+      @if (commissionTab() === 'cutoff') {
+        <div class="space-y-2">
+          <div class="flex items-end gap-2">
+            <label class="flex flex-col text-xs">Year <input type="number" [(ngModel)]="commissionCutoffYear" name="ccy" class="w-24 border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+            <label class="flex flex-col text-xs">Month <input type="number" min="1" max="12" [(ngModel)]="commissionCutoffMonth" name="ccm" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+            <label class="flex flex-col text-xs">Half
+              <select [(ngModel)]="commissionCutoffHalf" name="cch" class="border border-slate-300 rounded px-2 py-1 text-sm">
+                <option [ngValue]="1">1-15</option>
+                <option [ngValue]="2">16-end</option>
+              </select>
+            </label>
+            <button (click)="loadCommissionCutoff()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
+            <button (click)="exportCommissionCutoffCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+          </div>
+          @if (commissionCutoffReport(); as r) {
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs">
+                <thead class="bg-slate-50 uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th class="text-left px-2 py-2">Name</th>
+                    @for (l of r.columnLabels; track l) { <th class="text-right px-2 py-2">{{ l }}</th> }
+                    <th class="text-right px-2 py-2 font-bold">TOTAL</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  @for (row of r.rows; track row.therapistId) {
+                    <tr>
+                      <td class="px-2 py-1.5">{{ row.nickname }}</td>
+                      @for (a of row.amounts; track $index) { <td class="px-2 py-1.5 text-right">{{ a > 0 ? (a | number:'1.2-2') : '—' }}</td> }
+                      <td class="px-2 py-1.5 text-right font-semibold">{{ row.total | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr class="bg-slate-100 font-semibold">
+                    <td class="px-2 py-2">TOTAL</td>
+                    @for (t of r.columnTotals; track $index) { <td class="px-2 py-2 text-right">{{ t | number:'1.2-2' }}</td> }
+                    <td class="px-2 py-2 text-right">{{ r.grandTotal | number:'1.2-2' }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
+      @if (commissionTab() === 'monthly') {
+        <div class="space-y-2">
+          <div class="flex items-end gap-2">
+            <label class="flex flex-col text-xs">Year <input type="number" [(ngModel)]="commissionMonthlyYear" name="cmy" class="w-24 border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+            <label class="flex flex-col text-xs">Month <input type="number" min="1" max="12" [(ngModel)]="commissionMonthlyMonth" name="cmm" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+            <button (click)="loadCommissionMonthly()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
+            <button (click)="exportCommissionMonthlyCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+          </div>
+          @if (commissionMonthlyReport(); as r) {
+            <p class="text-xs text-slate-500">{{ r.rows.length }} therapists · Grand total &#8369; {{ r.grandTotal | number:'1.2-2' }}</p>
+            <p class="text-xs text-slate-500">Use the CSV export for the matrix.</p>
+          }
+        </div>
+      }
+    </div>
+  }
+</section>
