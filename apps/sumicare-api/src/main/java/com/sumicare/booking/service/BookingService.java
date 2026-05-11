@@ -99,6 +99,32 @@ public class BookingService {
     public SessionResponse startSession(UUID organizationId, UUID bookingId, StartSessionRequest request) {
         Booking booking = bookingRepository.findById(bookingId).orElseThrow();
         Service service = requireService(booking.getServiceId());
+
+        // Enforce: order must be PAID before session can start
+        orderRepository.findByBookingId(bookingId).ifPresent(order -> {
+            if (!"PAID".equals(order.getStatus())) {
+                throw new IllegalStateException("Order must be paid before starting a session. Current status: " + order.getStatus());
+            }
+        });
+
+        // Enforce: therapists can only be assigned to one session at a time
+        if (request.primaryTherapistId() != null) {
+            boolean onCall = sessionRepository.existsByPrimaryTherapistIdAndStatus(
+                    request.primaryTherapistId(), "ACTIVE");
+            if (onCall) {
+                throw new IllegalStateException("Primary therapist is currently on call and cannot be assigned to another session.");
+            }
+        }
+        if (request.secondaryTherapistId() != null) {
+            boolean onCall = sessionRepository.existsByPrimaryTherapistIdAndStatus(
+                    request.secondaryTherapistId(), "ACTIVE")
+                    || sessionRepository.existsBySecondaryTherapistIdAndStatus(
+                    request.secondaryTherapistId(), "ACTIVE");
+            if (onCall) {
+                throw new IllegalStateException("Secondary therapist is currently on call and cannot be assigned to another session.");
+            }
+        }
+
         Session session = new Session();
         session.setOrganizationId(organizationId);
         session.setBookingId(booking.getId());
@@ -116,13 +142,6 @@ public class BookingService {
 
         booking.setActualStartAt(session.getStartedAt());
         booking.setStatus("ACTIVE");
-
-        orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
-            if (!"FINISHED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
-                order.setStatus("ACTIVE");
-                orderRepository.save(order);
-            }
-        });
 
         if (request.roomId() != null && request.bedId() != null) {
             Therapist primary = request.primaryTherapistId() == null ? null
@@ -169,7 +188,7 @@ public class BookingService {
         });
 
         orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
-            if (!"FINISHED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
+            if (!"COMPLETED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
                 order.setStatus("COMPLETED");
                 order.setCompletedAt(now);
                 orderRepository.save(order);

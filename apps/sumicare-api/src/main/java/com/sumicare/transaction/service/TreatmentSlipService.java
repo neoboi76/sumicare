@@ -4,6 +4,7 @@ import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,22 +28,31 @@ public class TreatmentSlipService {
     private final SessionRepository sessionRepository;
     private final ServiceRepository serviceRepository;
     private final TherapistRepository therapistRepository;
+    private final RoomRepository roomRepository;
 
     public TreatmentSlipService(TreatmentSlipRepository slipRepository,
                                 BookingRepository bookingRepository,
                                 SessionRepository sessionRepository,
                                 ServiceRepository serviceRepository,
-                                TherapistRepository therapistRepository) {
+                                TherapistRepository therapistRepository,
+                                RoomRepository roomRepository) {
         this.slipRepository = slipRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
         this.therapistRepository = therapistRepository;
+        this.roomRepository = roomRepository;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
     public TreatmentSlip generateForSession(UUID organizationId, UUID sessionId) {
+        // Prevent duplicate slips — return existing if one already exists for this session
+        Optional<TreatmentSlip> existing = slipRepository.findBySessionId(sessionId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
         Session session = sessionRepository.findById(sessionId).orElseThrow();
         Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
         var service = serviceRepository.findById(booking.getServiceId()).orElseThrow();
@@ -57,8 +68,14 @@ public class TreatmentSlipService {
         slip.setEndTime(session.getEndedAt());
         slip.setVip(service.isVip());
         slip.setPax(booking.getPax());
+        slip.setTotalAmount(service.getPrice());
         if (!service.isVip()) {
             slip.setTreatmentMinutes(service.getDurationMinutes());
+        }
+        // Populate room number from the session's assigned room
+        if (session.getRoomId() != null) {
+            roomRepository.findById(session.getRoomId())
+                    .ifPresent(room -> slip.setRoomNumber(room.getRoomNumber()));
         }
         if (session.getPrimaryTherapistId() != null) {
             therapistRepository.findById(session.getPrimaryTherapistId())

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 
 interface ClientLite {
@@ -25,12 +25,22 @@ interface CartItem {
   serviceId: number;
   name: string;
   price: number;
+  originalPrice: number;
 }
 
 interface AddedPayment {
   paymentMethod: string;
   amount: number;
   referenceNumber?: string;
+}
+
+interface DiscountConfig {
+  name: string;
+  type: 'DISCOUNT' | 'PRICE_INCREASE';
+  amountType: 'PERCENT' | 'FIXED';
+  percent: number;
+  fixedAmount: number;
+  appliedItemIndices: number[];
 }
 
 interface OrderCreated {
@@ -46,7 +56,7 @@ interface OrderCreated {
 @Component({
   selector: 'sumi-cashier',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule, DecimalPipe, RouterLink],
   templateUrl: './cashier.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -62,7 +72,6 @@ export class CashierComponent implements OnInit {
   selectedServiceId: number | null = null;
   cart = signal<CartItem[]>([]);
 
-  discount = signal(0);
   referenceNumber = '';
   notes = '';
   orNumber = '';
@@ -79,11 +88,29 @@ export class CashierComponent implements OnInit {
   newClient = { nickname: '', email: '', gender: 'F', nationality: '' };
   registerError = signal<string | null>(null);
 
+  // Discount modal
+  showDiscountModal = signal(false);
+  discountConfig = signal<DiscountConfig>({
+    name: '',
+    type: 'DISCOUNT',
+    amountType: 'PERCENT',
+    percent: 0,
+    fixedAmount: 0,
+    appliedItemIndices: []
+  });
+  discountTemplates = [
+    { label: 'Custom', percent: 0, name: '' },
+    { label: 'SENIOR/PWD', percent: 20, name: 'Senior/PWD Discount' }
+  ];
+  activeTemplate = signal<string>('Custom');
+  discountSummary = signal<{ name: string; amount: number }[]>([]);
+
   submitting = signal(false);
   error = signal<string | null>(null);
 
   subtotal = computed(() => this.cart().reduce((sum, c) => sum + Number(c.price || 0), 0));
-  total = computed(() => Math.max(0, this.subtotal() - Number(this.discount() || 0)));
+  totalDiscount = computed(() => this.discountSummary().reduce((sum, d) => sum + d.amount, 0));
+  total = computed(() => Math.max(0, this.subtotal() - this.totalDiscount()));
   paid = computed(() => this.payments().reduce((sum, p) => sum + Number(p.amount || 0), 0));
   due = computed(() => Math.max(0, this.total() - this.paid()));
 
@@ -140,7 +167,7 @@ export class CashierComponent implements OnInit {
         this.showRegister.set(false);
       },
       error: (err) => {
-        const msg = err?.error?.message || 'Could not register patient. Try again.';
+        const msg = err?.error?.message || 'Could not register client. Try again.';
         this.registerError.set(msg);
       }
     });
@@ -150,18 +177,99 @@ export class CashierComponent implements OnInit {
     if (this.selectedServiceId == null) return;
     const s = this.services().find(x => x.id === Number(this.selectedServiceId));
     if (!s) return;
-    this.cart.update(items => [...items, { serviceId: s.id, name: s.name, price: Number(s.price || 0) }]);
+    this.cart.update(items => [...items, {
+      serviceId: s.id,
+      name: s.name,
+      price: Number(s.price || 0),
+      originalPrice: Number(s.price || 0)
+    }]);
     this.selectedServiceId = null;
   }
 
   removeItem(idx: number): void {
     this.cart.update(items => items.filter((_, i) => i !== idx));
+    // Re-apply any active discount
+    this.recalcDiscount();
   }
 
-  applyDiscount(value: number): void {
-    this.discount.set(Math.max(0, Number(value) || 0));
+  // --- Discount Modal ---
+  openDiscountModal(): void {
+    const cfg = this.discountConfig();
+    cfg.appliedItemIndices = this.cart().map((_, i) => i);
+    this.discountConfig.set({ ...cfg });
+    this.showDiscountModal.set(true);
   }
 
+  closeDiscountModal(): void {
+    this.showDiscountModal.set(false);
+  }
+
+  applyTemplate(tmpl: { label: string; percent: number; name: string }): void {
+    this.activeTemplate.set(tmpl.label);
+    this.discountConfig.update(cfg => ({
+      ...cfg,
+      name: tmpl.name || tmpl.label,
+      amountType: 'PERCENT' as const,
+      percent: tmpl.percent,
+      fixedAmount: 0,
+      type: 'DISCOUNT' as const
+    }));
+  }
+
+  toggleItemInDiscount(idx: number): void {
+    this.discountConfig.update(cfg => {
+      const indices = cfg.appliedItemIndices.includes(idx)
+        ? cfg.appliedItemIndices.filter(i => i !== idx)
+        : [...cfg.appliedItemIndices, idx];
+      return { ...cfg, appliedItemIndices: indices };
+    });
+  }
+
+  isItemInDiscount(idx: number): boolean {
+    return this.discountConfig().appliedItemIndices.includes(idx);
+  }
+
+  applyDiscount(): void {
+    const cfg = this.discountConfig();
+    const items = this.cart();
+    let totalDiscount = 0;
+
+    if (cfg.type === 'DISCOUNT') {
+      for (const idx of cfg.appliedItemIndices) {
+        if (idx >= items.length) continue;
+        const item = items[idx];
+        if (cfg.amountType === 'PERCENT') {
+          totalDiscount += item.originalPrice * (cfg.percent / 100);
+        } else {
+          totalDiscount += cfg.fixedAmount;
+        }
+      }
+    }
+
+    const name = cfg.name || (cfg.amountType === 'PERCENT' ? `${cfg.percent}% discount` : `₱${cfg.fixedAmount} discount`);
+    this.discountSummary.set(totalDiscount > 0 ? [{ name, amount: totalDiscount }] : []);
+    this.showDiscountModal.set(false);
+  }
+
+  removeDiscount(): void {
+    this.discountSummary.set([]);
+    this.discountConfig.update(cfg => ({
+      ...cfg,
+      name: '',
+      percent: 0,
+      fixedAmount: 0,
+      appliedItemIndices: []
+    }));
+    this.activeTemplate.set('Custom');
+  }
+
+  private recalcDiscount(): void {
+    if (this.discountSummary().length > 0) {
+      this.applyDiscount();
+    }
+  }
+
+  // --- Payments ---
   setPaymentMethod(method: 'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'): void {
     this.paymentMethod.set(method);
   }
@@ -184,7 +292,7 @@ export class CashierComponent implements OnInit {
 
   checkout(): void {
     if (!this.selectedClient()) {
-      this.error.set('Select a patient first.');
+      this.error.set('Select a client first.');
       return;
     }
     if (this.cart().length === 0) {
@@ -208,7 +316,7 @@ export class CashierComponent implements OnInit {
       notes: this.notes || null,
       orNumber: this.orNumber || null,
       subtotal: this.subtotal(),
-      discount: Number(this.discount() || 0),
+      discount: this.totalDiscount(),
       total: this.total(),
       initialPayment: firstPayment ? {
         paymentMethod: firstPayment.paymentMethod,

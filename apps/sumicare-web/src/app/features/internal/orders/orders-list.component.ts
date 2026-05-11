@@ -30,7 +30,7 @@ export class OrdersListComponent implements OnInit {
 
   orders = signal<Order[]>([]);
   loading = signal(false);
-  filter = signal<string>('OPEN');
+  filter = signal<string>('PAID');
 
   ngOnInit(): void {
     this.load();
@@ -40,8 +40,8 @@ export class OrdersListComponent implements OnInit {
     this.loading.set(true);
     let statusParam = '';
     const f = this.filter();
-    if (f === 'OPEN') statusParam = '?status=PENDING,ACTIVE,COMPLETED';
-    else if (f === 'FINISHED') statusParam = '?status=FINISHED';
+    if (f === 'PAID') statusParam = '?status=PENDING,PAID';
+    else if (f === 'COMPLETED') statusParam = '?status=COMPLETED';
     else if (f === 'CANCELLED') statusParam = '?status=CANCELLED';
     this.http.get<Order[]>(`${environment.apiBaseUrl}/api/cashier/orders${statusParam}`).subscribe({
       next: (o) => {
@@ -60,9 +60,8 @@ export class OrdersListComponent implements OnInit {
   statusClass(status: string): string {
     switch (status) {
       case 'PENDING': return 'bg-slate-200 text-slate-700';
-      case 'ACTIVE': return 'bg-amber-100 text-amber-700';
+      case 'PAID': return 'bg-emerald-100 text-emerald-700';
       case 'COMPLETED': return 'bg-blue-100 text-blue-700';
-      case 'FINISHED': return 'bg-emerald-100 text-emerald-700';
       case 'CANCELLED': return 'bg-rose-100 text-rose-700';
       default: return 'bg-slate-100 text-slate-700';
     }

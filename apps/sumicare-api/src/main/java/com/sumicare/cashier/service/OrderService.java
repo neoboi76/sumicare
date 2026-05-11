@@ -94,6 +94,8 @@ public class OrderService {
                 ? request.clientNickname()
                 : "Walk-in";
 
+        // Create booking but do NOT auto-start session.
+        // Pay first before massage: session only starts after order is PAID.
         var bookingRequest = new CreateBookingRequest(
                 request.clientId(),
                 nickname,
@@ -107,33 +109,13 @@ public class OrderService {
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
         Booking booking = bookingRepository.findById(bookingResponse.id()).orElseThrow();
 
-        boolean canStartSession = request.primaryTherapistId() != null
-                && request.roomId() != null
-                && request.bedId() != null;
-
-        UUID sessionId = null;
-        UUID slipId = null;
-        if (canStartSession) {
-            var startRequest = new StartSessionRequest(
-                    request.primaryTherapistId(),
-                    request.secondaryTherapistId(),
-                    request.roomId(),
-                    request.bedId(),
-                    false
-            );
-            var sessionResponse = bookingService.startSession(organizationId, booking.getId(), startRequest);
-            sessionId = sessionResponse.id();
-            TreatmentSlip slip = slipService.generateForSession(organizationId, sessionId);
-            slip.setStatus("DRAFT");
-            slip.setOrNumber(request.orNumber());
-            slip.setTotalAmount(total);
-            slipId = slip.getId();
-        }
-
-        Order order = new Order();
-        order.setOrganizationId(organizationId);
-        order.setBookingId(booking.getId());
-        order.setTreatmentSlipId(slipId);
+        // Update the order that was auto-created by BookingService.createBooking
+        Order order = orderRepository.findByBookingId(booking.getId()).orElseGet(() -> {
+            Order o = new Order();
+            o.setOrganizationId(organizationId);
+            o.setBookingId(booking.getId());
+            return o;
+        });
         order.setCashierUserId(cashierUserId);
         order.setOrNumber(request.orNumber());
         order.setReferenceNumber(request.referenceNumber());
@@ -142,12 +124,12 @@ public class OrderService {
         order.setDiscount(discount);
         order.setTotal(total);
         order.setAmountPaid(BigDecimal.ZERO);
-        order.setStatus(canStartSession ? "ACTIVE" : "PENDING");
+        order.setStatus("PENDING");
         orderRepository.save(order);
 
         if (request.initialPayment() != null
                 && request.initialPayment().amount().compareTo(BigDecimal.ZERO) > 0) {
-            recordPaymentInternal(order, sessionId, request.initialPayment().paymentMethod(),
+            recordPaymentInternal(order, null, request.initialPayment().paymentMethod(),
                     request.initialPayment().amount(), request.initialPayment().referenceNumber());
         }
 
@@ -172,28 +154,21 @@ public class OrderService {
     @Transactional
     public OrderResponse markPaid(UUID organizationId, UUID orderId) {
         Order order = requireOrder(organizationId, orderId);
-        if ("FINISHED".equals(order.getStatus())) {
-            throw new IllegalStateException("Order is already finished");
+        if ("PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Order is already paid");
+        }
+        if ("COMPLETED".equals(order.getStatus())) {
+            throw new IllegalStateException("Order is already completed");
         }
         if ("CANCELLED".equals(order.getStatus())) {
-            throw new IllegalStateException("Cannot finish a cancelled order");
+            throw new IllegalStateException("Cannot mark a cancelled order as paid");
         }
         if (order.getAmountPaid().compareTo(order.getTotal()) < 0) {
             throw new IllegalStateException("Outstanding balance must be settled before marking paid");
         }
-        order.setStatus("FINISHED");
+        // Mark as PAID — session can now be started by the receptionist
+        order.setStatus("PAID");
         order.setFinishedAt(OffsetDateTime.now());
-        if (order.getTreatmentSlipId() != null) {
-            slipRepository.findById(order.getTreatmentSlipId()).ifPresent(slip -> {
-                slip.setStatus("FINALIZED");
-                slip.setSignedAt(OffsetDateTime.now());
-                slipRepository.save(slip);
-            });
-        }
-        Session session = sessionRepository.findFirstByBookingId(order.getBookingId()).orElse(null);
-        if (session != null) {
-            posService.recordCommissionsForSession(organizationId, session);
-        }
         Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
         return toResponse(order, booking);
     }
@@ -202,8 +177,8 @@ public class OrderService {
     @Transactional
     public OrderResponse cancel(UUID organizationId, UUID orderId, String reason) {
         Order order = requireOrder(organizationId, orderId);
-        if ("FINISHED".equals(order.getStatus())) {
-            throw new IllegalStateException("Cannot cancel a finished order");
+        if ("COMPLETED".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot cancel a completed order");
         }
         order.setStatus("CANCELLED");
         order.setCancelledAt(OffsetDateTime.now());
@@ -246,10 +221,25 @@ public class OrderService {
     @Transactional
     public void onSessionCompleted(UUID bookingId, OffsetDateTime endedAt) {
         orderRepository.findByBookingId(bookingId).ifPresent(order -> {
-            if (!"FINISHED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
+            if (!"COMPLETED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
                 order.setStatus("COMPLETED");
                 order.setCompletedAt(endedAt != null ? endedAt : OffsetDateTime.now());
                 orderRepository.save(order);
+
+                // Finalize treatment slip
+                if (order.getTreatmentSlipId() != null) {
+                    slipRepository.findById(order.getTreatmentSlipId()).ifPresent(slip -> {
+                        slip.setStatus("FINALIZED");
+                        slip.setSignedAt(OffsetDateTime.now());
+                        slipRepository.save(slip);
+                    });
+                }
+
+                // Auto-compute commissions when service is completed
+                Session session = sessionRepository.findFirstByBookingId(bookingId).orElse(null);
+                if (session != null) {
+                    posService.recordCommissionsForSession(order.getOrganizationId(), session);
+                }
             }
         });
     }
@@ -269,6 +259,8 @@ public class OrderService {
 
     private void recordPaymentInternal(Order order, UUID sessionId, String paymentMethod,
                                        BigDecimal amount, String referenceNumber) {
+        UUID processedBy = order.getCashierUserId();
+
         PosTransaction tx = new PosTransaction();
         tx.setOrganizationId(order.getOrganizationId());
         tx.setSessionId(sessionId);
@@ -277,7 +269,7 @@ public class OrderService {
         tx.setDiscount(BigDecimal.ZERO);
         tx.setTotal(amount);
         tx.setPaymentMethod(paymentMethod);
-        tx.setProcessedBy(order.getCashierUserId());
+        tx.setProcessedBy(processedBy);
         tx.setProcessedAt(OffsetDateTime.now());
         tx.setStatus("COMPLETED");
         transactionRepository.save(tx);
@@ -318,6 +310,11 @@ public class OrderService {
 
     private OrderResponse toResponse(Order order, Booking booking) {
         BigDecimal balance = order.getTotal().subtract(order.getAmountPaid());
+        String serviceName = null;
+        if (booking != null) {
+            serviceName = serviceRepository.findById(booking.getServiceId())
+                    .map(Service::getName).orElse(null);
+        }
         return new OrderResponse(
                 order.getId(),
                 order.getBookingId(),
@@ -325,6 +322,7 @@ public class OrderService {
                 order.getCashierUserId(),
                 booking != null ? booking.getClientNickname() : null,
                 booking != null ? booking.getClientId() : null,
+                serviceName,
                 order.getOrNumber(),
                 order.getReferenceNumber(),
                 order.getNotes(),

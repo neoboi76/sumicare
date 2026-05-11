@@ -12,6 +12,7 @@ interface Order {
   cashierUserId: string | null;
   clientNickname: string | null;
   clientId: string | null;
+  serviceName: string | null;
   orNumber: string | null;
   referenceNumber: string | null;
   notes: string | null;
@@ -157,9 +158,8 @@ export class OrderDetailComponent implements OnInit {
   statusClass(status: string): string {
     switch (status) {
       case 'PENDING': return 'bg-slate-200 text-slate-700';
-      case 'ACTIVE': return 'bg-amber-100 text-amber-700';
+      case 'PAID': return 'bg-emerald-100 text-emerald-700';
       case 'COMPLETED': return 'bg-blue-100 text-blue-700';
-      case 'FINISHED': return 'bg-emerald-100 text-emerald-700';
       case 'CANCELLED': return 'bg-rose-100 text-rose-700';
       default: return 'bg-slate-100 text-slate-700';
     }

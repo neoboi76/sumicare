@@ -42,6 +42,7 @@ export class ReportsComponent implements OnInit {
   // Service breakdown
   cutoffFrom = new Date().toISOString().slice(0, 10);
   cutoffTo = new Date().toISOString().slice(0, 10);
+  cutoffShiftId: number | null = null;
   servicesReport = signal<CutoffServicesReport | null>(null);
 
   // Daily
@@ -92,9 +93,9 @@ export class ReportsComponent implements OnInit {
   loadServices(): void {
     const from = `${this.cutoffFrom}T00:00:00Z`;
     const to = `${this.cutoffTo}T23:59:59Z`;
-    this.http.get<CutoffServicesReport>(
-      `${environment.apiBaseUrl}/api/reports/cutoff/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-    ).subscribe({
+    let url = `${environment.apiBaseUrl}/api/reports/cutoff/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    if (this.cutoffShiftId) url += `&shiftId=${this.cutoffShiftId}`;
+    this.http.get<CutoffServicesReport>(url).subscribe({
       next: (r) => this.servicesReport.set(r),
       error: () => this.servicesReport.set(null)
     });
@@ -103,10 +104,9 @@ export class ReportsComponent implements OnInit {
   exportServicesCsv(): void {
     const from = `${this.cutoffFrom}T00:00:00Z`;
     const to = `${this.cutoffTo}T23:59:59Z`;
-    this.downloadBlob(
-      `${environment.apiBaseUrl}/api/reports/cutoff/services/export.csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-      `cutoff-services-${this.cutoffFrom}-to-${this.cutoffTo}.csv`
-    );
+    let url = `${environment.apiBaseUrl}/api/reports/cutoff/services/export.csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    if (this.cutoffShiftId) url += `&shiftId=${this.cutoffShiftId}`;
+    this.downloadBlob(url, `cutoff-services-${this.cutoffFrom}-to-${this.cutoffTo}.csv`);
   }
 
   // ---- Daily ----

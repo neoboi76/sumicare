@@ -21,6 +21,13 @@
         <span class="inline-block rounded px-2 py-0.5 text-xs font-semibold" [class]="statusClass(o.status)">{{ o.status }}</span>
       </header>
 
+      @if (o.serviceName) {
+        <div class="text-sm">
+          <span class="text-xs uppercase tracking-wide text-slate-500">Service:</span>
+          <span class="font-medium ml-1">{{ o.serviceName }}</span>
+        </div>
+      }
+
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <div>
           <div class="text-xs uppercase tracking-wide text-slate-500">Subtotal</div>
@@ -59,8 +66,8 @@
     @if (o.status !== 'CANCELLED') {
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Record payment</h3>
-        @if (o.status === 'FINISHED') {
-          <p class="text-sm text-slate-500">Order is finished. No further payments.</p>
+        @if (o.status === 'COMPLETED') {
+          <p class="text-sm text-slate-500">Order is completed. No further payments.</p>
         } @else {
           <div class="flex flex-wrap gap-2">
             @for (m of ['CASH', 'GCASH', 'CREDIT', 'DEBIT']; track m) {
@@ -87,7 +94,7 @@
                     class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2 disabled:opacity-50">Record</button>
           </div>
           <div class="flex gap-2 pt-3 border-t border-slate-100">
-            <button (click)="markPaid()" [disabled]="busy() || o.balance > 0 || o.status === 'FINISHED'"
+            <button (click)="markPaid()" [disabled]="busy() || o.balance > 0 || o.status === 'PAID' || o.status === 'COMPLETED'"
                     class="rounded bg-emerald-600 text-white text-sm px-4 py-2 disabled:opacity-50">Mark as paid</button>
             <button (click)="openCancel()" [disabled]="busy()"
                     class="rounded border border-rose-300 text-rose-700 text-sm px-4 py-2">Cancel order</button>

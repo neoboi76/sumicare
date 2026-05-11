@@ -37,16 +37,14 @@
               }
             </div>
             <div class="mt-2 flex flex-wrap gap-1">
-              <button (click)="setFlag(entry.therapistId, 'REQUESTED')" class="text-[11px] rounded px-2 py-0.5 hover:bg-slate-100">Requested</button>
-              <button (click)="setFlag(entry.therapistId, 'SCRUB')" class="text-[11px] rounded px-2 py-0.5 hover:bg-slate-100">Scrub</button>
-              <button (click)="setFlag(entry.therapistId, 'ORDINARY')" class="text-[11px] rounded px-2 py-0.5 hover:bg-slate-100">Ordinary</button>
               @if (!entry.skipped) {
                 <button (click)="skip(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-amber-700 hover:bg-amber-50">Skip 30m</button>
               } @else {
                 <button (click)="cancelSkip(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-emerald-700 hover:bg-emerald-50">Resume</button>
               }
-              <button (click)="rotate(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 hover:bg-slate-100">To back</button>
-              <button (click)="remove(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-red-700 hover:bg-red-50">Remove</button>
+              <button (click)="remove(entry.therapistId)" [disabled]="entry.onCall"
+                      class="text-[11px] rounded px-2 py-0.5 text-red-700 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      [title]="entry.onCall ? 'Cannot remove while on call' : 'Remove from lineup'">Remove</button>
             </div>
           </div>
         </div>

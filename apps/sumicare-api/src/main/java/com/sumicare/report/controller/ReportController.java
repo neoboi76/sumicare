@@ -96,16 +96,18 @@ public class ReportController {
     public OperationsReportService.CutoffServicesReport cutoffServices(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
             @RequestParam OffsetDateTime from,
-            @RequestParam OffsetDateTime to) {
-        return operationsReportService.cutoffServices(UUID.fromString(principal.organizationId()), from, to);
+            @RequestParam OffsetDateTime to,
+            @RequestParam(required = false) Long shiftId) {
+        return operationsReportService.cutoffServices(UUID.fromString(principal.organizationId()), from, to, shiftId);
     }
 
     @GetMapping("/cutoff/services/export.csv")
     public ResponseEntity<byte[]> cutoffServicesCsv(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
             @RequestParam OffsetDateTime from,
-            @RequestParam OffsetDateTime to) {
-        byte[] data = operationsReportService.cutoffServicesCsv(UUID.fromString(principal.organizationId()), from, to);
+            @RequestParam OffsetDateTime to,
+            @RequestParam(required = false) Long shiftId) {
+        byte[] data = operationsReportService.cutoffServicesCsv(UUID.fromString(principal.organizationId()), from, to, shiftId);
         String filename = "cutoff-services-" + from.toLocalDate() + "-to-" + to.toLocalDate() + ".csv";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")

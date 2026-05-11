@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 
 interface Service {
@@ -22,7 +23,7 @@ interface RecommendationResponse {
 @Component({
   selector: 'sumi-recommendation',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './recommendation.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

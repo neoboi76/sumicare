@@ -5,7 +5,7 @@
   </header>
 
   <div class="flex gap-2 text-xs">
-    @for (f of [{ k: 'OPEN', label: 'Open' }, { k: 'FINISHED', label: 'Finished' }, { k: 'CANCELLED', label: 'Cancelled' }, { k: 'ALL', label: 'All' }]; track f.k) {
+    @for (f of [{ k: 'PAID', label: 'Paid' }, { k: 'COMPLETED', label: 'Completed' }, { k: 'CANCELLED', label: 'Cancelled' }, { k: 'ALL', label: 'All' }]; track f.k) {
       <button (click)="setFilter(f.k)"
               class="px-3 py-1.5 rounded border"
               [class.bg-\[var\(--sumi-primary\)\]]="filter() === f.k"

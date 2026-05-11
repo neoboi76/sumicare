@@ -9,6 +9,7 @@ import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.domain.Service;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
+import com.sumicare.shift.repository.ShiftRepository;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
@@ -39,6 +40,7 @@ public class OperationsReportService {
     private final TherapistRepository therapistRepository;
     private final RoomRepository roomRepository;
     private final OrderRepository orderRepository;
+    private final ShiftRepository shiftRepository;
 
     public OperationsReportService(SessionRepository sessionRepository,
                                    BookingRepository bookingRepository,
@@ -46,7 +48,8 @@ public class OperationsReportService {
                                    ServiceRepository serviceRepository,
                                    TherapistRepository therapistRepository,
                                    RoomRepository roomRepository,
-                                   OrderRepository orderRepository) {
+                                   OrderRepository orderRepository,
+                                   ShiftRepository shiftRepository) {
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
         this.slipRepository = slipRepository;
@@ -54,6 +57,7 @@ public class OperationsReportService {
         this.therapistRepository = therapistRepository;
         this.roomRepository = roomRepository;
         this.orderRepository = orderRepository;
+        this.shiftRepository = shiftRepository;
     }
 
     public record ServiceLine(Long serviceId, String serviceName, int qty, BigDecimal unitPrice, BigDecimal lineTotal) {}
@@ -76,8 +80,28 @@ public class OperationsReportService {
     public record MonthlyReportResponse(int year, int month, List<DailyRow> rows, BigDecimal grandTotal) {}
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
-    public CutoffServicesReport cutoffServices(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
+    public CutoffServicesReport cutoffServices(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
         List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
+
+        // If shiftId is provided, filter slips by the shift's time window
+        if (shiftId != null) {
+            var shift = shiftRepository.findById(shiftId).orElse(null);
+            if (shift != null) {
+                java.time.LocalTime shiftStart = shift.getStartTime();
+                java.time.LocalTime shiftEnd = shift.getEndTime();
+                slips = slips.stream().filter(slip -> {
+                    if (slip.getStartTime() == null) return false;
+                    java.time.LocalTime slipTime = slip.getStartTime().toLocalTime();
+                    if (shiftStart.isBefore(shiftEnd)) {
+                        return !slipTime.isBefore(shiftStart) && slipTime.isBefore(shiftEnd);
+                    } else {
+                        // Overnight shift (e.g. 22:00 - 06:00)
+                        return !slipTime.isBefore(shiftStart) || slipTime.isBefore(shiftEnd);
+                    }
+                }).toList();
+            }
+        }
+
         Map<String, ServiceAccumulator> bucket = new HashMap<>();
         for (TreatmentSlip s : slips) {
             String key = s.getServiceName() == null ? "Unknown" : s.getServiceName();
@@ -96,8 +120,8 @@ public class OperationsReportService {
         return new CutoffServicesReport(from, to, lines, grand);
     }
 
-    public byte[] cutoffServicesCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
-        CutoffServicesReport report = cutoffServices(organizationId, from, to);
+    public byte[] cutoffServicesCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
+        CutoffServicesReport report = cutoffServices(organizationId, from, to, shiftId);
         StringBuilder sb = new StringBuilder();
         sb.append("Service,Qty,Unit Price,Line Total\n");
         for (ServiceLine l : report.lines()) {

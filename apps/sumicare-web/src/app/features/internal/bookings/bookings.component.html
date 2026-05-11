@@ -8,7 +8,6 @@
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate"
              class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
       <button (click)="exportCsv()" class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">Export CSV</button>
-      <button (click)="openWalkIn()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">New walk-in</button>
     </div>
   </header>
 
@@ -23,6 +22,7 @@
           <th class="text-left p-3">Service</th>
           <th class="text-left p-3">Type</th>
           <th class="text-left p-3">Status</th>
+          <th class="text-left p-3">Payment</th>
           <th class="text-right p-3">Actions</th>
         </tr>
       </thead>
@@ -38,297 +38,40 @@
               <span [class]="'rounded-full px-2 py-0.5 text-xs ' + (b.reservationType === 'HARD' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')">{{ b.reservationType }}</span>
             </td>
             <td class="p-3">{{ b.status }}</td>
+            <td class="p-3">
+              <span [class]="'rounded-full px-2 py-0.5 text-xs ' + (isOrderPaid(b.id) ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700')">
+                {{ getOrderStatus(b.id) }}
+              </span>
+            </td>
             <td class="p-3 text-right space-x-2">
+              @if (b.status !== 'CANCELLED' && b.status !== 'COMPLETED') {
+                <button (click)="openEdit(b)" class="text-slate-600 hover:underline text-xs">Edit</button>
+              }
               @if (b.status === 'PENDING') {
-                <button (click)="openStart(b)" class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+                @if (isOrderPaid(b.id)) {
+                  <button (click)="openStart(b)" class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+                } @else {
+                  <span class="text-xs text-slate-400" title="Order must be paid before starting a session">Awaiting payment</span>
+                }
               }
               @if (b.status === 'ACTIVE') {
                 <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
                 <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+30min</button>
-                <button (click)="adjustSession(b)" class="text-slate-700 hover:underline">Adjust</button>
+                <button (click)="openAdjust(b)" class="text-slate-700 hover:underline">Adjust</button>
                 <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
               }
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="8" class="p-6 text-center text-slate-500">No bookings for this date.</td>
+            <td colspan="9" class="p-6 text-center text-slate-500">No bookings for this date.</td>
           </tr>
         }
       </tbody>
     </table>
   </section>
 
-  @if (showWalkIn()) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
-        <header class="px-6 py-4 border-b sticky top-0 bg-white z-10">
-          <h2 class="text-lg font-semibold text-slate-900">New walk-in</h2>
-          <p class="text-xs text-slate-500">Captures every field on the LASEMA paper slip and creates the booking, session, and treatment slip in one step.</p>
-        </header>
-
-        @if (walkInError(); as err) {
-          <div class="mx-6 mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{{ err }}</div>
-        }
-
-        <div class="px-6 py-4 space-y-5">
-
-          <section class="space-y-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Service</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block text-sm">
-                Treatment <span class="text-red-500">*</span>
-                <select [ngModel]="walkInServiceId()" (ngModelChange)="walkInServiceId.set($event)" name="walkInServiceId"
-                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-                  <option [ngValue]="0" disabled>Select treatment</option>
-                  @for (s of services(); track s.id) {
-                    <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min){{ s.vip ? ' — VIP' : '' }}</option>
-                  }
-                </select>
-              </label>
-              <label class="block text-sm">
-                Reservation type
-                <select [(ngModel)]="walkInReservationType" name="walkInReservationType"
-                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-                  <option value="WALK_IN">Walk-in</option>
-                  <option value="SOFT">Soft reservation</option>
-                  <option value="HARD">Hard reservation</option>
-                </select>
-              </label>
-            </div>
-          </section>
-
-          <section class="space-y-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              {{ isWalkInVip() ? 'VIP package details' : 'Session details' }}
-            </h3>
-            @if (isWalkInVip()) {
-              <div class="grid grid-cols-2 gap-3">
-                <label class="block text-sm">
-                  Jacuzzi time (min)
-                  <input type="number" min="0" max="180" [(ngModel)]="walkInJacuzziMinutes" name="walkInJacuzziMinutes"
-                         class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-                </label>
-                <label class="block text-sm">
-                  Massage time (min)
-                  <input type="number" min="0" max="180" [(ngModel)]="walkInMassageMinutes" name="walkInMassageMinutes"
-                         class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-                </label>
-              </div>
-              <div>
-                <span class="text-sm text-slate-700">Wine included</span>
-                <div class="mt-1 flex gap-4 text-sm">
-                  <label class="flex items-center gap-1.5">
-                    <input type="radio" [(ngModel)]="walkInWine" [value]="true" name="walkInWine" /> Yes
-                  </label>
-                  <label class="flex items-center gap-1.5">
-                    <input type="radio" [(ngModel)]="walkInWine" [value]="false" name="walkInWine" /> No
-                  </label>
-                </div>
-              </div>
-            } @else {
-              <div class="grid grid-cols-2 gap-3">
-                <label class="block text-sm">
-                  Service Duration
-                  <input type="text"
-                         [value]="(selectedWalkInService()?.durationMinutes ?? '') + (selectedWalkInService() ? ' min' : '')"
-                         class="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500"
-                         readonly />
-                </label>
-                <label class="block text-sm">
-                  Pax
-                  <input type="number" min="1" max="20" [(ngModel)]="walkInPax" name="walkInPax"
-                         class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-                </label>
-              </div>
-            }
-          </section>
-
-          <section class="space-y-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Client</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block text-sm">
-                Customer name (nickname) <span class="text-red-500">*</span>
-                <input [(ngModel)]="walkInNickname" name="walkInNickname" required
-                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2"
-                       placeholder="e.g. Maria" />
-              </label>
-              <label class="block text-sm">
-                Locker key #
-                <input [(ngModel)]="walkInLocker" name="walkInLocker"
-                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2"
-                       placeholder="e.g. L-12" />
-              </label>
-            </div>
-            <fieldset class="text-sm text-slate-700">
-              <legend class="mb-1">Sex <span class="text-red-500">*</span></legend>
-              <div class="flex gap-6">
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" [(ngModel)]="walkInClientGender" name="walkInClientGender" value="F" class="accent-[var(--sumi-primary)]" />
-                  Female
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" [(ngModel)]="walkInClientGender" name="walkInClientGender" value="M" class="accent-[var(--sumi-primary)]" />
-                  Male
-                </label>
-              </div>
-            </fieldset>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block text-sm">
-                Date
-                <input type="text" [value]="walkInStartTime ? walkInStartTime.slice(0, 10) : ''"
-                       class="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500" readonly />
-              </label>
-              <label class="block text-sm">
-                TS #
-                <input type="text" value="Pending"
-                       class="mt-1 w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500" readonly />
-              </label>
-            </div>
-          </section>
-
-          <section class="space-y-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Time &amp; room</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block text-sm">
-                Start time <span class="text-red-500">*</span>
-                <input type="datetime-local" [(ngModel)]="walkInStartTime" name="walkInStartTime" required
-                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-              </label>
-              <label class="block text-sm">
-                End time
-                <input type="datetime-local" [(ngModel)]="walkInEndTimeOverride" name="walkInEndTimeOverride"
-                       [placeholder]="walkInComputedEnd()"
-                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-                <span class="text-[11px] text-slate-400 mt-0.5 block">Auto-computed: {{ walkInComputedEnd() || '—' }}</span>
-              </label>
-            </div>
-            <div>
-              <label class="block text-sm">
-                Room
-                <select [ngModel]="walkInRoomId()" (ngModelChange)="onWalkInRoomChange($event)" name="walkInRoomId"
-                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-                  <option [ngValue]="null">No room assigned</option>
-                  @for (r of rooms(); track r.id) {
-                    <option [ngValue]="r.id">Room {{ r.roomNumber }} ({{ r.roomType }})</option>
-                  }
-                </select>
-              </label>
-              @if (walkInBedsForRoom().length > 0) {
-                <div class="mt-2 grid grid-cols-3 gap-1">
-                  @for (bed of walkInBedsForRoom(); track bed.id) {
-                    <button type="button" (click)="pickWalkInBed(bed)" [class]="walkInBedClass(bed)"
-                            [title]="bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : ''">
-                      {{ bed.label }}
-                      @if (walkInBedIds.includes(bed.id)) { [x] }
-                    </button>
-                  }
-                </div>
-                <p class="text-[11px] text-slate-400 mt-1">
-                  {{ walkInBedIds.length }} of {{ walkInPax }} bed{{ walkInPax !== 1 ? 's' : '' }} selected. Click to toggle.
-                </p>
-              }
-            </div>
-          </section>
-
-          <section class="space-y-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Therapist</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block text-sm">
-                Primary therapist
-                <select [(ngModel)]="walkInPrimaryTherapistId" name="walkInPrimaryTherapistId"
-                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-                  <option [ngValue]="null">Unassigned</option>
-                  @for (t of lineup(); track t.therapistId) {
-                    <option [ngValue]="t.therapistId">
-                      #{{ t.position }} — {{ t.nickname }} ({{ t.gender === 'M' ? 'Male' : 'Female' }})
-                      @if (t.skipped) {
-                        — on break
-                      }
-                    </option>
-                  }
-                </select>
-                <span class="text-[11px] text-slate-400 mt-0.5 block">Sourced from current lineup. Therapists outside their shift do not appear.</span>
-              </label>
-              @if (walkInNeedsSecondary()) {
-                <label class="block text-sm">
-                  Secondary therapist (tandem)
-                  <select [(ngModel)]="walkInSecondaryTherapistId" name="walkInSecondaryTherapistId"
-                          class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-                    <option [ngValue]="null">None</option>
-                    @for (t of lineup(); track t.therapistId) {
-                      <option [ngValue]="t.therapistId">{{ t.nickname }}</option>
-                    }
-                  </select>
-                </label>
-              }
-            </div>
-            <label class="flex items-center gap-2 text-sm">
-              <input type="checkbox" [(ngModel)]="walkInSpecificallyRequested" name="walkInSpecificallyRequested" />
-              Client specifically requested this therapist
-            </label>
-          </section>
-
-          <section class="space-y-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Billing</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block text-sm">
-                OR #
-                <input [(ngModel)]="walkInOrNumber" name="walkInOrNumber"
-                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2"
-                       placeholder="Treatment receipt #" />
-              </label>
-              <label class="block text-sm">
-                Add-on OR #
-                <input [(ngModel)]="walkInAddOnOrNumber" name="walkInAddOnOrNumber"
-                       class="mt-1 w-full rounded border border-slate-300 px-3 py-2"
-                       placeholder="Others / add-on receipt #" />
-              </label>
-            </div>
-            <label class="block text-sm">
-              Others / add on
-              <textarea rows="2" [(ngModel)]="walkInOthersAddOn" name="walkInOthersAddOn"
-                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></textarea>
-            </label>
-            <label class="block text-sm">
-              Remarks
-              <textarea rows="2" [(ngModel)]="walkInRemarks" name="walkInRemarks"
-                        class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></textarea>
-            </label>
-            <label class="block text-sm">
-              Total amount (₱)
-              <input type="number" min="0" step="0.01" [(ngModel)]="walkInTotalAmount" name="walkInTotalAmount"
-                     class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-            </label>
-          </section>
-
-          <section class="space-y-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Waiver</h3>
-            <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-600">
-              I understand that the services provided are for relaxation and general wellness purposes only.
-              I confirm that I have no known medical conditions that would contraindicate massage or spa
-              treatments and release the establishment and its staff from any liability arising from
-              undisclosed pre-existing conditions. Recommendations are recreational and do not constitute
-              medical advice.
-            </div>
-            <label class="flex items-start gap-2 text-sm">
-              <input type="checkbox" [(ngModel)]="walkInWaiver" name="walkInWaiver" class="mt-0.5" required />
-              <span>Client has read and accepted the waiver above.</span>
-            </label>
-          </section>
-        </div>
-
-        <footer class="px-6 py-4 border-t flex justify-end gap-2 sticky bottom-0 bg-white">
-          <button (click)="showWalkIn.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-          <button (click)="submitWalkIn()" [disabled]="walkInSubmitting() || !walkInWaiver"
-                  class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm disabled:opacity-50">
-            {{ walkInSubmitting() ? 'Creating...' : 'Create walk-in & open slip' }}
-          </button>
-        </footer>
-      </div>
-    </div>
-  }
-
+  <!-- Start Session Modal -->
   @if (startBooking(); as sb) {
     <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -344,11 +87,11 @@
           <span class="text-sm text-slate-700">Primary therapist</span>
           <select [(ngModel)]="startPrimaryTherapistId" name="primary" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
             <option [ngValue]="null">Choose therapist</option>
-            @for (t of lineup(); track t.therapistId) {
-              <option [ngValue]="t.therapistId">#{{ t.position }} — {{ t.nickname }} ({{ t.gender }})</option>
+            @for (t of availableTherapists(); track t.therapistId) {
+              <option [ngValue]="t.therapistId">#{{ t.position }} — {{ t.nickname }} ({{ t.gender === 'M' ? 'Male' : 'Female' }})</option>
             }
           </select>
-          <span class="text-[11px] text-slate-400 mt-0.5 block">Sourced from current lineup. Therapists outside their shift do not appear.</span>
+          <span class="text-[11px] text-slate-400 mt-0.5 block">Only therapists who are available (not on call) are shown. Refreshes automatically.</span>
         </div>
 
         @if (needsSecondary()) {
@@ -356,8 +99,8 @@
             <span class="text-sm text-slate-700">Secondary therapist (tandem)</span>
             <select [(ngModel)]="startSecondaryTherapistId" name="secondary" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
               <option [ngValue]="null">Choose therapist</option>
-              @for (t of lineup(); track t.therapistId) {
-                <option [ngValue]="t.therapistId">{{ t.nickname }} ({{ t.gender }})</option>
+              @for (t of availableTherapists(); track t.therapistId) {
+                <option [ngValue]="t.therapistId">{{ t.nickname }} ({{ t.gender === 'M' ? 'Male' : 'Female' }})</option>
               }
             </select>
           </div>
@@ -371,7 +114,8 @@
                 <div class="text-xs font-semibold text-slate-700">Room {{ room.roomNumber }} ({{ room.roomType }})</div>
                 <div class="grid grid-cols-3 gap-1 mt-1">
                   @for (bed of room.beds; track bed.id) {
-                    <button type="button" (click)="pickBed(room, bed)" [class]="bedClass(room, bed)">
+                    <button type="button" (click)="pickBed(room, bed)" [class]="bedClass(room, bed)"
+                            [title]="!isBedSelectableForGender(bed, sb.clientGender) ? (bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : 'Occupied') : bed.label">
                       {{ bed.label }}
                     </button>
                   }
@@ -387,6 +131,65 @@
         <div class="flex justify-end gap-2 pt-2">
           <button (click)="cancelStart()" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
           <button (click)="submitStart()" [disabled]="!canStart()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm disabled:opacity-50">Start session</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Edit Booking Modal -->
+  @if (editBooking(); as eb) {
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="cancelEdit()">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
+        <h2 class="text-lg font-semibold">Edit booking — {{ eb.clientNickname }}</h2>
+        @if (editError(); as e) {
+          <p class="text-sm text-red-600">{{ e }}</p>
+        }
+        <label class="block text-sm">
+          Client nickname
+          <input [(ngModel)]="editClientNickname" name="editClientNickname" maxlength="64"
+                 class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
+        </label>
+        <label class="block text-sm">
+          Service
+          <select [ngModel]="editServiceId()" (ngModelChange)="editServiceId.set($event)" name="editServiceId"
+                  class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+            @for (s of services(); track s.id) {
+              <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min) — ₱ {{ s.price }}</option>
+            }
+          </select>
+        </label>
+        <label class="block text-sm">
+          Locker key #
+          <input [(ngModel)]="editLockerNumber" name="editLockerNumber" maxlength="16"
+                 class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
+        </label>
+        <div class="flex justify-end gap-2 pt-2">
+          <button (click)="cancelEdit()" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+          <button (click)="submitEdit()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Adjust Session Modal -->
+  @if (adjustBooking(); as ab) {
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="cancelAdjust()">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
+        <h2 class="text-lg font-semibold">Adjust session — {{ ab.clientNickname }}</h2>
+        <p class="text-sm text-slate-500">Leave blank to keep current value.</p>
+        <label class="block text-sm">
+          New start time
+          <input type="datetime-local" [(ngModel)]="adjustNewStart" name="adjustNewStart"
+                 class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
+        </label>
+        <label class="block text-sm">
+          New end time
+          <input type="datetime-local" [(ngModel)]="adjustNewEnd" name="adjustNewEnd"
+                 class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
+        </label>
+        <div class="flex justify-end gap-2 pt-2">
+          <button (click)="cancelAdjust()" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+          <button (click)="submitAdjust()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Apply changes</button>
         </div>
       </div>
     </div>

@@ -1,12 +1,14 @@
 package com.sumicare.booking.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
+import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.CreateWalkInRequest;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.booking.dto.WalkInResponse;
+import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.booking.service.BookingService;
 import com.sumicare.booking.service.WalkInService;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -26,15 +29,18 @@ public class BookingController {
     private final WalkInService walkInService;
     private final OrganizationRepository organizationRepository;
     private final SessionRepository sessionRepository;
+    private final BookingRepository bookingRepository;
 
     public BookingController(BookingService bookingService,
                              WalkInService walkInService,
                              OrganizationRepository organizationRepository,
-                             SessionRepository sessionRepository) {
+                             SessionRepository sessionRepository,
+                             BookingRepository bookingRepository) {
         this.bookingService = bookingService;
         this.walkInService = walkInService;
         this.organizationRepository = organizationRepository;
         this.sessionRepository = sessionRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     @PostMapping("/api/walk-in")
@@ -98,5 +104,27 @@ public class BookingController {
                         s.isExtension(), s.getExtensionMinutes(),
                         s.getStartedAt(), s.getExpectedEndAt(), s.getEndedAt(), s.getStatus()))
                 .orElseThrow();
+    }
+
+    @PatchMapping("/api/bookings/{bookingId}")
+    public Map<String, String> updateBooking(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                             @PathVariable UUID bookingId,
+                                             @RequestBody Map<String, Object> updates) {
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow();
+        UUID orgId = UUID.fromString(principal.organizationId());
+        if (!booking.getOrganizationId().equals(orgId)) {
+            throw new IllegalArgumentException("Booking not in organization");
+        }
+        if (updates.containsKey("serviceId")) {
+            booking.setServiceId(((Number) updates.get("serviceId")).longValue());
+        }
+        if (updates.containsKey("lockerNumber")) {
+            booking.setLockerNumber(updates.get("lockerNumber") != null ? updates.get("lockerNumber").toString() : null);
+        }
+        if (updates.containsKey("clientNickname")) {
+            booking.setClientNickname(updates.get("clientNickname") != null ? updates.get("clientNickname").toString() : null);
+        }
+        bookingRepository.save(booking);
+        return Map.of("status", "updated");
     }
 }
