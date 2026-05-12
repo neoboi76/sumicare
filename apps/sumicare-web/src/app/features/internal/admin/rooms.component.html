@@ -1,91 +1,105 @@
-<div class="space-y-6">
+<div>
   <header class="flex items-baseline justify-between">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Rooms and beds</h1>
-      <p class="text-slate-500">Common rooms enforce single-gender occupancy. Row-segmented rooms apply that rule per row.</p>
+      <p class="text-slate-500">Common rooms enforce single-gender occupancy. Row-segmented rooms apply that rule per
+        row.</p>
     </div>
-    <button (click)="showRoomForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add room</button>
+    <button (click)="showRoomForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add
+      room</button>
   </header>
 
   <section class="space-y-4">
     @for (r of rooms(); track r.id) {
-      <article class="bg-white rounded-xl shadow p-5">
-        <header class="flex items-baseline justify-between">
-          <div>
-            <h3 class="font-semibold text-slate-900">Room {{ r.roomNumber }} <span class="text-sm font-normal text-slate-500">({{ r.roomType }}{{ r.rowSegmented ? ' · row-segmented' : '' }})</span></h3>
-            <p class="text-xs text-slate-500">Floor {{ r.floor ?? '-' }}</p>
-          </div>
-          <div class="flex gap-2">
-            <button (click)="openBedForm(r)" class="rounded border border-slate-300 px-3 py-1 text-xs">Add bed</button>
-            <button (click)="deactivateRoom(r)" class="rounded border border-red-200 text-red-700 px-3 py-1 text-xs">Deactivate</button>
-          </div>
-        </header>
-        <div class="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2">
-          @for (b of bedsFor(r.id); track b.id) {
-            <div class="border rounded text-xs p-2 flex justify-between items-center">
-              <span>{{ b.bedLabel }}</span>
-              <button (click)="deactivateBed(b)" class="text-red-700 hover:underline">x</button>
-            </div>
-          } @empty {
-            <p class="col-span-full text-xs text-slate-500">No beds yet.</p>
-          }
+    <article class="bg-white rounded-xl shadow p-5">
+      <header class="flex items-baseline justify-between">
+        <div>
+          <h3 class="font-semibold text-slate-900">Room {{ r.roomNumber }} <span
+              class="text-sm font-normal text-slate-500">({{ r.roomType }}{{ r.rowSegmented ? ' · row-segmented' : ''
+              }})</span></h3>
+          <p class="text-xs text-slate-500">Floor {{ r.floor ?? '-' }}</p>
         </div>
-      </article>
+        <div class="flex gap-2">
+          <button (click)="openBedForm(r)" class="rounded border border-slate-300 px-3 py-1 text-xs">Add bed</button>
+          <button (click)="deactivateRoom(r)"
+            class="rounded border border-red-200 text-red-700 px-3 py-1 text-xs">Deactivate</button>
+        </div>
+      </header>
+      <div class="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2">
+        @for (b of bedsFor(r.id); track b.id) {
+        <div class="border rounded text-xs p-2 flex justify-between items-center">
+          <span>{{ b.bedLabel }}</span>
+          <button (click)="deactivateBed(b)" class="text-red-700 hover:underline">x</button>
+        </div>
+        } @empty {
+        <p class="col-span-full text-xs text-slate-500">No beds yet.</p>
+        }
+      </div>
+    </article>
     } @empty {
-      <p class="text-center text-slate-500">No rooms.</p>
+    <p class="text-center text-slate-500">No rooms.</p>
     }
   </section>
 
   @if (showRoomForm()) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-        <h2 class="text-xl font-semibold">New room</h2>
-        <label class="block">
-          <span class="text-sm text-slate-700">Room number</span>
-          <input [(ngModel)]="formRoomNumber" name="roomNumber" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Floor</span>
-          <input [(ngModel)]="formFloor" name="floor" type="number" min="1" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Room type</span>
-          <select [(ngModel)]="formRoomType" name="roomType" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-            <option value="COMMON">Common</option>
-            <option value="PRIVATE">Private</option>
-            <option value="VIP">VIP</option>
-            <option value="MULTI_BED">Multi-bed (row segmented)</option>
-          </select>
-        </label>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" [(ngModel)]="formRowSegmented" name="rowSegmented" />
-          <span class="text-sm">Apply gender rule per row</span>
-        </label>
-        <div class="flex justify-end gap-2 pt-2">
-          <button (click)="showRoomForm.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-          <button (click)="submitRoom()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
-        </div>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <h2 class="text-xl font-semibold">New room</h2>
+      <label class="block">
+        <span class="text-sm text-slate-700">Room number</span>
+        <input [(ngModel)]="formRoomNumber" name="roomNumber"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Floor</span>
+        <input [(ngModel)]="formFloor" name="floor" type="number" min="1"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Room type</span>
+        <select [(ngModel)]="formRoomType" name="roomType"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+          <option value="COMMON">Common</option>
+          <option value="PRIVATE">Private</option>
+          <option value="VIP">VIP</option>
+          <option value="MULTI_BED">Multi-bed (row segmented)</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2">
+        <input type="checkbox" [(ngModel)]="formRowSegmented" name="rowSegmented" />
+        <span class="text-sm">Apply gender rule per row</span>
+      </label>
+      <div class="flex justify-end gap-2 pt-2">
+        <button (click)="showRoomForm.set(false)"
+          class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+        <button (click)="submitRoom()"
+          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
       </div>
     </div>
+  </div>
   }
 
   @if (bedFormForRoomId(); as roomId) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-        <h2 class="text-xl font-semibold">Add bed</h2>
-        <label class="block">
-          <span class="text-sm text-slate-700">Bed label</span>
-          <input [(ngModel)]="formBedLabel" name="bedLabel" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Row index (for multi-bed rooms)</span>
-          <input [(ngModel)]="formBedRow" name="bedRow" type="number" min="0" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <div class="flex justify-end gap-2 pt-2">
-          <button (click)="bedFormForRoomId.set(null)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-          <button (click)="submitBed(roomId)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
-        </div>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <h2 class="text-xl font-semibold">Add bed</h2>
+      <label class="block">
+        <span class="text-sm text-slate-700">Bed label</span>
+        <input [(ngModel)]="formBedLabel" name="bedLabel"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Row index (for multi-bed rooms)</span>
+        <input [(ngModel)]="formBedRow" name="bedRow" type="number" min="0"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <div class="flex justify-end gap-2 pt-2">
+        <button (click)="bedFormForRoomId.set(null)"
+          class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+        <button (click)="submitBed(roomId)"
+          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
       </div>
     </div>
+  </div>
   }
 </div>

@@ -13,4 +13,5 @@
     <include file="changes/0006-client-gender-varchar.xml" relativeToChangelogFile="true"/>
     <include file="changes/0007-orders-and-slip-status.xml" relativeToChangelogFile="true"/>
     <include file="changes/0008-contact-messages.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0009-transaction-order-id.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

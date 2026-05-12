@@ -1,89 +1,96 @@
-<div class="space-y-6">
+<div>
   <header class="flex items-baseline justify-between">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Lineup</h1>
-      <p class="text-slate-500 text-sm">Live therapist queue. Members enter automatically when their shift starts and clock in.</p>
+      <p class="text-slate-500 text-sm">Live therapist queue. Members enter automatically when their shift starts and
+        clock in.</p>
     </div>
     <div class="flex gap-2">
-      <button (click)="openAddModal()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm">Add therapist</button>
-      <button (click)="reload()" class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Refresh</button>
+      <button (click)="openAddModal()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm">Add
+        therapist</button>
+      <button (click)="reload()"
+        class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Refresh</button>
     </div>
   </header>
 
   @if (lineup().length === 0) {
-    <div class="bg-white rounded-xl shadow p-8 text-center text-slate-500">
-      Lineup is empty. Therapists appear here automatically when their assigned shift becomes active and they clock in.
-    </div>
+  <div class="bg-white rounded-xl shadow p-8 text-center text-slate-500">
+    Lineup is empty. Therapists appear here automatically when their assigned shift becomes active and they clock in.
+  </div>
   }
 
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
     @for (entry of lineup(); track entry.therapistId) {
-      <article class="bg-white rounded-xl shadow p-4">
-        <div class="flex items-start gap-3">
-          <div [class]="'w-11 h-11 rounded-full flex items-center justify-center font-bold text-base flex-shrink-0 ' + avatarClass(entry.gender)">
-            {{ entry.nickname.charAt(0).toUpperCase() }}
+    <article class="bg-white rounded-xl shadow p-4">
+      <div class="flex items-start gap-3">
+        <div
+          [class]="'w-11 h-11 rounded-full flex items-center justify-center font-bold text-base flex-shrink-0 ' + avatarClass(entry.gender)">
+          {{ entry.nickname.charAt(0).toUpperCase() }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-semibold text-slate-900 truncate">{{ entry.nickname }}</div>
+            <span class="text-xs rounded-full px-2 py-0.5 font-medium flex-shrink-0" [class]="statusClass(entry)">
+              {{ statusLabel(entry) }}
+            </span>
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-2">
-              <div class="font-semibold text-slate-900 truncate">{{ entry.nickname }}</div>
-              <span class="text-xs rounded-full px-2 py-0.5 font-medium flex-shrink-0" [class]="statusClass(entry)">
-                {{ statusLabel(entry) }}
-              </span>
-            </div>
-            <div class="text-[11px] text-slate-400 mt-0.5">
-              #{{ entry.position }} · {{ entry.gender === 'M' ? 'Male' : 'Female' }}
-              @if (entry.shiftLabel) {
-                · {{ entry.shiftLabel }}
-              }
-            </div>
-            <div class="mt-2 flex flex-wrap gap-1">
-              @if (!entry.skipped) {
-                <button (click)="skip(entry.therapistId)" [disabled]="entry.onCall"
-                        class="text-[11px] rounded px-2 py-0.5 text-amber-700 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                        [title]="entry.onCall ? 'Cannot skip while on call' : 'Skip 30 minutes'">Skip 30m</button>
-              } @else {
-                <button (click)="cancelSkip(entry.therapistId)" class="text-[11px] rounded px-2 py-0.5 text-emerald-700 hover:bg-emerald-50">Resume</button>
-              }
-              <button (click)="remove(entry.therapistId)" [disabled]="entry.onCall"
-                      class="text-[11px] rounded px-2 py-0.5 text-red-700 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                      [title]="entry.onCall ? 'Cannot remove while on call' : 'Remove from lineup'">Remove</button>
-            </div>
+          <div class="text-[11px] text-slate-400 mt-0.5">
+            #{{ entry.position }} · {{ entry.gender === 'M' ? 'Male' : 'Female' }}
+            @if (entry.shiftLabel) {
+            · {{ entry.shiftLabel }}
+            }
+          </div>
+          <div class="mt-2 flex flex-wrap gap-1">
+            @if (!entry.skipped) {
+            <button (click)="skip(entry.therapistId)" [disabled]="entry.onCall"
+              class="text-[11px] rounded px-2 py-0.5 text-amber-700 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              [title]="entry.onCall ? 'Cannot skip while on call' : 'Skip 30 minutes'">Skip 30m</button>
+            } @else {
+            <button (click)="cancelSkip(entry.therapistId)"
+              class="text-[11px] rounded px-2 py-0.5 text-emerald-700 hover:bg-emerald-50">Resume</button>
+            }
+            <button (click)="remove(entry.therapistId)" [disabled]="entry.onCall"
+              class="text-[11px] rounded px-2 py-0.5 text-red-700 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              [title]="entry.onCall ? 'Cannot remove while on call' : 'Remove from lineup'">Remove</button>
           </div>
         </div>
-      </article>
+      </div>
+    </article>
     }
   </div>
 
   @if (showAddModal()) {
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" (click)="closeAddModal()">
-      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4" (click)="$event.stopPropagation()">
-        <h2 class="font-semibold text-slate-900">Add therapist to lineup</h2>
-        <label class="block text-sm text-slate-700">
-          Therapist
-          <select [(ngModel)]="addTherapistId" name="addTherapistId"
-                  class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
-            <option [ngValue]="null" disabled>Select therapist</option>
-            @for (t of activeTherapists(); track t.id) {
-              <option [ngValue]="t.id">{{ t.nickname }} ({{ t.gender === 'M' ? 'Male' : 'Female' }}{{ t.backup ? ', Backup' : '' }})</option>
-            }
-          </select>
-        </label>
-        <label class="block text-sm text-slate-700">
-          Shift (optional)
-          <select [(ngModel)]="addShiftId" name="addShiftId"
-                  class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
-            <option [ngValue]="null">No specific shift</option>
-            @for (s of allShifts(); track s.id) {
-              <option [ngValue]="s.id">{{ s.label }} ({{ s.startTime }}–{{ s.endTime }})</option>
-            }
-          </select>
-        </label>
-        <div class="flex justify-end gap-2 pt-2">
-          <button (click)="closeAddModal()" class="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Cancel</button>
-          <button (click)="confirmAdd()" [disabled]="!addTherapistId"
-                  class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm disabled:opacity-50">Add</button>
-        </div>
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" (click)="closeAddModal()">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4" (click)="$event.stopPropagation()">
+      <h2 class="font-semibold text-slate-900">Add therapist to lineup</h2>
+      <label class="block text-sm text-slate-700">
+        Therapist
+        <select [(ngModel)]="addTherapistId" name="addTherapistId"
+          class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+          <option [ngValue]="null" disabled>Select therapist</option>
+          @for (t of activeTherapists(); track t.id) {
+          <option [ngValue]="t.id">{{ t.nickname }} ({{ t.gender === 'M' ? 'Male' : 'Female' }}{{ t.backup ? ', Backup'
+            : '' }})</option>
+          }
+        </select>
+      </label>
+      <label class="block text-sm text-slate-700">
+        Shift (optional)
+        <select [(ngModel)]="addShiftId" name="addShiftId"
+          class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+          <option [ngValue]="null">No specific shift</option>
+          @for (s of allShifts(); track s.id) {
+          <option [ngValue]="s.id">{{ s.label }} ({{ s.startTime }}–{{ s.endTime }})</option>
+          }
+        </select>
+      </label>
+      <div class="flex justify-end gap-2 pt-2">
+        <button (click)="closeAddModal()"
+          class="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Cancel</button>
+        <button (click)="confirmAdd()" [disabled]="!addTherapistId"
+          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm disabled:opacity-50">Add</button>
       </div>
     </div>
+  </div>
   }
 </div>

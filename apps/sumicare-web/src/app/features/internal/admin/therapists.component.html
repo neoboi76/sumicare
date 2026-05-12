@@ -1,10 +1,11 @@
-<div class="space-y-6">
+<div>
   <header class="flex items-baseline justify-between">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Therapists</h1>
       <p class="text-slate-500">Roster of regular and backup therapists. Backups never auto-enter the lineup.</p>
     </div>
-    <button (click)="openCreate()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add therapist</button>
+    <button (click)="openCreate()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add
+      therapist</button>
   </header>
 
   <section class="bg-white rounded-xl shadow overflow-hidden">
@@ -21,98 +22,102 @@
       </thead>
       <tbody>
         @for (t of therapists(); track t.id) {
-          <tr class="border-t hover:bg-slate-50">
-            <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
-            <td class="p-3 font-medium">{{ t.nickname }}</td>
-            <td class="p-3">{{ t.gender }}</td>
-            <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
-            <td class="p-3 text-slate-500">{{ t.currentShiftLabel || 'Unassigned' }}</td>
-            <td class="p-3 text-right space-x-2">
-              <button (click)="openEdit(t)" class="text-[var(--sumi-primary)] hover:underline text-xs">Edit</button>
-              <button (click)="deactivate(t)" class="text-red-700 hover:underline text-xs">Deactivate</button>
-            </td>
-          </tr>
+        <tr class="border-t hover:bg-slate-50">
+          <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
+          <td class="p-3 font-medium">{{ t.nickname }}</td>
+          <td class="p-3">{{ t.gender }}</td>
+          <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
+          <td class="p-3 text-slate-500">{{ t.currentShiftLabel || 'Unassigned' }}</td>
+          <td class="p-3 text-right space-x-2">
+            <button (click)="openEdit(t)" class="text-[var(--sumi-primary)] hover:underline text-xs">Edit</button>
+            <button (click)="deactivate(t)" class="text-red-700 hover:underline text-xs">Deactivate</button>
+          </td>
+        </tr>
         } @empty {
-          <tr><td colspan="6" class="p-6 text-center text-slate-500">No active therapists.</td></tr>
+        <tr>
+          <td colspan="6" class="p-6 text-center text-slate-500">No active therapists.</td>
+        </tr>
         }
       </tbody>
     </table>
   </section>
 
   @if (deactivated().length > 0) {
-    <section>
-      <h2 class="text-lg font-semibold text-slate-700 mb-2">Deactivated Therapists</h2>
-      <div class="bg-white rounded-xl shadow overflow-hidden">
-        <table class="w-full text-sm">
-          <thead class="bg-slate-100">
-            <tr>
-              <th class="text-left p-3">Staff #</th>
-              <th class="text-left p-3">Nickname</th>
-              <th class="text-left p-3">Gender</th>
-              <th class="text-left p-3">Type</th>
-              <th class="text-left p-3">Shift</th>
-              <th class="text-right p-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (t of deactivated(); track t.id) {
-              <tr class="border-t hover:bg-slate-50 opacity-60">
-                <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
-                <td class="p-3 font-medium">{{ t.nickname }}</td>
-                <td class="p-3">{{ t.gender }}</td>
-                <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
-                <td class="p-3 text-slate-500">{{ t.currentShiftLabel || 'Unassigned' }}</td>
-                <td class="p-3 text-right">
-                  <button (click)="reactivate(t)" class="text-emerald-700 hover:underline text-xs">Reactivate</button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
+  <section>
+    <h2 class="text-lg font-semibold text-slate-700 mb-2">Deactivated Therapists</h2>
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-100">
+          <tr>
+            <th class="text-left p-3">Staff #</th>
+            <th class="text-left p-3">Nickname</th>
+            <th class="text-left p-3">Gender</th>
+            <th class="text-left p-3">Type</th>
+            <th class="text-left p-3">Shift</th>
+            <th class="text-right p-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of deactivated(); track t.id) {
+          <tr class="border-t hover:bg-slate-50 opacity-60">
+            <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
+            <td class="p-3 font-medium">{{ t.nickname }}</td>
+            <td class="p-3">{{ t.gender }}</td>
+            <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
+            <td class="p-3 text-slate-500">{{ t.currentShiftLabel || 'Unassigned' }}</td>
+            <td class="p-3 text-right">
+              <button (click)="reactivate(t)" class="text-emerald-700 hover:underline text-xs">Reactivate</button>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
   }
 
   @if (showForm()) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-        <h2 class="text-xl font-semibold">{{ editingTherapist() ? 'Edit' : 'New' }} therapist</h2>
-        @if (formError()) {
-          <div class="rounded bg-rose-50 text-rose-700 text-sm px-3 py-2">{{ formError() }}</div>
-        }
-        <label class="block">
-          <span class="text-sm text-slate-700">Staff number</span>
-          <input [(ngModel)]="formStaffNumber" name="staffNumber" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Nickname</span>
-          <input [(ngModel)]="formNickname" name="nickname" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Gender</span>
-          <select [(ngModel)]="formGender" name="gender" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-            <option value="F">Female</option>
-            <option value="M">Male</option>
-          </select>
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Shift</span>
-          <select [(ngModel)]="formShiftId" name="shiftId" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-            <option [ngValue]="null">No shift assigned</option>
-            @for (s of shifts(); track s.id) {
-              <option [ngValue]="s.id">{{ s.label }} ({{ s.startTime }}–{{ s.endTime }})</option>
-            }
-          </select>
-        </label>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" [(ngModel)]="formBackup" name="backup" />
-          <span class="text-sm">Backup therapist</span>
-        </label>
-        <div class="flex justify-end gap-2 pt-2">
-          <button (click)="showForm.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-          <button (click)="submit()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
-        </div>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <h2 class="text-xl font-semibold">{{ editingTherapist() ? 'Edit' : 'New' }} therapist</h2>
+      @if (formError()) {
+      <div class="rounded bg-rose-50 text-rose-700 text-sm px-3 py-2">{{ formError() }}</div>
+      }
+      <label class="block">
+        <span class="text-sm text-slate-700">Staff number</span>
+        <input [(ngModel)]="formStaffNumber" name="staffNumber"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Nickname</span>
+        <input [(ngModel)]="formNickname" name="nickname" required
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Gender</span>
+        <select [(ngModel)]="formGender" name="gender" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+          <option value="F">Female</option>
+          <option value="M">Male</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Shift</span>
+        <select [(ngModel)]="formShiftId" name="shiftId" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+          <option [ngValue]="null">No shift assigned</option>
+          @for (s of shifts(); track s.id) {
+          <option [ngValue]="s.id">{{ s.label }} ({{ s.startTime }}–{{ s.endTime }})</option>
+          }
+        </select>
+      </label>
+      <label class="flex items-center gap-2">
+        <input type="checkbox" [(ngModel)]="formBackup" name="backup" />
+        <span class="text-sm">Backup therapist</span>
+      </label>
+      <div class="flex justify-end gap-2 pt-2">
+        <button (click)="showForm.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+        <button (click)="submit()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
       </div>
     </div>
+  </div>
   }
 </div>

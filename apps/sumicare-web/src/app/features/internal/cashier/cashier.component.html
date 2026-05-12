@@ -1,15 +1,18 @@
-<section class="max-w-7xl mx-auto p-4 space-y-4">
+<section class="max-w-7xl mx-auto p-4">
   <header class="flex items-center justify-between">
     <h1 class="text-2xl font-semibold text-slate-900">Cashier</h1>
     <nav class="flex gap-2 text-xs">
-      <a routerLink="/app/orders" class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Orders</a>
-      <a routerLink="/app/ledger" class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Ledger</a>
-      <a routerLink="/app/reports" class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Reports</a>
+      <a routerLink="/app/orders"
+        class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Orders</a>
+      <a routerLink="/app/ledger"
+        class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Ledger</a>
+      <a routerLink="/app/reports"
+        class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Reports</a>
     </nav>
   </header>
 
   @if (error(); as e) {
-    <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{{ e }}</div>
+  <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{{ e }}</div>
   }
 
   <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
@@ -20,36 +23,35 @@
         </div>
 
         @if (selectedClient(); as c) {
-          <div class="flex items-start justify-between border border-slate-200 rounded-lg p-3 bg-slate-50">
-            <div>
-              <div class="font-semibold text-slate-900">{{ c.nickname }}</div>
-              <div class="text-xs text-slate-500">
-                {{ c.gender || 'Sex —' }} · {{ c.email || 'no email' }} · {{ c.nationality || 'Nationality —' }}
-              </div>
+        <div class="flex items-start justify-between border border-slate-200 rounded-lg p-3 bg-slate-50">
+          <div>
+            <div class="font-semibold text-slate-900">{{ c.nickname }}</div>
+            <div class="text-xs text-slate-500">
+              {{ c.gender || 'Sex —' }} · {{ c.email || 'no email' }} · {{ c.nationality || 'Nationality —' }}
             </div>
-            <button (click)="clearClient()" class="text-slate-500 hover:text-red-600 text-sm">Change</button>
           </div>
+          <button (click)="clearClient()" class="text-slate-500 hover:text-red-600 text-sm">Change</button>
+        </div>
         } @else {
-          <div class="space-y-2">
-            <div class="text-sm font-semibold uppercase tracking-wide text-slate-500">Search client</div>
-            <div class="flex gap-2">
-              <input [(ngModel)]="searchTerm" (input)="searchClients()" name="searchTerm"
-                     placeholder="Search by nickname"
-                     class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
-              <button (click)="openRegister()"
-                      class="rounded bg-[var(--sumi-primary)] text-white px-3 py-2 text-sm">Register client</button>
-            </div>
-            @if (searchResults().length > 0) {
-              <ul class="border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white max-h-64 overflow-y-auto">
-                @for (c of searchResults(); track c.id) {
-                  <li (click)="selectClient(c)" class="px-3 py-2 cursor-pointer hover:bg-slate-50">
-                    <div class="font-medium text-sm">{{ c.nickname }}</div>
-                    <div class="text-xs text-slate-500">{{ c.email || 'no email' }} · {{ c.gender || '—' }}</div>
-                  </li>
-                }
-              </ul>
-            }
+        <div class="space-y-2">
+          <div class="text-sm font-semibold uppercase tracking-wide text-slate-500">Search client</div>
+          <div class="flex gap-2">
+            <input [(ngModel)]="searchTerm" (input)="searchClients()" name="searchTerm" placeholder="Search by nickname"
+              class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+            <button (click)="openRegister()"
+              class="rounded bg-[var(--sumi-primary)] text-white px-3 py-2 text-sm">Register client</button>
           </div>
+          @if (searchResults().length > 0) {
+          <ul class="border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white max-h-64 overflow-y-auto">
+            @for (c of searchResults(); track c.id) {
+            <li (click)="selectClient(c)" class="px-3 py-2 cursor-pointer hover:bg-slate-50">
+              <div class="font-medium text-sm">{{ c.nickname }}</div>
+              <div class="text-xs text-slate-500">{{ c.email || 'no email' }} · {{ c.gender || '—' }}</div>
+            </li>
+            }
+          </ul>
+          }
+        </div>
         }
       </div>
 
@@ -57,55 +59,61 @@
         <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Items</h2>
         <div class="flex gap-2">
           <select [(ngModel)]="selectedServiceId" name="selectedServiceId"
-                  class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+            class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
             <option [ngValue]="null" disabled>Select a service to add</option>
             @for (s of services(); track s.id) {
-              <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min) — &#8369; {{ s.price | number:'1.2-2' }}</option>
+            <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min) — &#8369; {{ s.price | number:'1.2-2' }}
+            </option>
             }
           </select>
           <button (click)="addService()" [disabled]="selectedServiceId == null"
-                  class="rounded bg-[var(--sumi-primary)] text-white px-4 text-sm disabled:opacity-50">Add product</button>
+            class="rounded bg-[var(--sumi-primary)] text-white px-4 text-sm disabled:opacity-50">Add product</button>
         </div>
 
         @if (cart().length === 0) {
-          <p class="text-center text-xs text-slate-500 py-4">No items yet</p>
+        <p class="text-center text-xs text-slate-500 py-4">No items yet</p>
         } @else {
-          <table class="w-full text-sm">
-            <thead class="text-xs uppercase tracking-wide text-slate-500">
-              <tr><th class="text-left py-1">Service</th><th class="text-right py-1">Price</th><th></th></tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              @for (it of cart(); track $index) {
-                <tr>
-                  <td class="py-2">{{ it.name }}</td>
-                  <td class="text-right py-2">&#8369; {{ it.price | number:'1.2-2' }}</td>
-                  <td class="text-right py-2">
-                    <button (click)="removeItem($index)" class="text-xs text-red-600 hover:underline">Remove</button>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+        <table class="w-full text-sm">
+          <thead class="text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="text-left py-1">Service</th>
+              <th class="text-right py-1">Price</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (it of cart(); track $index) {
+            <tr>
+              <td class="py-2">{{ it.name }}</td>
+              <td class="text-right py-2">&#8369; {{ it.price | number:'1.2-2' }}</td>
+              <td class="text-right py-2">
+                <button (click)="removeItem($index)" class="text-xs text-red-600 hover:underline">Remove</button>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
         }
 
         <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
           <label class="text-xs text-slate-500">Discounts / Adjustments</label>
-          <button (click)="openDiscountModal()" class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1 text-xs hover:bg-slate-50">Adjust</button>
+          <button (click)="openDiscountModal()"
+            class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1 text-xs hover:bg-slate-50">Adjust</button>
         </div>
 
         @if (discountSummary().length > 0) {
-          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm space-y-1">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Summary of adjustments</div>
-            @for (d of discountSummary(); track d.name) {
-              <div class="flex justify-between items-center">
-                <span>{{ d.name }}</span>
-                <div class="flex items-center gap-2">
-                  <span class="text-red-600">- &#8369; {{ d.amount | number:'1.2-2' }}</span>
-                  <button (click)="removeDiscount()" class="text-xs text-red-600 hover:underline">×</button>
-                </div>
-              </div>
-            }
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm space-y-1">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Summary of adjustments</div>
+          @for (d of discountSummary(); track d.name) {
+          <div class="flex justify-between items-center">
+            <span>{{ d.name }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-red-600">- &#8369; {{ d.amount | number:'1.2-2' }}</span>
+              <button (click)="removeDiscount()" class="text-xs text-red-600 hover:underline">×</button>
+            </div>
           </div>
+          }
+        </div>
         }
       </div>
 
@@ -115,22 +123,22 @@
           <label class="block">
             OR #
             <input [(ngModel)]="orNumber" name="orNumber" maxlength="50"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
           </label>
           <label class="block">
             Reference number
             <input [(ngModel)]="referenceNumber" name="referenceNumber" maxlength="100"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
           </label>
           <label class="block">
             Locker
             <input [(ngModel)]="lockerNumber" name="lockerNumber" maxlength="16"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
           </label>
           <label class="block">
             Pax
             <input [(ngModel)]="pax" name="pax" type="number" min="1" max="20"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
           </label>
           <fieldset class="block">
             <legend class="text-xs">Sex</legend>
@@ -146,7 +154,7 @@
           <label class="block md:col-span-2">
             Notes
             <textarea [(ngModel)]="notes" name="notes" maxlength="1000" rows="2"
-                      class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"></textarea>
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"></textarea>
           </label>
         </div>
       </div>
@@ -155,14 +163,11 @@
         <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Payments</h2>
         <div class="flex flex-wrap gap-2">
           @for (m of ['CASH', 'GCASH', 'CREDIT', 'DEBIT']; track m) {
-            <button (click)="setPaymentMethod($any(m))"
-                    class="px-3 py-1.5 text-xs rounded border"
-                    [class.bg-\[var\(--sumi-primary\)\]]="paymentMethod() === m"
-                    [class.text-white]="paymentMethod() === m"
-                    [class.border-slate-300]="paymentMethod() !== m"
-                    [class.text-slate-700]="paymentMethod() !== m">
-              {{ m }}
-            </button>
+          <button (click)="setPaymentMethod($any(m))" class="px-3 py-1.5 text-xs rounded border"
+            [class.bg-\[var\(--sumi-primary\)\]]="paymentMethod() === m" [class.text-white]="paymentMethod() === m"
+            [class.border-slate-300]="paymentMethod() !== m" [class.text-slate-700]="paymentMethod() !== m">
+            {{ m }}
+          </button>
           }
         </div>
 
@@ -170,31 +175,32 @@
           <label class="block flex-1">
             <span class="text-xs text-slate-500">Amount</span>
             <input [(ngModel)]="paymentAmount" name="payAmount" type="number" min="0" step="0.01"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
           </label>
           <label class="block flex-1">
             <span class="text-xs text-slate-500">Reference (optional)</span>
             <input [(ngModel)]="paymentRef" name="payRef" maxlength="100"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
           </label>
-          <button (click)="addPayment()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2">Add payment</button>
+          <button (click)="addPayment()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2">Add
+            payment</button>
         </div>
 
         @if (payments().length > 0) {
-          <ul class="text-sm divide-y divide-slate-100 border border-slate-200 rounded">
-            @for (p of payments(); track $index) {
-              <li class="flex items-center justify-between px-3 py-2">
-                <div>
-                  <span class="font-medium">{{ p.paymentMethod }}</span>
-                  <span class="text-slate-500 text-xs ml-2">{{ p.referenceNumber }}</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span>&#8369; {{ p.amount | number:'1.2-2' }}</span>
-                  <button (click)="removePayment($index)" class="text-xs text-red-600 hover:underline">Remove</button>
-                </div>
-              </li>
-            }
-          </ul>
+        <ul class="text-sm divide-y divide-slate-100 border border-slate-200 rounded">
+          @for (p of payments(); track $index) {
+          <li class="flex items-center justify-between px-3 py-2">
+            <div>
+              <span class="font-medium">{{ p.paymentMethod }}</span>
+              <span class="text-slate-500 text-xs ml-2">{{ p.referenceNumber }}</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span>&#8369; {{ p.amount | number:'1.2-2' }}</span>
+              <button (click)="removePayment($index)" class="text-xs text-red-600 hover:underline">Remove</button>
+            </div>
+          </li>
+          }
+        </ul>
         }
       </div>
     </div>
@@ -202,18 +208,24 @@
     <aside class="space-y-4">
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-2">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Summary</h3>
-        <div class="flex justify-between text-sm"><span>Subtotal</span><span>&#8369; {{ subtotal() | number:'1.2-2' }}</span></div>
-        <div class="flex justify-between text-sm"><span>Discount</span><span class="text-red-600">&#8369; {{ totalDiscount() | number:'1.2-2' }}</span></div>
-        <div class="flex justify-between text-sm font-semibold"><span>Total</span><span>&#8369; {{ total() | number:'1.2-2' }}</span></div>
-        <div class="flex justify-between text-sm text-emerald-700"><span>Amount paid</span><span>&#8369; {{ paid() | number:'1.2-2' }}</span></div>
-        <div class="flex justify-between text-sm text-rose-700 border-t border-slate-100 pt-2"><span>Amount due</span><span>&#8369; {{ due() | number:'1.2-2' }}</span></div>
+        <div class="flex justify-between text-sm"><span>Subtotal</span><span>&#8369; {{ subtotal() | number:'1.2-2'
+            }}</span></div>
+        <div class="flex justify-between text-sm"><span>Discount</span><span class="text-red-600">&#8369; {{
+            totalDiscount() | number:'1.2-2' }}</span></div>
+        <div class="flex justify-between text-sm font-semibold"><span>Total</span><span>&#8369; {{ total() |
+            number:'1.2-2' }}</span></div>
+        <div class="flex justify-between text-sm text-emerald-700"><span>Amount paid</span><span>&#8369; {{ paid() |
+            number:'1.2-2' }}</span></div>
+        <div class="flex justify-between text-sm text-rose-700 border-t border-slate-100 pt-2"><span>Amount
+            due</span><span>&#8369; {{ due() | number:'1.2-2' }}</span></div>
 
         <button (click)="checkout()" [disabled]="submitting() || cart().length === 0 || !selectedClient()"
-                class="w-full mt-3 py-2.5 bg-[var(--sumi-primary)] text-white rounded text-sm font-medium disabled:opacity-50">
+          class="w-full mt-3 py-2.5 bg-[var(--sumi-primary)] text-white rounded text-sm font-medium disabled:opacity-50">
           {{ submitting() ? 'Processing...' : 'Checkout' }}
         </button>
         <p class="text-[11px] text-slate-400">
-          This software is not BIR approved. SumiCare is for order-taking only. All BIR-related calculation should be done by the user of this software.
+          This software is not BIR approved. SumiCare is for order-taking only. All BIR-related calculation should be
+          done by the user of this software.
         </p>
       </div>
     </aside>
@@ -221,158 +233,166 @@
 
   <!-- Register Client Modal -->
   @if (showRegister()) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="closeRegister()">
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
-        <h3 class="text-lg font-semibold mb-3">Register new client</h3>
-        @if (registerError(); as e) {
-          <p class="text-sm text-red-600 mb-2">{{ e }}</p>
-        }
-        <div class="space-y-3 text-sm">
-          <label class="block">
-            Nickname <span class="text-red-500">*</span>
-            <input [(ngModel)]="newClient.nickname" name="newNick" required maxlength="64"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
-          </label>
-          <label class="block">
-            Email
-            <input [(ngModel)]="newClient.email" name="newEmail" type="email" maxlength="255"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
-          </label>
-          <label class="block">
-            Sex
-            <select [(ngModel)]="newClient.gender" name="newGender" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
-              <option value="F">Female</option>
-              <option value="M">Male</option>
-            </select>
-          </label>
-          <label class="block">
-            Nationality
-            <input [(ngModel)]="newClient.nationality" name="newNat" maxlength="64"
-                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
-          </label>
-        </div>
-        <div class="flex justify-end gap-2 mt-4">
-          <button (click)="closeRegister()" class="px-3 py-1.5 text-sm text-slate-600">Cancel</button>
-          <button (click)="submitRegister()" class="px-3 py-1.5 text-sm bg-[var(--sumi-primary)] text-white rounded">Register</button>
-        </div>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="closeRegister()">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
+      <h3 class="text-lg font-semibold mb-3">Register new client</h3>
+      @if (registerError(); as e) {
+      <p class="text-sm text-red-600 mb-2">{{ e }}</p>
+      }
+      <div class="space-y-3 text-sm">
+        <label class="block">
+          Nickname <span class="text-red-500">*</span>
+          <input [(ngModel)]="newClient.nickname" name="newNick" required maxlength="64"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">
+          Email
+          <input [(ngModel)]="newClient.email" name="newEmail" type="email" maxlength="255"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">
+          Sex
+          <select [(ngModel)]="newClient.gender" name="newGender"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+            <option value="F">Female</option>
+            <option value="M">Male</option>
+          </select>
+        </label>
+        <label class="block">
+          Nationality
+          <input [(ngModel)]="newClient.nationality" name="newNat" maxlength="64"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button (click)="closeRegister()" class="px-3 py-1.5 text-sm text-slate-600">Cancel</button>
+        <button (click)="submitRegister()"
+          class="px-3 py-1.5 text-sm bg-[var(--sumi-primary)] text-white rounded">Register</button>
       </div>
     </div>
+  </div>
   }
 
   <!-- Discount / Adjustment Modal -->
   @if (showDiscountModal()) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" (click)="closeDiscountModal()">
-      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
-        <div class="px-6 py-4 border-b">
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-600">Discounts / Price Increases</h3>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" (click)="closeDiscountModal()">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+      (click)="$event.stopPropagation()">
+      <div class="px-6 py-4 border-b">
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-600">Discounts / Price Increases</h3>
+      </div>
+      <div class="px-6 py-4 space-y-5">
+        <div>
+          <div class="font-semibold text-slate-900 mb-2">Adjustment options and templates:</div>
+          <div class="flex gap-2">
+            @for (tmpl of discountTemplates; track tmpl.label) {
+            <button (click)="applyTemplate(tmpl)" class="px-3 py-1.5 text-xs rounded border"
+              [class.bg-\[var\(--sumi-primary\)\]]="activeTemplate() === tmpl.label"
+              [class.text-white]="activeTemplate() === tmpl.label"
+              [class.border-slate-300]="activeTemplate() !== tmpl.label">
+              {{ tmpl.label }}
+            </button>
+            }
+          </div>
         </div>
-        <div class="px-6 py-4 space-y-5">
-          <div>
-            <div class="font-semibold text-slate-900 mb-2">Adjustment options and templates:</div>
-            <div class="flex gap-2">
-              @for (tmpl of discountTemplates; track tmpl.label) {
-                <button (click)="applyTemplate(tmpl)"
-                        class="px-3 py-1.5 text-xs rounded border"
-                        [class.bg-\[var\(--sumi-primary\)\]]="activeTemplate() === tmpl.label"
-                        [class.text-white]="activeTemplate() === tmpl.label"
-                        [class.border-slate-300]="activeTemplate() !== tmpl.label">
-                  {{ tmpl.label }}
-                </button>
-              }
-            </div>
-          </div>
 
-          <div>
-            <div class="font-semibold text-slate-900 mb-2">Adjustment details:</div>
-            <div class="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <div class="text-xs text-slate-500 mb-1">Adjustment type</div>
-                <div class="flex gap-1">
-                  <button (click)="discountConfig.update(c => ({...c, type: 'DISCOUNT'}))"
-                          class="px-3 py-1.5 text-xs rounded border"
-                          [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().type === 'DISCOUNT'"
-                          [class.text-white]="discountConfig().type === 'DISCOUNT'"
-                          [class.border-slate-300]="discountConfig().type !== 'DISCOUNT'">DISCOUNT</button>
-                  <button (click)="discountConfig.update(c => ({...c, type: 'PRICE_INCREASE'}))"
-                          class="px-3 py-1.5 text-xs rounded border"
-                          [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().type === 'PRICE_INCREASE'"
-                          [class.text-white]="discountConfig().type === 'PRICE_INCREASE'"
-                          [class.border-slate-300]="discountConfig().type !== 'PRICE_INCREASE'">PRICE INCREASE</button>
-                </div>
-              </div>
-              <div>
-                <div class="text-xs text-slate-500 mb-1">Amount type</div>
-                <div class="flex gap-1">
-                  <button (click)="discountConfig.update(c => ({...c, amountType: 'PERCENT'}))"
-                          class="px-3 py-1.5 text-xs rounded border"
-                          [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().amountType === 'PERCENT'"
-                          [class.text-white]="discountConfig().amountType === 'PERCENT'"
-                          [class.border-slate-300]="discountConfig().amountType !== 'PERCENT'">PERCENT</button>
-                  <button (click)="discountConfig.update(c => ({...c, amountType: 'FIXED'}))"
-                          class="px-3 py-1.5 text-xs rounded border"
-                          [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().amountType === 'FIXED'"
-                          [class.text-white]="discountConfig().amountType === 'FIXED'"
-                          [class.border-slate-300]="discountConfig().amountType !== 'FIXED'">FIXED AMOUNT</button>
-                </div>
-              </div>
-            </div>
-            <div class="grid grid-cols-2 gap-3 mt-3 text-sm">
-              <label class="block">
-                Details
-                <input [(ngModel)]="discountConfig().name" (ngModelChange)="discountConfig.update(c => ({...c, name: $event}))"
-                       name="discountName" placeholder="Name"
-                       class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
-              </label>
-              @if (discountConfig().amountType === 'PERCENT') {
-                <label class="block">
-                  Percent
-                  <div class="flex items-center gap-1 mt-1">
-                    <input type="number" min="0" max="100" step="1"
-                           [(ngModel)]="discountConfig().percent" (ngModelChange)="discountConfig.update(c => ({...c, percent: $event}))"
-                           name="discountPercent"
-                           class="w-full border border-slate-300 rounded px-2 py-1.5" />
-                    <span class="text-slate-500">%</span>
-                  </div>
-                </label>
-              } @else {
-                <label class="block">
-                  Fixed amount
-                  <input type="number" min="0" step="0.01"
-                         [(ngModel)]="discountConfig().fixedAmount" (ngModelChange)="discountConfig.update(c => ({...c, fixedAmount: $event}))"
-                         name="discountFixed"
-                         class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
-                </label>
-              }
-            </div>
-          </div>
-
-          @if (cart().length > 0) {
+        <div>
+          <div class="font-semibold text-slate-900 mb-2">Adjustment details:</div>
+          <div class="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <div class="font-semibold text-slate-900 mb-2">Apply to products:</div>
-              <table class="w-full text-sm">
-                <thead class="text-xs text-slate-500">
-                  <tr><th class="text-left py-1">✓</th><th class="text-left py-1">Name</th><th class="text-right py-1">Quantity</th><th class="text-right py-1">Amount</th></tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  @for (it of cart(); track $index) {
-                    <tr class="cursor-pointer hover:bg-slate-50" (click)="toggleItemInDiscount($index)">
-                      <td class="py-2">
-                        <input type="checkbox" [checked]="isItemInDiscount($index)" (click)="$event.stopPropagation(); toggleItemInDiscount($index)" class="accent-[var(--sumi-primary)]" />
-                      </td>
-                      <td class="py-2">{{ it.name }}</td>
-                      <td class="text-right py-2">1</td>
-                      <td class="text-right py-2">&#8369; {{ it.price | number:'1.2-2' }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
+              <div class="text-xs text-slate-500 mb-1">Adjustment type</div>
+              <div class="flex gap-1">
+                <button (click)="discountConfig.update(c => ({...c, type: 'DISCOUNT'}))"
+                  class="px-3 py-1.5 text-xs rounded border"
+                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().type === 'DISCOUNT'"
+                  [class.text-white]="discountConfig().type === 'DISCOUNT'"
+                  [class.border-slate-300]="discountConfig().type !== 'DISCOUNT'">DISCOUNT</button>
+                <button (click)="discountConfig.update(c => ({...c, type: 'PRICE_INCREASE'}))"
+                  class="px-3 py-1.5 text-xs rounded border"
+                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().type === 'PRICE_INCREASE'"
+                  [class.text-white]="discountConfig().type === 'PRICE_INCREASE'"
+                  [class.border-slate-300]="discountConfig().type !== 'PRICE_INCREASE'">PRICE INCREASE</button>
+              </div>
             </div>
-          }
+            <div>
+              <div class="text-xs text-slate-500 mb-1">Amount type</div>
+              <div class="flex gap-1">
+                <button (click)="discountConfig.update(c => ({...c, amountType: 'PERCENT'}))"
+                  class="px-3 py-1.5 text-xs rounded border"
+                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().amountType === 'PERCENT'"
+                  [class.text-white]="discountConfig().amountType === 'PERCENT'"
+                  [class.border-slate-300]="discountConfig().amountType !== 'PERCENT'">PERCENT</button>
+                <button (click)="discountConfig.update(c => ({...c, amountType: 'FIXED'}))"
+                  class="px-3 py-1.5 text-xs rounded border"
+                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().amountType === 'FIXED'"
+                  [class.text-white]="discountConfig().amountType === 'FIXED'"
+                  [class.border-slate-300]="discountConfig().amountType !== 'FIXED'">FIXED AMOUNT</button>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-3 text-sm">
+            <label class="block">
+              Details
+              <input [(ngModel)]="discountConfig().name"
+                (ngModelChange)="discountConfig.update(c => ({...c, name: $event}))" name="discountName"
+                placeholder="Name" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+            </label>
+            @if (discountConfig().amountType === 'PERCENT') {
+            <label class="block">
+              Percent
+              <div class="flex items-center gap-1 mt-1">
+                <input type="number" min="0" max="100" step="1" [(ngModel)]="discountConfig().percent"
+                  (ngModelChange)="discountConfig.update(c => ({...c, percent: $event}))" name="discountPercent"
+                  class="w-full border border-slate-300 rounded px-2 py-1.5" />
+                <span class="text-slate-500">%</span>
+              </div>
+            </label>
+            } @else {
+            <label class="block">
+              Fixed amount
+              <input type="number" min="0" step="0.01" [(ngModel)]="discountConfig().fixedAmount"
+                (ngModelChange)="discountConfig.update(c => ({...c, fixedAmount: $event}))" name="discountFixed"
+                class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+            </label>
+            }
+          </div>
         </div>
-        <div class="px-6 py-4 border-t flex justify-end">
-          <button (click)="applyDiscount()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">DONE</button>
+
+        @if (cart().length > 0) {
+        <div>
+          <div class="font-semibold text-slate-900 mb-2">Apply to products:</div>
+          <table class="w-full text-sm">
+            <thead class="text-xs text-slate-500">
+              <tr>
+                <th class="text-left py-1">✓</th>
+                <th class="text-left py-1">Name</th>
+                <th class="text-right py-1">Quantity</th>
+                <th class="text-right py-1">Amount</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              @for (it of cart(); track $index) {
+              <tr class="cursor-pointer hover:bg-slate-50" (click)="toggleItemInDiscount($index)">
+                <td class="py-2">
+                  <input type="checkbox" [checked]="isItemInDiscount($index)"
+                    (click)="$event.stopPropagation(); toggleItemInDiscount($index)"
+                    class="accent-[var(--sumi-primary)]" />
+                </td>
+                <td class="py-2">{{ it.name }}</td>
+                <td class="text-right py-2">1</td>
+                <td class="text-right py-2">&#8369; {{ it.price | number:'1.2-2' }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
         </div>
+        }
+      </div>
+      <div class="px-6 py-4 border-t flex justify-end">
+        <button (click)="applyDiscount()"
+          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">DONE</button>
       </div>
     </div>
+  </div>
   }
 </section>

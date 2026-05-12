@@ -10,6 +10,8 @@ import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.notification.service.NotificationService;
+import com.sumicare.pos.domain.PosTransaction;
+import com.sumicare.pos.repository.PosTransactionRepository;
 import com.sumicare.pos.service.PosService;
 import com.sumicare.room.domain.Bed;
 import com.sumicare.room.domain.Room;
@@ -50,6 +52,7 @@ public class BookingService {
     private final TreatmentSlipService treatmentSlipService;
     private final OrderRepository orderRepository;
     private final PosService posService;
+    private final PosTransactionRepository transactionRepository;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
@@ -59,7 +62,8 @@ public class BookingService {
                           TreatmentSlipRepository slipRepository,
                           TreatmentSlipService treatmentSlipService,
                           OrderRepository orderRepository,
-                          PosService posService) {
+                          PosService posService,
+                          PosTransactionRepository transactionRepository) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -73,6 +77,7 @@ public class BookingService {
         this.treatmentSlipService = treatmentSlipService;
         this.orderRepository = orderRepository;
         this.posService = posService;
+        this.transactionRepository = transactionRepository;
     }
 
     @PreAuthorize("permitAll()")
@@ -151,6 +156,16 @@ public class BookingService {
 
         booking.setActualStartAt(session.getStartedAt());
         booking.setStatus("ACTIVE");
+
+        orderRepository.findByBookingId(bookingId).ifPresent(order -> {
+            List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
+            for (PosTransaction tx : transactions) {
+                if (tx.getSessionId() == null) {
+                    tx.setSessionId(session.getId());
+                    transactionRepository.save(tx);
+                }
+            }
+        });
 
         if (request.roomId() != null && request.bedId() != null) {
             Therapist primary = request.primaryTherapistId() == null ? null

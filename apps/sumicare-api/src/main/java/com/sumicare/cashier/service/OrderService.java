@@ -261,6 +261,7 @@ public class OrderService {
                                        BigDecimal amount, String referenceNumber) {
         PosTransaction tx = new PosTransaction();
         tx.setOrganizationId(order.getOrganizationId());
+        tx.setOrderId(order.getId());
         tx.setSessionId(sessionId);
         tx.setReceiptNumber(generateReceiptNumber());
         tx.setSubtotal(amount);

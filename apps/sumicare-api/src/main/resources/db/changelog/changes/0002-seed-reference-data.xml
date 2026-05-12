@@ -92,6 +92,56 @@
         </sql>
     </changeSet>
 
+    <changeSet id="0002-therapists-seed" author="sumicare">
+        <sql>
+            INSERT INTO therapists (organization_id, staff_number, nickname, gender, is_backup, is_active)
+            SELECT id, 'TH001', 'Cherry', 'F', false, true FROM organizations WHERE slug='lasema';
+            INSERT INTO therapists (organization_id, staff_number, nickname, gender, is_backup, is_active)
+            SELECT id, 'TH002', 'Bong', 'M', false, true FROM organizations WHERE slug='lasema';
+            INSERT INTO therapists (organization_id, staff_number, nickname, gender, is_backup, is_active)
+            SELECT id, 'TH003', 'Mika', 'F', false, true FROM organizations WHERE slug='lasema';
+            INSERT INTO therapists (organization_id, staff_number, nickname, gender, is_backup, is_active)
+            SELECT id, 'TH004', 'Jae', 'M', false, true FROM organizations WHERE slug='lasema';
+            INSERT INTO therapists (organization_id, staff_number, nickname, gender, is_backup, is_active)
+            SELECT id, 'TH005', 'Sori', 'F', false, true FROM organizations WHERE slug='lasema';
+        </sql>
+    </changeSet>
+
+    <changeSet id="0002-shift-assignments-seed" author="sumicare">
+        <sql>
+            INSERT INTO shift_assignments (shift_id, therapist_id, effective_date)
+            SELECT s.id, t.id, CURRENT_DATE
+            FROM shifts s, therapists t
+            WHERE s.organization_id = t.organization_id
+            AND s.label = 'Shift 1'
+            AND t.staff_number = 'TH001';
+            INSERT INTO shift_assignments (shift_id, therapist_id, effective_date)
+            SELECT s.id, t.id, CURRENT_DATE
+            FROM shifts s, therapists t
+            WHERE s.organization_id = t.organization_id
+            AND s.label = 'Shift 2'
+            AND t.staff_number = 'TH002';
+            INSERT INTO shift_assignments (shift_id, therapist_id, effective_date)
+            SELECT s.id, t.id, CURRENT_DATE
+            FROM shifts s, therapists t
+            WHERE s.organization_id = t.organization_id
+            AND s.label = 'Shift 3'
+            AND t.staff_number = 'TH003';
+            INSERT INTO shift_assignments (shift_id, therapist_id, effective_date)
+            SELECT s.id, t.id, CURRENT_DATE
+            FROM shifts s, therapists t
+            WHERE s.organization_id = t.organization_id
+            AND s.label = 'Shift 4'
+            AND t.staff_number = 'TH004';
+            INSERT INTO shift_assignments (shift_id, therapist_id, effective_date)
+            SELECT s.id, t.id, CURRENT_DATE
+            FROM shifts s, therapists t
+            WHERE s.organization_id = t.organization_id
+            AND s.label = 'Shift 5'
+            AND t.staff_number = 'TH005';
+        </sql>
+    </changeSet>
+
     <changeSet id="0002-shifts-seed" author="sumicare">
         <sql>
             INSERT INTO shifts (organization_id, label, start_time, end_time, expected_count)

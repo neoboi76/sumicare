@@ -1,64 +1,62 @@
-<section class="max-w-5xl mx-auto p-4 space-y-4">
+<section class="max-w-5xl mx-auto p-4">
   <h1 class="text-2xl font-semibold text-slate-900">Messages</h1>
 
   <div class="flex gap-2 text-xs">
     @for (f of [{ k: 'unread', label: 'Unread' }, { k: 'all', label: 'All' }]; track f.k) {
-      <button (click)="setFilter($any(f.k))"
-              class="px-3 py-1.5 rounded border"
-              [class.bg-\[var\(--sumi-primary\)\]]="filter() === f.k"
-              [class.text-white]="filter() === f.k"
-              [class.border-slate-300]="filter() !== f.k"
-              [class.text-slate-700]="filter() !== f.k">{{ f.label }}</button>
+    <button (click)="setFilter($any(f.k))" class="px-3 py-1.5 rounded border"
+      [class.bg-\[var\(--sumi-primary\)\]]="filter() === f.k" [class.text-white]="filter() === f.k"
+      [class.border-slate-300]="filter() !== f.k" [class.text-slate-700]="filter() !== f.k">{{ f.label }}</button>
     }
   </div>
 
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
     @if (loading()) {
-      <p class="p-4 text-sm text-slate-500">Loading...</p>
+    <p class="p-4 text-sm text-slate-500">Loading...</p>
     } @else if (messages().length === 0) {
-      <p class="p-6 text-center text-sm text-slate-500">No messages.</p>
+    <p class="p-6 text-center text-sm text-slate-500">No messages.</p>
     } @else {
-      <ul class="divide-y divide-slate-100">
-        @for (m of messages(); track m.id) {
-          <li (click)="open(m)" class="px-4 py-3 cursor-pointer hover:bg-slate-50"
-              [class.bg-amber-50]="!m.readAt">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <div class="font-medium text-slate-900">{{ m.name }} <span class="text-xs text-slate-500 ml-2">{{ m.email }}</span></div>
-                <div class="text-sm text-slate-700 mt-0.5 line-clamp-2">{{ m.message }}</div>
-              </div>
-              <div class="text-xs text-slate-500 flex-shrink-0">{{ formatDate(m.createdAt) }}</div>
-            </div>
-          </li>
-        }
-      </ul>
+    <ul class="divide-y divide-slate-100">
+      @for (m of messages(); track m.id) {
+      <li (click)="open(m)" class="px-4 py-3 cursor-pointer hover:bg-slate-50" [class.bg-amber-50]="!m.readAt">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="font-medium text-slate-900">{{ m.name }} <span class="text-xs text-slate-500 ml-2">{{ m.email
+                }}</span></div>
+            <div class="text-sm text-slate-700 mt-0.5 line-clamp-2">{{ m.message }}</div>
+          </div>
+          <div class="text-xs text-slate-500 flex-shrink-0">{{ formatDate(m.createdAt) }}</div>
+        </div>
+      </li>
+      }
+    </ul>
     }
   </div>
 
   @if (selected(); as m) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="close()">
-      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-5" (click)="$event.stopPropagation()">
-        <div class="flex items-start justify-between border-b border-slate-100 pb-3">
-          <div>
-            <div class="text-xs uppercase tracking-wide text-slate-500">From</div>
-            <div class="font-semibold">{{ m.name }}</div>
-            <div class="text-sm">
-              <a [href]="'mailto:' + m.email" class="text-[var(--sumi-primary)] hover:underline">{{ m.email }}</a>
-            </div>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="close()">
+    <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-5" (click)="$event.stopPropagation()">
+      <div class="flex items-start justify-between border-b border-slate-100 pb-3">
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">From</div>
+          <div class="font-semibold">{{ m.name }}</div>
+          <div class="text-sm">
+            <a [href]="'mailto:' + m.email" class="text-[var(--sumi-primary)] hover:underline">{{ m.email }}</a>
           </div>
-          <div class="text-xs text-slate-500">{{ formatDate(m.createdAt) }}</div>
         </div>
-        <p class="text-sm text-slate-800 whitespace-pre-line mt-3">{{ m.message }}</p>
-        <div class="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
-          @if (!m.readAt) {
-            <button (click)="markRead(m)" class="rounded bg-emerald-600 text-white text-sm px-3 py-1.5">Mark as read</button>
-          } @else {
-            <span class="text-xs text-slate-500">Read at {{ formatDate(m.readAt) }}</span>
-          }
-          <a [href]="'mailto:' + m.email" class="rounded border border-slate-300 text-sm px-3 py-1.5">Reply via email</a>
-          <button (click)="close()" class="text-sm text-slate-600 px-2 py-1.5">Close</button>
-        </div>
+        <div class="text-xs text-slate-500">{{ formatDate(m.createdAt) }}</div>
+      </div>
+      <p class="text-sm text-slate-800 whitespace-pre-line mt-3">{{ m.message }}</p>
+      <div class="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
+        @if (!m.readAt) {
+        <button (click)="markRead(m)" class="rounded bg-emerald-600 text-white text-sm px-3 py-1.5">Mark as
+          read</button>
+        } @else {
+        <span class="text-xs text-slate-500">Read at {{ formatDate(m.readAt) }}</span>
+        }
+        <a [href]="'mailto:' + m.email" class="rounded border border-slate-300 text-sm px-3 py-1.5">Reply via email</a>
+        <button (click)="close()" class="text-sm text-slate-600 px-2 py-1.5">Close</button>
       </div>
     </div>
+  </div>
   }
 </section>

@@ -9,4 +9,5 @@ import java.util.UUID;
 
 public interface PosTransactionRepository extends JpaRepository<PosTransaction, UUID> {
     List<PosTransaction> findAllByOrganizationIdAndProcessedAtBetween(UUID organizationId, OffsetDateTime from, OffsetDateTime to);
+    List<PosTransaction> findAllByOrderId(UUID orderId);
 }
