@@ -2,7 +2,7 @@
   <h1 class="text-2xl font-semibold text-slate-900">Reports</h1>
 
   <div class="flex flex-wrap gap-2 border-b border-slate-200">
-    @for (t of [{ k: 'services', label: 'Cutoff (services)' }, { k: 'daily', label: 'Daily' }, { k: 'monthly', label: 'Monthly' }, { k: 'commissions', label: 'Therapist commissions' }]; track t.k) {
+    @for (t of [{ k: 'services', label: 'Cutoff (services)' }, { k: 'daily', label: 'Daily' }, { k: 'monthly', label: 'Monthly' }, { k: 'commissions', label: 'Therapist commissions' }, { k: 'decking', label: 'Therapist decking' }]; track t.k) {
       <button (click)="setTab($any(t.k))"
               class="px-3 py-2 text-sm border-b-2"
               [class.border-\[var\(--sumi-primary\)\]]="tab() === t.k"
@@ -242,6 +242,55 @@
             <p class="text-xs text-slate-500">Use the CSV export for the matrix.</p>
           }
         </div>
+      }
+    </div>
+  }
+
+  @if (tab() === 'decking') {
+    <div class="space-y-3 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Therapist decking</h2>
+      <div class="flex items-end gap-2">
+        <label class="flex flex-col text-xs">Date <input type="date" [(ngModel)]="deckingDate" name="dkd" class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
+        <button (click)="loadDecking()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
+        <button (click)="exportDeckingCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+      </div>
+      @if (loading()) {
+        <div class="flex justify-center py-8"><div class="sumi-spinner"></div></div>
+      } @else if (deckingReport(); as r) {
+        <div class="text-xs text-slate-400 mb-1">Legend: ♥ = requested &middot; ★ = scrub &middot; | = ordinary</div>
+        @for (group of r.shiftGroups; track group.shiftId) {
+          <div class="mb-4">
+            <div class="bg-slate-100 rounded px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">{{ group.shiftLabel || 'Unassigned' }}</div>
+            @if (group.rows.length === 0) {
+              <p class="text-xs text-slate-400 px-3">No data for this shift.</p>
+            } @else {
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th class="text-left px-3 py-2">Name</th>
+                    <th class="text-left px-3 py-2">Tick Tack</th>
+                    <th class="text-right px-3 py-2">Comm</th>
+                    <th class="text-right px-3 py-2">Requested</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  @for (row of group.rows; track row.therapistId) {
+                    <tr>
+                      <td class="px-3 py-2 font-medium">{{ row.nickname }}</td>
+                      <td class="px-3 py-2 text-lg tracking-wider">
+                        @for (g of row.glyphs; track $index) {
+                          <span [title]="g.serviceType || ''">{{ g.symbol }}</span>
+                        }
+                      </td>
+                      <td class="px-3 py-2 text-right">&#8369; {{ row.totalCommission | number:'1.2-2' }}</td>
+                      <td class="px-3 py-2 text-right">{{ row.requestedCount }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        }
       }
     </div>
   }

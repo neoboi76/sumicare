@@ -114,6 +114,8 @@ public class PosService {
         var service = serviceRepository.findById(booking.getServiceId()).orElse(null);
         BigDecimal base = service == null ? BigDecimal.ZERO : service.getCommissionAmount();
         boolean tandem = service != null && service.isRequiresTwoTherapists();
+        Long svcId = service == null ? null : service.getId();
+        String svcType = service == null ? null : service.getCategory();
         BigDecimal primaryShare = tandem
                 ? base.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP)
                 : base;
@@ -122,6 +124,9 @@ public class PosService {
         primaryComm.setSessionId(session.getId());
         primaryComm.setTherapistId(session.getPrimaryTherapistId());
         primaryComm.setAmount(primaryShare);
+        primaryComm.setServiceId(svcId);
+        primaryComm.setServiceType(svcType);
+        primaryComm.setSpecificallyRequested(session.isSpecificallyRequested());
         commissionRepository.save(primaryComm);
 
         if (session.getSecondaryTherapistId() != null && tandem) {
@@ -130,6 +135,9 @@ public class PosService {
             secondaryComm.setSessionId(session.getId());
             secondaryComm.setTherapistId(session.getSecondaryTherapistId());
             secondaryComm.setAmount(primaryShare);
+            secondaryComm.setServiceId(svcId);
+            secondaryComm.setServiceType(svcType);
+            secondaryComm.setSpecificallyRequested(false);
             commissionRepository.save(secondaryComm);
         }
 
@@ -143,6 +151,9 @@ public class PosService {
             extComm.setTherapistId(session.getPrimaryTherapistId());
             extComm.setAmount(extra);
             extComm.setExtension(true);
+            extComm.setServiceId(svcId);
+            extComm.setServiceType(svcType);
+            extComm.setSpecificallyRequested(session.isSpecificallyRequested());
             commissionRepository.save(extComm);
         }
     }

@@ -3,7 +3,6 @@ package com.sumicare.cashier.service;
 import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.dto.CreateBookingRequest;
-import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.booking.service.BookingService;
@@ -77,6 +76,9 @@ public class OrderService {
         if (request.serviceIds() == null || request.serviceIds().isEmpty()) {
             throw new IllegalArgumentException("Order must include at least one service");
         }
+        if (request.clientNickname() == null || request.clientNickname().isBlank()) {
+            throw new IllegalArgumentException("Client nickname is required");
+        }
 
         Long primaryServiceId = request.serviceIds().get(0);
         Service primaryService = serviceRepository.findById(primaryServiceId)
@@ -90,12 +92,8 @@ public class OrderService {
                 ? request.total()
                 : subtotal.subtract(discount).max(BigDecimal.ZERO);
 
-        String nickname = request.clientNickname() != null && !request.clientNickname().isBlank()
-                ? request.clientNickname()
-                : "Walk-in";
+        String nickname = request.clientNickname();
 
-        // Create booking but do NOT auto-start session.
-        // Pay first before massage: session only starts after order is PAID.
         var bookingRequest = new CreateBookingRequest(
                 request.clientId(),
                 nickname,
@@ -124,13 +122,21 @@ public class OrderService {
         order.setDiscount(discount);
         order.setTotal(total);
         order.setAmountPaid(BigDecimal.ZERO);
-        order.setStatus("PENDING");
+        order.setStatus("OPEN");
         orderRepository.save(order);
 
         if (request.initialPayment() != null
                 && request.initialPayment().amount().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal payAmount = request.initialPayment().amount();
+            if (payAmount.compareTo(total) > 0) {
+                throw new IllegalArgumentException("Payment amount exceeds order total");
+            }
             recordPaymentInternal(order, null, cashierUserId, request.initialPayment().paymentMethod(),
-                    request.initialPayment().amount(), request.initialPayment().referenceNumber());
+                    payAmount, request.initialPayment().referenceNumber());
+            if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
+                order.setStatus("PAID");
+                order.setFinishedAt(OffsetDateTime.now());
+            }
         }
 
         return toResponse(order, booking);
@@ -140,12 +146,25 @@ public class OrderService {
     @Transactional
     public OrderResponse recordPayment(UUID organizationId, UUID orderId, UUID actorUserId, RecordPaymentRequest request) {
         Order order = requireOrder(organizationId, orderId);
-        if ("CANCELLED".equals(order.getStatus()) || "FINISHED".equals(order.getStatus())) {
-            throw new IllegalStateException("Cannot add payment to a " + order.getStatus().toLowerCase() + " order");
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot add payment to a cancelled order");
+        }
+        if ("PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Order is already fully paid");
+        }
+        BigDecimal remaining = order.getTotal().subtract(order.getAmountPaid());
+        if (request.amount().compareTo(remaining) > 0) {
+            throw new IllegalArgumentException("Payment amount exceeds remaining balance of " + remaining.toPlainString());
         }
         UUID sessionId = sessionRepository.findFirstByBookingId(order.getBookingId())
                 .map(Session::getId).orElse(null);
         recordPaymentInternal(order, sessionId, actorUserId, request.paymentMethod(), request.amount(), request.referenceNumber());
+
+        if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
+            order.setStatus("PAID");
+            order.setFinishedAt(OffsetDateTime.now());
+        }
+
         Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
         return toResponse(order, booking);
     }
@@ -156,9 +175,6 @@ public class OrderService {
         Order order = requireOrder(organizationId, orderId);
         if ("PAID".equals(order.getStatus())) {
             throw new IllegalStateException("Order is already paid");
-        }
-        if ("COMPLETED".equals(order.getStatus())) {
-            throw new IllegalStateException("Order is already completed");
         }
         if ("CANCELLED".equals(order.getStatus())) {
             throw new IllegalStateException("Cannot mark a cancelled order as paid");
@@ -175,10 +191,39 @@ public class OrderService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
+    public OrderResponse openOrder(UUID organizationId, UUID orderId) {
+        Order order = requireOrder(organizationId, orderId);
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot reopen a cancelled order");
+        }
+        order.setStatus("OPEN");
+        Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
+        return toResponse(order, booking);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
+    public OrderResponse cancelPayment(UUID organizationId, UUID orderId) {
+        Order order = requireOrder(organizationId, orderId);
+        if (!"OPEN".equals(order.getStatus())) {
+            throw new IllegalStateException("Can only cancel payment on an OPEN order");
+        }
+        List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
+        for (PosTransaction tx : transactions) {
+            tx.setStatus("REVERSED");
+            transactionRepository.save(tx);
+        }
+        order.setAmountPaid(BigDecimal.ZERO);
+        Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
+        return toResponse(order, booking);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
     public OrderResponse cancel(UUID organizationId, UUID orderId, String reason) {
         Order order = requireOrder(organizationId, orderId);
-        if ("COMPLETED".equals(order.getStatus())) {
-            throw new IllegalStateException("Cannot cancel a completed order");
+        if ("PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot cancel a paid order");
         }
         order.setStatus("CANCELLED");
         order.setCancelledAt(OffsetDateTime.now());
@@ -221,25 +266,17 @@ public class OrderService {
     @Transactional
     public void onSessionCompleted(UUID bookingId, OffsetDateTime endedAt) {
         orderRepository.findByBookingId(bookingId).ifPresent(order -> {
-            if (!"COMPLETED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
-                order.setStatus("COMPLETED");
-                order.setCompletedAt(endedAt != null ? endedAt : OffsetDateTime.now());
-                orderRepository.save(order);
+            if (order.getTreatmentSlipId() != null) {
+                slipRepository.findById(order.getTreatmentSlipId()).ifPresent(slip -> {
+                    slip.setStatus("FINALIZED");
+                    slip.setSignedAt(OffsetDateTime.now());
+                    slipRepository.save(slip);
+                });
+            }
 
-
-                if (order.getTreatmentSlipId() != null) {
-                    slipRepository.findById(order.getTreatmentSlipId()).ifPresent(slip -> {
-                        slip.setStatus("FINALIZED");
-                        slip.setSignedAt(OffsetDateTime.now());
-                        slipRepository.save(slip);
-                    });
-                }
-
-
-                Session session = sessionRepository.findFirstByBookingId(bookingId).orElse(null);
-                if (session != null) {
-                    posService.recordCommissionsForSession(order.getOrganizationId(), session);
-                }
+            Session session = sessionRepository.findFirstByBookingId(bookingId).orElse(null);
+            if (session != null) {
+                posService.recordCommissionsForSession(order.getOrganizationId(), session);
             }
         });
     }

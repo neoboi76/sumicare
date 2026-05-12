@@ -136,7 +136,7 @@ public class OperationsReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public DailyReportResponse daily(UUID organizationId, LocalDate date) {
-        OffsetDateTime from = date.atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime from = date.atStartOfDay(java.time.ZoneId.of("Asia/Manila")).toOffsetDateTime();
         OffsetDateTime to = from.plusDays(1);
         List<DailyRow> rows = collectRows(organizationId, from, to);
         BigDecimal grand = rows.stream().map(r -> r.amount() == null ? BigDecimal.ZERO : r.amount())
@@ -152,8 +152,8 @@ public class OperationsReportService {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public MonthlyReportResponse monthly(UUID organizationId, int year, int month) {
         YearMonth ym = YearMonth.of(year, month);
-        OffsetDateTime from = ym.atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime to = ym.atEndOfMonth().plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime from = ym.atDay(1).atStartOfDay(java.time.ZoneId.of("Asia/Manila")).toOffsetDateTime();
+        OffsetDateTime to = ym.atEndOfMonth().plusDays(1).atStartOfDay(java.time.ZoneId.of("Asia/Manila")).toOffsetDateTime();
         List<DailyRow> rows = collectRows(organizationId, from, to);
         BigDecimal grand = rows.stream().map(r -> r.amount() == null ? BigDecimal.ZERO : r.amount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

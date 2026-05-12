@@ -1,4 +1,4 @@
-﻿import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -23,7 +23,12 @@ interface CommissionDailyReport { date: string; rows: CommissionTherapistRow[]; 
 interface MatrixRow { therapistId: string; nickname: string; amounts: number[]; total: number; }
 interface MatrixReport { columnLabels: string[]; rows: MatrixRow[]; columnTotals: number[]; grandTotal: number; }
 
-type Tab = 'services' | 'daily' | 'monthly' | 'commissions';
+interface DeckingGlyph { symbol: string; serviceType: string; }
+interface DeckingRow { therapistId: string; nickname: string; shiftId: number | null; shiftLabel: string | null; glyphs: DeckingGlyph[]; totalCommission: number; requestedCount: number; }
+interface DeckingShiftGroup { shiftId: number; shiftLabel: string; rows: DeckingRow[]; }
+interface DeckingDailyReport { date: string; shiftGroups: DeckingShiftGroup[]; }
+
+type Tab = 'services' | 'daily' | 'monthly' | 'commissions' | 'decking';
 type CommissionTab = 'shift' | 'daily' | 'cutoff' | 'monthly';
 
 @Component({
@@ -38,6 +43,7 @@ export class ReportsComponent implements OnInit {
 
   tab = signal<Tab>('services');
   commissionTab = signal<CommissionTab>('cutoff');
+  loading = signal(false);
 
   cutoffFrom = new Date().toISOString().slice(0, 10);
   cutoffTo = new Date().toISOString().slice(0, 10);
@@ -74,6 +80,9 @@ export class ReportsComponent implements OnInit {
   commissionMonthlyMonth = new Date().getMonth() + 1;
   commissionMonthlyReport = signal<MatrixReport | null>(null);
 
+  deckingDate = new Date().toISOString().slice(0, 10);
+  deckingReport = signal<DeckingDailyReport | null>(null);
+
   ngOnInit(): void {
     this.loadShifts();
   }
@@ -89,13 +98,14 @@ export class ReportsComponent implements OnInit {
   }
 
   loadServices(): void {
+    this.loading.set(true);
     const from = `${this.cutoffFrom}T00:00:00Z`;
     const to = `${this.cutoffTo}T23:59:59Z`;
     let url = `${environment.apiBaseUrl}/api/reports/cutoff/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     if (this.cutoffShiftId) url += `&shiftId=${this.cutoffShiftId}`;
     this.http.get<CutoffServicesReport>(url).subscribe({
-      next: (r) => this.servicesReport.set(r),
-      error: () => this.servicesReport.set(null)
+      next: (r) => { this.servicesReport.set(r); this.loading.set(false); },
+      error: () => { this.servicesReport.set(null); this.loading.set(false); }
     });
   }
 
@@ -108,9 +118,10 @@ export class ReportsComponent implements OnInit {
   }
 
   loadDaily(): void {
+    this.loading.set(true);
     this.http.get<DailyReport>(`${environment.apiBaseUrl}/api/reports/daily?date=${this.dailyDate}`).subscribe({
-      next: (r) => this.dailyReport.set(r),
-      error: () => this.dailyReport.set(null)
+      next: (r) => { this.dailyReport.set(r); this.loading.set(false); },
+      error: () => { this.dailyReport.set(null); this.loading.set(false); }
     });
   }
   exportDailyCsv(): void {
@@ -121,11 +132,12 @@ export class ReportsComponent implements OnInit {
   }
 
   loadMonthly(): void {
+    this.loading.set(true);
     this.http.get<MonthlyReport>(
       `${environment.apiBaseUrl}/api/reports/monthly-detailed?year=${this.monthlyYear}&month=${this.monthlyMonth}`
     ).subscribe({
-      next: (r) => this.monthlyReport.set(r),
-      error: () => this.monthlyReport.set(null)
+      next: (r) => { this.monthlyReport.set(r); this.loading.set(false); },
+      error: () => { this.monthlyReport.set(null); this.loading.set(false); }
     });
   }
   exportMonthlyCsv(): void {
@@ -137,11 +149,12 @@ export class ReportsComponent implements OnInit {
 
   loadCommissionShift(): void {
     if (!this.commissionShiftId) return;
+    this.loading.set(true);
     this.http.get<CommissionShiftReport>(
       `${environment.apiBaseUrl}/api/reports/commissions/shift?shiftId=${this.commissionShiftId}&date=${this.commissionShiftDate}`
     ).subscribe({
-      next: (r) => this.commissionShiftReport.set(r),
-      error: () => this.commissionShiftReport.set(null)
+      next: (r) => { this.commissionShiftReport.set(r); this.loading.set(false); },
+      error: () => { this.commissionShiftReport.set(null); this.loading.set(false); }
     });
   }
   exportCommissionShiftCsv(): void {
@@ -153,11 +166,12 @@ export class ReportsComponent implements OnInit {
   }
 
   loadCommissionDaily(): void {
+    this.loading.set(true);
     this.http.get<CommissionDailyReport>(
       `${environment.apiBaseUrl}/api/reports/commissions/daily?date=${this.commissionDailyDate}`
     ).subscribe({
-      next: (r) => this.commissionDailyReport.set(r),
-      error: () => this.commissionDailyReport.set(null)
+      next: (r) => { this.commissionDailyReport.set(r); this.loading.set(false); },
+      error: () => { this.commissionDailyReport.set(null); this.loading.set(false); }
     });
   }
   exportCommissionDailyCsv(): void {
@@ -168,11 +182,12 @@ export class ReportsComponent implements OnInit {
   }
 
   loadCommissionCutoff(): void {
+    this.loading.set(true);
     this.http.get<MatrixReport>(
       `${environment.apiBaseUrl}/api/reports/commissions/cutoff?year=${this.commissionCutoffYear}&month=${this.commissionCutoffMonth}&half=${this.commissionCutoffHalf}`
     ).subscribe({
-      next: (r) => this.commissionCutoffReport.set(r),
-      error: () => this.commissionCutoffReport.set(null)
+      next: (r) => { this.commissionCutoffReport.set(r); this.loading.set(false); },
+      error: () => { this.commissionCutoffReport.set(null); this.loading.set(false); }
     });
   }
   exportCommissionCutoffCsv(): void {
@@ -183,17 +198,34 @@ export class ReportsComponent implements OnInit {
   }
 
   loadCommissionMonthly(): void {
+    this.loading.set(true);
     this.http.get<MatrixReport>(
       `${environment.apiBaseUrl}/api/reports/commissions/monthly?year=${this.commissionMonthlyYear}&month=${this.commissionMonthlyMonth}`
     ).subscribe({
-      next: (r) => this.commissionMonthlyReport.set(r),
-      error: () => this.commissionMonthlyReport.set(null)
+      next: (r) => { this.commissionMonthlyReport.set(r); this.loading.set(false); },
+      error: () => { this.commissionMonthlyReport.set(null); this.loading.set(false); }
     });
   }
   exportCommissionMonthlyCsv(): void {
     this.downloadBlob(
       `${environment.apiBaseUrl}/api/reports/commissions/monthly/export.csv?year=${this.commissionMonthlyYear}&month=${this.commissionMonthlyMonth}`,
       `commissions-monthly-${this.commissionMonthlyYear}-${String(this.commissionMonthlyMonth).padStart(2, '0')}.csv`
+    );
+  }
+
+  loadDecking(): void {
+    this.loading.set(true);
+    this.http.get<DeckingDailyReport>(
+      `${environment.apiBaseUrl}/api/reports/decking/daily?date=${this.deckingDate}`
+    ).subscribe({
+      next: (r) => { this.deckingReport.set(r); this.loading.set(false); },
+      error: () => { this.deckingReport.set(null); this.loading.set(false); }
+    });
+  }
+  exportDeckingCsv(): void {
+    this.downloadBlob(
+      `${environment.apiBaseUrl}/api/reports/decking/daily/export.csv?date=${this.deckingDate}`,
+      `decking-${this.deckingDate}.csv`
     );
   }
 

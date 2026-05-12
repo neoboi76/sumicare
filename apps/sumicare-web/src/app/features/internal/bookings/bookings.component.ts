@@ -1,4 +1,4 @@
-﻿import { ChangeDetectionStrategy, Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -158,8 +158,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   reload(): void {
     const d = this.selectedDate();
-    const start = `${d}T00:00:00.000Z`;
-    const end = `${d}T23:59:59.999Z`;
+    const start = `${d}T00:00:00.000+08:00`;
+    const end = `${d}T23:59:59.999+08:00`;
     const params = `?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
     this.http.get<BookingResponse[]>(`${environment.apiBaseUrl}/api/bookings${params}`).subscribe({
       next: (b) => {
@@ -372,8 +372,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   exportCsv(): void {
     const d = this.selectedDate();
-    const from = encodeURIComponent(`${d}T00:00:00.000Z`);
-    const to = encodeURIComponent(`${d}T23:59:59.999Z`);
+    const from = encodeURIComponent(`${d}T00:00:00.000+08:00`);
+    const to = encodeURIComponent(`${d}T23:59:59.999+08:00`);
     this.http.get(`${environment.apiBaseUrl}/api/bookings/export.csv?from=${from}&to=${to}`,
       { responseType: 'blob' as const, observe: 'response' as const }
     ).subscribe({

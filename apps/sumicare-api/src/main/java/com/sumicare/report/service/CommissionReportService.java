@@ -3,6 +3,8 @@ package com.sumicare.report.service;
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.shift.domain.Shift;
+import com.sumicare.shift.domain.ShiftAssignment;
+import com.sumicare.shift.repository.ShiftAssignmentRepository;
 import com.sumicare.shift.repository.ShiftRepository;
 import com.sumicare.therapist.domain.Therapist;
 import com.sumicare.therapist.repository.TherapistRepository;
@@ -31,15 +33,18 @@ public class CommissionReportService {
     private final SessionRepository sessionRepository;
     private final TherapistRepository therapistRepository;
     private final ShiftRepository shiftRepository;
+    private final ShiftAssignmentRepository shiftAssignmentRepository;
 
     public CommissionReportService(CommissionRepository commissionRepository,
                                    SessionRepository sessionRepository,
                                    TherapistRepository therapistRepository,
-                                   ShiftRepository shiftRepository) {
+                                   ShiftRepository shiftRepository,
+                                   ShiftAssignmentRepository shiftAssignmentRepository) {
         this.commissionRepository = commissionRepository;
         this.sessionRepository = sessionRepository;
         this.therapistRepository = therapistRepository;
         this.shiftRepository = shiftRepository;
+        this.shiftAssignmentRepository = shiftAssignmentRepository;
     }
 
     public record TherapistRow(UUID therapistId, String nickname, BigDecimal total) {}
@@ -56,7 +61,13 @@ public class CommissionReportService {
                 ? date.plusDays(1).atTime(shift.getEndTime()).atOffset(ZoneOffset.UTC)
                 : date.atTime(shift.getEndTime()).atOffset(ZoneOffset.UTC);
 
+        java.util.Set<UUID> assignedTherapistIds = new java.util.HashSet<>();
+        for (ShiftAssignment sa : shiftAssignmentRepository.findAllByShiftId(shiftId)) {
+            assignedTherapistIds.add(sa.getTherapistId());
+        }
+
         Map<UUID, BigDecimal> totals = totalsByTherapistInWindow(organizationId, windowStart, windowEnd);
+        totals.keySet().retainAll(assignedTherapistIds);
         List<TherapistRow> rows = toTherapistRows(organizationId, totals);
         BigDecimal grand = rows.stream().map(TherapistRow::total).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new ShiftReport(shiftId, shift.getLabel(), date, rows, grand);

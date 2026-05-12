@@ -75,4 +75,18 @@ public class OrderController {
         String reason = body == null ? null : body.get("reason");
         return orderService.cancel(UUID.fromString(principal.organizationId()), id, reason);
     }
+
+    @PostMapping("/{id}/open")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public OrderResponse openOrder(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                   @PathVariable UUID id) {
+        return orderService.openOrder(UUID.fromString(principal.organizationId()), id);
+    }
+
+    @PostMapping("/{id}/cancel-payment")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public OrderResponse cancelPayment(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                       @PathVariable UUID id) {
+        return orderService.cancelPayment(UUID.fromString(principal.organizationId()), id);
+    }
 }

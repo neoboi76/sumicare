@@ -103,13 +103,16 @@
 
         @if (discountSummary().length > 0) {
         <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm space-y-1">
-          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Summary of adjustments</div>
-          @for (d of discountSummary(); track d.name) {
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Summary of adjustments</div>
+            <button (click)="removeAllDiscounts()" class="text-xs text-red-600 hover:underline">Clear all</button>
+          </div>
+          @for (d of discountSummary(); track $index) {
           <div class="flex justify-between items-center">
             <span>{{ d.name }}</span>
             <div class="flex items-center gap-2">
               <span class="text-red-600">- &#8369; {{ d.amount | number:'1.2-2' }}</span>
-              <button (click)="removeDiscount()" class="text-xs text-red-600 hover:underline">×</button>
+              <button (click)="removeDiscountAt($index)" class="text-xs text-red-600 hover:underline">×</button>
             </div>
           </div>
           }
@@ -140,17 +143,7 @@
             <input [(ngModel)]="pax" name="pax" type="number" min="1" max="20"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
           </label>
-          <fieldset class="block">
-            <legend class="text-xs">Sex</legend>
-            <div class="flex gap-3 mt-1">
-              <label class="text-sm flex items-center gap-1">
-                <input type="radio" [(ngModel)]="clientGender" name="cgender" value="F" />Female
-              </label>
-              <label class="text-sm flex items-center gap-1">
-                <input type="radio" [(ngModel)]="clientGender" name="cgender" value="M" />Male
-              </label>
-            </div>
-          </fieldset>
+
           <label class="block md:col-span-2">
             Notes
             <textarea [(ngModel)]="notes" name="notes" maxlength="1000" rows="2"
@@ -388,9 +381,11 @@
         </div>
         }
       </div>
-      <div class="px-6 py-4 border-t flex justify-end">
+      <div class="px-6 py-4 border-t flex justify-end gap-2">
+        <button (click)="closeDiscountModal()"
+          class="rounded border border-slate-300 text-slate-600 px-4 py-2 text-sm">Cancel</button>
         <button (click)="applyDiscount()"
-          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">DONE</button>
+          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Apply</button>
       </div>
     </div>
   </div>

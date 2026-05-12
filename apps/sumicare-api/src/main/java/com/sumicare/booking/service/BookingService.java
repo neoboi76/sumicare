@@ -84,6 +84,18 @@ public class BookingService {
     @Transactional
     public BookingResponse createBooking(UUID organizationId, CreateBookingRequest request) {
         Service service = requireService(request.serviceId());
+
+        if (request.clientNickname() == null || request.clientNickname().isBlank()) {
+            throw new IllegalArgumentException("Client nickname is required");
+        }
+
+        if (request.scheduledAt() != null && !"WALK_IN".equals(request.reservationType())) {
+            OffsetDateTime now = OffsetDateTime.now();
+            if (request.scheduledAt().isBefore(now)) {
+                throw new IllegalArgumentException("Cannot book a session in the past");
+            }
+        }
+
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(request.clientId());
@@ -102,7 +114,7 @@ public class BookingService {
         order.setBookingId(booking.getId());
         order.setSubtotal(service.getPrice() == null ? java.math.BigDecimal.ZERO : service.getPrice());
         order.setTotal(service.getPrice() == null ? java.math.BigDecimal.ZERO : service.getPrice());
-        order.setStatus("PENDING");
+        order.setStatus("OPEN");
         orderRepository.save(order);
 
         return toBookingResponse(booking, service);
@@ -121,6 +133,33 @@ public class BookingService {
             }
         });
 
+        if (request.roomId() != null) {
+            Room room = roomRepository.findById(request.roomId()).orElseThrow(() ->
+                    new IllegalArgumentException("Unknown room"));
+            if ("VIP".equalsIgnoreCase(room.getRoomType()) && !service.isVip()) {
+                throw new IllegalStateException("VIP room can only be selected for VIP services");
+            }
+            if (!"VIP".equalsIgnoreCase(room.getRoomType()) && request.bedId() != null) {
+                String clientGender = booking.getClientGender();
+                if (clientGender != null && !clientGender.isBlank()) {
+                    List<Bed> roomBeds = bedRepository.findAllByRoomId(room.getId());
+                    for (Bed bed : roomBeds) {
+                        if (bed.getId().equals(request.bedId())) continue;
+                        Map<Object, Object> occ = occupancyService.read(room.getId(), bed.getId());
+                        Object status = occ.get("status");
+                        if ("OCCUPIED".equals(status)) {
+                            Object lock = occ.get("genderLock");
+                            if (lock != null && !lock.toString().isEmpty() && !lock.toString().equals(clientGender)) {
+                                throw new IllegalStateException("Gender conflict: room is occupied by " +
+                                        ("M".equals(lock.toString()) ? "male" : "female") +
+                                        " clients. Cannot place a " +
+                                        ("M".equals(clientGender) ? "male" : "female") + " client.");
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         if (request.primaryTherapistId() != null) {
             boolean onCall = sessionRepository.existsByPrimaryTherapistIdAndStatus(
@@ -171,9 +210,10 @@ public class BookingService {
             Therapist primary = request.primaryTherapistId() == null ? null
                     : therapistRepository.findById(request.primaryTherapistId()).orElse(null);
             String therapistNickname = primary == null ? "" : primary.getNickname();
+            String genderLock = booking.getClientGender();
             occupancyService.occupy(organizationId, request.roomId(), request.bedId(),
                     booking.getClientNickname(), booking.getLockerNumber(),
-                    therapistNickname, null);
+                    therapistNickname, genderLock);
         }
 
         if (request.primaryTherapistId() != null) {
@@ -211,11 +251,8 @@ public class BookingService {
         slipRepository.save(slip);
 
         orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
-            if (!"COMPLETED".equals(order.getStatus()) && !"CANCELLED".equals(order.getStatus())) {
-                order.setStatus("COMPLETED");
-                order.setCompletedAt(now);
-                orderRepository.save(order);
-            }
+            order.setTreatmentSlipId(slip.getId());
+            orderRepository.save(order);
         });
 
         if (session.getRoomId() != null && session.getBedId() != null) {

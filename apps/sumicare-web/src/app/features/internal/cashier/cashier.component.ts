@@ -1,4 +1,4 @@
-﻿import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -77,7 +77,6 @@ export class CashierComponent implements OnInit {
   orNumber = '';
   lockerNumber = '';
   pax = 1;
-  clientGender: 'M' | 'F' = 'F';
 
   paymentMethod = signal<'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'>('CASH');
   paymentAmount = 0;
@@ -187,7 +186,7 @@ export class CashierComponent implements OnInit {
 
   removeItem(idx: number): void {
     this.cart.update(items => items.filter((_, i) => i !== idx));
-    this.recalcDiscount();
+    this.recalcDiscounts();
   }
 
   openDiscountModal(): void {
@@ -229,26 +228,41 @@ export class CashierComponent implements OnInit {
   applyDiscount(): void {
     const cfg = this.discountConfig();
     const items = this.cart();
-    let totalDiscount = 0;
+    let totalDiscountAmt = 0;
 
     if (cfg.type === 'DISCOUNT') {
       for (const idx of cfg.appliedItemIndices) {
         if (idx >= items.length) continue;
         const item = items[idx];
         if (cfg.amountType === 'PERCENT') {
-          totalDiscount += item.originalPrice * (cfg.percent / 100);
+          totalDiscountAmt += item.originalPrice * (cfg.percent / 100);
         } else {
-          totalDiscount += cfg.fixedAmount;
+          totalDiscountAmt += cfg.fixedAmount;
         }
       }
     }
 
-    const name = cfg.name || (cfg.amountType === 'PERCENT' ? `${cfg.percent}% discount` : `â‚±${cfg.fixedAmount} discount`);
-    this.discountSummary.set(totalDiscount > 0 ? [{ name, amount: totalDiscount }] : []);
+    const name = cfg.name || (cfg.amountType === 'PERCENT' ? `${cfg.percent}% discount` : `P${cfg.fixedAmount} discount`);
+    if (totalDiscountAmt > 0) {
+      this.discountSummary.update(existing => [...existing, { name, amount: totalDiscountAmt }]);
+    }
     this.showDiscountModal.set(false);
+    this.discountConfig.set({
+      name: '',
+      type: 'DISCOUNT',
+      amountType: 'PERCENT',
+      percent: 0,
+      fixedAmount: 0,
+      appliedItemIndices: []
+    });
+    this.activeTemplate.set('Custom');
   }
 
-  removeDiscount(): void {
+  removeDiscountAt(idx: number): void {
+    this.discountSummary.update(list => list.filter((_, i) => i !== idx));
+  }
+
+  removeAllDiscounts(): void {
     this.discountSummary.set([]);
     this.discountConfig.update(cfg => ({
       ...cfg,
@@ -260,10 +274,7 @@ export class CashierComponent implements OnInit {
     this.activeTemplate.set('Custom');
   }
 
-  private recalcDiscount(): void {
-    if (this.discountSummary().length > 0) {
-      this.applyDiscount();
-    }
+  private recalcDiscounts(): void {
   }
 
   setPaymentMethod(method: 'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'): void {
@@ -273,6 +284,13 @@ export class CashierComponent implements OnInit {
   addPayment(): void {
     const amt = Number(this.paymentAmount || 0);
     if (amt <= 0) return;
+    const currentPaid = this.paid();
+    const currentTotal = this.total();
+    if (currentPaid + amt > currentTotal) {
+      this.error.set('Payment would exceed the total amount due. Maximum: ' + (currentTotal - currentPaid).toFixed(2));
+      return;
+    }
+    this.error.set(null);
     this.payments.update(p => [...p, {
       paymentMethod: this.paymentMethod(),
       amount: amt,
@@ -300,11 +318,12 @@ export class CashierComponent implements OnInit {
     this.submitting.set(true);
     this.error.set(null);
 
+    const clientGender = this.selectedClient()?.gender || 'F';
     const firstPayment = this.payments().length > 0 ? this.payments()[0] : null;
     const payload = {
       clientId: this.selectedClient()?.id,
       clientNickname: this.selectedClient()?.nickname,
-      clientGender: this.clientGender,
+      clientGender: clientGender,
       pax: this.pax,
       lockerNumber: this.lockerNumber || null,
       serviceIds: this.cart().map(c => c.serviceId),

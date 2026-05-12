@@ -29,6 +29,11 @@ interface Shift {
   endTime: string;
 }
 
+interface LineupGroup {
+  shiftLabel: string;
+  therapists: LineupTherapist[];
+}
+
 @Component({
   selector: 'sumi-lineup',
   standalone: true,
@@ -46,6 +51,22 @@ export class LineupComponent implements OnInit {
   addShiftId: number | null = null;
 
   activeTherapists = computed(() => this.allTherapists().filter(t => t.active));
+
+  groupedLineup = computed(() => {
+    const list = this.lineup();
+    const groups: { [key: string]: LineupGroup } = {};
+    const result: LineupGroup[] = [];
+
+    for (const t of list) {
+      const label = t.shiftLabel || 'Unassigned / Extra';
+      if (!groups[label]) {
+        groups[label] = { shiftLabel: label, therapists: [] };
+        result.push(groups[label]);
+      }
+      groups[label].therapists.push(t);
+    }
+    return result;
+  });
 
   ngOnInit(): void {
     this.reload();

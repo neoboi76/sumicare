@@ -53,6 +53,7 @@ export class OrderDetailComponent implements OnInit {
   audits = signal<AuditEntry[]>([]);
   error = signal<string | null>(null);
   busy = signal(false);
+  loading = signal(true);
 
   newPaymentMethod: 'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT' = 'CASH';
   newPaymentAmount = 0;
@@ -67,9 +68,16 @@ export class OrderDetailComponent implements OnInit {
   }
 
   private load(id: string): void {
+    this.loading.set(true);
     this.http.get<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${id}`).subscribe({
-      next: (o) => this.order.set(o),
-      error: () => this.error.set('Order not found.')
+      next: (o) => {
+        this.order.set(o);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set('Order not found.');
+        this.loading.set(false);
+      }
     });
     this.http.get<AuditEntry[]>(`${environment.apiBaseUrl}/api/audit-logs/by-target?entity=ORDER&id=${id}`).subscribe({
       next: (a) => this.audits.set(a),
@@ -82,6 +90,10 @@ export class OrderDetailComponent implements OnInit {
     if (!o || this.busy()) return;
     if (!this.newPaymentAmount || this.newPaymentAmount <= 0) {
       this.error.set('Enter a payment amount > 0.');
+      return;
+    }
+    if (this.newPaymentAmount > o.balance) {
+      this.error.set('Payment amount exceeds remaining balance of ' + o.balance.toFixed(2));
       return;
     }
     this.busy.set(true);
@@ -122,6 +134,45 @@ export class OrderDetailComponent implements OnInit {
     });
   }
 
+  markOpen(): void {
+    const o = this.order();
+    if (!o || this.busy()) return;
+    this.busy.set(true);
+    this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/open`, {}).subscribe({
+      next: (updated) => {
+        this.order.set(updated);
+        this.busy.set(false);
+        this.load(updated.id);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || 'Could not open order.');
+        this.busy.set(false);
+      }
+    });
+  }
+
+  cancelPayment(): void {
+    const o = this.order();
+    if (!o || this.busy()) return;
+    if (o.status !== 'OPEN') {
+      this.error.set('Can only cancel payment on an OPEN order.');
+      return;
+    }
+    this.busy.set(true);
+    this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/cancel-payment`, {}).subscribe({
+      next: (updated) => {
+        this.order.set(updated);
+        this.busy.set(false);
+        this.error.set(null);
+        this.load(updated.id);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || 'Could not cancel payment.');
+        this.busy.set(false);
+      }
+    });
+  }
+
   openCancel(): void {
     this.cancelReason = '';
     this.showCancel.set(true);
@@ -152,14 +203,13 @@ export class OrderDetailComponent implements OnInit {
   }
 
   formatDate(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : '—';
+    return iso ? new Date(iso).toLocaleString() : '\u2014';
   }
 
   statusClass(status: string): string {
     switch (status) {
-      case 'PENDING': return 'bg-slate-200 text-slate-700';
+      case 'OPEN': return 'bg-amber-100 text-amber-700';
       case 'PAID': return 'bg-emerald-100 text-emerald-700';
-      case 'COMPLETED': return 'bg-blue-100 text-blue-700';
       case 'CANCELLED': return 'bg-rose-100 text-rose-700';
       default: return 'bg-slate-100 text-slate-700';
     }
