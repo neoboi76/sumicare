@@ -9,6 +9,7 @@ public record OrderResponse(
         UUID bookingId,
         UUID treatmentSlipId,
         UUID cashierUserId,
+        String cashierDisplayName,
         String clientNickname,
         UUID clientId,
         String serviceName,

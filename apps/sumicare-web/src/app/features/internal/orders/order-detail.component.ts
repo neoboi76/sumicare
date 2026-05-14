@@ -4,12 +4,14 @@ import { HttpClient } from '@angular/common/http';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface Order {
   id: string;
   bookingId: string;
   treatmentSlipId: string | null;
   cashierUserId: string | null;
+  cashierDisplayName: string | null;
   clientNickname: string | null;
   clientId: string | null;
   serviceName: string | null;
@@ -48,6 +50,7 @@ export class OrderDetailComponent implements OnInit {
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private confirmService = inject(ConfirmService);
 
   order = signal<Order | null>(null);
   audits = signal<AuditEntry[]>([]);
@@ -117,9 +120,15 @@ export class OrderDetailComponent implements OnInit {
     });
   }
 
-  markPaid(): void {
+  async markPaid(): Promise<void> {
     const o = this.order();
     if (!o || this.busy()) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Mark as Paid',
+      message: 'Are you sure you want to mark this order as fully paid?',
+      confirmText: 'Mark Paid'
+    });
+    if (!confirmed) return;
     this.busy.set(true);
     this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/mark-paid`, {}).subscribe({
       next: (updated) => {
@@ -134,9 +143,15 @@ export class OrderDetailComponent implements OnInit {
     });
   }
 
-  markOpen(): void {
+  async markOpen(): Promise<void> {
     const o = this.order();
     if (!o || this.busy()) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Reopen Order',
+      message: 'Are you sure you want to reopen this order?',
+      confirmText: 'Reopen'
+    });
+    if (!confirmed) return;
     this.busy.set(true);
     this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/open`, {}).subscribe({
       next: (updated) => {
@@ -151,13 +166,21 @@ export class OrderDetailComponent implements OnInit {
     });
   }
 
-  cancelPayment(): void {
+  async cancelPayment(): Promise<void> {
     const o = this.order();
     if (!o || this.busy()) return;
     if (o.status !== 'OPEN') {
       this.error.set('Can only cancel payment on an OPEN order.');
       return;
     }
+    const confirmed = await this.confirmService.confirm({
+      title: 'Cancel Payment',
+      message: 'Are you sure you want to cancel the payment? This will reverse the transaction.',
+      confirmText: 'Cancel Payment',
+      danger: true
+    });
+    if (!confirmed) return;
+    
     this.busy.set(true);
     this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/cancel-payment`, {}).subscribe({
       next: (updated) => {
@@ -203,7 +226,10 @@ export class OrderDetailComponent implements OnInit {
   }
 
   formatDate(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString() : '\u2014';
+    return iso ? new Date(iso).toLocaleString('en-US', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    }) : '\u2014';
   }
 
   statusClass(status: string): string {

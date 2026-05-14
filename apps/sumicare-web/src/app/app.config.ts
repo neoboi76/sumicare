@@ -4,13 +4,14 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { APP_ROUTES } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { loadingInterceptor } from './core/loading/loading.interceptor';
 import { AuthService } from './core/auth/auth.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(APP_ROUTES, withComponentInputBinding()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor, loadingInterceptor])),
     provideAnimations(),
     provideAppInitializer(() => inject(AuthService).bootstrapSession())
   ]

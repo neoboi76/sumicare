@@ -4,6 +4,7 @@ import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface ClientLite {
   id: string;
@@ -63,6 +64,7 @@ interface OrderCreated {
 export class CashierComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private confirmService = inject(ConfirmService);
 
   searchTerm = '';
   searchResults = signal<ClientLite[]>([]);
@@ -300,11 +302,18 @@ export class CashierComponent implements OnInit {
     this.paymentRef = '';
   }
 
-  removePayment(idx: number): void {
+  async removePayment(idx: number): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Remove Payment',
+      message: 'Are you sure you want to remove this payment entry?',
+      confirmText: 'Remove',
+      danger: true
+    });
+    if (!confirmed) return;
     this.payments.update(p => p.filter((_, i) => i !== idx));
   }
 
-  checkout(): void {
+  async checkout(): Promise<void> {
     if (!this.selectedClient()) {
       this.error.set('Select a client first.');
       return;
@@ -314,6 +323,13 @@ export class CashierComponent implements OnInit {
       return;
     }
     if (this.submitting()) return;
+
+    const confirmed = await this.confirmService.confirm({
+      title: 'Confirm Checkout',
+      message: `You are about to process an order for ${this.selectedClient()?.nickname} totaling P${this.total().toFixed(2)}. Do you want to proceed?`,
+      confirmText: 'Checkout'
+    });
+    if (!confirmed) return;
 
     this.submitting.set(true);
     this.error.set(null);

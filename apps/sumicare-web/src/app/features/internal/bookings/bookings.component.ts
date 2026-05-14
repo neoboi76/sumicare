@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface BookingResponse {
   id: string;
@@ -15,6 +16,7 @@ interface BookingResponse {
   projectedEndAt: string;
   status: string;
   clientGender?: string | null;
+  orderId?: string | null;
 }
 
 interface SessionResponse {
@@ -68,6 +70,8 @@ interface RoomItem {
   beds: BedItem[];
 }
 
+
+
 interface OrderStatus {
   id: string;
   status: string;
@@ -76,13 +80,14 @@ interface OrderStatus {
 @Component({
   selector: 'sumi-bookings',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './bookings.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BookingsComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private confirmService = inject(ConfirmService);
   private therapistRefreshTimer: any;
 
   selectedDate = signal(new Date().toISOString().slice(0, 10));
@@ -214,7 +219,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   formatTime(iso: string | null): string {
     if (!iso) return '-';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, hourCycle: 'h23' });
   }
 
   serviceName(id: number): string {
@@ -266,9 +271,17 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startBooking.set(null);
   }
 
-  submitStart(): void {
+  async submitStart(): Promise<void> {
     const booking = this.startBooking();
     if (!booking || !this.canStart()) return;
+    
+    const confirmed = await this.confirmService.confirm({
+      title: 'Start Session',
+      message: 'Are you sure you want to start this session?',
+      confirmText: 'Start Session'
+    });
+    if (!confirmed) return;
+    
     const payload = {
       primaryTherapistId: this.startPrimaryTherapistId(),
       secondaryTherapistId: this.startSecondaryTherapistId(),
@@ -287,7 +300,15 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  endSession(b: BookingResponse): void {
+  async endSession(b: BookingResponse): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'End Session',
+      message: 'Are you sure you want to end this session?',
+      confirmText: 'End Session',
+      danger: true
+    });
+    if (!confirmed) return;
+    
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/end`, {}).subscribe({
@@ -296,7 +317,14 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  extendSession(b: BookingResponse): void {
+  async extendSession(b: BookingResponse): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Extend Session',
+      message: 'Do you want to extend this session by 30 minutes?',
+      confirmText: 'Extend'
+    });
+    if (!confirmed) return;
+    
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/extend?minutes=30`, {}).subscribe({
@@ -315,9 +343,15 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.adjustBooking.set(null);
   }
 
-  submitAdjust(): void {
+  async submitAdjust(): Promise<void> {
     const b = this.adjustBooking();
     if (!b) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Adjust Session Times',
+      message: 'Are you sure you want to adjust the session times?',
+      confirmText: 'Apply'
+    });
+    if (!confirmed) return;
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       const params: string[] = [];
@@ -333,7 +367,13 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  generateSlip(b: BookingResponse): void {
+  async generateSlip(b: BookingResponse): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Generate Treatment Slip',
+      message: 'Generate a treatment slip for this session?',
+      confirmText: 'Generate'
+    });
+    if (!confirmed) return;
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${session.id}`, {}).subscribe({

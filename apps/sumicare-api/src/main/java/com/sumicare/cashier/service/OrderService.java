@@ -22,6 +22,8 @@ import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import com.sumicare.transaction.service.TreatmentSlipService;
+import com.sumicare.user.domain.User;
+import com.sumicare.user.repository.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +47,7 @@ public class OrderService {
     private final TransactionLedgerRepository ledgerRepository;
     private final PosService posService;
     private final RoomOccupancyService occupancyService;
+    private final UserRepository userRepository;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -56,7 +59,8 @@ public class OrderService {
                         PosTransactionRepository transactionRepository,
                         TransactionLedgerRepository ledgerRepository,
                         PosService posService,
-                        RoomOccupancyService occupancyService) {
+                        RoomOccupancyService occupancyService,
+                        UserRepository userRepository) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -68,6 +72,7 @@ public class OrderService {
         this.ledgerRepository = ledgerRepository;
         this.posService = posService;
         this.occupancyService = occupancyService;
+        this.userRepository = userRepository;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -196,6 +201,17 @@ public class OrderService {
         if ("CANCELLED".equals(order.getStatus())) {
             throw new IllegalStateException("Cannot reopen a cancelled order");
         }
+
+        Session session = sessionRepository.findFirstByBookingId(order.getBookingId()).orElse(null);
+        if (session != null) {
+            if ("COMPLETED".equals(session.getStatus())) {
+                throw new IllegalStateException("Cannot open an order whose session has already ended");
+            }
+            if ("ACTIVE".equals(session.getStatus())) {
+                bookingService.cancelSession(organizationId, session.getId());
+            }
+        }
+
         order.setStatus("OPEN");
         Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
         return toResponse(order, booking);
@@ -210,8 +226,19 @@ public class OrderService {
         }
         List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
         for (PosTransaction tx : transactions) {
+            if ("REVERSED".equals(tx.getStatus())) continue;
             tx.setStatus("REVERSED");
             transactionRepository.save(tx);
+
+            TransactionLedgerEntry reversal = new TransactionLedgerEntry();
+            reversal.setOrganizationId(order.getOrganizationId());
+            reversal.setTransactionId(tx.getId());
+            reversal.setEntryType("PAYMENT_REVERSED");
+            reversal.setAmount(tx.getTotal().negate());
+            reversal.setPaymentMethod(tx.getPaymentMethod());
+            reversal.setStatus("REFUND");
+            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber() + "\",\"reason\":\"payment_cancelled\"}");
+            ledgerRepository.save(reversal);
         }
         order.setAmountPaid(BigDecimal.ZERO);
         Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
@@ -222,14 +249,19 @@ public class OrderService {
     @Transactional
     public OrderResponse cancel(UUID organizationId, UUID orderId, String reason) {
         Order order = requireOrder(organizationId, orderId);
+        Session session = sessionRepository.findFirstByBookingId(order.getBookingId()).orElse(null);
+        if (session != null && "COMPLETED".equals(session.getStatus())) {
+            throw new IllegalStateException("Cannot cancel an order whose session has already ended");
+        }
         if ("PAID".equals(order.getStatus())) {
-            throw new IllegalStateException("Cannot cancel a paid order");
+            throw new IllegalStateException("Cannot cancel a paid order. Open it first or cancel the payment.");
         }
         order.setStatus("CANCELLED");
         order.setCancelledAt(OffsetDateTime.now());
         order.setCancelledReason(reason);
-        Session session = sessionRepository.findFirstByBookingId(order.getBookingId()).orElse(null);
-        if (session != null && session.getRoomId() != null && session.getBedId() != null) {
+        if (session != null && "ACTIVE".equals(session.getStatus())) {
+            bookingService.cancelSession(organizationId, session.getId());
+        } else if (session != null && session.getRoomId() != null && session.getBedId() != null) {
             occupancyService.release(organizationId, session.getRoomId(), session.getBedId());
         }
         Booking booking = bookingRepository.findById(order.getBookingId()).orElseThrow();
@@ -240,6 +272,25 @@ public class OrderService {
                 slipRepository.save(slip);
             });
         }
+
+        List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
+        for (PosTransaction tx : transactions) {
+            if ("REVERSED".equals(tx.getStatus())) continue;
+            tx.setStatus("REVERSED");
+            transactionRepository.save(tx);
+
+            TransactionLedgerEntry reversal = new TransactionLedgerEntry();
+            reversal.setOrganizationId(order.getOrganizationId());
+            reversal.setTransactionId(tx.getId());
+            reversal.setEntryType("ORDER_CANCELLED_REVERSAL");
+            reversal.setAmount(tx.getTotal().negate());
+            reversal.setPaymentMethod(tx.getPaymentMethod());
+            reversal.setStatus("REFUND");
+            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber() + "\",\"reason\":\"order_cancelled\"}");
+            ledgerRepository.save(reversal);
+        }
+        order.setAmountPaid(BigDecimal.ZERO);
+
         return toResponse(order, booking);
     }
 
@@ -316,6 +367,7 @@ public class OrderService {
         entry.setEntryType("PAYMENT_RECEIVED");
         entry.setAmount(amount);
         entry.setPaymentMethod(paymentMethod);
+        entry.setStatus("COMPLETED");
         entry.setMetadata(referenceNumber != null
                 ? "{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + referenceNumber + "\"}"
                 : "{\"orderId\":\"" + order.getId() + "\"}");
@@ -351,11 +403,19 @@ public class OrderService {
             serviceName = serviceRepository.findById(booking.getServiceId())
                     .map(Service::getName).orElse(null);
         }
+        String cashierDisplayName = null;
+        if (order.getCashierUserId() != null) {
+            cashierDisplayName = userRepository.findById(order.getCashierUserId())
+                    .map(u -> u.getDisplayName() != null && !u.getDisplayName().isBlank()
+                            ? u.getDisplayName() : u.getUsername())
+                    .orElse(null);
+        }
         return new OrderResponse(
                 order.getId(),
                 order.getBookingId(),
                 order.getTreatmentSlipId(),
                 order.getCashierUserId(),
+                cashierDisplayName,
                 booking != null ? booking.getClientNickname() : null,
                 booking != null ? booking.getClientId() : null,
                 serviceName,

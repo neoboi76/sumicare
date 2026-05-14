@@ -12,5 +12,6 @@ public record BookingResponse(
         OffsetDateTime scheduledAt,
         OffsetDateTime effectiveStartAt,
         OffsetDateTime projectedEndAt,
-        String status
+        String status,
+        UUID orderId
 ) {}

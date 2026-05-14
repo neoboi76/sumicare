@@ -9,6 +9,8 @@ import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.domain.Service;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
+import com.sumicare.shift.domain.ShiftAssignment;
+import com.sumicare.shift.repository.ShiftAssignmentRepository;
 import com.sumicare.shift.repository.ShiftRepository;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
@@ -20,13 +22,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -41,6 +44,7 @@ public class OperationsReportService {
     private final RoomRepository roomRepository;
     private final OrderRepository orderRepository;
     private final ShiftRepository shiftRepository;
+    private final ShiftAssignmentRepository shiftAssignmentRepository;
 
     public OperationsReportService(SessionRepository sessionRepository,
                                    BookingRepository bookingRepository,
@@ -49,7 +53,8 @@ public class OperationsReportService {
                                    TherapistRepository therapistRepository,
                                    RoomRepository roomRepository,
                                    OrderRepository orderRepository,
-                                   ShiftRepository shiftRepository) {
+                                   ShiftRepository shiftRepository,
+                                   ShiftAssignmentRepository shiftAssignmentRepository) {
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
         this.slipRepository = slipRepository;
@@ -58,6 +63,7 @@ public class OperationsReportService {
         this.roomRepository = roomRepository;
         this.orderRepository = orderRepository;
         this.shiftRepository = shiftRepository;
+        this.shiftAssignmentRepository = shiftAssignmentRepository;
     }
 
     public record ServiceLine(Long serviceId, String serviceName, int qty, BigDecimal unitPrice, BigDecimal lineTotal) {}
@@ -81,25 +87,22 @@ public class OperationsReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public CutoffServicesReport cutoffServices(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
-        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
+        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to)
+                .stream()
+                .filter(s -> !"VOIDED".equals(s.getStatus()))
+                .collect(Collectors.toList());
 
-        // If shiftId is provided, filter slips by the shift's time window
         if (shiftId != null) {
-            var shift = shiftRepository.findById(shiftId).orElse(null);
-            if (shift != null) {
-                java.time.LocalTime shiftStart = shift.getStartTime();
-                java.time.LocalTime shiftEnd = shift.getEndTime();
-                slips = slips.stream().filter(slip -> {
-                    if (slip.getStartTime() == null) return false;
-                    java.time.LocalTime slipTime = slip.getStartTime().toLocalTime();
-                    if (shiftStart.isBefore(shiftEnd)) {
-                        return !slipTime.isBefore(shiftStart) && slipTime.isBefore(shiftEnd);
-                    } else {
-                        // Overnight shift (e.g. 22:00 - 06:00)
-                        return !slipTime.isBefore(shiftStart) || slipTime.isBefore(shiftEnd);
-                    }
-                }).toList();
+            Set<UUID> assignedTherapistIds = new HashSet<>();
+            for (ShiftAssignment sa : shiftAssignmentRepository.findAllByShiftId(shiftId)) {
+                assignedTherapistIds.add(sa.getTherapistId());
             }
+
+            slips = slips.stream().filter(slip -> {
+                UUID primaryId = resolveTherapistId(slip.getPrimaryTherapistNickname(), slip.getSessionId());
+                UUID secondaryId = resolveTherapistId(slip.getSecondaryTherapistNickname(), null);
+                return assignedTherapistIds.contains(primaryId) || assignedTherapistIds.contains(secondaryId);
+            }).collect(Collectors.toList());
         }
 
         Map<String, ServiceAccumulator> bucket = new HashMap<>();
@@ -166,10 +169,25 @@ public class OperationsReportService {
     }
 
     private List<DailyRow> collectRows(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
-        List<Booking> bookings = bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(organizationId, from, to);
+        List<Booking> bookings = bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(organizationId, from, to)
+                .stream()
+                .filter(b -> !"CANCELLED".equals(b.getStatus()))
+                .collect(Collectors.toList());
         if (bookings.isEmpty()) return Collections.emptyList();
 
         List<UUID> bookingIds = bookings.stream().map(Booking::getId).toList();
+
+        Map<UUID, Order> orderByBooking = orderRepository.findAllByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
+                .filter(o -> bookingIds.contains(o.getBookingId()) && !"CANCELLED".equals(o.getStatus()))
+                .collect(Collectors.toMap(Order::getBookingId, o -> o, (a, b) -> a));
+
+        List<UUID> nonCancelledBookingIds = orderByBooking.keySet().stream().toList();
+        if (nonCancelledBookingIds.isEmpty()) return Collections.emptyList();
+
+        bookings = bookings.stream()
+                .filter(b -> nonCancelledBookingIds.contains(b.getId()))
+                .collect(Collectors.toList());
+
         Map<UUID, Session> sessionByBooking = sessionRepository.findAll().stream()
                 .filter(s -> bookingIds.contains(s.getBookingId()))
                 .collect(Collectors.toMap(Session::getBookingId, s -> s, (a, b) -> a));
@@ -177,9 +195,6 @@ public class OperationsReportService {
                 from.minusDays(1), to.plusDays(1)).stream()
                 .filter(s -> bookingIds.contains(s.getBookingId()))
                 .collect(Collectors.toMap(TreatmentSlip::getBookingId, s -> s, (a, b) -> a));
-        Map<UUID, Order> orderByBooking = orderRepository.findAllByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
-                .filter(o -> bookingIds.contains(o.getBookingId()))
-                .collect(Collectors.toMap(Order::getBookingId, o -> o, (a, b) -> a));
 
         Map<Long, Service> servicesById = new HashMap<>();
         for (Booking b : bookings) {
@@ -196,8 +211,8 @@ public class OperationsReportService {
             Service svc = servicesById.get(b.getServiceId());
 
             String checkIn = b.getActualStartAt() != null
-                    ? b.getActualStartAt().format(timeFmt)
-                    : (b.getScheduledAt() != null ? b.getScheduledAt().format(timeFmt) : "");
+                    ? formatTime(b.getActualStartAt(), timeFmt)
+                    : formatTime(b.getScheduledAt(), timeFmt);
             String orNumber = o != null && o.getOrNumber() != null ? o.getOrNumber()
                     : (slip != null ? slip.getOrNumber() : "");
             String locker = b.getLockerNumber() != null ? b.getLockerNumber() : (slip != null ? slip.getLockerNumber() : "");
@@ -217,8 +232,8 @@ public class OperationsReportService {
             } else if (slip != null) {
                 room = slip.getRoomNumber() == null ? "" : slip.getRoomNumber();
             }
-            String start = s != null && s.getStartedAt() != null ? s.getStartedAt().format(timeFmt) : "";
-            String end = s != null && s.getEndedAt() != null ? s.getEndedAt().format(timeFmt) : "";
+            String start = formatTime(s != null ? s.getStartedAt() : null, timeFmt);
+            String end = formatTime(s != null ? s.getEndedAt() : null, timeFmt);
             String status = b.getStatus();
             rows.add(new DailyRow(checkIn, orNumber, locker, treatment, amount, tsn, therapist, room, start, end, status));
         }
@@ -228,6 +243,20 @@ public class OperationsReportService {
             return ka.compareTo(kb);
         });
         return rows;
+    }
+
+    private UUID resolveTherapistId(String nickname, UUID sessionId) {
+        if (sessionId != null) {
+            Session session = sessionRepository.findById(sessionId).orElse(null);
+            if (session != null && session.getPrimaryTherapistId() != null) {
+                return session.getPrimaryTherapistId();
+            }
+        }
+        if (nickname == null || nickname.isBlank()) return null;
+        return therapistRepository.findAll().stream()
+                .filter(t -> nickname.equalsIgnoreCase(t.getNickname()))
+                .map(t -> t.getId())
+                .findFirst().orElse(null);
     }
 
     private byte[] rowsToCsv(List<DailyRow> rows, BigDecimal grandTotal) {
@@ -257,6 +286,11 @@ public class OperationsReportService {
             return "\"" + v.replace("\"", "\"\"") + "\"";
         }
         return v;
+    }
+
+    private String formatTime(OffsetDateTime dt, DateTimeFormatter fmt) {
+        if (dt == null) return "";
+        return dt.atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt);
     }
 
     private static class ServiceAccumulator {

@@ -75,6 +75,7 @@ export class InternalShellComponent implements OnInit {
     {
       title: 'Administration',
       items: [
+        { label: 'Settings', route: 'settings', roles: STAFF_ROLES },
         { label: 'Users', route: 'users', roles: MANAGER_PLUS },
         { label: 'Audit log', route: 'audit', roles: ADMIN_PLUS }
       ]

@@ -4,12 +4,14 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
+import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
 
 interface Order {
   id: string;
   bookingId: string;
   treatmentSlipId: string | null;
   clientNickname: string | null;
+  cashierDisplayName: string | null;
   orNumber: string | null;
   total: number;
   amountPaid: number;
@@ -21,7 +23,7 @@ interface Order {
 @Component({
   selector: 'sumi-orders-list',
   standalone: true,
-  imports: [DecimalPipe, FormsModule, RouterLink],
+  imports: [DecimalPipe, FormsModule, RouterLink, PaginatorComponent],
   templateUrl: './orders-list.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -34,6 +36,9 @@ export class OrdersListComponent implements OnInit {
 
   sortColumn = signal<string>('createdAt');
   sortDirection = signal<'asc' | 'desc'>('desc');
+
+  currentPage = signal(0);
+  pageSize = signal(15);
 
   sortedOrders = computed(() => {
     const data = [...this.orders()];
@@ -51,6 +56,11 @@ export class OrdersListComponent implements OnInit {
       return 0;
     });
     return data;
+  });
+
+  paginatedOrders = computed(() => {
+    const start = this.currentPage() * this.pageSize();
+    return this.sortedOrders().slice(start, start + this.pageSize());
   });
 
   ngOnInit(): void {
@@ -76,6 +86,7 @@ export class OrdersListComponent implements OnInit {
 
   setFilter(f: string): void {
     this.filter.set(f);
+    this.currentPage.set(0);
     this.load();
   }
 
@@ -86,6 +97,7 @@ export class OrdersListComponent implements OnInit {
       this.sortColumn.set(col);
       this.sortDirection.set('asc');
     }
+    this.currentPage.set(0);
   }
 
   sortIcon(col: string): string {
@@ -103,6 +115,9 @@ export class OrdersListComponent implements OnInit {
   }
 
   formatDate(iso: string): string {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString('en-US', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
   }
 }

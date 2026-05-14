@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div>
   <header class="flex items-baseline justify-between">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Bookings</h1>
@@ -44,20 +44,40 @@
           </td>
           <td class="p-3">{{ b.status }}</td>
           <td class="p-3">
-            <span [class]="
-                'rounded-full px-2 py-0.5 text-xs ' +
-                (
-                  getOrderStatus(b.id) === 'PAID'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : getOrderStatus(b.id) === 'COMPLETED'
-                      ? 'bg-blue-100 text-blue-700'
-                      : getOrderStatus(b.id) === 'PENDING'
-                        ? 'bg-slate-200 text-slate-700'
-                        : 'bg-rose-100 text-rose-700'
-                )
-              ">
+            @if (b.orderId) {
+            <a [routerLink]="['/app/orders', b.orderId]" class="hover:underline">
+              <span [class]="
+                    'rounded-full px-2 py-0.5 text-xs ' +
+                    (
+                      getOrderStatus(b.id) === 'PAID'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : getOrderStatus(b.id) === 'COMPLETED'
+                          ? 'bg-blue-100 text-blue-700'
+                          : getOrderStatus(b.id) === 'PENDING'
+                            ? 'bg-slate-200 text-slate-700'
+                            : 'bg-rose-100 text-rose-700'
+                    )
+                  ">
                 {{ getOrderStatus(b.id) }}
+              </span>
+            </a>
+            } @else {
+            <span [class]="
+                  'rounded-full px-2 py-0.5 text-xs ' +
+                  (
+                    getOrderStatus(b.id) === 'PAID'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : getOrderStatus(b.id) === 'COMPLETED'
+                        ? 'bg-blue-100 text-blue-700'
+                        : getOrderStatus(b.id) === 'PENDING'
+                          ? 'bg-slate-200 text-slate-700'
+                          : 'bg-rose-100 text-rose-700'
+                  )
+                ">
+              {{ getOrderStatus(b.id) }}
             </span>
+            }
+          </td>
           <td class="p-3 text-right space-x-2">
             @if (b.status !== 'CANCELLED' && b.status !== 'COMPLETED') {
             <button (click)="openEdit(b)" class="text-slate-600 hover:underline text-xs">Edit</button>

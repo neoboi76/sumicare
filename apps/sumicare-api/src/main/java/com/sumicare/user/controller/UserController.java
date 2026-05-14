@@ -2,6 +2,7 @@ package com.sumicare.user.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.user.dto.CreateUserRequest;
+import com.sumicare.user.dto.UpdateProfileRequest;
 import com.sumicare.user.dto.UpdateUserRequest;
 import com.sumicare.user.dto.UserResponse;
 import com.sumicare.user.service.UserService;
@@ -36,5 +37,21 @@ public class UserController {
     @PatchMapping("/{userId}")
     public UserResponse update(@PathVariable UUID userId, @RequestBody UpdateUserRequest request) {
         return userService.updateUser(userId, request);
+    }
+
+    @GetMapping("/me")
+    public UserResponse me(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return userService.getById(UUID.fromString(principal.userId()));
+    }
+
+    @PatchMapping("/me/profile")
+    public UserResponse updateProfile(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                      @RequestBody UpdateProfileRequest request) {
+        return userService.updateProfile(UUID.fromString(principal.userId()), request);
+    }
+
+    @PostMapping("/me/request-password-reset")
+    public void requestPasswordReset(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        userService.requestPasswordReset(UUID.fromString(principal.userId()));
     }
 }

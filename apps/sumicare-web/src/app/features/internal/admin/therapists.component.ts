@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface Therapist {
   id: string;
@@ -30,6 +31,7 @@ interface Shift {
 })
 export class TherapistsAdminComponent implements OnInit {
   private http = inject(HttpClient);
+  private confirmService = inject(ConfirmService);
   therapists = signal<Therapist[]>([]);
   deactivated = signal<Therapist[]>([]);
   shifts = signal<Shift[]>([]);
@@ -109,8 +111,15 @@ export class TherapistsAdminComponent implements OnInit {
     });
   }
 
-  deactivate(t: Therapist): void {
-    if (!window.confirm(`Deactivate ${t.nickname}?`)) return;
+  async deactivate(t: Therapist): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Deactivate Therapist',
+      message: `Are you sure you want to deactivate ${t.nickname}?`,
+      confirmText: 'Deactivate',
+      danger: true
+    });
+    if (!confirmed) return;
+    
     this.http.delete(`${environment.apiBaseUrl}/api/therapists/${t.id}`).subscribe({
       next: () => this.reload()
     });

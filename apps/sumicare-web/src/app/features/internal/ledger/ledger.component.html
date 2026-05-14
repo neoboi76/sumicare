@@ -93,7 +93,7 @@
               <tr class="hover:bg-slate-50">
                 <td class="px-3 py-2 whitespace-nowrap text-xs">{{ formatDateTime(e.recordedAt) }}</td>
                 <td class="px-3 py-2">
-                  <span class="inline-block rounded px-2 py-0.5 text-[11px] bg-emerald-50 text-emerald-700">Credit</span>
+                  <span class="inline-block rounded px-2 py-0.5 text-[11px]" [class]="e.amount >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'">{{ e.amount >= 0 ? 'Credit' : 'Debit' }}</span>
                 </td>
                 <td class="px-3 py-2">
                   <span class="inline-block rounded px-2 py-0.5 text-[11px] bg-slate-100">{{ e.paymentMethod || '-' }}</span>
@@ -103,9 +103,9 @@
                   @if (e.orNumber) { <span class="text-slate-400">OR# {{ e.orNumber }}</span> }
                 </td>
                 <td class="px-3 py-2">
-                  <span class="inline-block rounded px-2 py-0.5 text-[11px] bg-slate-100 text-slate-700">Completed</span>
+                  <span class="inline-block rounded px-2 py-0.5 text-[11px]" [class]="statusClass(e.status)">{{ statusLabel(e.status) }}</span>
                 </td>
-                <td class="px-3 py-2 text-right font-medium text-emerald-700">{{ formatCurrency(e.amount) }}</td>
+                <td class="px-3 py-2 text-right font-medium" [class.text-emerald-700]="e.amount >= 0" [class.text-rose-600]="e.amount < 0">{{ formatCurrency(e.amount) }}</td>
                 <td class="px-3 py-2">
                   @if (e.orderId) {
                     <a [routerLink]="['/app/orders', e.orderId]" class="text-xs text-[var(--sumi-primary)] hover:underline">View</a>

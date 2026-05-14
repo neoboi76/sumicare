@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface Room {
   id: string;
@@ -29,6 +30,7 @@ interface Bed {
 })
 export class RoomsAdminComponent implements OnInit {
   private http = inject(HttpClient);
+  private confirmService = inject(ConfirmService);
   rooms = signal<Room[]>([]);
   beds = signal<Map<string, Bed[]>>(new Map());
   showRoomForm = signal(false);
@@ -85,8 +87,15 @@ export class RoomsAdminComponent implements OnInit {
     });
   }
 
-  deactivateRoom(r: Room): void {
-    if (!window.confirm(`Deactivate room ${r.roomNumber}?`)) return;
+  async deactivateRoom(r: Room): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Deactivate Room',
+      message: `Are you sure you want to deactivate room ${r.roomNumber}?`,
+      confirmText: 'Deactivate',
+      danger: true
+    });
+    if (!confirmed) return;
+    
     this.http.delete(`${environment.apiBaseUrl}/api/admin/rooms/${r.id}`).subscribe({
       next: () => this.reload()
     });
@@ -108,7 +117,15 @@ export class RoomsAdminComponent implements OnInit {
     });
   }
 
-  deactivateBed(b: Bed): void {
+  async deactivateBed(b: Bed): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Deactivate Bed',
+      message: `Are you sure you want to deactivate bed ${b.bedLabel}?`,
+      confirmText: 'Deactivate',
+      danger: true
+    });
+    if (!confirmed) return;
+    
     this.http.delete(`${environment.apiBaseUrl}/api/admin/beds/${b.id}`).subscribe({
       next: () => this.loadBeds(b.roomId)
     });

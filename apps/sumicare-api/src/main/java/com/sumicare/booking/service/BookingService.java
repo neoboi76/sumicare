@@ -96,6 +96,12 @@ public class BookingService {
             }
         }
 
+        boolean hasActive = bookingRepository.existsByOrganizationIdAndClientNicknameIgnoreCaseAndStatusIn(
+                organizationId, request.clientNickname(), java.util.List.of("PENDING", "ACTIVE"));
+        if (hasActive) {
+            throw new IllegalStateException("Client already has an ongoing booking");
+        }
+
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(request.clientId());
@@ -276,6 +282,36 @@ public class BookingService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
+    public SessionResponse cancelSession(UUID organizationId, UUID sessionId) {
+        Session session = sessionRepository.findById(sessionId).orElseThrow();
+        if ("COMPLETED".equals(session.getStatus())) {
+            throw new IllegalStateException("Cannot cancel a completed session");
+        }
+
+        session.setStatus("CANCELLED");
+        if (session.getRoomId() != null && session.getBedId() != null) {
+            occupancyService.release(organizationId, session.getRoomId(), session.getBedId());
+            notificationService.broadcastRoomUpdate(organizationId, session.getRoomId(), session.getBedId(),
+                    Map.of("event", "SESSION_CANCELLED", "sessionId", session.getId()));
+        }
+
+        Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
+        booking.setStatus("PENDING");
+
+        orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
+            order.setStatus("OPEN");
+            orderRepository.save(order);
+            
+            // Reverse any ledger entries if necessary, though posService.recordCommissionsForSession is not called yet,
+            // we should make sure transactions pointing to this session are reversed or kept if paid.
+            // But since session wasn't COMPLETED, commissions weren't created.
+        });
+
+        return toSessionResponse(session);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
     public SessionResponse extendSession(UUID sessionId, int additionalMinutes) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
         session.setExtension(true);
@@ -317,9 +353,12 @@ public class BookingService {
     private BookingResponse toBookingResponse(Booking b, Service s) {
         OffsetDateTime effectiveStart = b.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
         OffsetDateTime projectedEnd = effectiveStart.plusMinutes(s.getDurationMinutes());
+        UUID orderId = orderRepository.findByBookingId(b.getId())
+                .map(com.sumicare.cashier.domain.Order::getId)
+                .orElse(null);
         return new BookingResponse(b.getId(), b.getClientNickname(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), b.getScheduledAt(),
-                effectiveStart, projectedEnd, b.getStatus());
+                effectiveStart, projectedEnd, b.getStatus(), orderId);
     }
 
     private SessionResponse toSessionResponse(Session s) {

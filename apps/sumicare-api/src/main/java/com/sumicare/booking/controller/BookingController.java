@@ -75,6 +75,12 @@ public class BookingController {
         return bookingService.startSession(UUID.fromString(principal.organizationId()), bookingId, request);
     }
 
+    @PostMapping("/api/sessions/{sessionId}/cancel")
+    public SessionResponse cancelSession(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                         @PathVariable UUID sessionId) {
+        return bookingService.cancelSession(UUID.fromString(principal.organizationId()), sessionId);
+    }
+
     @PostMapping("/api/sessions/{sessionId}/end")
     public SessionResponse end(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                @PathVariable UUID sessionId) {

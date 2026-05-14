@@ -24,30 +24,42 @@
 
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
     @if (loading()) {
-    <div class="flex justify-center py-8"><div class="sumi-spinner"></div></div>
+    <div class="flex justify-center py-8">
+      <div class="sumi-spinner"></div>
+    </div>
     } @else if (orders().length === 0) {
     <p class="p-6 text-center text-sm text-slate-500">No orders yet.</p>
     } @else {
     <table class="w-full text-sm">
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
         <tr>
-          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('createdAt')">Created{{ sortIcon('createdAt') }}</th>
-          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('orNumber')">OR#{{ sortIcon('orNumber') }}</th>
-          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('clientNickname')">Client{{ sortIcon('clientNickname') }}</th>
-          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('status')">Status{{ sortIcon('status') }}</th>
-          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('total')">Total{{ sortIcon('total') }}</th>
-          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('amountPaid')">Paid{{ sortIcon('amountPaid') }}</th>
-          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('balance')">Balance{{ sortIcon('balance') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('createdAt')">Created{{
+            sortIcon('createdAt') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('orNumber')">OR#{{
+            sortIcon('orNumber') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('clientNickname')">Client{{
+            sortIcon('clientNickname') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('cashierDisplayName')">Transacted By{{
+            sortIcon('cashierDisplayName') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('status')">Status{{
+            sortIcon('status') }}</th>
+          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('total')">Total{{
+            sortIcon('total') }}</th>
+          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('amountPaid')">Paid{{
+            sortIcon('amountPaid') }}</th>
+          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('balance')">Balance{{
+            sortIcon('balance') }}</th>
           <th class="text-left px-3 py-2">Slip</th>
           <th></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
-        @for (o of sortedOrders(); track o.id) {
+        @for (o of paginatedOrders(); track o.id) {
         <tr>
           <td class="px-3 py-2 text-xs">{{ formatDate(o.createdAt) }}</td>
           <td class="px-3 py-2 font-mono text-xs">{{ o.orNumber || '\u2014' }}</td>
           <td class="px-3 py-2">{{ o.clientNickname || '\u2014' }}</td>
+          <td class="px-3 py-2 text-slate-500">{{ o.cashierDisplayName || '\u2014' }}</td>
           <td class="px-3 py-2">
             <span class="inline-block rounded px-2 py-0.5 text-[11px] font-semibold" [class]="statusClass(o.status)">{{
               o.status }}</span>
@@ -57,18 +69,27 @@
           <td class="px-3 py-2 text-right">&#8369; {{ o.balance | number:'1.2-2' }}</td>
           <td class="px-3 py-2">
             @if (o.treatmentSlipId) {
-              <a [routerLink]="['/app/treatment-slips', o.treatmentSlipId]" class="text-xs text-[var(--sumi-primary)] hover:underline">View</a>
+            <a [routerLink]="['/app/treatment-slips', o.treatmentSlipId]"
+              class="text-xs text-[var(--sumi-primary)] hover:underline">View</a>
             } @else {
-              <span class="text-xs text-slate-400">\u2014</span>
+            <span class="text-xs text-slate-400">\u2014</span>
             }
           </td>
           <td class="px-3 py-2 text-right">
-            <a [routerLink]="['/app/orders', o.id]" class="text-xs text-[var(--sumi-primary)] hover:underline">Details</a>
+            <a [routerLink]="['/app/orders', o.id]"
+              class="text-xs text-[var(--sumi-primary)] hover:underline">Details</a>
           </td>
         </tr>
         }
       </tbody>
     </table>
+    
+    <sumi-paginator 
+      [totalElements]="sortedOrders().length"
+      [pageSize]="pageSize()"
+      [currentPage]="currentPage()"
+      (pageChange)="currentPage.set($event)">
+    </sumi-paginator>
     }
   </div>
 </section>

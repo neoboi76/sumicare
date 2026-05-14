@@ -15,6 +15,7 @@ interface LedgerEntry {
   amount: number;
   recordedAt: string;
   metadata: string | null;
+  status: string;
 }
 
 interface Balance {
@@ -142,7 +143,23 @@ export class LedgerComponent implements OnInit {
   }
 
   formatDateTime(iso: string): string {
-    return new Date(iso).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+    return new Date(iso).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short', hour12: false, hourCycle: 'h23' });
+  }
+
+  statusClass(status: string): string {
+    switch (status) {
+      case 'REFUND': return 'bg-amber-100 text-amber-700';
+      case 'REVERSED': return 'bg-rose-100 text-rose-700';
+      default: return 'bg-emerald-100 text-emerald-700';
+    }
+  }
+
+  statusLabel(status: string): string {
+    switch (status) {
+      case 'REFUND': return 'Refund';
+      case 'REVERSED': return 'Reversed';
+      default: return 'Completed';
+    }
   }
 
   formatCurrency(n: number): string {

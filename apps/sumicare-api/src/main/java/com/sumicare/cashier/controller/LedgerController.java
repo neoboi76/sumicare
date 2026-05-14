@@ -50,7 +50,8 @@ public class LedgerController {
             String paymentMethod,
             BigDecimal amount,
             OffsetDateTime recordedAt,
-            String metadata
+            String metadata,
+            String status
     ) {}
 
     public record BalanceResponse(BigDecimal inflow, BigDecimal outflow, BigDecimal balance, int count) {}
@@ -160,7 +161,8 @@ public class LedgerController {
                     method,
                     e.getAmount(),
                     e.getRecordedAt(),
-                    e.getMetadata()
+                    e.getMetadata(),
+                    e.getStatus()
             );
         }).toList();
     }
