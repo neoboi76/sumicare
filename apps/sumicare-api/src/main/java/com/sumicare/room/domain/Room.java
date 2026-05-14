@@ -31,6 +31,12 @@ public class Room {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Column(name = "vip_tier", length = 20)
+    private String vipTier;
+
+    public String getVipTier() { return vipTier; }
+    public void setVipTier(String vipTier) { this.vipTier = vipTier; }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }

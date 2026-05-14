@@ -143,13 +143,34 @@ export class TreatmentSlipDetailComponent implements OnInit {
   }
 
   print(): void {
-    const original = document.title;
-    document.title = ' ';
-    const restore = () => {
-      document.title = original;
-      window.removeEventListener('afterprint', restore);
-    };
-    window.addEventListener('afterprint', restore);
-    setTimeout(() => window.print(), 0);
+    const s = this.slip();
+    if (!s) return;
+    this.downloadPdf();
+  }
+
+  downloadPdf(): void {
+    const s = this.slip();
+    if (!s) return;
+    this.http.get(`${environment.apiBaseUrl}/api/treatment-slips/${s.id}/slip.pdf`, {
+      responseType: 'blob' as const,
+      observe: 'response' as const
+    }).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (!blob) {
+          alert('No PDF returned.');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `slip-${s.tsn || s.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      error: () => alert('Failed to download slip PDF.')
+    });
   }
 }

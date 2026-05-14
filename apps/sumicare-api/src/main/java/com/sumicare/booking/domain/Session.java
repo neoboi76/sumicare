@@ -53,6 +53,9 @@ public class Session {
     @Column(name = "ended_at")
     private OffsetDateTime endedAt;
 
+    @Column(name = "attendee_id", columnDefinition = "uuid")
+    private UUID attendeeId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -86,4 +89,6 @@ public class Session {
     public void setEndedAt(OffsetDateTime endedAt) { this.endedAt = endedAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public UUID getAttendeeId() { return attendeeId; }
+    public void setAttendeeId(UUID attendeeId) { this.attendeeId = attendeeId; }
 }

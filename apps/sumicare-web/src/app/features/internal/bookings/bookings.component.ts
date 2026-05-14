@@ -77,6 +77,31 @@ interface OrderStatus {
   status: string;
 }
 
+interface OrderAttendee {
+  id: string;
+  serviceName: string | null;
+  lockerNumber: string | null;
+  clientGender: string | null;
+  sessionId: string | null;
+  treatmentSlipId: string | null;
+}
+
+interface OrderItemLite {
+  id: string;
+  packageName: string;
+  unitPrice: number;
+  attendees: OrderAttendee[];
+}
+
+interface OrderLite {
+  id: string;
+  bookingId: string | null;
+  status: string;
+  roomType: string | null;
+  groupBooking: boolean;
+  items: OrderItemLite[];
+}
+
 @Component({
   selector: 'sumi-bookings',
   standalone: true,
@@ -96,6 +121,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
   lineup = signal<LineupTherapist[]>([]);
   rooms = signal<RoomItem[]>([]);
   orderStatuses = signal<Map<string, string>>(new Map());
+  ordersByBooking = signal<Map<string, OrderLite>>(new Map());
+  expandedBookingId = signal<string | null>(null);
 
   startBooking = signal<BookingResponse | null>(null);
   startPrimaryTherapistId = signal<string | null>(null);
@@ -103,6 +130,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   startRoomId = signal<string | null>(null);
   startBedId = signal<string | null>(null);
   startSpecificallyRequested = signal(false);
+  startOrderRoomType = signal<string | null>(null);
 
   editBooking = signal<BookingResponse | null>(null);
   editServiceId = signal<number>(0);
@@ -144,6 +172,19 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startBedId() !== null
   );
 
+  filteredStartRooms = computed(() => {
+    const rt = this.startOrderRoomType();
+    const all = this.rooms();
+    if (!rt) return all;
+    const want = rt.toUpperCase();
+    return all.filter(r => {
+      const t = (r.roomType || '').toUpperCase();
+      if (want === 'VIP') return t.includes('VIP');
+      if (want === 'PRIVATE') return t.includes('PRIVATE');
+      return !t.includes('VIP') && !t.includes('PRIVATE');
+    });
+  });
+
   ngOnInit(): void {
     this.reload();
     this.loadReference();
@@ -177,17 +218,34 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   private loadOrderStatuses(bookings: BookingResponse[]): void {
     if (bookings.length === 0) return;
-    this.http.get<any[]>(`${environment.apiBaseUrl}/api/cashier/orders`).subscribe({
+    this.http.get<OrderLite[]>(`${environment.apiBaseUrl}/api/cashier/orders`).subscribe({
       next: (orders) => {
-        const map = new Map<string, string>();
+        const statusMap = new Map<string, string>();
+        const orderMap = new Map<string, OrderLite>();
         for (const order of orders) {
           if (order.bookingId) {
-            map.set(order.bookingId, order.status);
+            statusMap.set(order.bookingId, order.status);
+            orderMap.set(order.bookingId, order);
           }
         }
-        this.orderStatuses.set(map);
+        this.orderStatuses.set(statusMap);
+        this.ordersByBooking.set(orderMap);
       }
     });
+  }
+
+  orderForBooking(bookingId: string): OrderLite | null {
+    return this.ordersByBooking().get(bookingId) ?? null;
+  }
+
+  attendeeCount(bookingId: string): number {
+    const order = this.ordersByBooking().get(bookingId);
+    if (!order || !order.items) return 0;
+    return order.items.reduce((sum, it) => sum + (it.attendees ? it.attendees.length : 0), 0);
+  }
+
+  toggleExpand(bookingId: string): void {
+    this.expandedBookingId.set(this.expandedBookingId() === bookingId ? null : bookingId);
   }
 
   getOrderStatus(bookingId: string): string {
@@ -264,6 +322,12 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startRoomId.set(null);
     this.startBedId.set(null);
     this.startSpecificallyRequested.set(false);
+    const order = this.ordersByBooking().get(b.id);
+    this.startOrderRoomType.set(order ? (order.roomType ?? null) : null);
+    this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/by-booking/${b.id}`).subscribe({
+      next: (o) => this.startOrderRoomType.set(o.roomType ?? null),
+      error: () => { /* no order yet — show all rooms */ }
+    });
     this.refreshLineup();
   }
 

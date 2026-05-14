@@ -156,6 +156,7 @@ public class TreatmentSlipService {
             slip.setWaiverAccepted(false);
             slip.setWaiverAcceptedAt(null);
         }
+        validateUpdate(request);
         if (request.lockerNumber() != null) slip.setLockerNumber(request.lockerNumber());
         if (request.roomNumber() != null) slip.setRoomNumber(request.roomNumber());
         if (request.othersAddOn() != null) slip.setOthersAddOn(request.othersAddOn());
@@ -171,5 +172,26 @@ public class TreatmentSlipService {
             slip.setWaiverAcceptedAt(OffsetDateTime.now());
         }
         return slipRepository.save(slip);
+    }
+
+    private void validateUpdate(UpdateTreatmentSlipRequest request) {
+        if (request.totalAmount() != null && request.totalAmount().signum() < 0) {
+            throw new IllegalArgumentException("Total amount cannot be negative");
+        }
+        if (request.jacuzziMinutes() != null && (request.jacuzziMinutes() < 0 || request.jacuzziMinutes() > 600)) {
+            throw new IllegalArgumentException("Jacuzzi minutes must be between 0 and 600");
+        }
+        if (request.massageMinutes() != null && (request.massageMinutes() < 0 || request.massageMinutes() > 600)) {
+            throw new IllegalArgumentException("Massage minutes must be between 0 and 600");
+        }
+        validateCode(request.lockerNumber(), "Locker number");
+        validateCode(request.orNumber(), "OR number");
+        validateCode(request.addOnOrNumber(), "Add-on OR number");
+    }
+
+    private void validateCode(String value, String label) {
+        if (value != null && !value.isBlank() && !value.matches("[A-Za-z0-9 \\-]+")) {
+            throw new IllegalArgumentException(label + " may only contain letters, numbers, spaces and dashes");
+        }
     }
 }

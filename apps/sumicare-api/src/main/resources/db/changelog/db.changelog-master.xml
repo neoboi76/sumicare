@@ -16,4 +16,8 @@
     <include file="changes/0009-transaction-order-id.xml" relativeToChangelogFile="true"/>
     <include file="changes/0010-commission-service-tracking.xml" relativeToChangelogFile="true"/>
     <include file="changes/0011-ledger-and-users.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0012-packages-and-order-items.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0013-package-seed.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0014-vip-packages-and-room-seed.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0015-widen-ledger-entry-type.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

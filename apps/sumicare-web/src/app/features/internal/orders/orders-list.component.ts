@@ -6,11 +6,18 @@ import { RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
 
+interface OrderItem {
+  id: string;
+  packageName: string;
+  attendees: { id: string }[];
+}
+
 interface Order {
   id: string;
-  bookingId: string;
+  bookingId: string | null;
   treatmentSlipId: string | null;
   clientNickname: string | null;
+  transactorName: string | null;
   cashierDisplayName: string | null;
   orNumber: string | null;
   total: number;
@@ -18,6 +25,9 @@ interface Order {
   balance: number;
   status: string;
   createdAt: string;
+  groupBooking: boolean;
+  roomType: string | null;
+  items: OrderItem[];
 }
 
 @Component({
@@ -119,5 +129,18 @@ export class OrdersListComponent implements OnInit {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', hour12: false
     });
+  }
+
+  itemSummary(o: Order): string {
+    const items = o.items || [];
+    if (items.length === 0) return '—';
+    const attendees = items.reduce((sum, it) => sum + (it.attendees ? it.attendees.length : 0), 0);
+    const first = items[0].packageName || 'Package';
+    const more = items.length > 1 ? ` +${items.length - 1}` : '';
+    return `${first}${more} · ${attendees} pax`;
+  }
+
+  isReservation(o: Order): boolean {
+    return !!o.bookingId && o.status === 'OPEN';
   }
 }

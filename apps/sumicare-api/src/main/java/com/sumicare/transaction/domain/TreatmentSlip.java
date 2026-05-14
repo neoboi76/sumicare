@@ -102,6 +102,12 @@ public class TreatmentSlip {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
+    @Column(name = "attendee_id", columnDefinition = "uuid")
+    private UUID attendeeId;
+
+    public UUID getAttendeeId() { return attendeeId; }
+    public void setAttendeeId(UUID attendeeId) { this.attendeeId = attendeeId; }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }

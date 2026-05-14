@@ -18,8 +18,23 @@ public class Order {
     @Column(name = "organization_id", nullable = false, columnDefinition = "uuid")
     private UUID organizationId;
 
-    @Column(name = "booking_id", nullable = false, unique = true, columnDefinition = "uuid")
+    @Column(name = "booking_id", columnDefinition = "uuid")
     private UUID bookingId;
+
+    @Column(name = "transactor_name", length = 120)
+    private String transactorName;
+
+    @Column(name = "is_group_booking", nullable = false)
+    private boolean groupBooking = false;
+
+    @Column(name = "room_type", nullable = false, length = 20)
+    private String roomType = "COMMON";
+
+    @Column(name = "room_type_charge", nullable = false)
+    private BigDecimal roomTypeCharge = BigDecimal.ZERO;
+
+    @Column(name = "is_weekend", nullable = false)
+    private boolean weekend = false;
 
     @Column(name = "treatment_slip_id", columnDefinition = "uuid")
     private UUID treatmentSlipId;
@@ -102,4 +117,14 @@ public class Order {
     public void setCancelledAt(OffsetDateTime cancelledAt) { this.cancelledAt = cancelledAt; }
     public String getCancelledReason() { return cancelledReason; }
     public void setCancelledReason(String cancelledReason) { this.cancelledReason = cancelledReason; }
+    public String getTransactorName() { return transactorName; }
+    public void setTransactorName(String transactorName) { this.transactorName = transactorName; }
+    public boolean isGroupBooking() { return groupBooking; }
+    public void setGroupBooking(boolean groupBooking) { this.groupBooking = groupBooking; }
+    public String getRoomType() { return roomType; }
+    public void setRoomType(String roomType) { this.roomType = roomType; }
+    public BigDecimal getRoomTypeCharge() { return roomTypeCharge; }
+    public void setRoomTypeCharge(BigDecimal roomTypeCharge) { this.roomTypeCharge = roomTypeCharge; }
+    public boolean isWeekend() { return weekend; }
+    public void setWeekend(boolean weekend) { this.weekend = weekend; }
 }

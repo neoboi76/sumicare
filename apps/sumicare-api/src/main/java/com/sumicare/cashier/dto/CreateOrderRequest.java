@@ -14,7 +14,7 @@ public record CreateOrderRequest(
         @Size(max = 16) String lockerNumber,
         @Size(max = 1) String clientGender,
         Integer pax,
-        @NotNull List<Long> serviceIds,
+        List<Long> serviceIds,
         UUID primaryTherapistId,
         UUID secondaryTherapistId,
         UUID roomId,
@@ -25,7 +25,13 @@ public record CreateOrderRequest(
         @DecimalMin("0.00") BigDecimal subtotal,
         @DecimalMin("0.00") BigDecimal discount,
         @DecimalMin("0.00") BigDecimal total,
-        InitialPayment initialPayment
+        InitialPayment initialPayment,
+        @Size(max = 120) String transactorName,
+        Boolean groupBooking,
+        Boolean weekend,
+        @Size(max = 20) String roomType,
+        @DecimalMin("0.00") BigDecimal roomTypeCharge,
+        List<CreateOrderItemRequest> items
 ) {
     public record InitialPayment(
             @NotNull String paymentMethod,

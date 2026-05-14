@@ -5,10 +5,10 @@
       @if (slip()?.status === 'DRAFT' && !editing()) {
         <button (click)="startEdit()" class="rounded border border-slate-300 px-4 py-1.5 text-sm">Edit</button>
       }
-      <button (click)="print()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Print</button>
+      <button (click)="downloadPdf()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Download PDF</button>
     </div>
   </div>
-  <p class="no-print text-xs text-slate-500 mb-3">Tip: in your browser print dialog, uncheck "Headers and footers" for a clean slip.</p>
+  <p class="no-print text-xs text-slate-500 mb-3">PDF download produces a clean A6-sized slip with no browser headers.</p>
 
   @if (editing() && slip(); as s) {
     <div class="no-print bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4 space-y-3">

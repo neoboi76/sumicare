@@ -121,6 +121,9 @@ public class BookingService {
         order.setSubtotal(service.getPrice() == null ? java.math.BigDecimal.ZERO : service.getPrice());
         order.setTotal(service.getPrice() == null ? java.math.BigDecimal.ZERO : service.getPrice());
         order.setStatus("OPEN");
+        order.setTransactorName(booking.getClientNickname());
+        order.setRoomType("COMMON");
+        order.setRoomTypeCharge(java.math.BigDecimal.ZERO);
         orderRepository.save(order);
 
         return toBookingResponse(booking, service);
@@ -133,17 +136,17 @@ public class BookingService {
         Service service = requireService(booking.getServiceId());
 
 
-        orderRepository.findByBookingId(bookingId).ifPresent(order -> {
-            if (!"PAID".equals(order.getStatus())) {
-                throw new IllegalStateException("Order must be paid before starting a session. Current status: " + order.getStatus());
-            }
-        });
+        com.sumicare.cashier.domain.Order order = orderRepository.findByBookingId(bookingId).orElse(null);
+        if (order != null && !"PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Order must be paid before starting a session. Current status: " + order.getStatus());
+        }
 
         if (request.roomId() != null) {
             Room room = roomRepository.findById(request.roomId()).orElseThrow(() ->
                     new IllegalArgumentException("Unknown room"));
-            if ("VIP".equalsIgnoreCase(room.getRoomType()) && !service.isVip()) {
-                throw new IllegalStateException("VIP room can only be selected for VIP services");
+            boolean vipAllowed = (order != null && "VIP".equalsIgnoreCase(order.getRoomType())) || service.isVip();
+            if ("VIP".equalsIgnoreCase(room.getRoomType()) && !vipAllowed) {
+                throw new IllegalStateException("VIP room can only be selected for VIP-package orders");
             }
             if (!"VIP".equalsIgnoreCase(room.getRoomType()) && request.bedId() != null) {
                 String clientGender = booking.getClientGender();
@@ -202,7 +205,7 @@ public class BookingService {
         booking.setActualStartAt(session.getStartedAt());
         booking.setStatus("ACTIVE");
 
-        orderRepository.findByBookingId(bookingId).ifPresent(order -> {
+        if (order != null) {
             List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
             for (PosTransaction tx : transactions) {
                 if (tx.getSessionId() == null) {
@@ -210,7 +213,7 @@ public class BookingService {
                     transactionRepository.save(tx);
                 }
             }
-        });
+        }
 
         if (request.roomId() != null && request.bedId() != null) {
             Therapist primary = request.primaryTherapistId() == null ? null
