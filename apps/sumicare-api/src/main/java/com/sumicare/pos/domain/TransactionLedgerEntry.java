@@ -32,6 +32,12 @@ public class TransactionLedgerEntry {
     @Column(name = "metadata")
     private String metadata;
 
+    @Column(name = "payment_method")
+    private String paymentMethod;
+
+    @Column(name = "status", nullable = false, length = 20)
+    private String status = "COMPLETED";
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -46,4 +52,8 @@ public class TransactionLedgerEntry {
     public void setRecordedAt(OffsetDateTime recordedAt) { this.recordedAt = recordedAt; }
     public String getMetadata() { return metadata; }
     public void setMetadata(String metadata) { this.metadata = metadata; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

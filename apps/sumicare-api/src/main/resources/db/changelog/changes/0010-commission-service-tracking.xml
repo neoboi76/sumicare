@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0010-01-commission-service-fields" author="sumicare">
+        <addColumn tableName="commissions">
+            <column name="service_id" type="BIGINT"/>
+            <column name="service_type" type="VARCHAR(50)"/>
+            <column name="specifically_requested" type="BOOLEAN" defaultValueBoolean="false"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0010-02-migrate-completed-orders-to-paid" author="sumicare">
+        <update tableName="orders">
+            <column name="status" value="PAID"/>
+            <where>status = 'COMPLETED'</where>
+        </update>
+    </changeSet>
+
+    <changeSet id="0010-03-migrate-pending-orders-to-open" author="sumicare">
+        <update tableName="orders">
+            <column name="status" value="OPEN"/>
+            <where>status = 'PENDING'</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>

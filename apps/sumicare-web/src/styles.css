@@ -19,14 +19,42 @@ h1, h2, h3, .font-serif {
   font-family: 'Playfair Display', Georgia, serif;
 }
 
-/* Smooth transitions for interactive elements */
+
 a, button {
   transition-property: color, background-color, border-color, box-shadow, opacity, transform;
   transition-duration: 150ms;
   transition-timing-function: ease;
 }
 
-/* Print: isolate .print-area-wrapper, hide everything else */
+button::selection,
+button *::selection,
+a::selection,
+a *::selection {
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.sumi-spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(148, 163, 184, 0.3);
+  border-top-color: var(--sumi-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.sumi-spinner-sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+
 @media print {
   @page {
     margin: 8mm;
@@ -40,20 +68,19 @@ a, button {
     min-height: 0 !important;
   }
 
-  /* Hide every element by default */
+  
   body * {
     visibility: hidden !important;
     box-shadow: none !important;
   }
 
-  /* Reveal only the print area and its descendants */
+  
   .print-area-wrapper,
   .print-area-wrapper * {
     visibility: visible !important;
   }
 
-  /* Position the print area at the page origin so the hidden shell
-     doesn't push it off the printable area */
+  
   .print-area-wrapper {
     position: absolute !important;
     inset: 0 !important;
@@ -66,7 +93,7 @@ a, button {
     max-width: none !important;
   }
 
-  /* Compact the slip article for paper */
+  
   .print-area-wrapper article {
     border-radius: 0 !important;
     box-shadow: none !important;

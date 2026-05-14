@@ -1,10 +1,11 @@
-<div class="space-y-6">
+<div>
   <header class="flex items-baseline justify-between">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Users</h1>
       <p class="text-slate-500">Create and manage users below your tier.</p>
     </div>
-    <button (click)="showForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add user</button>
+    <button (click)="showForm.set(true)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add
+      user</button>
   </header>
 
   <table class="bg-white rounded-xl shadow overflow-hidden w-full text-sm">
@@ -19,56 +20,62 @@
     </thead>
     <tbody>
       @for (u of users(); track u.id) {
-        <tr class="border-t hover:bg-slate-50">
-          <td class="p-3 font-mono">{{ u.username }}</td>
-          <td class="p-3">{{ u.displayName || '-' }}</td>
-          <td class="p-3">{{ u.email || '-' }}</td>
-          <td class="p-3">{{ u.role }}</td>
-          <td class="p-3">{{ u.active ? 'Yes' : 'No' }}</td>
-        </tr>
+      <tr class="border-t hover:bg-slate-50">
+        <td class="p-3 font-mono">{{ u.username }}</td>
+        <td class="p-3">{{ u.displayName || '-' }}</td>
+        <td class="p-3">{{ u.email || '-' }}</td>
+        <td class="p-3">{{ u.role }}</td>
+        <td class="p-3">{{ u.active ? 'Yes' : 'No' }}</td>
+      </tr>
       } @empty {
-        <tr><td colspan="5" class="p-6 text-center text-slate-500">No users.</td></tr>
+      <tr>
+        <td colspan="5" class="p-6 text-center text-slate-500">No users.</td>
+      </tr>
       }
     </tbody>
   </table>
 
   @if (showForm()) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-3">
-        <h2 class="text-xl font-semibold">New user</h2>
-        <label class="block">
-          <span class="text-sm text-slate-700">Username</span>
-          <input [(ngModel)]="formUsername" name="username" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Email</span>
-          <input [(ngModel)]="formEmail" name="email" type="email" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Display name</span>
-          <input [(ngModel)]="formDisplayName" name="displayName" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Password (8+ chars)</span>
-          <input [(ngModel)]="formPassword" name="password" type="password" class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Role</span>
-          <select [(ngModel)]="formRole" name="role" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-            <option value="STAFF">STAFF</option>
-            <option value="RECEPTIONIST">RECEPTIONIST</option>
-            <option value="MANAGER">MANAGER</option>
-            <option value="ADMIN">ADMIN</option>
-          </select>
-        </label>
-        @if (error(); as msg) {
-          <p class="text-sm text-red-700">{{ msg }}</p>
-        }
-        <div class="flex justify-end gap-2 pt-2">
-          <button (click)="showForm.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-          <button (click)="submit()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
-        </div>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-3">
+      <h2 class="text-xl font-semibold">New user</h2>
+      <label class="block">
+        <span class="text-sm text-slate-700">Username</span>
+        <input [(ngModel)]="formUsername" name="username"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Email</span>
+        <input [(ngModel)]="formEmail" name="email" type="email"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Display name</span>
+        <input [(ngModel)]="formDisplayName" name="displayName"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Password (8+ chars)</span>
+        <input [(ngModel)]="formPassword" name="password" type="password"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Role</span>
+        <select [(ngModel)]="formRole" name="role" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+          <option value="STAFF">STAFF</option>
+          <option value="RECEPTIONIST">RECEPTIONIST</option>
+          <option value="MANAGER">MANAGER</option>
+          <option value="ADMIN">ADMIN</option>
+        </select>
+      </label>
+      @if (error(); as msg) {
+      <p class="text-sm text-red-700">{{ msg }}</p>
+      }
+      <div class="flex justify-end gap-2 pt-2">
+        <button (click)="showForm.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+        <button (click)="submit()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
       </div>
     </div>
+  </div>
   }
 </div>

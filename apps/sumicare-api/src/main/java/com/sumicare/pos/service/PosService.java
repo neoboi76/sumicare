@@ -90,6 +90,7 @@ public class PosService {
         entry.setTransactionId(tx.getId());
         entry.setEntryType("PAYMENT_RECEIVED");
         entry.setAmount(total);
+        entry.setPaymentMethod(request.paymentMethod());
         ledgerRepository.save(entry);
 
         if (redeemedVoucher != null) {
@@ -98,19 +99,23 @@ public class PosService {
                             .map(Booking::getClientId).orElse(null));
         }
 
-        recordCommissions(organizationId, session);
+        recordCommissionsForSession(organizationId, session);
         return new PaymentResponse(tx.getId(), tx.getReceiptNumber(),
                 tx.getSubtotal(), tx.getDiscount(), tx.getTotal(),
                 tx.getPaymentMethod(), tx.getProcessedAt());
     }
 
-    private void recordCommissions(UUID organizationId, Session session) {
+    @Transactional
+    public void recordCommissionsForSession(UUID organizationId, Session session) {
         if (session.getPrimaryTherapistId() == null) return;
+        if (commissionRepository.existsBySessionIdAndTherapistId(session.getId(), session.getPrimaryTherapistId())) return;
         Booking booking = bookingRepository.findById(session.getBookingId()).orElse(null);
         if (booking == null) return;
         var service = serviceRepository.findById(booking.getServiceId()).orElse(null);
         BigDecimal base = service == null ? BigDecimal.ZERO : service.getCommissionAmount();
         boolean tandem = service != null && service.isRequiresTwoTherapists();
+        Long svcId = service == null ? null : service.getId();
+        String svcType = service == null ? null : service.getCategory();
         BigDecimal primaryShare = tandem
                 ? base.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP)
                 : base;
@@ -119,6 +124,9 @@ public class PosService {
         primaryComm.setSessionId(session.getId());
         primaryComm.setTherapistId(session.getPrimaryTherapistId());
         primaryComm.setAmount(primaryShare);
+        primaryComm.setServiceId(svcId);
+        primaryComm.setServiceType(svcType);
+        primaryComm.setSpecificallyRequested(session.isSpecificallyRequested());
         commissionRepository.save(primaryComm);
 
         if (session.getSecondaryTherapistId() != null && tandem) {
@@ -127,6 +135,9 @@ public class PosService {
             secondaryComm.setSessionId(session.getId());
             secondaryComm.setTherapistId(session.getSecondaryTherapistId());
             secondaryComm.setAmount(primaryShare);
+            secondaryComm.setServiceId(svcId);
+            secondaryComm.setServiceType(svcType);
+            secondaryComm.setSpecificallyRequested(false);
             commissionRepository.save(secondaryComm);
         }
 
@@ -140,6 +151,9 @@ public class PosService {
             extComm.setTherapistId(session.getPrimaryTherapistId());
             extComm.setAmount(extra);
             extComm.setExtension(true);
+            extComm.setServiceId(svcId);
+            extComm.setServiceType(svcType);
+            extComm.setSpecificallyRequested(session.isSpecificallyRequested());
             commissionRepository.save(extComm);
         }
     }

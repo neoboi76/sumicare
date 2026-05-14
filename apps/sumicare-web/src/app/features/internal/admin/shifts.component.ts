@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface Shift {
   id: number;
@@ -21,6 +22,7 @@ interface Shift {
 })
 export class ShiftsAdminComponent implements OnInit {
   private http = inject(HttpClient);
+  private confirmService = inject(ConfirmService);
   shifts = signal<Shift[]>([]);
   showForm = signal(false);
 
@@ -55,8 +57,14 @@ export class ShiftsAdminComponent implements OnInit {
     });
   }
 
-  deactivate(s: Shift): void {
-    if (!window.confirm(`Deactivate ${s.label}?`)) return;
+  async deactivate(s: Shift): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Deactivate Shift',
+      message: `Are you sure you want to deactivate "${s.label}"?`,
+      confirmText: 'Deactivate',
+      danger: true
+    });
+    if (!confirmed) return;
     this.http.delete(`${environment.apiBaseUrl}/api/shifts/${s.id}`).subscribe({
       next: () => this.reload()
     });

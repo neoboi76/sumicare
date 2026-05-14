@@ -2,8 +2,10 @@ package com.sumicare.transaction.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.transaction.domain.TreatmentSlip;
+import com.sumicare.transaction.dto.UpdateTreatmentSlipRequest;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import com.sumicare.transaction.service.TreatmentSlipService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -55,5 +57,12 @@ public class TreatmentSlipController {
                                     @RequestParam OffsetDateTime to) {
         return repository.findAllByOrganizationIdAndCreatedAtBetween(
                 UUID.fromString(principal.organizationId()), from, to);
+    }
+
+    @PatchMapping("/{slipId}")
+    public TreatmentSlip update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                @PathVariable UUID slipId,
+                                @Valid @RequestBody UpdateTreatmentSlipRequest request) {
+        return service.update(UUID.fromString(principal.organizationId()), slipId, request);
     }
 }

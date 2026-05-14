@@ -119,6 +119,11 @@ public class DeckingController {
     @DeleteMapping("/{therapistId}")
     public void remove(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                        @PathVariable UUID therapistId) {
+        boolean onCall = sessionRepository.existsByPrimaryTherapistIdAndStatus(therapistId, "ACTIVE")
+                || sessionRepository.existsBySecondaryTherapistIdAndStatus(therapistId, "ACTIVE");
+        if (onCall) {
+            throw new IllegalStateException("Cannot remove therapist while they have an active session. Please wait until the session ends.");
+        }
         deckingService.remove(UUID.fromString(principal.organizationId()), therapistId);
     }
 

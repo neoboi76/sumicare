@@ -32,6 +32,12 @@ public class TherapistController {
         return therapistService.listForOrganization(UUID.fromString(principal.organizationId()));
     }
 
+    @GetMapping("/deactivated")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public List<TherapistResponse> listDeactivated(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return therapistService.listDeactivatedForOrganization(UUID.fromString(principal.organizationId()));
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public TherapistResponse create(@AuthenticationPrincipal AuthenticatedPrincipal principal,
@@ -42,13 +48,10 @@ public class TherapistController {
     @PatchMapping("/{therapistId}")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     @Transactional
-    public TherapistResponse update(@PathVariable UUID therapistId, @RequestBody CreateTherapistRequest request) {
-        Therapist t = therapistRepository.findById(therapistId).orElseThrow();
-        if (request.staffNumber() != null) t.setStaffNumber(request.staffNumber());
-        if (request.nickname() != null) t.setNickname(request.nickname());
-        if (request.gender() != null) t.setGender(request.gender());
-        t.setBackup(request.backup());
-        return therapistService.toResponse(t);
+    public TherapistResponse update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                    @PathVariable UUID therapistId,
+                                    @RequestBody CreateTherapistRequest request) {
+        return therapistService.update(UUID.fromString(principal.organizationId()), therapistId, request);
     }
 
     @DeleteMapping("/{therapistId}")
@@ -57,5 +60,14 @@ public class TherapistController {
     public void deactivate(@PathVariable UUID therapistId) {
         Therapist t = therapistRepository.findById(therapistId).orElseThrow();
         t.setActive(false);
+    }
+
+    @PostMapping("/{therapistId}/reactivate")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    @Transactional
+    public TherapistResponse reactivate(@PathVariable UUID therapistId) {
+        Therapist t = therapistRepository.findById(therapistId).orElseThrow();
+        t.setActive(true);
+        return therapistService.toResponse(t);
     }
 }

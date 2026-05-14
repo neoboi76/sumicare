@@ -30,6 +30,10 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./features/auth/verify.component').then(m => m.VerifyComponent)
   },
   {
+    path: 'reset-password',
+    loadComponent: () => import('./features/auth/reset-password.component').then(m => m.ResetPasswordComponent)
+  },
+  {
     path: 'app',
     canActivate: [authGuard],
     loadComponent: () => import('./features/internal/internal-shell.component').then(m => m.InternalShellComponent),
@@ -40,12 +44,17 @@ export const APP_ROUTES: Routes = [
       { path: 'reception', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/reception/reception.component').then(m => m.ReceptionComponent) },
       { path: 'lineup', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/lineup/lineup.component').then(m => m.LineupComponent) },
       { path: 'decking', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/decking/decking.component').then(m => m.DeckingComponent) },
-      { path: 'pos', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/pos/pos.component').then(m => m.PosComponent) },
+      { path: 'cashier', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/cashier/cashier.component').then(m => m.CashierComponent) },
+      { path: 'pos', redirectTo: 'cashier' },
+      { path: 'orders', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/orders/orders-list.component').then(m => m.OrdersListComponent) },
+      { path: 'orders/:id', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/orders/order-detail.component').then(m => m.OrderDetailComponent) },
+      { path: 'messages', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/messages/messages.component').then(m => m.MessagesComponent) },
       { path: 'treatment-slips', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slips.component').then(m => m.TreatmentSlipsComponent) },
       { path: 'treatment-slips/:id', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slip-detail.component').then(m => m.TreatmentSlipDetailComponent) },
       { path: 'reports', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/reports/reports.component').then(m => m.ReportsComponent) },
       { path: 'attendance', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/attendance/attendance.component').then(m => m.AttendanceComponent) },
       { path: 'ledger', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/ledger/ledger.component').then(m => m.LedgerComponent) },
+      { path: 'settings', loadComponent: () => import('./features/internal/settings/settings.component').then(m => m.SettingsComponent) },
       { path: 'users', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/users.component').then(m => m.UsersComponent) },
       { path: 'audit', canActivate: [roleGuard(ADMIN_PLUS)], loadComponent: () => import('./features/internal/admin/audit.component').then(m => m.AuditComponent) },
       { path: 'branding', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/branding.component').then(m => m.BrandingComponent) },

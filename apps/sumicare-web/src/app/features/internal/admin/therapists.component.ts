@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface Therapist {
   id: string;
@@ -30,9 +31,13 @@ interface Shift {
 })
 export class TherapistsAdminComponent implements OnInit {
   private http = inject(HttpClient);
+  private confirmService = inject(ConfirmService);
   therapists = signal<Therapist[]>([]);
+  deactivated = signal<Therapist[]>([]);
   shifts = signal<Shift[]>([]);
   showForm = signal(false);
+  editingTherapist = signal<Therapist | null>(null);
+  formError = signal<string | null>(null);
 
   formStaffNumber = '';
   formNickname = '';
@@ -52,6 +57,32 @@ export class TherapistsAdminComponent implements OnInit {
     this.http.get<Therapist[]>(`${environment.apiBaseUrl}/api/therapists`).subscribe({
       next: (t) => this.therapists.set(t)
     });
+    this.http.get<Therapist[]>(`${environment.apiBaseUrl}/api/therapists/deactivated`).subscribe({
+      next: (t) => this.deactivated.set(t),
+      error: () => this.deactivated.set([])
+    });
+  }
+
+  openCreate(): void {
+    this.editingTherapist.set(null);
+    this.formStaffNumber = '';
+    this.formNickname = '';
+    this.formGender = 'F';
+    this.formBackup = false;
+    this.formShiftId = null;
+    this.formError.set(null);
+    this.showForm.set(true);
+  }
+
+  openEdit(t: Therapist): void {
+    this.editingTherapist.set(t);
+    this.formStaffNumber = t.staffNumber || '';
+    this.formNickname = t.nickname;
+    this.formGender = t.gender;
+    this.formBackup = t.backup;
+    this.formShiftId = t.currentShiftId;
+    this.formError.set(null);
+    this.showForm.set(true);
   }
 
   submit(): void {
@@ -62,21 +93,40 @@ export class TherapistsAdminComponent implements OnInit {
       backup: this.formBackup,
       shiftId: this.formShiftId
     };
-    this.http.post(`${environment.apiBaseUrl}/api/therapists`, payload).subscribe({
+
+    const editing = this.editingTherapist();
+    const req$ = editing
+      ? this.http.patch(`${environment.apiBaseUrl}/api/therapists/${editing.id}`, payload)
+      : this.http.post(`${environment.apiBaseUrl}/api/therapists`, payload);
+
+    req$.subscribe({
       next: () => {
         this.showForm.set(false);
-        this.formStaffNumber = '';
-        this.formNickname = '';
-        this.formBackup = false;
-        this.formShiftId = null;
+        this.formError.set(null);
         this.reload();
+      },
+      error: (err) => {
+        this.formError.set(err?.error?.message || 'Could not save therapist.');
       }
     });
   }
 
-  deactivate(t: Therapist): void {
-    if (!window.confirm(`Deactivate ${t.nickname}?`)) return;
+  async deactivate(t: Therapist): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Deactivate Therapist',
+      message: `Are you sure you want to deactivate ${t.nickname}?`,
+      confirmText: 'Deactivate',
+      danger: true
+    });
+    if (!confirmed) return;
+    
     this.http.delete(`${environment.apiBaseUrl}/api/therapists/${t.id}`).subscribe({
+      next: () => this.reload()
+    });
+  }
+
+  reactivate(t: Therapist): void {
+    this.http.post(`${environment.apiBaseUrl}/api/therapists/${t.id}/reactivate`, {}).subscribe({
       next: () => this.reload()
     });
   }

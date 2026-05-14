@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DecimalPipe } from '@angular/common';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface Service {
   id: number;
@@ -29,6 +30,7 @@ interface Service {
 })
 export class ServicesAdminComponent implements OnInit {
   private http = inject(HttpClient);
+  private confirmService = inject(ConfirmService);
   services = signal<Service[]>([]);
   showForm = signal(false);
 
@@ -97,8 +99,14 @@ export class ServicesAdminComponent implements OnInit {
     }).subscribe({ next: () => { this.editingId.set(null); this.reload(); } });
   }
 
-  deactivate(s: Service): void {
-    if (!window.confirm(`Deactivate ${s.name}?`)) return;
+  async deactivate(s: Service): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Deactivate Service',
+      message: `Are you sure you want to deactivate "${s.name}"?`,
+      confirmText: 'Deactivate',
+      danger: true
+    });
+    if (!confirmed) return;
     this.http.delete(`${environment.apiBaseUrl}/api/admin/services/${s.id}`).subscribe({
       next: () => this.reload()
     });

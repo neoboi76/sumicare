@@ -32,6 +32,15 @@ public class Commission {
     @Column(name = "is_backup")
     private boolean backup = false;
 
+    @Column(name = "service_id")
+    private Long serviceId;
+
+    @Column(name = "service_type", length = 50)
+    private String serviceType;
+
+    @Column(name = "specifically_requested")
+    private boolean specificallyRequested = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -51,4 +60,10 @@ public class Commission {
     public void setBackup(boolean backup) { this.backup = backup; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public Long getServiceId() { return serviceId; }
+    public void setServiceId(Long serviceId) { this.serviceId = serviceId; }
+    public String getServiceType() { return serviceType; }
+    public void setServiceType(String serviceType) { this.serviceType = serviceType; }
+    public boolean isSpecificallyRequested() { return specificallyRequested; }
+    public void setSpecificallyRequested(boolean specificallyRequested) { this.specificallyRequested = specificallyRequested; }
 }

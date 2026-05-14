@@ -1,1 +1,7 @@
+@if (loadingService.isLoading()) {
+  <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-white/50 backdrop-blur-sm">
+    <div class="sumi-spinner w-12 h-12 border-4"></div>
+  </div>
+}
 <router-outlet></router-outlet>
+<sumi-confirm-dialog></sumi-confirm-dialog>

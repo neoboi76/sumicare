@@ -57,6 +57,9 @@ public class TreatmentSlip {
     @Column(name = "is_vip")
     private boolean vip = false;
 
+    @Column(name = "status", nullable = false, length = 20)
+    private String status = "DRAFT";
+
     @Column(name = "pax")
     private Integer pax;
 
@@ -157,4 +160,6 @@ public class TreatmentSlip {
     public void setSignedAt(OffsetDateTime signedAt) { this.signedAt = signedAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

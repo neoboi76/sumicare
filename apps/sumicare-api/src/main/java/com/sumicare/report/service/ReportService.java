@@ -25,7 +25,8 @@ public class ReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public ReportSummary buildCutoffReport(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
-        var sessions = sessionRepository.findAllByOrganizationIdAndStartedAtBetween(organizationId, from, to);
+        var sessions = sessionRepository.findAllByOrganizationIdAndStartedAtBetween(organizationId, from, to)
+                .stream().filter(s -> !"CANCELLED".equals(s.getStatus())).toList();
         var commissions = commissionRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
         Map<UUID, BigDecimal> commissionsByTherapist = new HashMap<>();
         Map<UUID, Integer> sessionCountByTherapist = new HashMap<>();

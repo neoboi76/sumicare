@@ -19,4 +19,7 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
 
     @Query("SELECT s.primaryTherapistId FROM Session s WHERE s.primaryTherapistId IN :ids AND s.status = 'ACTIVE'")
     Set<UUID> findActiveTherapistIds(@Param("ids") Collection<UUID> ids);
+
+    boolean existsByPrimaryTherapistIdAndStatus(UUID primaryTherapistId, String status);
+    boolean existsBySecondaryTherapistIdAndStatus(UUID secondaryTherapistId, String status);
 }

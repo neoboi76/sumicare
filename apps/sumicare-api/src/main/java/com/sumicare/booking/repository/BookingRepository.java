@@ -9,4 +9,6 @@ import java.util.UUID;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
     List<Booking> findAllByOrganizationIdAndScheduledAtBetween(UUID organizationId, OffsetDateTime from, OffsetDateTime to);
+    
+    boolean existsByOrganizationIdAndClientNicknameIgnoreCaseAndStatusIn(UUID organizationId, String clientNickname, List<String> statuses);
 }

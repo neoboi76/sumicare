@@ -44,9 +44,11 @@ export class InternalShellComponent implements OnInit {
         { label: 'Bookings', route: 'bookings', roles: STAFF_ROLES },
         { label: 'Room map', route: 'reception', roles: STAFF_ROLES },
         { label: 'Lineup', route: 'lineup', roles: STAFF_ROLES },
-        { label: 'Decking', route: 'decking', roles: STAFF_ROLES },
+
         { label: 'Treatment slips', route: 'treatment-slips', roles: STAFF_ROLES },
-        { label: 'POS', route: 'pos', roles: STAFF_ROLES },
+        { label: 'Cashier', route: 'cashier', roles: STAFF_ROLES },
+        { label: 'Orders', route: 'orders', roles: STAFF_ROLES },
+        { label: 'Messages', route: 'messages', roles: STAFF_ROLES },
         { label: 'Attendance', route: 'attendance', roles: STAFF_ROLES }
       ]
     },
@@ -73,6 +75,7 @@ export class InternalShellComponent implements OnInit {
     {
       title: 'Administration',
       items: [
+        { label: 'Settings', route: 'settings', roles: STAFF_ROLES },
         { label: 'Users', route: 'users', roles: MANAGER_PLUS },
         { label: 'Audit log', route: 'audit', roles: ADMIN_PLUS }
       ]

@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface BookingResponse {
   id: string;
@@ -14,6 +15,8 @@ interface BookingResponse {
   effectiveStartAt: string;
   projectedEndAt: string;
   status: string;
+  clientGender?: string | null;
+  orderId?: string | null;
 }
 
 interface SessionResponse {
@@ -67,83 +70,62 @@ interface RoomItem {
   beds: BedItem[];
 }
 
-interface WalkInResponse {
-  slipId: string;
-  bookingId: string;
-  sessionId: string;
-  tsn: string;
+
+
+interface OrderStatus {
+  id: string;
+  status: string;
 }
 
 @Component({
   selector: 'sumi-bookings',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './bookings.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class BookingsComponent implements OnInit {
+export class BookingsComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private confirmService = inject(ConfirmService);
+  private therapistRefreshTimer: any;
 
   selectedDate = signal(new Date().toISOString().slice(0, 10));
   bookings = signal<BookingResponse[]>([]);
   services = signal<ServiceItem[]>([]);
   lineup = signal<LineupTherapist[]>([]);
   rooms = signal<RoomItem[]>([]);
-  showWalkIn = signal(false);
-  walkInError = signal<string | null>(null);
-  walkInSubmitting = signal(false);
+  orderStatuses = signal<Map<string, string>>(new Map());
+
   startBooking = signal<BookingResponse | null>(null);
-
-  walkInNickname = '';
-  walkInLocker = '';
-  walkInClientGender = 'F';
-  walkInServiceId = signal<number>(0);
-  walkInReservationType = 'WALK_IN';
-  walkInPax = 1;
-  walkInStartTime = this.nowDatetimeLocal();
-  walkInEndTimeOverride = '';
-  walkInPrimaryTherapistId: string | null = null;
-  walkInSecondaryTherapistId: string | null = null;
-  walkInRoomId = signal<string | null>(null);
-  walkInBedIds: string[] = [];
-  walkInSpecificallyRequested = false;
-  walkInJacuzziMinutes = 60;
-  walkInMassageMinutes = 60;
-  walkInWine = false;
-  walkInOrNumber = '';
-  walkInAddOnOrNumber = '';
-  walkInOthersAddOn = '';
-  walkInRemarks = '';
-  walkInTotalAmount: number | null = null;
-  walkInWaiver = false;
-
   startPrimaryTherapistId = signal<string | null>(null);
   startSecondaryTherapistId = signal<string | null>(null);
   startRoomId = signal<string | null>(null);
   startBedId = signal<string | null>(null);
   startSpecificallyRequested = signal(false);
 
-  selectedWalkInService = computed(() => {
-    const id = this.walkInServiceId();
+  editBooking = signal<BookingResponse | null>(null);
+  editServiceId = signal<number>(0);
+  editLockerNumber = '';
+  editClientNickname = '';
+  editError = signal<string | null>(null);
+
+  adjustBooking = signal<BookingResponse | null>(null);
+  adjustNewStart = '';
+  adjustNewEnd = '';
+
+  availableTherapists = computed(() => {
+    return this.lineup().filter(t => !t.onCall);
+  });
+
+  selectedStartService = computed(() => {
+    const id = this.startBooking()?.serviceId;
+    if (!id) return null;
     return this.services().find(s => s.id === id) ?? null;
   });
 
-  isWalkInVip = computed(() => this.selectedWalkInService()?.vip ?? false);
-
-  walkInComputedEnd = computed(() => {
-    const svc = this.selectedWalkInService();
-    if (!svc || !this.walkInStartTime) return '';
-    const start = new Date(this.walkInStartTime);
-    if (isNaN(start.getTime())) return '';
-    const end = new Date(start.getTime() + svc.durationMinutes * 60_000);
-    return this.toDatetimeLocal(end);
-  });
-
-  walkInBedsForRoom = computed(() => {
-    const roomId = this.walkInRoomId();
-    if (!roomId) return [];
-    return this.rooms().find(r => r.id === roomId)?.beds ?? [];
+  needsSecondary = computed(() => {
+    return this.selectedStartService()?.requiresTwoTherapists ?? false;
   });
 
   pickedRoomNumber = computed(() => {
@@ -156,14 +138,6 @@ export class BookingsComponent implements OnInit {
     return room?.beds.find(b => b.id === this.startBedId())?.label ?? '';
   });
 
-  needsSecondary = computed(() => {
-    const id = this.startBooking()?.serviceId;
-    if (!id) return false;
-    return this.services().find(s => s.id === id)?.requiresTwoTherapists ?? false;
-  });
-
-  walkInNeedsSecondary = computed(() => this.selectedWalkInService()?.requiresTwoTherapists ?? false);
-
   canStart = computed(() =>
     this.startPrimaryTherapistId() !== null &&
     this.startRoomId() !== null &&
@@ -173,6 +147,13 @@ export class BookingsComponent implements OnInit {
   ngOnInit(): void {
     this.reload();
     this.loadReference();
+    this.therapistRefreshTimer = setInterval(() => this.refreshLineup(), 30000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.therapistRefreshTimer) {
+      clearInterval(this.therapistRefreshTimer);
+    }
   }
 
   onDateChange(value: string): void {
@@ -182,70 +163,96 @@ export class BookingsComponent implements OnInit {
 
   reload(): void {
     const d = this.selectedDate();
-    const start = `${d}T00:00:00.000Z`;
-    const end = `${d}T23:59:59.999Z`;
+    const start = `${d}T00:00:00.000+08:00`;
+    const end = `${d}T23:59:59.999+08:00`;
     const params = `?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
     this.http.get<BookingResponse[]>(`${environment.apiBaseUrl}/api/bookings${params}`).subscribe({
-      next: (b) => this.bookings.set(b),
+      next: (b) => {
+        this.bookings.set(b);
+        this.loadOrderStatuses(b);
+      },
       error: () => this.bookings.set([])
     });
   }
 
-  private loadReference(): void {
-    this.http.get<ServiceItem[]>(`${environment.apiBaseUrl}/api/services`).subscribe({
-      next: (s) => {
-        this.services.set(s);
-        if (s.length > 0 && this.walkInServiceId() === 0) this.walkInServiceId.set(s[0].id);
+  private loadOrderStatuses(bookings: BookingResponse[]): void {
+    if (bookings.length === 0) return;
+    this.http.get<any[]>(`${environment.apiBaseUrl}/api/cashier/orders`).subscribe({
+      next: (orders) => {
+        const map = new Map<string, string>();
+        for (const order of orders) {
+          if (order.bookingId) {
+            map.set(order.bookingId, order.status);
+          }
+        }
+        this.orderStatuses.set(map);
       }
     });
-    this.http.get<LineupTherapist[]>(`${environment.apiBaseUrl}/api/decking/lineup`).subscribe({
-      next: (l) => this.lineup.set(l)
+  }
+
+  getOrderStatus(bookingId: string): string {
+    const booking = this.bookings().find(b => b.id === bookingId);
+    if (booking && booking.status === 'CANCELLED') return 'CANCELLED';
+    return this.orderStatuses().get(bookingId) ?? 'PENDING';
+  }
+
+  isOrderPaid(bookingId: string): boolean {
+    const status = this.getOrderStatus(bookingId);
+    return status === 'PAID';
+  }
+
+  private loadReference(): void {
+    this.http.get<ServiceItem[]>(`${environment.apiBaseUrl}/api/services`).subscribe({
+      next: (s) => this.services.set(s)
     });
+    this.refreshLineup();
     this.http.get<RoomItem[]>(`${environment.apiBaseUrl}/api/rooms`).subscribe({
       next: (r) => this.rooms.set(r)
     });
   }
 
+  private refreshLineup(): void {
+    this.http.get<LineupTherapist[]>(`${environment.apiBaseUrl}/api/decking/lineup`).subscribe({
+      next: (l) => this.lineup.set(l)
+    });
+  }
+
   formatTime(iso: string | null): string {
     if (!iso) return '-';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, hourCycle: 'h23' });
   }
 
   serviceName(id: number): string {
     return this.services().find(s => s.id === id)?.name ?? '-';
   }
 
+  isBedSelectableForGender(bed: BedItem, clientGender: string | null | undefined): boolean {
+    if (bed.occupancy['status'] === 'OCCUPIED') {
+      const lock = bed.occupancy['genderLock'];
+      if (lock && clientGender && lock !== clientGender) {
+        return false; // Opposing gender occupying room
+      }
+      return false; // Occupied
+    }
+    return true;
+  }
+
   bedClass(room: RoomItem, bed: BedItem): string {
     const base = 'rounded border text-xs px-2 py-1 ';
     if (this.startBedId() === bed.id) return base + 'bg-[var(--sumi-primary)] text-white border-transparent';
-    const status = bed.occupancy['status'];
-    if (status === 'OCCUPIED') return base + 'bg-slate-200 text-slate-500 cursor-not-allowed';
-    return base + 'bg-white hover:bg-slate-100';
-  }
-
-  walkInBedClass(bed: BedItem): string {
-    const base = 'rounded border text-xs px-2 py-1 ';
-    if (this.walkInBedIds.includes(bed.id)) return base + 'bg-[var(--sumi-primary)] text-white border-transparent';
-    const status = bed.occupancy['status'];
-    const lock = bed.occupancy['genderLock'];
-    if (status === 'OCCUPIED') {
-      return base + (lock === 'M' ? 'bg-slate-200 text-slate-600 cursor-not-allowed' : 'bg-pink-100 text-pink-700 cursor-not-allowed');
+    const clientGender = this.startBooking()?.clientGender;
+    if (!this.isBedSelectableForGender(bed, clientGender)) {
+      const lock = bed.occupancy['genderLock'];
+      if (lock === 'M') return base + 'bg-blue-100 text-blue-500 cursor-not-allowed';
+      if (lock === 'F') return base + 'bg-pink-100 text-pink-500 cursor-not-allowed';
+      return base + 'bg-slate-200 text-slate-500 cursor-not-allowed';
     }
     return base + 'bg-white hover:bg-slate-100';
-  }
-
-  pickWalkInBed(bed: BedItem): void {
-    if (bed.occupancy['status'] === 'OCCUPIED') return;
-    const idx = this.walkInBedIds.indexOf(bed.id);
-    if (idx >= 0) {
-      this.walkInBedIds = this.walkInBedIds.filter(id => id !== bed.id);
-    } else {
-      this.walkInBedIds = [...this.walkInBedIds, bed.id];
-    }
   }
 
   pickBed(room: RoomItem, bed: BedItem): void {
-    if (bed.occupancy['status'] === 'OCCUPIED') return;
+    const clientGender = this.startBooking()?.clientGender;
+    if (!this.isBedSelectableForGender(bed, clientGender)) return;
     this.startRoomId.set(room.id);
     this.startBedId.set(bed.id);
   }
@@ -257,15 +264,24 @@ export class BookingsComponent implements OnInit {
     this.startRoomId.set(null);
     this.startBedId.set(null);
     this.startSpecificallyRequested.set(false);
+    this.refreshLineup();
   }
 
   cancelStart(): void {
     this.startBooking.set(null);
   }
 
-  submitStart(): void {
+  async submitStart(): Promise<void> {
     const booking = this.startBooking();
     if (!booking || !this.canStart()) return;
+    
+    const confirmed = await this.confirmService.confirm({
+      title: 'Start Session',
+      message: 'Are you sure you want to start this session?',
+      confirmText: 'Start Session'
+    });
+    if (!confirmed) return;
+    
     const payload = {
       primaryTherapistId: this.startPrimaryTherapistId(),
       secondaryTherapistId: this.startSecondaryTherapistId(),
@@ -277,11 +293,22 @@ export class BookingsComponent implements OnInit {
       next: () => {
         this.startBooking.set(null);
         this.reload();
+      },
+      error: (err) => {
+        alert(err?.error?.message || 'Could not start session.');
       }
     });
   }
 
-  endSession(b: BookingResponse): void {
+  async endSession(b: BookingResponse): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'End Session',
+      message: 'Are you sure you want to end this session?',
+      confirmText: 'End Session',
+      danger: true
+    });
+    if (!confirmed) return;
+    
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/end`, {}).subscribe({
@@ -290,7 +317,14 @@ export class BookingsComponent implements OnInit {
     });
   }
 
-  extendSession(b: BookingResponse): void {
+  async extendSession(b: BookingResponse): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Extend Session',
+      message: 'Do you want to extend this session by 30 minutes?',
+      confirmText: 'Extend'
+    });
+    if (!confirmed) return;
+    
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/extend?minutes=30`, {}).subscribe({
@@ -299,22 +333,47 @@ export class BookingsComponent implements OnInit {
     });
   }
 
-  adjustSession(b: BookingResponse): void {
-    const newStart = window.prompt('New start time (ISO, leave blank to skip):', '');
-    const newEnd = window.prompt('New end time (ISO, leave blank to skip):', '');
+  openAdjust(b: BookingResponse): void {
+    this.adjustBooking.set(b);
+    this.adjustNewStart = '';
+    this.adjustNewEnd = '';
+  }
+
+  cancelAdjust(): void {
+    this.adjustBooking.set(null);
+  }
+
+  async submitAdjust(): Promise<void> {
+    const b = this.adjustBooking();
+    if (!b) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Adjust Session Times',
+      message: 'Are you sure you want to adjust the session times?',
+      confirmText: 'Apply'
+    });
+    if (!confirmed) return;
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       const params: string[] = [];
-      if (newStart) params.push(`startAt=${encodeURIComponent(newStart)}`);
-      if (newEnd) params.push(`endAt=${encodeURIComponent(newEnd)}`);
+      if (this.adjustNewStart) params.push(`startAt=${encodeURIComponent(new Date(this.adjustNewStart).toISOString())}`);
+      if (this.adjustNewEnd) params.push(`endAt=${encodeURIComponent(new Date(this.adjustNewEnd).toISOString())}`);
       const qs = params.length ? `?${params.join('&')}` : '';
       this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/adjust-times${qs}`, {}).subscribe({
-        next: () => this.reload()
+        next: () => {
+          this.adjustBooking.set(null);
+          this.reload();
+        }
       });
     });
   }
 
-  generateSlip(b: BookingResponse): void {
+  async generateSlip(b: BookingResponse): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Generate Treatment Slip',
+      message: 'Generate a treatment slip for this session?',
+      confirmText: 'Generate'
+    });
+    if (!confirmed) return;
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${session.id}`, {}).subscribe({
@@ -323,19 +382,44 @@ export class BookingsComponent implements OnInit {
     });
   }
 
+  openEdit(b: BookingResponse): void {
+    this.editBooking.set(b);
+    this.editServiceId.set(b.serviceId);
+    this.editLockerNumber = b.lockerNumber || '';
+    this.editClientNickname = b.clientNickname;
+    this.editError.set(null);
+  }
+
+  cancelEdit(): void {
+    this.editBooking.set(null);
+  }
+
+  submitEdit(): void {
+    const b = this.editBooking();
+    if (!b) return;
+    this.http.patch(`${environment.apiBaseUrl}/api/bookings/${b.id}`, {
+      serviceId: Number(this.editServiceId()),
+      lockerNumber: this.editLockerNumber || null,
+      clientNickname: this.editClientNickname || null
+    }).subscribe({
+      next: () => {
+        this.editBooking.set(null);
+        this.reload();
+      },
+      error: (err) => this.editError.set(err?.error?.message || 'Could not update booking.')
+    });
+  }
+
   exportCsv(): void {
     const d = this.selectedDate();
-    const from = encodeURIComponent(`${d}T00:00:00.000Z`);
-    const to = encodeURIComponent(`${d}T23:59:59.999Z`);
+    const from = encodeURIComponent(`${d}T00:00:00.000+08:00`);
+    const to = encodeURIComponent(`${d}T23:59:59.999+08:00`);
     this.http.get(`${environment.apiBaseUrl}/api/bookings/export.csv?from=${from}&to=${to}`,
       { responseType: 'blob' as const, observe: 'response' as const }
     ).subscribe({
       next: (response) => {
         const blob = response.body;
-        if (!blob) {
-          alert('Export returned no data.');
-          return;
-        }
+        if (!blob) { alert('Export returned no data.'); return; }
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -349,115 +433,11 @@ export class BookingsComponent implements OnInit {
         const status = err?.status ?? 0;
         if (status === 401 || status === 403) {
           alert('You do not have permission to export bookings, or your session has expired.');
-        } else if (status === 0) {
-          alert('Could not reach the server. Please check your connection.');
         } else {
           alert('Export failed (status ' + status + '). Please try again.');
         }
       }
     });
-  }
-
-  openWalkIn(): void {
-    this.walkInError.set(null);
-    this.walkInSubmitting.set(false);
-    this.walkInNickname = '';
-    this.walkInLocker = '';
-    this.walkInClientGender = 'F';
-    this.walkInPax = 1;
-    this.walkInReservationType = 'WALK_IN';
-    this.walkInStartTime = this.nowDatetimeLocal();
-    this.walkInEndTimeOverride = '';
-    this.walkInPrimaryTherapistId = null;
-    this.walkInSecondaryTherapistId = null;
-    this.walkInRoomId.set(null);
-    this.walkInBedIds = [];
-    this.walkInSpecificallyRequested = false;
-    this.walkInJacuzziMinutes = 60;
-    this.walkInMassageMinutes = 60;
-    this.walkInWine = false;
-    this.walkInOrNumber = '';
-    this.walkInAddOnOrNumber = '';
-    this.walkInOthersAddOn = '';
-    this.walkInRemarks = '';
-    this.walkInTotalAmount = null;
-    this.walkInWaiver = false;
-    this.showWalkIn.set(true);
-    this.loadReference();
-  }
-
-  onWalkInRoomChange(value: string): void {
-    this.walkInRoomId.set(value || null);
-    this.walkInBedIds = [];
-  }
-
-  submitWalkIn(): void {
-    if (this.walkInSubmitting()) return;
-    if (!this.walkInWaiver) {
-      this.walkInError.set('Client must accept the waiver before proceeding.');
-      return;
-    }
-    if (!this.walkInNickname || !this.walkInServiceId()) {
-      this.walkInError.set('Customer name and treatment are required.');
-      return;
-    }
-    const isVip = this.isWalkInVip();
-    const pax = isVip ? 1 : (Number(this.walkInPax) || 1);
-    if (!isVip && this.walkInRoomId() && this.walkInBedIds.length !== pax) {
-      this.walkInError.set(`Select exactly ${pax} bed${pax !== 1 ? 's' : ''} for ${pax} guest${pax !== 1 ? 's' : ''}.`);
-      return;
-    }
-    this.walkInError.set(null);
-    this.walkInSubmitting.set(true);
-
-    const endTimeStr = this.walkInEndTimeOverride || this.walkInComputedEnd();
-    const payload = {
-      clientNickname: this.walkInNickname,
-      serviceId: Number(this.walkInServiceId()),
-      reservationType: this.walkInReservationType,
-      pax: isVip ? null : pax,
-      clientGender: this.walkInClientGender,
-      lockerNumber: this.walkInLocker || null,
-      startTime: new Date(this.walkInStartTime).toISOString(),
-      endTime: endTimeStr ? new Date(endTimeStr).toISOString() : null,
-      primaryTherapistId: this.walkInPrimaryTherapistId,
-      secondaryTherapistId: this.walkInSecondaryTherapistId,
-      roomId: this.walkInRoomId(),
-      bedIds: this.walkInBedIds.length > 0 ? this.walkInBedIds : null,
-      specificallyRequested: this.walkInSpecificallyRequested,
-      jacuzziMinutes: isVip ? (Number(this.walkInJacuzziMinutes) || null) : null,
-      massageMinutes: isVip ? (Number(this.walkInMassageMinutes) || null) : null,
-      wineIncluded: isVip ? this.walkInWine : null,
-      orNumber: this.walkInOrNumber || null,
-      addOnOrNumber: this.walkInAddOnOrNumber || null,
-      othersAddOn: this.walkInOthersAddOn || null,
-      remarks: this.walkInRemarks || null,
-      totalAmount: this.walkInTotalAmount,
-      waiverAccepted: this.walkInWaiver
-    };
-
-    this.http.post<WalkInResponse>(`${environment.apiBaseUrl}/api/walk-in`, payload).subscribe({
-      next: (res) => {
-        this.walkInSubmitting.set(false);
-        this.showWalkIn.set(false);
-        this.reload();
-        this.router.navigate(['/app/treatment-slips', res.slipId]);
-      },
-      error: (err) => {
-        this.walkInSubmitting.set(false);
-        this.walkInError.set(err?.error?.message ?? 'Failed to create walk-in. Please review the form and try again.');
-      }
-    });
-  }
-
-  private nowDatetimeLocal(): string {
-    return this.toDatetimeLocal(new Date());
-  }
-
-  private toDatetimeLocal(d: Date): string {
-    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
-    local.setSeconds(0, 0);
-    return local.toISOString().slice(0, 16);
   }
 
   private lookupSession(bookingId: string) {

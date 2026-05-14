@@ -41,6 +41,13 @@ public class TherapistService {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     @Transactional
     public TherapistResponse create(UUID organizationId, CreateTherapistRequest request) {
+        if (request.staffNumber() != null && !request.staffNumber().isBlank()
+                && therapistRepository.existsByOrganizationIdAndStaffNumber(organizationId, request.staffNumber())) {
+            throw new IllegalArgumentException("Staff number '" + request.staffNumber() + "' is already in use");
+        }
+        if (therapistRepository.existsByOrganizationIdAndNickname(organizationId, request.nickname())) {
+            throw new IllegalArgumentException("Nickname '" + request.nickname() + "' is already in use");
+        }
         Therapist t = new Therapist();
         t.setOrganizationId(organizationId);
         t.setStaffNumber(request.staffNumber());
@@ -58,6 +65,46 @@ public class TherapistService {
                     sa.setTherapistId(t.getId());
                     shiftAssignmentRepository.save(sa);
                 }
+            });
+        }
+
+        return toResponse(t);
+    }
+
+    public List<TherapistResponse> listDeactivatedForOrganization(UUID organizationId) {
+        Map<Long, Shift> shifts = loadShifts(organizationId);
+        return therapistRepository.findAllByOrganizationIdAndActiveFalse(organizationId).stream()
+                .map(t -> toResponse(t, shifts)).toList();
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    @Transactional
+    public TherapistResponse update(UUID organizationId, UUID therapistId, CreateTherapistRequest request) {
+        Therapist t = therapistRepository.findById(therapistId).orElseThrow();
+
+        if (request.staffNumber() != null && !request.staffNumber().equals(t.getStaffNumber())) {
+            if (!request.staffNumber().isBlank()
+                    && therapistRepository.existsByOrganizationIdAndStaffNumber(organizationId, request.staffNumber())) {
+                throw new IllegalArgumentException("Staff number '" + request.staffNumber() + "' is already in use");
+            }
+            t.setStaffNumber(request.staffNumber());
+        }
+        if (request.nickname() != null && !request.nickname().equals(t.getNickname())) {
+            if (therapistRepository.existsByOrganizationIdAndNickname(organizationId, request.nickname())) {
+                throw new IllegalArgumentException("Nickname '" + request.nickname() + "' is already in use");
+            }
+            t.setNickname(request.nickname());
+        }
+        if (request.gender() != null) t.setGender(request.gender());
+        t.setBackup(request.backup());
+
+        if (request.shiftId() != null) {
+            shiftAssignmentRepository.deleteAllByTherapistId(t.getId());
+            shiftRepository.findById(request.shiftId()).ifPresent(s -> {
+                ShiftAssignment sa = new ShiftAssignment();
+                sa.setShiftId(s.getId());
+                sa.setTherapistId(t.getId());
+                shiftAssignmentRepository.save(sa);
             });
         }
 

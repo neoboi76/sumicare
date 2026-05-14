@@ -6,6 +6,8 @@ import com.sumicare.booking.dto.CreateWalkInRequest;
 import com.sumicare.booking.dto.WalkInResponse;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.notification.service.NotificationService;
 import com.sumicare.room.domain.Bed;
 import com.sumicare.room.exception.RoomGenderConflictException;
@@ -40,6 +42,7 @@ public class WalkInService {
     private final RoomOccupancyService occupancyService;
     private final DeckingService deckingService;
     private final NotificationService notificationService;
+    private final OrderRepository orderRepository;
 
     public WalkInService(BookingRepository bookingRepository,
                          SessionRepository sessionRepository,
@@ -50,7 +53,8 @@ public class WalkInService {
                          TreatmentSlipRepository slipRepository,
                          RoomOccupancyService occupancyService,
                          DeckingService deckingService,
-                         NotificationService notificationService) {
+                         NotificationService notificationService,
+                         OrderRepository orderRepository) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -61,6 +65,7 @@ public class WalkInService {
         this.occupancyService = occupancyService;
         this.deckingService = deckingService;
         this.notificationService = notificationService;
+        this.orderRepository = orderRepository;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -178,6 +183,17 @@ public class WalkInService {
         }
 
         TreatmentSlip saved = slipRepository.save(slip);
+
+        Order order = new Order();
+        order.setOrganizationId(organizationId);
+        order.setBookingId(booking.getId());
+        order.setTreatmentSlipId(saved.getId());
+        order.setOrNumber(request.orNumber());
+        order.setSubtotal(request.totalAmount() == null ? java.math.BigDecimal.ZERO : request.totalAmount());
+        order.setTotal(request.totalAmount() == null ? java.math.BigDecimal.ZERO : request.totalAmount());
+        order.setStatus("ACTIVE");
+        orderRepository.save(order);
+
         return new WalkInResponse(saved.getId(), booking.getId(), session.getId(), saved.getTsn());
     }
 

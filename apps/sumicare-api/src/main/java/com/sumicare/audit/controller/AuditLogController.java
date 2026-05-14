@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -29,5 +30,14 @@ public class AuditLogController {
         return repository.findAllByOrganizationIdOrderByOccurredAtDesc(
                 UUID.fromString(principal.organizationId()),
                 PageRequest.of(page, Math.min(size, 200)));
+    }
+
+    @GetMapping("/by-target")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public List<AuditLog> byTarget(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                    @RequestParam String entity,
+                                    @RequestParam String id) {
+        return repository.findAllByOrganizationIdAndTargetEntityAndTargetIdOrderByOccurredAtDesc(
+                UUID.fromString(principal.organizationId()), entity, id);
     }
 }

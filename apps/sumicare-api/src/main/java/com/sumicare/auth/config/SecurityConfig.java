@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/auth/verify").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/auth/verify", "/api/auth/reset-password").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/biometrics/**").permitAll()
                         .requestMatchers("/api/webhooks/**").permitAll()

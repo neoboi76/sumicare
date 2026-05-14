@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'sumi-contact',
@@ -11,6 +13,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 })
 export class ContactComponent {
   private sanitizer = inject(DomSanitizer);
+  private http = inject(HttpClient);
 
   readonly mapUrl: SafeResourceUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
     'https://www.google.com/maps?q=8846+Sampaloc+St,+corner+Estrella+St,+Makati+City,+1203+Metro+Manila&output=embed'
@@ -44,13 +47,31 @@ export class ContactComponent {
 
     this.submitting.set(true);
     this.error.set(null);
-    setTimeout(() => {
-      this.submitting.set(false);
-      this.submitted.set(true);
-      this.name = '';
-      this.email = '';
-      this.message = '';
-    }, 400);
+
+    const url = `${environment.apiBaseUrl}/api/public/contact/${environment.defaultOrganizationSlug}`;
+    this.http.post(url, {
+      name: this.name.trim(),
+      email: this.email.trim(),
+      message: this.message.trim()
+    }).subscribe({
+      next: () => {
+        this.submitting.set(false);
+        this.submitted.set(true);
+        this.name = '';
+        this.email = '';
+        this.message = '';
+      },
+      error: (err) => {
+        this.submitting.set(false);
+        if (err?.status === 429) {
+          this.error.set('Too many messages from this address. Please try again later.');
+        } else if (err?.status === 400) {
+          this.error.set(err?.error?.message || 'Please review the form and try again.');
+        } else {
+          this.error.set('Could not send message. Please try again or contact us directly.');
+        }
+      }
+    });
   }
 
   sendAnother(): void {

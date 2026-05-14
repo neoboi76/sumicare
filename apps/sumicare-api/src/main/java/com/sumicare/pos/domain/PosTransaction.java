@@ -18,7 +18,10 @@ public class PosTransaction {
     @Column(name = "organization_id", nullable = false, columnDefinition = "uuid")
     private UUID organizationId;
 
-    @Column(name = "session_id", nullable = false, columnDefinition = "uuid")
+    @Column(name = "order_id", columnDefinition = "uuid")
+    private UUID orderId;
+
+    @Column(name = "session_id", columnDefinition = "uuid")
     private UUID sessionId;
 
     @Column(name = "receipt_number", nullable = false)
@@ -36,7 +39,7 @@ public class PosTransaction {
     @Column(name = "payment_method", nullable = false)
     private String paymentMethod;
 
-    @Column(name = "processed_by", nullable = false, columnDefinition = "uuid")
+    @Column(name = "processed_by", columnDefinition = "uuid")
     private UUID processedBy;
 
     @Column(name = "processed_at", nullable = false)
@@ -49,6 +52,8 @@ public class PosTransaction {
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
     public void setOrganizationId(UUID organizationId) { this.organizationId = organizationId; }
+    public UUID getOrderId() { return orderId; }
+    public void setOrderId(UUID orderId) { this.orderId = orderId; }
     public UUID getSessionId() { return sessionId; }
     public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
     public String getReceiptNumber() { return receiptNumber; }
