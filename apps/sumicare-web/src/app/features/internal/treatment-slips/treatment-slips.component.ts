@@ -11,8 +11,11 @@ interface TreatmentSlip {
   lockerNumber: string | null;
   serviceName: string;
   primaryTherapistNickname: string | null;
+  secondaryTherapistNickname: string | null;
+  roomNumber: string | null;
   startTime: string | null;
   endTime: string | null;
+  orNumber: string | null;
   vip: boolean;
   createdAt: string;
 }
@@ -65,6 +68,11 @@ export class TreatmentSlipsComponent implements OnInit {
   formatRange(start: string | null, end: string | null): string {
     const f = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
     return `${f(start)} - ${f(end)}`;
+  }
+
+  formatTime(iso: string | null): string {
+    if (!iso) return '-';
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   private dayBounds(): { from: string; to: string } {

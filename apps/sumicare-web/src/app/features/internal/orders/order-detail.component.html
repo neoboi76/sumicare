@@ -6,6 +6,10 @@
       <a [routerLink]="['/app/treatment-slips', order()!.treatmentSlipId]"
         class="text-sm text-[var(--sumi-primary)] hover:underline">View treatment slip</a>
       }
+      @if (order()?.status === 'OPEN') {
+      <button (click)="editOrder()"
+              class="text-sm rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1 hover:bg-slate-50">Edit order</button>
+      }
       @if (order()) {
       <button (click)="downloadReceipt()"
               class="text-sm rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">Download receipt PDF</button>
@@ -156,7 +160,7 @@
         <input [(ngModel)]="newPaymentRef" name="ref" maxlength="100"
           class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
       </label>
-      <button (click)="recordPayment()" [disabled]="busy() || newPaymentAmount <= 0"
+      <button (click)="recordPayment()" [disabled]="busy() || newPaymentAmount < 0"
         class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2 disabled:opacity-50">Record</button>
     </div>
     <div class="flex gap-2 pt-3 border-t border-slate-100">
@@ -168,8 +172,10 @@
       <button (click)="cancelPayment()" [disabled]="busy()"
         class="rounded border border-orange-300 text-orange-700 text-sm px-4 py-2">Cancel Payment</button>
       }
+      @if (!o.sessionCompleted) {
       <button (click)="openCancel()" [disabled]="busy() || o.status === 'PAID'"
         class="rounded border border-rose-300 text-rose-700 text-sm px-4 py-2">Cancel order</button>
+      }
     </div>
     }
   </div>

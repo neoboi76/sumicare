@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,13 +45,23 @@ public class LineupShiftSyncJob {
         this.deckingService = deckingService;
     }
 
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
+
     @Scheduled(fixedDelay = 60_000, initialDelay = 5_000)
     public void syncLineup() {
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now(MANILA);
         try {
             organizationRepository.findAll().forEach(org -> syncForOrganization(org.getId(), now));
         } catch (Exception e) {
             log.error("LineupShiftSyncJob failed", e);
+        }
+    }
+
+    public void syncNow(UUID organizationId) {
+        try {
+            syncForOrganization(organizationId, LocalTime.now(MANILA));
+        } catch (Exception e) {
+            log.error("LineupShiftSyncJob.syncNow failed", e);
         }
     }
 
@@ -80,7 +91,7 @@ public class LineupShiftSyncJob {
         }
 
         for (DeckingEntry e : currentLineup) {
-            if ("BACKUP".equals(e.flag())) continue;
+            if ("BACKUP".equals(e.flag()) || "MANUAL".equals(e.flag())) continue;
             if (!shouldBeInLineup.containsKey(e.therapistId())) {
                 deckingService.remove(orgId, e.therapistId());
             }

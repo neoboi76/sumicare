@@ -83,6 +83,7 @@ interface OrderAttendee {
   lockerNumber: string | null;
   clientGender: string | null;
   sessionId: string | null;
+  sessionStatus: string | null;
   treatmentSlipId: string | null;
 }
 
@@ -99,6 +100,7 @@ interface OrderLite {
   status: string;
   roomType: string | null;
   groupBooking: boolean;
+  couplePackage: boolean;
   items: OrderItemLite[];
 }
 
@@ -125,6 +127,9 @@ export class BookingsComponent implements OnInit, OnDestroy {
   expandedBookingId = signal<string | null>(null);
 
   startBooking = signal<BookingResponse | null>(null);
+  startAttendeeId = signal<string | null>(null);
+  startAttendeeGender = signal<string | null>(null);
+  startAttendeeLabel = signal<string>('');
   startPrimaryTherapistId = signal<string | null>(null);
   startSecondaryTherapistId = signal<string | null>(null);
   startRoomId = signal<string | null>(null);
@@ -139,6 +144,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
   editError = signal<string | null>(null);
 
   adjustBooking = signal<BookingResponse | null>(null);
+  adjustSessionId = signal<string | null>(null);
+  adjustAttendeeLabel = signal<string>('');
   adjustNewStart = '';
   adjustNewEnd = '';
 
@@ -171,6 +178,13 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startRoomId() !== null &&
     this.startBedId() !== null
   );
+
+  isCouplePackage = computed(() => {
+    const booking = this.startBooking();
+    if (!booking) return false;
+    const ord = this.ordersByBooking().get(booking.id);
+    return ord?.couplePackage ?? false;
+  });
 
   filteredStartRooms = computed(() => {
     const rt = this.startOrderRoomType();
@@ -284,21 +298,43 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.services().find(s => s.id === id)?.name ?? '-';
   }
 
+  activeStartGender(): string | null {
+    return this.startAttendeeGender() ?? this.startBooking()?.clientGender ?? null;
+  }
+
   isBedSelectableForGender(bed: BedItem, clientGender: string | null | undefined): boolean {
     if (bed.occupancy['status'] === 'OCCUPIED') {
-      const lock = bed.occupancy['genderLock'];
-      if (lock && clientGender && lock !== clientGender) {
-        return false; // Opposing gender occupying room
-      }
-      return false; // Occupied
+      return false;
     }
     return true;
+  }
+
+  isRoomSelectableForGender(room: RoomItem, clientGender: string | null | undefined): boolean {
+    if ((room.roomType || '').toUpperCase() !== 'COMMON') return true;
+    if (!clientGender) return true;
+    if (this.isCouplePackage()) return true;
+    return !room.beds.some(b =>
+      b.occupancy['status'] === 'OCCUPIED' &&
+      b.occupancy['genderLock'] &&
+      b.occupancy['genderLock'] !== clientGender
+    );
+  }
+
+  roomCardClass(room: RoomItem): string {
+    const base = 'border rounded p-2 ';
+    if (!this.isRoomSelectableForGender(room, this.activeStartGender())) {
+      return base + 'opacity-50 bg-slate-100';
+    }
+    return base;
   }
 
   bedClass(room: RoomItem, bed: BedItem): string {
     const base = 'rounded border text-xs px-2 py-1 ';
     if (this.startBedId() === bed.id) return base + 'bg-[var(--sumi-primary)] text-white border-transparent';
-    const clientGender = this.startBooking()?.clientGender;
+    const clientGender = this.activeStartGender();
+    if (!this.isRoomSelectableForGender(room, clientGender)) {
+      return base + 'bg-slate-200 text-slate-400 cursor-not-allowed';
+    }
     if (!this.isBedSelectableForGender(bed, clientGender)) {
       const lock = bed.occupancy['genderLock'];
       if (lock === 'M') return base + 'bg-blue-100 text-blue-500 cursor-not-allowed';
@@ -309,13 +345,14 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   pickBed(room: RoomItem, bed: BedItem): void {
-    const clientGender = this.startBooking()?.clientGender;
+    const clientGender = this.activeStartGender();
+    if (!this.isRoomSelectableForGender(room, clientGender)) return;
     if (!this.isBedSelectableForGender(bed, clientGender)) return;
     this.startRoomId.set(room.id);
     this.startBedId.set(bed.id);
   }
 
-  openStart(b: BookingResponse): void {
+  private resetStartForm(b: BookingResponse): void {
     this.startBooking.set(b);
     this.startPrimaryTherapistId.set(null);
     this.startSecondaryTherapistId.set(null);
@@ -331,8 +368,33 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.refreshLineup();
   }
 
+  openStart(b: BookingResponse): void {
+    this.resetStartForm(b);
+    const order = this.ordersByBooking().get(b.id);
+    const attendees = order?.items?.flatMap(it => it.attendees) ?? [];
+    if (attendees.length === 1) {
+      this.startAttendeeId.set(attendees[0].id);
+      this.startAttendeeGender.set(attendees[0].clientGender ?? b.clientGender ?? null);
+      this.startAttendeeLabel.set(attendees[0].serviceName || b.clientNickname);
+    } else {
+      this.startAttendeeId.set(null);
+      this.startAttendeeGender.set(b.clientGender ?? null);
+      this.startAttendeeLabel.set('');
+    }
+  }
+
+  openStartForAttendee(b: BookingResponse, attendee: OrderAttendee): void {
+    this.resetStartForm(b);
+    this.startAttendeeId.set(attendee.id);
+    this.startAttendeeGender.set(attendee.clientGender ?? b.clientGender ?? null);
+    this.startAttendeeLabel.set(attendee.serviceName || ('Guest · locker ' + (attendee.lockerNumber || '—')));
+  }
+
   cancelStart(): void {
     this.startBooking.set(null);
+    this.startAttendeeId.set(null);
+    this.startAttendeeGender.set(null);
+    this.startAttendeeLabel.set('');
   }
 
   async submitStart(): Promise<void> {
@@ -353,14 +415,32 @@ export class BookingsComponent implements OnInit, OnDestroy {
       bedId: this.startBedId(),
       specificallyRequested: this.startSpecificallyRequested()
     };
-    this.http.post<SessionResponse>(`${environment.apiBaseUrl}/api/bookings/${booking.id}/sessions`, payload).subscribe({
+    const attendeeId = this.startAttendeeId();
+    const url = attendeeId
+      ? `${environment.apiBaseUrl}/api/bookings/attendees/${attendeeId}/sessions`
+      : `${environment.apiBaseUrl}/api/bookings/${booking.id}/sessions`;
+    this.http.post<SessionResponse>(url, payload).subscribe({
       next: () => {
-        this.startBooking.set(null);
+        this.cancelStart();
         this.reload();
       },
       error: (err) => {
         alert(err?.error?.message || 'Could not start session.');
       }
+    });
+  }
+
+  async endAttendeeSession(attendee: OrderAttendee): Promise<void> {
+    if (!attendee.sessionId) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'End Sub-session',
+      message: 'Are you sure you want to end this sub-session?',
+      confirmText: 'End Session',
+      danger: true
+    });
+    if (!confirmed) return;
+    this.http.post(`${environment.apiBaseUrl}/api/sessions/${attendee.sessionId}/end`, {}).subscribe({
+      next: () => this.reload()
     });
   }
 
@@ -381,6 +461,19 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
+  async extendAttendeeSession(attendee: OrderAttendee): Promise<void> {
+    if (!attendee.sessionId) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Extend Sub-session',
+      message: 'Do you want to extend this sub-session by 30 minutes?',
+      confirmText: 'Extend'
+    });
+    if (!confirmed) return;
+    this.http.post(`${environment.apiBaseUrl}/api/sessions/${attendee.sessionId}/extend?minutes=30`, {}).subscribe({
+      next: () => this.reload()
+    });
+  }
+
   async extendSession(b: BookingResponse): Promise<void> {
     const confirmed = await this.confirmService.confirm({
       title: 'Extend Session',
@@ -397,14 +490,18 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  openAdjust(b: BookingResponse): void {
+  openAdjust(b: BookingResponse, sessionId?: string, label?: string): void {
     this.adjustBooking.set(b);
+    this.adjustSessionId.set(sessionId ?? null);
+    this.adjustAttendeeLabel.set(label ?? '');
     this.adjustNewStart = '';
     this.adjustNewEnd = '';
   }
 
   cancelAdjust(): void {
     this.adjustBooking.set(null);
+    this.adjustSessionId.set(null);
+    this.adjustAttendeeLabel.set('');
   }
 
   async submitAdjust(): Promise<void> {
@@ -416,7 +513,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
       confirmText: 'Apply'
     });
     if (!confirmed) return;
-    this.lookupSession(b.id).subscribe(session => {
+    const sid = this.adjustSessionId();
+    const lookup$ = sid
+      ? this.http.get<SessionResponse>(`${environment.apiBaseUrl}/api/sessions/by-id/${sid}`)
+      : this.lookupSession(b.id);
+    lookup$.subscribe(session => {
       if (!session) return;
       const params: string[] = [];
       if (this.adjustNewStart) params.push(`startAt=${encodeURIComponent(new Date(this.adjustNewStart).toISOString())}`);
@@ -425,6 +526,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
       this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/adjust-times${qs}`, {}).subscribe({
         next: () => {
           this.adjustBooking.set(null);
+          this.adjustSessionId.set(null);
+          this.adjustAttendeeLabel.set('');
           this.reload();
         }
       });
@@ -443,6 +546,18 @@ export class BookingsComponent implements OnInit, OnDestroy {
       this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${session.id}`, {}).subscribe({
         next: (slip) => this.router.navigate(['/app/treatment-slips', slip.id])
       });
+    });
+  }
+
+  async generateSlipForSession(sessionId: string): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Generate Treatment Slip',
+      message: 'Generate a treatment slip for this sub-session?',
+      confirmText: 'Generate'
+    });
+    if (!confirmed) return;
+    this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${sessionId}`, {}).subscribe({
+      next: (slip) => this.router.navigate(['/app/treatment-slips', slip.id])
     });
   }
 

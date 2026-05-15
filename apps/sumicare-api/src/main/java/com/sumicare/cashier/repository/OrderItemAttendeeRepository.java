@@ -12,4 +12,5 @@ public interface OrderItemAttendeeRepository extends JpaRepository<OrderItemAtte
     List<OrderItemAttendee> findAllByOrderIdOrderByPosition(UUID orderId);
     Optional<OrderItemAttendee> findBySessionId(UUID sessionId);
     Optional<OrderItemAttendee> findByTreatmentSlipId(UUID treatmentSlipId);
+    void deleteAllByOrderId(UUID orderId);
 }

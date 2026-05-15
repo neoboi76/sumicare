@@ -14,5 +14,7 @@ public record CreateBookingRequest(
         @NotBlank String reservationType,
         @NotNull OffsetDateTime scheduledAt,
         Integer pax,
-        String clientGender
+        String clientGender,
+        Long packageId,
+        Long packageTierId
 ) {}

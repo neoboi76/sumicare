@@ -57,6 +57,7 @@ interface Order {
   weekend: boolean;
   roomType: string | null;
   roomTypeCharge: number;
+  sessionCompleted: boolean;
   items: OrderItem[];
 }
 
@@ -120,8 +121,8 @@ export class OrderDetailComponent implements OnInit {
   recordPayment(): void {
     const o = this.order();
     if (!o || this.busy()) return;
-    if (!this.newPaymentAmount || this.newPaymentAmount <= 0) {
-      this.error.set('Enter a payment amount > 0.');
+    if (!this.newPaymentAmount || this.newPaymentAmount < 0) {
+      this.error.set('Enter a valid payment amount.');
       return;
     }
     if (this.newPaymentAmount > o.balance) {
@@ -272,6 +273,12 @@ export class OrderDetailComponent implements OnInit {
 
   back(): void {
     this.router.navigate(['/app/orders']);
+  }
+
+  editOrder(): void {
+    const o = this.order();
+    if (!o) return;
+    this.router.navigate(['/app/cashier'], { queryParams: { orderId: o.id } });
   }
 
   downloadReceipt(): void {

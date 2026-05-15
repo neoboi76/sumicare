@@ -21,8 +21,10 @@
           <th class="text-left p-3">TSN</th>
           <th class="text-left p-3">Client</th>
           <th class="text-left p-3">Service</th>
+          <th class="text-left p-3">Room</th>
           <th class="text-left p-3">Therapist</th>
-          <th class="text-left p-3">Time</th>
+          <th class="text-left p-3">Start</th>
+          <th class="text-left p-3">End</th>
           <th class="text-left p-3">VIP</th>
           <th class="text-right p-3"></th>
         </tr>
@@ -33,8 +35,13 @@
             <td class="p-3 font-mono text-xs">{{ s.tsn }}</td>
             <td class="p-3 font-medium">{{ s.clientNickname }}</td>
             <td class="p-3">{{ s.serviceName }}</td>
-            <td class="p-3">{{ s.primaryTherapistNickname || '-' }}</td>
-            <td class="p-3 font-mono text-xs">{{ formatRange(s.startTime, s.endTime) }}</td>
+            <td class="p-3">{{ s.roomNumber || '-' }}</td>
+            <td class="p-3">
+              {{ s.primaryTherapistNickname || '-' }}
+              @if (s.secondaryTherapistNickname) { / {{ s.secondaryTherapistNickname }} }
+            </td>
+            <td class="p-3 font-mono text-xs">{{ s.startTime ? formatTime(s.startTime) : '-' }}</td>
+            <td class="p-3 font-mono text-xs">{{ s.endTime ? formatTime(s.endTime) : '-' }}</td>
             <td class="p-3">{{ s.vip ? 'Yes' : '' }}</td>
             <td class="p-3 text-right">
               <a [routerLink]="['/app/treatment-slips', s.id]" class="text-[var(--sumi-primary)] hover:underline">Open</a>
@@ -42,7 +49,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="7" class="p-6 text-center text-slate-500">No slips for this date.</td>
+            <td colspan="9" class="p-6 text-center text-slate-500">No slips for this date.</td>
           </tr>
         }
       </tbody>

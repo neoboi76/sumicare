@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -26,6 +26,8 @@ import java.util.UUID;
 
 @org.springframework.stereotype.Service
 public class DeckingReportService {
+
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     private final CommissionRepository commissionRepository;
     private final SessionRepository sessionRepository;
@@ -53,7 +55,7 @@ public class DeckingReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public DeckingDailyReport daily(UUID organizationId, LocalDate date) {
-        OffsetDateTime from = date.atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime from = date.atStartOfDay(MANILA).toOffsetDateTime();
         OffsetDateTime to = from.plusDays(1);
 
         List<Commission> commissions = commissionRepository

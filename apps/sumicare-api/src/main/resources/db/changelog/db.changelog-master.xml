@@ -20,4 +20,7 @@
     <include file="changes/0013-package-seed.xml" relativeToChangelogFile="true"/>
     <include file="changes/0014-vip-packages-and-room-seed.xml" relativeToChangelogFile="true"/>
     <include file="changes/0015-widen-ledger-entry-type.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0016-batch-fixes.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0017-voucher-name.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0018-treatment-slip-nationality.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

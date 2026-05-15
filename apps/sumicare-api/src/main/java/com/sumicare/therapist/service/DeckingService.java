@@ -145,11 +145,16 @@ public class DeckingService {
         return first.getScore() == null ? Instant.now().toEpochMilli() : first.getScore();
     }
 
+    public boolean isSkipped(UUID organizationId, UUID therapistId) {
+        return Boolean.TRUE.equals(redis.hasKey(skipKey(organizationId, therapistId)));
+    }
+
     public enum DeckingFlag {
         NONE,
         REQUESTED,
         SCRUB,
         ORDINARY,
-        BACKUP
+        BACKUP,
+        MANUAL
     }
 }

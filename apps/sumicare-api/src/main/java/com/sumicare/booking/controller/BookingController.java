@@ -75,6 +75,13 @@ public class BookingController {
         return bookingService.startSession(UUID.fromString(principal.organizationId()), bookingId, request);
     }
 
+    @PostMapping("/api/bookings/attendees/{attendeeId}/sessions")
+    public SessionResponse startAttendee(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                         @PathVariable UUID attendeeId,
+                                         @RequestBody StartSessionRequest request) {
+        return bookingService.startAttendeeSession(UUID.fromString(principal.organizationId()), attendeeId, request);
+    }
+
     @PostMapping("/api/sessions/{sessionId}/cancel")
     public SessionResponse cancelSession(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                          @PathVariable UUID sessionId) {
@@ -98,6 +105,18 @@ public class BookingController {
                                   @RequestParam(required = false) OffsetDateTime startAt,
                                   @RequestParam(required = false) OffsetDateTime endAt) {
         return bookingService.adjustTimes(sessionId, startAt, endAt);
+    }
+
+    @GetMapping("/api/sessions/by-id/{sessionId}")
+    public SessionResponse byId(@PathVariable UUID sessionId) {
+        return sessionRepository.findById(sessionId)
+                .map(s -> new SessionResponse(
+                        s.getId(), s.getBookingId(),
+                        s.getPrimaryTherapistId(), s.getSecondaryTherapistId(),
+                        s.getRoomId(), s.getBedId(), s.isSpecificallyRequested(),
+                        s.isExtension(), s.getExtensionMinutes(),
+                        s.getStartedAt(), s.getExpectedEndAt(), s.getEndedAt(), s.getStatus()))
+                .orElseThrow();
     }
 
     @GetMapping("/api/sessions/by-booking/{bookingId}")

@@ -32,6 +32,13 @@ public class VoucherController {
         return voucherService.create(UUID.fromString(principal.organizationId()), voucher);
     }
 
+    @PutMapping("/{id}")
+    public Voucher update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                          @PathVariable UUID id,
+                          @RequestBody Voucher voucher) {
+        return voucherService.update(UUID.fromString(principal.organizationId()), id, voucher);
+    }
+
     @GetMapping("/check")
     public VoucherCheckResponse check(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                       @RequestParam String code,
@@ -40,8 +47,8 @@ public class VoucherController {
         Voucher voucher = voucherService.findValid(organizationId, code)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Voucher invalid or already redeemed"));
         BigDecimal discount = voucherService.computeDiscount(voucher, subtotal);
-        return new VoucherCheckResponse(voucher.getId(), voucher.getCode(), discount);
+        return new VoucherCheckResponse(voucher.getId(), voucher.getCode(), voucher.getName(), discount);
     }
 
-    public record VoucherCheckResponse(UUID id, String code, BigDecimal discount) {}
+    public record VoucherCheckResponse(UUID id, String code, String name, BigDecimal discount) {}
 }

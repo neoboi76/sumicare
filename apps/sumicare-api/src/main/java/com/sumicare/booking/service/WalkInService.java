@@ -160,10 +160,8 @@ public class WalkInService {
             slip.setTreatmentMinutes(service.getDurationMinutes());
         }
 
-        if (request.waiverAccepted()) {
-            slip.setWaiverAccepted(true);
-            slip.setWaiverAcceptedAt(OffsetDateTime.now());
-        }
+        slip.setWaiverAccepted(true);
+        slip.setWaiverAcceptedAt(OffsetDateTime.now());
 
         if (request.primaryTherapistId() != null) {
             therapistRepository.findById(request.primaryTherapistId()).ifPresent(t -> {
@@ -182,19 +180,19 @@ public class WalkInService {
                     .ifPresent(r -> slip.setRoomNumber(r.getRoomNumber()));
         }
 
-        TreatmentSlip saved = slipRepository.save(slip);
+        TreatmentSlip savedSlip = slipRepository.save(slip);
 
         Order order = new Order();
         order.setOrganizationId(organizationId);
         order.setBookingId(booking.getId());
-        order.setTreatmentSlipId(saved.getId());
+        order.setTreatmentSlipId(savedSlip.getId());
         order.setOrNumber(request.orNumber());
         order.setSubtotal(request.totalAmount() == null ? java.math.BigDecimal.ZERO : request.totalAmount());
         order.setTotal(request.totalAmount() == null ? java.math.BigDecimal.ZERO : request.totalAmount());
         order.setStatus("ACTIVE");
         orderRepository.save(order);
 
-        return new WalkInResponse(saved.getId(), booking.getId(), session.getId(), saved.getTsn());
+        return new WalkInResponse(savedSlip.getId(), booking.getId(), session.getId(), savedSlip.getTsn());
     }
 
     private void enforceGenderLock(UUID organizationId, UUID roomId, List<UUID> bedIds, String clientGender) {

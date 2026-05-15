@@ -11,6 +11,11 @@
     </nav>
   </header>
 
+  @if (editingOrderId()) {
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">Editing an existing open order.
+    Saving will replace its items, attendees, discount and room selection.</div>
+  }
+
   @if (error(); as e) {
   <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{{ e }}</div>
   }
@@ -20,7 +25,7 @@
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Transactor</h2>
         <p class="text-xs text-slate-500">The single named entity on the receipt. Individual attendees are tracked per
-          package line by locker + sex.</p>
+          package line by locker + sex. The first guest's sex follows the selected client profile.</p>
         <label class="block text-sm">
           Transactor name <span class="text-red-500">*</span>
           <input [(ngModel)]="transactorName" name="transactorName" maxlength="120"
@@ -83,46 +88,53 @@
         </div>
 
         @if (cart().length === 0) {
-        <p class="text-center text-xs text-slate-500 py-4">No packages yet — each package line = one person.</p>
+        <p class="text-center text-xs text-slate-500 py-4">No packages yet. A package with a default pax greater than one
+          (e.g. couple package) adds one guest row per person.</p>
         } @else {
         <div class="space-y-2">
           @for (it of cart(); track $index) {
           <div class="border border-slate-200 rounded-lg p-3 space-y-2">
             <div class="flex items-center justify-between">
-              <div class="font-medium text-sm">{{ $index + 1 }}. {{ it.packageName }}</div>
+              <div class="font-medium text-sm">{{ $index + 1 }}. {{ it.packageName }}
+                <span class="text-xs text-slate-400">({{ it.attendees.length }} guest{{ it.attendees.length > 1 ? 's' : '' }})</span>
+              </div>
               <div class="flex items-center gap-3">
                 <span class="text-sm font-semibold">&#8369; {{ it.lineTotal | number:'1.2-2' }}</span>
                 <button (click)="removeItem($index)" class="text-xs text-red-600 hover:underline">Remove</button>
               </div>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
-              @if (it.includesMassage) {
+            @for (att of it.attendees; track $index; let attIdx = $index) {
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm border-t border-slate-100 pt-2">
               <label class="block">
-                <span class="text-xs text-slate-500">Massage</span>
-                <select [ngModel]="it.attendee.packageTierId" name="tier{{$index}}"
-                  (ngModelChange)="onAttendeeMassageChange($index, $event)"
-                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
-                  <option [ngValue]="null" disabled>Choose massage</option>
-                  @for (t of it.tiers; track t.id) {
-                  <option [ngValue]="t.id">{{ t.serviceName }}</option>
-                  }
-                </select>
+                <span class="text-xs text-slate-500">Guest {{ attIdx + 1 }} — Massage</span>
+                @if (it.couple && attIdx > 0) {
+                  <div class="mt-1 px-2 py-1.5 bg-slate-100 rounded text-slate-500 text-sm">Shared</div>
+                } @else {
+                  <select [ngModel]="att.packageTierId" name="tier{{$index}}_{{attIdx}}"
+                    (ngModelChange)="onAttendeeMassageChange($index, attIdx, $event)"
+                    class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+                    <option [ngValue]="null" disabled>Choose massage</option>
+                    @for (t of it.tiers; track t.id) {
+                    <option [ngValue]="t.id">{{ t.serviceName }}</option>
+                    }
+                  </select>
+                }
               </label>
-              }
               <label class="block">
                 <span class="text-xs text-slate-500">Locker #</span>
-                <input [(ngModel)]="it.attendee.lockerNumber" name="locker{{$index}}" maxlength="16"
+                <input [(ngModel)]="att.lockerNumber" name="locker{{$index}}_{{attIdx}}" maxlength="16"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
               </label>
               <label class="block">
                 <span class="text-xs text-slate-500">Sex</span>
-                <select [(ngModel)]="it.attendee.clientGender" name="gender{{$index}}"
+                <select [(ngModel)]="att.clientGender" name="gender{{$index}}_{{attIdx}}"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
                   <option value="F">Female</option>
                   <option value="M">Male</option>
                 </select>
               </label>
             </div>
+            }
           </div>
           }
         </div>
@@ -177,12 +189,29 @@
             Reference number
             <input [(ngModel)]="referenceNumber" name="referenceNumber" maxlength="100"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
-            <span class="text-[11px] text-slate-400">OR # is generated automatically on checkout.</span>
           </label>
-          <label class="flex items-center gap-2 mt-5">
-            <input type="checkbox" [checked]="groupBooking()" (change)="groupBooking.set(!groupBooking())"
+          <label class="block">
+            OR #
+            <input [(ngModel)]="orNumber" name="orNumber" maxlength="50" placeholder="Leave blank to auto-generate"
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+            <span class="text-[11px] text-slate-400">Editable. Generated automatically if left blank.</span>
+          </label>
+          <label class="flex items-center gap-2 mt-5"
+            [class.opacity-50]="totalAttendees() < 2">
+            <input type="checkbox" [checked]="groupBooking()" [disabled]="totalAttendees() < 2"
+              (change)="groupBooking.set(!groupBooking())"
               class="accent-[var(--sumi-primary)]" />
             Group booking
+          </label>
+          <label class="block">
+            Voucher code
+            <div class="flex gap-2 mt-1">
+              <input [(ngModel)]="voucherCode" name="voucherCode" maxlength="64"
+                class="flex-1 border border-slate-300 rounded px-2 py-1.5" />
+              <button type="button" (click)="applyVoucher()"
+                class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 text-sm">Apply</button>
+            </div>
+            @if (voucherError(); as ve) { <span class="text-[11px] text-red-600">{{ ve }}</span> }
           </label>
           <label class="block md:col-span-2">
             Notes
@@ -263,7 +292,7 @@
 
         <button (click)="checkout()" [disabled]="submitting() || cart().length === 0 || !transactorName.trim()"
           class="w-full mt-3 py-2.5 bg-[var(--sumi-primary)] text-white rounded text-sm font-medium disabled:opacity-50">
-          {{ submitting() ? 'Processing...' : 'Checkout' }}
+          {{ submitting() ? 'Processing...' : (editingOrderId() ? 'Save changes' : 'Checkout') }}
         </button>
         <p class="text-[11px] text-slate-400">
           This software is not BIR approved. Powered by SumiCare, for order-taking only. All BIR-related calculation
@@ -326,14 +355,19 @@
       <div class="px-6 py-4 space-y-5">
         <div>
           <div class="font-semibold text-slate-900 mb-2">Adjustment options and templates:</div>
-          <div class="flex gap-2">
-            @for (tmpl of discountTemplates; track tmpl.label) {
-            <button (click)="applyTemplate(tmpl)" class="px-3 py-1.5 text-xs rounded border"
-              [class.bg-\[var\(--sumi-primary\)\]]="activeTemplate() === tmpl.label"
-              [class.text-white]="activeTemplate() === tmpl.label"
-              [class.border-slate-300]="activeTemplate() !== tmpl.label">
-              {{ tmpl.label }}
-            </button>
+          <div class="flex gap-2 flex-wrap">
+            @for (tmpl of discountTemplates(); track tmpl.id || tmpl.label) {
+            <div class="inline-flex items-center gap-1">
+              <button (click)="applyTemplate(tmpl)" class="px-3 py-1.5 text-xs rounded border"
+                [class.bg-\[var\(--sumi-primary\)\]]="activeTemplate() === (tmpl.name || tmpl.label)"
+                [class.text-white]="activeTemplate() === (tmpl.name || tmpl.label)"
+                [class.border-slate-300]="activeTemplate() !== (tmpl.name || tmpl.label)">
+                {{ tmpl.name || tmpl.label }}
+              </button>
+              @if (tmpl.id) {
+                <button (click)="deleteTemplate(tmpl)" class="text-slate-400 hover:text-red-600 px-1 text-xs" title="Delete">×</button>
+              }
+            </div>
             }
           </div>
         </div>
@@ -428,11 +462,16 @@
         </div>
         }
       </div>
-      <div class="px-6 py-4 border-t flex justify-end gap-2">
-        <button (click)="closeDiscountModal()"
-          class="rounded border border-slate-300 text-slate-600 px-4 py-2 text-sm">Cancel</button>
-        <button (click)="applyDiscount()"
-          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Apply</button>
+      <div class="px-6 py-4 border-t flex justify-between gap-2">
+        <button (click)="saveAsTemplate()"
+          class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-4 py-2 text-sm">Save as
+          template</button>
+        <div class="flex gap-2">
+          <button (click)="closeDiscountModal()"
+            class="rounded border border-slate-300 text-slate-600 px-4 py-2 text-sm">Cancel</button>
+          <button (click)="applyDiscount()"
+            class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Apply</button>
+        </div>
       </div>
     </div>
   </div>

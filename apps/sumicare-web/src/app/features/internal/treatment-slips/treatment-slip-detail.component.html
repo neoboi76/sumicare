@@ -15,6 +15,9 @@
       <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Edit slip (DRAFT)</h3>
       @if (saveError(); as e) { <p class="text-sm text-red-600">{{ e }}</p> }
       <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="block col-span-2">TS #
+          <input [(ngModel)]="edit.tsn" name="etsn" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
         <label class="block">Locker
           <input [(ngModel)]="edit.lockerNumber" name="elocker" maxlength="16" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
         </label>
@@ -94,7 +97,7 @@
         </div>
         <div class="cell">
           <span class="label">Nationality</span>
-          <div class="value">&nbsp;</div>
+          <div class="value">{{ s.nationality || '' }}</div>
         </div>
       </div>
 
@@ -164,14 +167,10 @@
         </div>
       </div>
 
-      <div class="row" style="grid-template-columns: 2fr 1fr;">
-        <div class="cell">
+      <div class="row row-2">
+        <div class="cell" style="grid-column: span 2;">
           <span class="label">Others / Add On</span>
           <div class="value">{{ s.othersAddOn || '' }}</div>
-        </div>
-        <div class="cell">
-          <span class="label">OR #</span>
-          <div class="value">{{ s.addOnOrNumber || '' }}</div>
         </div>
       </div>
 

@@ -74,9 +74,36 @@
                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
                placeholder="1" />
       </label>
+      @if (packages().length > 0) {
+      <label class="block text-sm text-gray-700">
+        Package (optional)
+        <select [(ngModel)]="packageId" name="packageId" (ngModelChange)="onPackageChange()"
+                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+          <option [ngValue]="null">No package — pick an individual service</option>
+          @for (p of packages(); track p.id) {
+            <option [ngValue]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      </label>
+      }
+
+      @if (packageId != null) {
+      <label class="block text-sm text-gray-700">
+        Massage <span class="text-red-500">*</span>
+        <select [(ngModel)]="packageTierId" name="packageTierId"
+                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+          <option [ngValue]="null" disabled>Select a massage</option>
+          @for (t of packageTiers(); track t.id) {
+            <option [ngValue]="t.id">{{ t.serviceName }} — &#8369;{{ t.weekdayPrice }}</option>
+          }
+        </select>
+        <span class="text-xs text-gray-400 mt-1 block">The front desk will finalise pax, lockers and payment when you
+          arrive.</span>
+      </label>
+      } @else {
       <label class="block text-sm text-gray-700">
         Service <span class="text-red-500">*</span>
-        <select [(ngModel)]="serviceId" name="serviceId" required
+        <select [(ngModel)]="serviceId" name="serviceId"
                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
           <option [ngValue]="null" disabled>Select a service</option>
           @for (s of services(); track s.id) {
@@ -84,6 +111,7 @@
           }
         </select>
       </label>
+      }
       <label class="block text-sm text-gray-700">
         Reservation type
         <select [(ngModel)]="reservationType" name="reservationType"

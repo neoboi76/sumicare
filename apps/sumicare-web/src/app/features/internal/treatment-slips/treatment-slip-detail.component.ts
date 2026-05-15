@@ -10,6 +10,7 @@ interface TreatmentSlip {
   id: string;
   tsn: string;
   clientNickname: string;
+  nationality: string | null;
   lockerNumber: string | null;
   requestedTherapistNickname: string | null;
   primaryTherapistNickname: string | null;
@@ -52,6 +53,7 @@ export class TreatmentSlipDetailComponent implements OnInit {
   saveError = signal<string | null>(null);
 
   edit = {
+    tsn: '',
     lockerNumber: '',
     roomNumber: '',
     othersAddOn: '',
@@ -75,6 +77,7 @@ export class TreatmentSlipDetailComponent implements OnInit {
       next: (s) => {
         this.slip.set(s);
         this.edit = {
+          tsn: s.tsn || '',
           lockerNumber: s.lockerNumber || '',
           roomNumber: s.roomNumber || '',
           othersAddOn: s.othersAddOn || '',
@@ -104,6 +107,7 @@ export class TreatmentSlipDetailComponent implements OnInit {
     const s = this.slip();
     if (!s) return;
     this.http.patch<TreatmentSlip>(`${environment.apiBaseUrl}/api/treatment-slips/${s.id}`, {
+      tsn: this.edit.tsn || null,
       lockerNumber: this.edit.lockerNumber || null,
       roomNumber: this.edit.roomNumber || null,
       othersAddOn: this.edit.othersAddOn || null,

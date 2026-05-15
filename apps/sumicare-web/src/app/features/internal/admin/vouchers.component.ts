@@ -7,6 +7,7 @@ import { environment } from '../../../../environments/environment';
 interface Voucher {
   id: string;
   code: string;
+  name: string | null;
   discountAmount: number | null;
   discountPercent: number | null;
   validFrom: string | null;
@@ -26,12 +27,15 @@ export class VouchersAdminComponent implements OnInit {
   private http = inject(HttpClient);
   vouchers = signal<Voucher[]>([]);
   showForm = signal(false);
+  editingVoucher = signal<Voucher | null>(null);
 
   formCode = '';
+  formName = '';
   formAmount: number | null = null;
   formPercent: number | null = null;
   formFrom = '';
   formUntil = '';
+  formActive = true;
 
   ngOnInit(): void {
     this.reload();
@@ -52,19 +56,46 @@ export class VouchersAdminComponent implements OnInit {
   submit(): void {
     const payload = {
       code: this.formCode,
+      name: this.formName || null,
       discountAmount: this.formAmount ? Number(this.formAmount) : null,
       discountPercent: this.formPercent ? Number(this.formPercent) : null,
       validFrom: this.formFrom || null,
-      validUntil: this.formUntil || null
+      validUntil: this.formUntil || null,
+      active: this.formActive
     };
-    this.http.post(`${environment.apiBaseUrl}/api/vouchers`, payload).subscribe({
+    const editing = this.editingVoucher();
+    const req = editing
+      ? this.http.put<Voucher>(`${environment.apiBaseUrl}/api/vouchers/${editing.id}`, payload)
+      : this.http.post<Voucher>(`${environment.apiBaseUrl}/api/vouchers`, payload);
+    req.subscribe({
       next: () => {
-        this.showForm.set(false);
-        this.formCode = '';
-        this.formAmount = null;
-        this.formPercent = null;
+        this.closeForm();
         this.reload();
       }
     });
+  }
+
+  startEdit(v: Voucher): void {
+    this.editingVoucher.set(v);
+    this.formCode = v.code;
+    this.formName = v.name || '';
+    this.formAmount = v.discountAmount;
+    this.formPercent = v.discountPercent;
+    this.formFrom = v.validFrom || '';
+    this.formUntil = v.validUntil || '';
+    this.formActive = v.active;
+    this.showForm.set(true);
+  }
+
+  closeForm(): void {
+    this.showForm.set(false);
+    this.editingVoucher.set(null);
+    this.formCode = '';
+    this.formName = '';
+    this.formAmount = null;
+    this.formPercent = null;
+    this.formFrom = '';
+    this.formUntil = '';
+    this.formActive = true;
   }
 }

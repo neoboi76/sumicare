@@ -87,6 +87,9 @@ public class TreatmentSlip {
     @Column(name = "remarks", columnDefinition = "text")
     private String remarks;
 
+    @Column(name = "nationality", length = 64)
+    private String nationality;
+
     @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
@@ -168,4 +171,6 @@ public class TreatmentSlip {
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getNationality() { return nationality; }
+    public void setNationality(String nationality) { this.nationality = nationality; }
 }

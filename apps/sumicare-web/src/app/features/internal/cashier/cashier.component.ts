@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
@@ -53,10 +53,12 @@ interface CartItem {
   packageName: string;
   includesMassage: boolean;
   requiresVipRoom: boolean;
+  couple: boolean;
+  defaultPax: number;
   tiers: PackageTier[];
   unitPrice: number;
   lineTotal: number;
-  attendee: CartAttendee;
+  attendees: CartAttendee[];
 }
 
 interface AddedPayment {
@@ -72,6 +74,15 @@ interface DiscountConfig {
   percent: number;
   fixedAmount: number;
   appliedItemIndices: number[];
+}
+
+interface DiscountTemplate {
+  label: string;
+  percent: number;
+  name: string;
+  id?: string;
+  amountType?: 'PERCENT' | 'FIXED';
+  fixedAmount?: number;
 }
 
 interface OrderCreated {
@@ -96,6 +107,7 @@ type RoomType = 'COMMON' | 'PRIVATE' | 'VIP';
 export class CashierComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private confirmService = inject(ConfirmService);
 
   searchTerm = '';
@@ -113,7 +125,14 @@ export class CashierComponent implements OnInit {
   roomAvailability = signal<{ COMMON: number; PRIVATE: number; VIP: number }>({ COMMON: 0, PRIVATE: 0, VIP: 0 });
 
   referenceNumber = '';
+  orNumber = '';
   notes = '';
+
+  editingOrderId = signal<string | null>(null);
+
+  voucherCode = '';
+  voucherId = signal<string | null>(null);
+  voucherError = signal<string | null>(null);
 
   paymentMethod = signal<'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'>('CASH');
   paymentAmount = 0;
@@ -128,10 +147,12 @@ export class CashierComponent implements OnInit {
   discountConfig = signal<DiscountConfig>({
     name: '', type: 'DISCOUNT', amountType: 'PERCENT', percent: 0, fixedAmount: 0, appliedItemIndices: []
   });
-  discountTemplates = [
+  builtinTemplates: DiscountTemplate[] = [
     { label: 'Custom', percent: 0, name: '' },
     { label: 'SENIOR/PWD', percent: 20, name: 'Senior/PWD Discount' }
   ];
+  savedTemplates = signal<DiscountTemplate[]>([]);
+  discountTemplates = computed<DiscountTemplate[]>(() => [...this.builtinTemplates, ...this.savedTemplates()]);
   activeTemplate = signal<string>('Custom');
   discountSummary = signal<{ name: string; amount: number }[]>([]);
 
@@ -142,6 +163,7 @@ export class CashierComponent implements OnInit {
   effectiveRoomType = computed<RoomType>(() => this.anyVip() ? 'VIP' : this.roomType());
   roomSurcharge = computed(() => this.effectiveRoomType() === 'PRIVATE' ? 500 : 0);
 
+  totalAttendees = computed(() => this.cart().reduce((sum, c) => sum + c.attendees.length, 0));
   itemsSubtotal = computed(() => this.cart().reduce((sum, c) => sum + Number(c.lineTotal || 0), 0));
   subtotal = computed(() => this.itemsSubtotal() + this.roomSurcharge());
   totalDiscount = computed(() => this.discountSummary().reduce((sum, d) => sum + d.amount, 0));
@@ -150,15 +172,81 @@ export class CashierComponent implements OnInit {
   due = computed(() => Math.max(0, this.total() - this.paid()));
 
   ngOnInit(): void {
-    this.loadPackages();
     this.loadRoomAvailability();
     this.searchClients();
+    this.loadDiscountTemplates();
+    const orderId = this.route.snapshot.queryParamMap.get('orderId');
+    this.loadPackages(orderId);
   }
 
-  loadPackages(): void {
+  loadPackages(orderIdToEdit?: string | null): void {
     this.http.get<PackageDef[]>(`${environment.apiBaseUrl}/api/cashier/packages`).subscribe({
-      next: (p) => this.packages.set(p),
+      next: (p) => {
+        this.packages.set(p);
+        if (orderIdToEdit) this.loadOrderForEdit(orderIdToEdit);
+      },
       error: () => this.packages.set([])
+    });
+  }
+
+  loadDiscountTemplates(): void {
+    this.http.get<DiscountTemplate[]>(`${environment.apiBaseUrl}/api/cashier/discount-templates`).subscribe({
+      next: (rows) => this.savedTemplates.set(rows.map(r => ({
+        id: r.id,
+        label: r.name,
+        name: r.name,
+        amountType: r.amountType,
+        percent: r.amountType === 'PERCENT' ? Number(r.percent || 0) : 0,
+        fixedAmount: r.amountType === 'FIXED' ? Number(r.fixedAmount || 0) : 0
+      }))),
+      error: () => this.savedTemplates.set([])
+    });
+  }
+
+  private loadOrderForEdit(orderId: string): void {
+    this.http.get<any>(`${environment.apiBaseUrl}/api/cashier/orders/${orderId}`).subscribe({
+      next: (o) => {
+        if (o.status !== 'OPEN') {
+          this.error.set('This order must be re-opened before it can be edited.');
+          return;
+        }
+        this.editingOrderId.set(o.id);
+        this.transactorName = o.transactorName || o.clientNickname || '';
+        this.referenceNumber = o.referenceNumber || '';
+        this.orNumber = o.orNumber || '';
+        this.notes = o.notes || '';
+        this.weekend.set(!!o.weekend);
+        this.groupBooking.set(!!o.groupBooking);
+        if (o.roomType === 'PRIVATE' || o.roomType === 'COMMON') this.roomType.set(o.roomType);
+        if (o.discount && o.discount > 0) {
+          this.discountSummary.set([{ name: 'Existing discount', amount: Number(o.discount) }]);
+        }
+        const items: CartItem[] = (o.items || []).map((it: any) => {
+          const pkg = this.packages().find(p => p.id === it.packageId);
+          const attendees: CartAttendee[] = (it.attendees || []).map((a: any) => ({
+            serviceId: a.serviceId ?? null,
+            packageTierId: a.packageTierId ?? null,
+            serviceName: a.serviceName || '',
+            lockerNumber: a.lockerNumber || '',
+            clientGender: (a.clientGender === 'M' ? 'M' : 'F') as 'M' | 'F'
+          }));
+          return {
+            packageId: it.packageId,
+            packageCode: pkg?.code || '',
+            packageName: it.packageName || pkg?.name || '',
+            includesMassage: pkg?.includesMassage ?? false,
+            requiresVipRoom: pkg?.requiresVipRoom ?? false,
+            couple: pkg?.couple ?? false,
+            defaultPax: pkg?.defaultPax ?? 1,
+            tiers: pkg?.tiers || [],
+            unitPrice: Number(it.unitPrice || 0),
+            lineTotal: Number(it.lineTotal || 0),
+            attendees: attendees.length > 0 ? attendees : [this.blankAttendee()]
+          };
+        });
+        this.cart.set(items);
+      },
+      error: () => this.error.set('Could not load the order for editing.')
     });
   }
 
@@ -186,6 +274,16 @@ export class CashierComponent implements OnInit {
     this.searchResults.set([]);
     this.searchTerm = '';
     if (!this.transactorName.trim()) this.transactorName = c.nickname;
+    if (c.gender === 'M' || c.gender === 'F') {
+      this.cart.update(items => {
+        if (items.length === 0 || items[0].attendees.length === 0) return items;
+        const first = { ...items[0] };
+        const attendees = first.attendees.slice();
+        attendees[0] = { ...attendees[0], clientGender: c.gender as 'M' | 'F' };
+        first.attendees = attendees;
+        return [first, ...items.slice(1)];
+      });
+    }
   }
 
   clearClient(): void {
@@ -218,53 +316,80 @@ export class CashierComponent implements OnInit {
     });
   }
 
+  private blankAttendee(): CartAttendee {
+    return { serviceId: null, packageTierId: null, serviceName: '', lockerNumber: '', clientGender: 'F' };
+  }
+
   addPackage(): void {
     if (this.selectedPackageId == null) return;
     const pkg = this.packages().find(p => p.id === Number(this.selectedPackageId));
     if (!pkg) return;
+    const pax = Math.max(1, pkg.defaultPax || 1);
+    const attendees: CartAttendee[] = [];
+    for (let i = 0; i < pax; i++) attendees.push(this.blankAttendee());
     const item: CartItem = {
       packageId: pkg.id,
       packageCode: pkg.code,
       packageName: pkg.name,
       includesMassage: pkg.includesMassage,
       requiresVipRoom: pkg.requiresVipRoom,
+      couple: pkg.couple,
+      defaultPax: pax,
       tiers: pkg.tiers,
       unitPrice: 0,
       lineTotal: 0,
-      attendee: { serviceId: null, packageTierId: null, serviceName: '', lockerNumber: '', clientGender: 'F' }
+      attendees
     };
-    if (!pkg.includesMassage && pkg.tiers.length > 0) {
+    if (pkg.tiers.length > 0) {
       const tier = pkg.tiers[0];
-      item.attendee.packageTierId = tier.id;
-      item.unitPrice = this.weekend() ? tier.weekendPrice : tier.weekdayPrice;
-      item.lineTotal = item.unitPrice;
+      const price = this.weekend() ? tier.weekdayPrice : tier.weekendPrice;
+      for (const a of item.attendees) {
+        a.packageTierId = tier.id;
+        a.serviceId = tier.serviceId;
+        a.serviceName = tier.serviceName || '';
+      }
+      item.unitPrice = price;
+      item.lineTotal = price;
+    }
+    const client = this.selectedClient();
+    if (this.cart().length === 0 && client && (client.gender === 'M' || client.gender === 'F')) {
+      item.attendees[0].clientGender = client.gender as 'M' | 'F';
     }
     this.cart.update(items => [...items, item]);
     this.selectedPackageId = null;
-    if (this.cart().length > 1) this.groupBooking.set(true);
+    if (this.totalAttendees() > 1) this.groupBooking.set(true);
   }
 
   removeItem(idx: number): void {
     this.cart.update(items => items.filter((_, i) => i !== idx));
-    if (this.cart().length <= 1) this.groupBooking.set(false);
+    if (this.totalAttendees() < 2) this.groupBooking.set(false);
   }
 
-  onAttendeeMassageChange(idx: number, tierId: number | null): void {
+  onAttendeeMassageChange(itemIdx: number, attIdx: number, tierId: number | null): void {
+    const tierIdNum = tierId != null ? Number(tierId) : null;
     this.cart.update(items => items.map((it, i) => {
-      if (i !== idx) return it;
-      const tier = it.tiers.find(t => t.id === Number(tierId));
-      const unit = tier ? (this.weekend() ? tier.weekendPrice : tier.weekdayPrice) : 0;
-      return {
-        ...it,
-        attendee: {
-          ...it.attendee,
-          packageTierId: tier ? tier.id : null,
-          serviceId: tier ? tier.serviceId : null,
-          serviceName: tier && tier.serviceName ? tier.serviceName : ''
-        },
-        unitPrice: unit,
-        lineTotal: unit
-      };
+      if (i !== itemIdx) return it;
+      const tier = tierIdNum != null ? it.tiers.find(t => t.id === tierIdNum) : null;
+      const updatedAttendees = it.attendees.map((a, j) => {
+        if (it.couple && j > 0) {
+          return {
+            ...a,
+            packageTierId: tier?.id ?? null,
+            serviceId: tier?.serviceId ?? null,
+            serviceName: tier?.serviceName ?? ''
+          };
+        }
+        if (j !== attIdx) return a;
+        return {
+          ...a,
+          packageTierId: tier?.id ?? null,
+          serviceId: tier?.serviceId ?? null,
+          serviceName: tier?.serviceName ?? ''
+        };
+      });
+      const priced = it.tiers.find(t => t.id === (updatedAttendees[0]?.packageTierId ?? null));
+      const unit = priced ? (this.weekend() ? priced.weekendPrice : priced.weekdayPrice) : it.unitPrice;
+      return { ...it, attendees: updatedAttendees, unitPrice: unit, lineTotal: unit };
     }));
   }
 
@@ -275,7 +400,7 @@ export class CashierComponent implements OnInit {
 
   private recomputePrices(): void {
     this.cart.update(items => items.map(it => {
-      const tier = it.tiers.find(t => t.id === it.attendee.packageTierId);
+      const tier = it.tiers.find(t => t.id === (it.attendees[0]?.packageTierId ?? null));
       const unit = tier ? (this.weekend() ? tier.weekendPrice : tier.weekdayPrice) : it.unitPrice;
       return { ...it, unitPrice: unit, lineTotal: unit };
     }));
@@ -284,6 +409,30 @@ export class CashierComponent implements OnInit {
   setRoomType(rt: RoomType): void {
     if (this.anyVip()) return;
     this.roomType.set(rt);
+  }
+
+  applyVoucher(): void {
+    const code = this.voucherCode.trim();
+    this.voucherError.set(null);
+    if (!code) {
+      this.voucherError.set('Enter a voucher code.');
+      return;
+    }
+    this.http.get<{ id: string; code: string; name: string | null; discount: number }>(
+      `${environment.apiBaseUrl}/api/vouchers/check?code=${encodeURIComponent(code)}&subtotal=${this.subtotal()}`
+    ).subscribe({
+      next: (v) => {
+        if (!v || !v.discount || v.discount <= 0) {
+          this.voucherError.set('Voucher is not valid or has no discount.');
+          return;
+        }
+        this.voucherId.set(v.id);
+        const label = v.name ? `Voucher (${v.name})` : `Voucher ${v.code}`;
+        this.discountSummary.update(list => [...list, { name: label, amount: Number(v.discount) }]);
+        this.voucherCode = '';
+      },
+      error: (err) => this.voucherError.set(err?.error?.message || 'Voucher invalid or already redeemed.')
+    });
   }
 
   openDiscountModal(): void {
@@ -297,16 +446,46 @@ export class CashierComponent implements OnInit {
     this.showDiscountModal.set(false);
   }
 
-  applyTemplate(tmpl: { label: string; percent: number; name: string }): void {
+  applyTemplate(tmpl: DiscountTemplate): void {
     this.activeTemplate.set(tmpl.label);
     this.discountConfig.update(cfg => ({
       ...cfg,
       name: tmpl.name || tmpl.label,
-      amountType: 'PERCENT' as const,
+      amountType: (tmpl.amountType || 'PERCENT'),
       percent: tmpl.percent,
-      fixedAmount: 0,
+      fixedAmount: tmpl.fixedAmount || 0,
       type: 'DISCOUNT' as const
     }));
+  }
+
+  saveAsTemplate(): void {
+    const cfg = this.discountConfig();
+    const name = cfg.name?.trim();
+    if (!name) {
+      this.error.set('Enter a name before saving the discount as a template.');
+      return;
+    }
+    this.http.post<DiscountTemplate>(`${environment.apiBaseUrl}/api/cashier/discount-templates`, {
+      name,
+      amountType: cfg.amountType,
+      percent: cfg.amountType === 'PERCENT' ? cfg.percent : null,
+      fixedAmount: cfg.amountType === 'FIXED' ? cfg.fixedAmount : null
+    }).subscribe({
+      next: () => this.loadDiscountTemplates(),
+      error: (err) => this.error.set(err?.error?.message || 'Could not save discount template.')
+    });
+  }
+
+  deleteTemplate(tmpl: DiscountTemplate): void {
+    if (!tmpl.id) return;
+    if (!confirm(`Delete template "${tmpl.name || tmpl.label}"?`)) return;
+    this.http.delete(`${environment.apiBaseUrl}/api/cashier/discount-templates/${tmpl.id}`).subscribe({
+      next: () => {
+        this.savedTemplates.update(list => list.filter(t => t.id !== tmpl.id));
+        if (this.activeTemplate() === tmpl.name) this.activeTemplate.set('Custom');
+      },
+      error: () => this.error.set('Could not delete template.')
+    });
   }
 
   toggleItemInDiscount(idx: number): void {
@@ -331,7 +510,7 @@ export class CashierComponent implements OnInit {
         if (idx >= items.length) continue;
         const item = items[idx];
         if (cfg.amountType === 'PERCENT') {
-          totalDiscountAmt += item.unitPrice * (cfg.percent / 100);
+          totalDiscountAmt += item.lineTotal * (cfg.percent / 100);
         } else {
           totalDiscountAmt += cfg.fixedAmount;
         }
@@ -349,12 +528,15 @@ export class CashierComponent implements OnInit {
   }
 
   removeDiscountAt(idx: number): void {
+    const removed = this.discountSummary()[idx];
     this.discountSummary.update(list => list.filter((_, i) => i !== idx));
+    if (removed && removed.name.startsWith('Voucher ')) this.voucherId.set(null);
   }
 
   removeAllDiscounts(): void {
     this.discountSummary.set([]);
     this.activeTemplate.set('Custom');
+    this.voucherId.set(null);
   }
 
   setPaymentMethod(method: 'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'): void {
@@ -363,7 +545,7 @@ export class CashierComponent implements OnInit {
 
   addPayment(): void {
     const amt = Number(this.paymentAmount || 0);
-    if (amt <= 0) return;
+    if (amt < 0) return;
     if (this.paid() + amt > this.total()) {
       this.error.set('Payment would exceed the total amount due. Maximum: ' + (this.total() - this.paid()).toFixed(2));
       return;
@@ -394,12 +576,14 @@ export class CashierComponent implements OnInit {
     if (this.cart().length === 0) return 'Add at least one package.';
     for (let i = 0; i < this.cart().length; i++) {
       const it = this.cart()[i];
-      const a = it.attendee;
-      if (it.includesMassage && (a.serviceId == null || a.packageTierId == null)) {
-        return `Item ${i + 1} (${it.packageName}): choose a massage.`;
+      for (let j = 0; j < it.attendees.length; j++) {
+        const a = it.attendees[j];
+        if (a.serviceId == null || a.packageTierId == null) {
+          return `Item ${i + 1} (${it.packageName}), guest ${j + 1}: choose a massage.`;
+        }
+        if (!a.lockerNumber.trim()) return `Item ${i + 1} (${it.packageName}), guest ${j + 1}: enter a locker number.`;
+        if (!a.clientGender) return `Item ${i + 1} (${it.packageName}), guest ${j + 1}: choose a sex.`;
       }
-      if (!a.lockerNumber.trim()) return `Item ${i + 1} (${it.packageName}): enter a locker number.`;
-      if (!a.clientGender) return `Item ${i + 1} (${it.packageName}): choose a sex.`;
     }
     if (this.effectiveRoomType() === 'VIP' && !this.anyVip()) {
       return 'VIP room requires a VIP package.';
@@ -407,38 +591,24 @@ export class CashierComponent implements OnInit {
     return null;
   }
 
-  async checkout(): Promise<void> {
-    if (this.submitting()) return;
-    const err = this.validate();
-    if (err) {
-      this.error.set(err);
-      return;
-    }
-    const confirmed = await this.confirmService.confirm({
-      title: 'Confirm Checkout',
-      message: `Process an order for ${this.transactorName} totaling P${this.total().toFixed(2)} (${this.cart().length} item(s))?`,
-      confirmText: 'Checkout'
-    });
-    if (!confirmed) return;
-
-    this.submitting.set(true);
-    this.error.set(null);
-
+  private buildPayload(): any {
     const first = this.cart()[0];
     const firstPayment = this.payments().length > 0 ? this.payments()[0] : null;
-    const payload = {
+    return {
       clientId: this.selectedClient()?.id || null,
       clientNickname: this.transactorName,
-      clientGender: first.attendee.clientGender,
+      clientGender: first.attendees[0].clientGender,
       transactorName: this.transactorName,
-      groupBooking: this.cart().length > 1 || this.groupBooking(),
+      groupBooking: this.totalAttendees() > 1 || this.groupBooking(),
       weekend: this.weekend(),
       roomType: this.effectiveRoomType(),
       roomTypeCharge: this.roomSurcharge(),
-      pax: this.cart().length,
-      lockerNumber: first.attendee.lockerNumber || null,
+      pax: this.totalAttendees(),
+      lockerNumber: first.attendees[0].lockerNumber || null,
       referenceNumber: this.referenceNumber || null,
+      orNumber: this.orNumber || null,
       notes: this.notes || null,
+      voucherId: this.voucherId(),
       subtotal: this.subtotal(),
       discount: this.totalDiscount(),
       total: this.total(),
@@ -448,13 +618,13 @@ export class CashierComponent implements OnInit {
         unitPrice: c.unitPrice,
         lineTotal: c.lineTotal,
         position: i,
-        attendees: [{
-          serviceId: c.attendee.serviceId,
-          packageTierId: c.attendee.packageTierId,
-          lockerNumber: c.attendee.lockerNumber,
-          clientGender: c.attendee.clientGender,
-          position: 0
-        }]
+        attendees: c.attendees.map((a, j) => ({
+          serviceId: a.serviceId,
+          packageTierId: a.packageTierId,
+          lockerNumber: a.lockerNumber,
+          clientGender: a.clientGender,
+          position: j
+        }))
       })),
       initialPayment: firstPayment ? {
         paymentMethod: firstPayment.paymentMethod,
@@ -462,6 +632,40 @@ export class CashierComponent implements OnInit {
         referenceNumber: firstPayment.referenceNumber || null
       } : null
     };
+  }
+
+  async checkout(): Promise<void> {
+    if (this.submitting()) return;
+    const err = this.validate();
+    if (err) {
+      this.error.set(err);
+      return;
+    }
+    const editId = this.editingOrderId();
+    const confirmed = await this.confirmService.confirm({
+      title: editId ? 'Save Changes' : 'Confirm Checkout',
+      message: `${editId ? 'Update' : 'Process'} an order for ${this.transactorName} totaling P${this.total().toFixed(2)} (${this.totalAttendees()} guest(s))?`,
+      confirmText: editId ? 'Save changes' : 'Checkout'
+    });
+    if (!confirmed) return;
+
+    this.submitting.set(true);
+    this.error.set(null);
+    const payload = this.buildPayload();
+
+    if (editId) {
+      this.http.put<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders/${editId}`, payload).subscribe({
+        next: (order) => {
+          this.submitting.set(false);
+          this.router.navigate(['/app/orders', order.id]);
+        },
+        error: (e) => {
+          this.submitting.set(false);
+          this.error.set(e?.error?.message || 'Could not update order.');
+        }
+      });
+      return;
+    }
 
     this.http
       .post<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders`, payload)

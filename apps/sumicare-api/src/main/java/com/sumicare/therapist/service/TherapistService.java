@@ -23,13 +23,16 @@ public class TherapistService {
     private final TherapistRepository therapistRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
     private final ShiftRepository shiftRepository;
+    private final com.sumicare.therapist.scheduler.LineupShiftSyncJob lineupShiftSyncJob;
 
     public TherapistService(TherapistRepository therapistRepository,
                             ShiftAssignmentRepository shiftAssignmentRepository,
-                            ShiftRepository shiftRepository) {
+                            ShiftRepository shiftRepository,
+                            com.sumicare.therapist.scheduler.LineupShiftSyncJob lineupShiftSyncJob) {
         this.therapistRepository = therapistRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
         this.shiftRepository = shiftRepository;
+        this.lineupShiftSyncJob = lineupShiftSyncJob;
     }
 
     public List<TherapistResponse> listForOrganization(UUID organizationId) {
@@ -67,6 +70,7 @@ public class TherapistService {
                 }
             });
         }
+        lineupShiftSyncJob.syncNow(organizationId);
 
         return toResponse(t);
     }
@@ -107,6 +111,7 @@ public class TherapistService {
                 shiftAssignmentRepository.save(sa);
             });
         }
+        lineupShiftSyncJob.syncNow(organizationId);
 
         return toResponse(t);
     }

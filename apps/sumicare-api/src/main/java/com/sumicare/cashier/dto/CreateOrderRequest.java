@@ -31,6 +31,7 @@ public record CreateOrderRequest(
         Boolean weekend,
         @Size(max = 20) String roomType,
         @DecimalMin("0.00") BigDecimal roomTypeCharge,
+        UUID voucherId,
         List<CreateOrderItemRequest> items
 ) {
     public record InitialPayment(

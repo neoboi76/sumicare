@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { AuthService } from '../../../core/auth/auth.service';
 
 interface UserRow {
   id: string;
@@ -21,9 +22,14 @@ interface UserRow {
 })
 export class UsersComponent implements OnInit {
   private http = inject(HttpClient);
+  private auth = inject(AuthService);
   users = signal<UserRow[]>([]);
   showForm = signal(false);
   error = signal<string | null>(null);
+  canManage = computed(() => {
+    const role = this.auth.session()?.role;
+    return role === 'SUPERADMIN' || role === 'ADMIN';
+  });
 
   formUsername = '';
   formEmail = '';

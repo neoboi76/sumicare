@@ -50,7 +50,7 @@ public class UserService {
                 .map(this::toResponse).toList();
     }
 
-    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Transactional
     public UserResponse createUser(UUID organizationId, CreateUserRequest request) {
         validatePasswordStrength(request.password());
@@ -79,7 +79,7 @@ public class UserService {
         return toResponse(user);
     }
 
-    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Transactional
     public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId).orElseThrow();

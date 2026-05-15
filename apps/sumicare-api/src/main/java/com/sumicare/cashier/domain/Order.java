@@ -81,6 +81,9 @@ public class Order {
     @Column(name = "cancelled_reason", columnDefinition = "TEXT")
     private String cancelledReason;
 
+    @Column(name = "voucher_id", columnDefinition = "uuid")
+    private UUID voucherId;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -127,4 +130,6 @@ public class Order {
     public void setRoomTypeCharge(BigDecimal roomTypeCharge) { this.roomTypeCharge = roomTypeCharge; }
     public boolean isWeekend() { return weekend; }
     public void setWeekend(boolean weekend) { this.weekend = weekend; }
+    public UUID getVoucherId() { return voucherId; }
+    public void setVoucherId(UUID voucherId) { this.voucherId = voucherId; }
 }

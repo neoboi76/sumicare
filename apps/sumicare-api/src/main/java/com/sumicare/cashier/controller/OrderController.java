@@ -39,6 +39,14 @@ public class OrderController {
                 UUID.fromString(principal.userId()), request);
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public OrderResponse update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                @PathVariable UUID id,
+                                @Valid @RequestBody CreateOrderRequest request) {
+        return orderService.update(UUID.fromString(principal.organizationId()), id, request);
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public List<OrderResponse> list(@AuthenticationPrincipal AuthenticatedPrincipal principal,

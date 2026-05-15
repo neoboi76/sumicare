@@ -33,5 +33,7 @@ public record OrderResponse(
         boolean weekend,
         String roomType,
         BigDecimal roomTypeCharge,
+        boolean sessionCompleted,
+        boolean couplePackage,
         List<OrderItemResponse> items
 ) {}

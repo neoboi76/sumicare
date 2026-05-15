@@ -7,6 +7,7 @@ import com.sumicare.user.dto.UpdateUserRequest;
 import com.sumicare.user.dto.UserResponse;
 import com.sumicare.user.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,12 +30,14 @@ public class UserController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public UserResponse create(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                @Valid @RequestBody CreateUserRequest request) {
         return userService.createUser(UUID.fromString(principal.organizationId()), request);
     }
 
     @PatchMapping("/{userId}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public UserResponse update(@PathVariable UUID userId, @RequestBody UpdateUserRequest request) {
         return userService.updateUser(userId, request);
     }

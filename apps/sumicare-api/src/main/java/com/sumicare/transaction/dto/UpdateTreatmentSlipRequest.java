@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record UpdateTreatmentSlipRequest(
+        @Size(max = 64) String tsn,
         @Size(max = 16) String lockerNumber,
         @Size(max = 64) String roomNumber,
         @Size(max = 500) String othersAddOn,

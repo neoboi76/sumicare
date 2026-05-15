@@ -22,6 +22,9 @@ public class Voucher {
     @Column(name = "code", nullable = false)
     private String code;
 
+    @Column(name = "name")
+    private String name;
+
     @Column(name = "discount_amount")
     private BigDecimal discountAmount;
 
@@ -49,6 +52,8 @@ public class Voucher {
     public void setOrganizationId(UUID organizationId) { this.organizationId = organizationId; }
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
     public BigDecimal getDiscountAmount() { return discountAmount; }
     public void setDiscountAmount(BigDecimal discountAmount) { this.discountAmount = discountAmount; }
     public Integer getDiscountPercent() { return discountPercent; }

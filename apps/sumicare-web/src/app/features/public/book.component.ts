@@ -13,6 +13,27 @@ interface ServiceItem {
   fixedRate: boolean;
 }
 
+interface PublicPackageTier {
+  id: number;
+  serviceId: number | null;
+  serviceName: string | null;
+  weekdayPrice: number;
+  weekendPrice: number;
+}
+
+interface PublicPackage {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  defaultPax: number;
+  couple: boolean;
+  includesMassage: boolean;
+  requiresVipRoom: boolean;
+  active: boolean;
+  tiers: PublicPackageTier[];
+}
+
 interface BookingCreated {
   id: string;
   clientNickname: string;
@@ -34,6 +55,7 @@ export class BookComponent implements OnInit {
   private route = inject(ActivatedRoute);
 
   services = signal<ServiceItem[]>([]);
+  packages = signal<PublicPackage[]>([]);
   error = signal<string | null>(null);
   submitting = signal(false);
   confirmation = signal<BookingCreated | null>(null);
@@ -42,11 +64,16 @@ export class BookComponent implements OnInit {
   clientNickname = '';
   pax = 1;
   serviceId: number | null = null;
+  packageId: number | null = null;
+  packageTierId: number | null = null;
   reservationType = 'SOFT';
   scheduledDate = '';
   scheduledTime = '';
   clientGender = 'F';
   consent = false;
+
+  selectedPackage = computed(() => this.packages().find(p => p.id === Number(this.packageId)) ?? null);
+  packageTiers = computed(() => this.selectedPackage()?.tiers ?? []);
 
   serviceLabel = computed(() => {
     const id = this.confirmation()?.serviceId;
@@ -69,6 +96,20 @@ export class BookComponent implements OnInit {
         },
         error: () => this.services.set([])
       });
+    this.http
+      .get<PublicPackage[]>(`${environment.apiBaseUrl}/api/public/packages/${environment.defaultOrganizationSlug}`)
+      .subscribe({
+        next: (p) => this.packages.set(p.filter(pkg => pkg.active)),
+        error: () => this.packages.set([])
+      });
+  }
+
+  onPackageChange(): void {
+    this.packageTierId = null;
+    const pkg = this.selectedPackage();
+    if (pkg) {
+      this.pax = Math.max(1, pkg.defaultPax || 1);
+    }
   }
 
   submit(event: Event): void {
@@ -76,13 +117,28 @@ export class BookComponent implements OnInit {
     if (this.submitting()) return;
     const missing: string[] = [];
     if (!this.clientNickname.trim()) missing.push('nickname');
-    if (this.serviceId == null) missing.push('service');
+    const usingPackage = this.packageId != null;
+    if (usingPackage) {
+      if (this.packageTierId == null) missing.push('massage');
+    } else if (this.serviceId == null) {
+      missing.push('service');
+    }
     if (!this.scheduledDate) missing.push('date');
     if (!this.scheduledTime) missing.push('time');
     if (!this.consent) missing.push('consent');
     if (missing.length > 0) {
       this.error.set('Please complete: ' + missing.join(', ') + '.');
       return;
+    }
+
+    let effectiveServiceId: number | null = this.serviceId;
+    if (usingPackage) {
+      const tier = this.packageTiers().find(t => t.id === Number(this.packageTierId));
+      effectiveServiceId = tier?.serviceId ?? null;
+      if (effectiveServiceId == null) {
+        this.error.set('The selected massage is not bookable. Please pick another.');
+        return;
+      }
     }
 
     const combined = new Date(`${this.scheduledDate}T${this.scheduledTime}`);
@@ -97,10 +153,12 @@ export class BookComponent implements OnInit {
     const payload = {
       clientNickname: this.clientNickname.trim(),
       pax: Number(this.pax) || 1,
-      serviceId: Number(this.serviceId),
+      serviceId: Number(effectiveServiceId),
       reservationType: this.reservationType,
       scheduledAt: combined.toISOString(),
-      clientGender: this.clientGender
+      clientGender: this.clientGender,
+      packageId: usingPackage ? Number(this.packageId) : null,
+      packageTierId: usingPackage ? Number(this.packageTierId) : null
     };
 
     this.http
@@ -132,6 +190,8 @@ export class BookComponent implements OnInit {
     this.scheduledTime = '';
     this.clientGender = 'F';
     this.consent = false;
+    this.packageId = null;
+    this.packageTierId = null;
     if (this.services().length > 0) this.serviceId = this.services()[0].id;
   }
 

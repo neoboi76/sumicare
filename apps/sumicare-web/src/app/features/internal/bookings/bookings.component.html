@@ -88,13 +88,17 @@
           <td class="p-3 text-right space-x-2">
             @if (b.status === 'PENDING') {
             @if (isOrderPaid(b.id)) {
-            <button (click)="openStart(b)" class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+              @if (orderForBooking(b.id)?.groupBooking) {
+              <span class="text-xs text-slate-400" title="Start sub-sessions below">Sub-sessions</span>
+              } @else {
+              <button (click)="openStart(b)" class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+              }
             } @else {
             <span class="text-xs text-slate-400" title="Order must be paid before starting a session">Awaiting
               payment</span>
             }
             }
-            @if (b.status === 'ACTIVE') {
+            @if (b.status === 'ACTIVE' && !orderForBooking(b.id)?.groupBooking) {
             <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
             <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+30min</button>
             <button (click)="openAdjust(b)" class="text-slate-700 hover:underline">Adjust</button>
@@ -115,8 +119,9 @@
                   <th class="text-left py-1">Massage</th>
                   <th class="text-left py-1">Locker</th>
                   <th class="text-left py-1">Sex</th>
-                  <th class="text-left py-1">Session</th>
+                  <th class="text-left py-1">Status</th>
                   <th class="text-left py-1">Slip</th>
+                  <th class="text-right py-1">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -127,12 +132,32 @@
                     <td class="py-1">{{ a.serviceName || '—' }}</td>
                     <td class="py-1">{{ a.lockerNumber || '—' }}</td>
                     <td class="py-1">{{ a.clientGender || '—' }}</td>
-                    <td class="py-1">{{ a.sessionId ? 'created' : 'pending' }}</td>
+                    <td class="py-1">
+                      @if (a.sessionStatus === 'ACTIVE') { active }
+                      @else if (a.sessionStatus === 'COMPLETED') { done }
+                      @else if (a.sessionStatus === 'CANCELLED') { cancelled }
+                      @else { pending }
+                    </td>
                     <td class="py-1">
                       @if (a.treatmentSlipId) {
                       <a [routerLink]="['/app/treatment-slips', a.treatmentSlipId]"
                         class="text-[var(--sumi-primary)] hover:underline">View slip</a>
                       } @else { — }
+                    </td>
+                    <td class="py-1 text-right space-x-2">
+                      @if (a.sessionStatus === 'ACTIVE') {
+                      <button (click)="endAttendeeSession(a)"
+                        class="text-emerald-700 hover:underline">End</button>
+                      <button (click)="extendAttendeeSession(a)"
+                        class="text-amber-700 hover:underline">+30min</button>
+                      <button (click)="openAdjust(b, a.sessionId ?? undefined, a.serviceName || 'Guest')"
+                        class="text-slate-700 hover:underline">Adjust</button>
+                      <button (click)="generateSlipForSession(a.sessionId!)"
+                        class="text-blue-700 hover:underline">Slip</button>
+                      } @else if (isOrderPaid(b.id) && b.status === 'PENDING' && !a.sessionId) {
+                      <button (click)="openStartForAttendee(b, a)"
+                        class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+                      }
                     </td>
                   </tr>
                   }
@@ -156,7 +181,13 @@
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
       <h2 class="text-xl font-semibold">Start session for {{ sb.clientNickname }}</h2>
+      @if (startAttendeeLabel()) {
+      <p class="text-sm text-slate-600">Guest: <span class="font-medium">{{ startAttendeeLabel() }}</span>
+        @if (activeStartGender()) { · {{ activeStartGender() === 'M' ? 'Male' : 'Female' }} }
+      </p>
+      } @else {
       <p class="text-sm text-slate-500">Service: {{ serviceName(sb.serviceId) }}</p>
+      }
 
       <label class="flex items-center gap-2">
         <input type="checkbox" [(ngModel)]="startSpecificallyRequested" name="specificallyRequested" />
@@ -200,12 +231,16 @@
         <div
           class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto border border-slate-200 rounded p-3">
           @for (room of filteredStartRooms(); track room.id) {
-          <div class="border rounded p-2">
-            <div class="text-xs font-semibold text-slate-700">Room {{ room.roomNumber }} ({{ room.roomType }})</div>
+          <div [class]="roomCardClass(room)">
+            <div class="text-xs font-semibold text-slate-700">Room {{ room.roomNumber }} ({{ room.roomType }})
+              @if (!isRoomSelectableForGender(room, activeStartGender())) {
+              <span class="text-rose-500 font-normal">· locked to other sex</span>
+              }
+            </div>
             <div class="grid grid-cols-3 gap-1 mt-1">
               @for (bed of room.beds; track bed.id) {
               <button type="button" (click)="pickBed(room, bed)" [class]="bedClass(room, bed)"
-                [title]="!isBedSelectableForGender(bed, sb.clientGender) ? (bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : 'Occupied') : bed.label">
+                [title]="!isBedSelectableForGender(bed, activeStartGender()) ? (bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : 'Occupied') : bed.label">
                 {{ bed.label }}
               </button>
               }
@@ -271,7 +306,7 @@
   @if (adjustBooking(); as ab) {
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="cancelAdjust()">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
-      <h2 class="text-lg font-semibold">Adjust session — {{ ab.clientNickname }}</h2>
+      <h2 class="text-lg font-semibold">Adjust session — {{ adjustAttendeeLabel() || ab.clientNickname }}</h2>
       <p class="text-sm text-slate-500">Leave blank to keep current value.</p>
       <label class="block text-sm">
         New start time

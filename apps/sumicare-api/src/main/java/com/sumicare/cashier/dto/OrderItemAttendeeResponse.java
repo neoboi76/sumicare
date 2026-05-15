@@ -10,6 +10,7 @@ public record OrderItemAttendeeResponse(
         String lockerNumber,
         String clientGender,
         UUID sessionId,
+        String sessionStatus,
         UUID treatmentSlipId,
         int position
 ) {}

@@ -4,6 +4,9 @@ import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.repository.OrderRepository;
+import com.sumicare.client.repository.ClientRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.therapist.repository.TherapistRepository;
@@ -29,50 +32,68 @@ public class TreatmentSlipService {
     private final ServiceRepository serviceRepository;
     private final TherapistRepository therapistRepository;
     private final RoomRepository roomRepository;
+    private final OrderRepository orderRepository;
+    private final ClientRepository clientRepository;
 
     public TreatmentSlipService(TreatmentSlipRepository slipRepository,
                                 BookingRepository bookingRepository,
                                 SessionRepository sessionRepository,
                                 ServiceRepository serviceRepository,
                                 TherapistRepository therapistRepository,
-                                RoomRepository roomRepository) {
+                                RoomRepository roomRepository,
+                                OrderRepository orderRepository,
+                                ClientRepository clientRepository) {
         this.slipRepository = slipRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
         this.therapistRepository = therapistRepository;
         this.roomRepository = roomRepository;
+        this.orderRepository = orderRepository;
+        this.clientRepository = clientRepository;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
     public TreatmentSlip generateForSession(UUID organizationId, UUID sessionId) {
-        // Prevent duplicate slips — return existing if one already exists for this session
+        Session session = sessionRepository.findById(sessionId).orElseThrow();
+
         Optional<TreatmentSlip> existing = slipRepository.findBySessionId(sessionId);
+        TreatmentSlip slip;
         if (existing.isPresent()) {
-            return existing.get();
+            slip = existing.get();
+            if (!slip.isWaiverAccepted()) {
+                slip.setWaiverAccepted(true);
+                slip.setWaiverAcceptedAt(OffsetDateTime.now());
+            }
+        } else {
+            slip = new TreatmentSlip();
+            slip.setOrganizationId(organizationId);
+            slip.setSessionId(session.getId());
+            slip.setTsn(generateTsn());
+            slip.setStatus("DRAFT");
+            slip.setWaiverAccepted(true);
+            slip.setWaiverAcceptedAt(OffsetDateTime.now());
         }
 
-        Session session = sessionRepository.findById(sessionId).orElseThrow();
-        Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
-        var service = serviceRepository.findById(booking.getServiceId()).orElseThrow();
-        TreatmentSlip slip = new TreatmentSlip();
-        slip.setOrganizationId(organizationId);
-        slip.setBookingId(booking.getId());
-        slip.setSessionId(session.getId());
-        slip.setTsn(generateTsn());
-        slip.setClientNickname(booking.getClientNickname());
-        slip.setLockerNumber(booking.getLockerNumber());
-        slip.setServiceName(service.getName());
-        slip.setStartTime(session.getStartedAt());
-        slip.setEndTime(session.getEndedAt());
-        slip.setVip(service.isVip());
-        slip.setPax(booking.getPax());
-        slip.setTotalAmount(service.getPrice());
-        if (!service.isVip()) {
-            slip.setTreatmentMinutes(service.getDurationMinutes());
+        Booking booking = session.getBookingId() != null ? bookingRepository.findById(session.getBookingId()).orElse(null) : null;
+        if (booking != null) {
+            slip.setBookingId(booking.getId());
+            slip.setClientNickname(booking.getClientNickname());
+            slip.setLockerNumber(booking.getLockerNumber());
+            slip.setPax(booking.getPax());
+            if (booking.getClientId() != null) {
+                clientRepository.findById(booking.getClientId())
+                        .ifPresent(c -> slip.setNationality(c.getNationality()));
+            }
         }
-        // Populate room number from the session's assigned room
+
+        if (session.getStartedAt() != null) {
+            slip.setStartTime(session.getStartedAt());
+        }
+        if (session.getEndedAt() != null) {
+            slip.setEndTime(session.getEndedAt());
+        }
         if (session.getRoomId() != null) {
             roomRepository.findById(session.getRoomId())
                     .ifPresent(room -> slip.setRoomNumber(room.getRoomNumber()));
@@ -89,6 +110,30 @@ public class TreatmentSlipService {
             therapistRepository.findById(session.getPrimaryTherapistId())
                     .ifPresent(t -> slip.setRequestedTherapistNickname(t.getNickname()));
         }
+
+        if (booking != null) {
+            orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
+                if (order.getOrNumber() != null && !order.getOrNumber().isBlank()) {
+                    slip.setOrNumber(order.getOrNumber());
+                }
+                if (order.getTotal() != null && slip.getTotalAmount() == null) {
+                    slip.setTotalAmount(order.getTotal());
+                }
+            });
+        }
+
+        if (slip.getServiceName() == null && booking != null) {
+            var service = serviceRepository.findById(booking.getServiceId()).orElse(null);
+            if (service != null) {
+                slip.setServiceName(service.getName());
+                slip.setVip(service.isVip());
+                slip.setTotalAmount(service.getPrice());
+                if (!service.isVip()) {
+                    slip.setTreatmentMinutes(service.getDurationMinutes());
+                }
+            }
+        }
+
         return slipRepository.save(slip);
     }
 
@@ -157,6 +202,7 @@ public class TreatmentSlipService {
             slip.setWaiverAcceptedAt(null);
         }
         validateUpdate(request);
+        if (request.tsn() != null && !request.tsn().isBlank()) slip.setTsn(request.tsn());
         if (request.lockerNumber() != null) slip.setLockerNumber(request.lockerNumber());
         if (request.roomNumber() != null) slip.setRoomNumber(request.roomNumber());
         if (request.othersAddOn() != null) slip.setOthersAddOn(request.othersAddOn());
