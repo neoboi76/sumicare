@@ -19,9 +19,16 @@
                class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
       </label>
       <label class="block">
-        <span class="text-sm text-slate-700">Password</span>
-        <input [(ngModel)]="password" name="password" type="password" autocomplete="current-password" required
-               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-sm text-slate-700">Password</span>
+          <a routerLink="/forgot-password" class="text-xs text-[var(--sumi-primary)] hover:underline">Forgot password?</a>
+        </div>
+        <sumi-password-input
+          [(value)]="password"
+          name="password"
+          autocomplete="current-password"
+          [required]="true">
+        </sumi-password-input>
       </label>
       <button type="submit" [disabled]="busy()"
               class="w-full rounded-md bg-[var(--sumi-primary)] text-white font-medium py-2.5 hover:opacity-95 disabled:opacity-60">

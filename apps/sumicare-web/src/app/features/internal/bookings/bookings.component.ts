@@ -79,6 +79,7 @@ interface OrderStatus {
 
 interface OrderAttendee {
   id: string;
+  serviceId: number | null;
   serviceName: string | null;
   lockerNumber: string | null;
   clientGender: string | null;
@@ -128,6 +129,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   startBooking = signal<BookingResponse | null>(null);
   startAttendeeId = signal<string | null>(null);
+  startAttendeeServiceId = signal<number | null>(null);
   startAttendeeGender = signal<string | null>(null);
   startAttendeeLabel = signal<string>('');
   startPrimaryTherapistId = signal<string | null>(null);
@@ -154,6 +156,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
   });
 
   selectedStartService = computed(() => {
+    const attendeeServiceId = this.startAttendeeServiceId();
+    if (attendeeServiceId != null) {
+      return this.services().find(s => s.id === attendeeServiceId) ?? null;
+    }
     const id = this.startBooking()?.serviceId;
     if (!id) return null;
     return this.services().find(s => s.id === id) ?? null;
@@ -232,20 +238,23 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   private loadOrderStatuses(bookings: BookingResponse[]): void {
     if (bookings.length === 0) return;
-    this.http.get<OrderLite[]>(`${environment.apiBaseUrl}/api/cashier/orders`).subscribe({
-      next: (orders) => {
-        const statusMap = new Map<string, string>();
-        const orderMap = new Map<string, OrderLite>();
-        for (const order of orders) {
-          if (order.bookingId) {
-            statusMap.set(order.bookingId, order.status);
-            orderMap.set(order.bookingId, order);
-          }
-        }
-        this.orderStatuses.set(statusMap);
-        this.ordersByBooking.set(orderMap);
+    this.orderStatuses.set(new Map());
+    this.ordersByBooking.set(new Map());
+    for (const b of bookings) {
+      if (b.orderId) {
+        this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/${b.orderId}`).subscribe({
+          next: (order) => {
+            const currentStatuses = new Map(this.orderStatuses());
+            const currentOrders = new Map(this.ordersByBooking());
+            currentStatuses.set(b.id, order.status);
+            currentOrders.set(b.id, order);
+            this.orderStatuses.set(currentStatuses);
+            this.ordersByBooking.set(currentOrders);
+          },
+          error: () => { }
+        });
       }
-    });
+    }
   }
 
   orderForBooking(bookingId: string): OrderLite | null {
@@ -259,7 +268,22 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   toggleExpand(bookingId: string): void {
-    this.expandedBookingId.set(this.expandedBookingId() === bookingId ? null : bookingId);
+    const current = this.expandedBookingId();
+    if (current === bookingId) {
+      this.expandedBookingId.set(null);
+    } else {
+      this.expandedBookingId.set(bookingId);
+      const booking = this.bookings().find(b => b.id === bookingId);
+      if (booking?.orderId && !this.ordersByBooking().get(bookingId)) {
+        this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/${booking.orderId}`).subscribe({
+          next: (order) => {
+            const currentOrders = new Map(this.ordersByBooking());
+            currentOrders.set(bookingId, order);
+            this.ordersByBooking.set(currentOrders);
+          }
+        });
+      }
+    }
   }
 
   getOrderStatus(bookingId: string): string {
@@ -373,11 +397,14 @@ export class BookingsComponent implements OnInit, OnDestroy {
     const order = this.ordersByBooking().get(b.id);
     const attendees = order?.items?.flatMap(it => it.attendees) ?? [];
     if (attendees.length === 1) {
-      this.startAttendeeId.set(attendees[0].id);
-      this.startAttendeeGender.set(attendees[0].clientGender ?? b.clientGender ?? null);
-      this.startAttendeeLabel.set(attendees[0].serviceName || b.clientNickname);
+      const a = attendees[0];
+      this.startAttendeeId.set(a.id);
+      this.startAttendeeServiceId.set(a.serviceId ?? null);
+      this.startAttendeeGender.set(a.clientGender ?? b.clientGender ?? null);
+      this.startAttendeeLabel.set(a.serviceName || b.clientNickname);
     } else {
       this.startAttendeeId.set(null);
+      this.startAttendeeServiceId.set(null);
       this.startAttendeeGender.set(b.clientGender ?? null);
       this.startAttendeeLabel.set('');
     }
@@ -386,13 +413,17 @@ export class BookingsComponent implements OnInit, OnDestroy {
   openStartForAttendee(b: BookingResponse, attendee: OrderAttendee): void {
     this.resetStartForm(b);
     this.startAttendeeId.set(attendee.id);
+    this.startAttendeeServiceId.set(attendee.serviceId ?? null);
     this.startAttendeeGender.set(attendee.clientGender ?? b.clientGender ?? null);
-    this.startAttendeeLabel.set(attendee.serviceName || ('Guest · locker ' + (attendee.lockerNumber || '—')));
+    const svc = attendee.serviceId ? this.services().find(s => s.id === attendee.serviceId) : null;
+    const tandemSuffix = svc?.requiresTwoTherapists ? ' · TANDEM' : '';
+    this.startAttendeeLabel.set((attendee.serviceName || ('Guest · locker ' + (attendee.lockerNumber || '—'))) + tandemSuffix);
   }
 
   cancelStart(): void {
     this.startBooking.set(null);
     this.startAttendeeId.set(null);
+    this.startAttendeeServiceId.set(null);
     this.startAttendeeGender.set(null);
     this.startAttendeeLabel.set('');
   }

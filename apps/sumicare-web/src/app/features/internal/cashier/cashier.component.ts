@@ -158,6 +158,7 @@ export class CashierComponent implements OnInit {
 
   submitting = signal(false);
   error = signal<string | null>(null);
+  tax = signal(0);
 
   anyVip = computed(() => this.cart().some(c => c.requiresVipRoom));
   effectiveRoomType = computed<RoomType>(() => this.anyVip() ? 'VIP' : this.roomType());
@@ -167,7 +168,7 @@ export class CashierComponent implements OnInit {
   itemsSubtotal = computed(() => this.cart().reduce((sum, c) => sum + Number(c.lineTotal || 0), 0));
   subtotal = computed(() => this.itemsSubtotal() + this.roomSurcharge());
   totalDiscount = computed(() => this.discountSummary().reduce((sum, d) => sum + d.amount, 0));
-  total = computed(() => Math.max(0, this.subtotal() - this.totalDiscount()));
+  total = computed(() => Math.max(0, this.subtotal() - this.totalDiscount() + this.tax()));
   paid = computed(() => this.payments().reduce((sum, p) => sum + Number(p.amount || 0), 0));
   due = computed(() => Math.max(0, this.total() - this.paid()));
 
@@ -593,7 +594,10 @@ export class CashierComponent implements OnInit {
 
   private buildPayload(): any {
     const first = this.cart()[0];
-    const firstPayment = this.payments().length > 0 ? this.payments()[0] : null;
+    const payments = this.payments();
+    const firstPayment = payments.length > 0
+      ? payments[0]
+      : (this.total() === 0 ? { paymentMethod: 'CASH', amount: 0, referenceNumber: undefined } : null);
     return {
       clientId: this.selectedClient()?.id || null,
       clientNickname: this.transactorName,
@@ -611,6 +615,7 @@ export class CashierComponent implements OnInit {
       voucherId: this.voucherId(),
       subtotal: this.subtotal(),
       discount: this.totalDiscount(),
+      tax: this.tax(),
       total: this.total(),
       items: this.cart().map((c, i) => ({
         packageId: c.packageId,

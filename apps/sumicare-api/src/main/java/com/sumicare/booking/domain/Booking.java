@@ -23,6 +23,9 @@ public class Booking {
     @Column(name = "client_nickname", nullable = false)
     private String clientNickname;
 
+    @Column(name = "client_email")
+    private String clientEmail;
+
     @Column(name = "locker_number")
     private String lockerNumber;
 
@@ -67,6 +70,8 @@ public class Booking {
     public void setClientId(UUID clientId) { this.clientId = clientId; }
     public String getClientNickname() { return clientNickname; }
     public void setClientNickname(String clientNickname) { this.clientNickname = clientNickname; }
+    public String getClientEmail() { return clientEmail; }
+    public void setClientEmail(String clientEmail) { this.clientEmail = clientEmail; }
     public String getLockerNumber() { return lockerNumber; }
     public void setLockerNumber(String lockerNumber) { this.lockerNumber = lockerNumber; }
     public Long getServiceId() { return serviceId; }

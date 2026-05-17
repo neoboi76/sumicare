@@ -26,10 +26,14 @@ public class AuditLogController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public Page<AuditLog> list(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                @RequestParam(defaultValue = "0") int page,
-                               @RequestParam(defaultValue = "50") int size) {
-        return repository.findAllByOrganizationIdOrderByOccurredAtDesc(
-                UUID.fromString(principal.organizationId()),
-                PageRequest.of(page, Math.min(size, 200)));
+                               @RequestParam(defaultValue = "50") int size,
+                               @RequestParam(required = false) UUID actorUserId) {
+        UUID orgId = UUID.fromString(principal.organizationId());
+        PageRequest pageable = PageRequest.of(page, Math.min(size, 200));
+        if (actorUserId != null) {
+            return repository.findAllByOrganizationIdAndActorUserIdOrderByOccurredAtDesc(orgId, actorUserId, pageable);
+        }
+        return repository.findAllByOrganizationIdOrderByOccurredAtDesc(orgId, pageable);
     }
 
     @GetMapping("/by-target")

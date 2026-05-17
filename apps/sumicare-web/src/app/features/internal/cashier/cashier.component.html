@@ -283,6 +283,7 @@
             }}</span></div>
         <div class="flex justify-between text-sm"><span>Discount</span><span class="text-red-600">&#8369; {{
             totalDiscount() | number:'1.2-2' }}</span></div>
+        <div class="flex justify-between text-sm text-slate-500"><span>Tax</span><span>&#8369; {{ tax() | number:'1.2-2' }}</span></div>
         <div class="flex justify-between text-sm font-semibold"><span>Total</span><span>&#8369; {{ total() |
             number:'1.2-2' }}</span></div>
         <div class="flex justify-between text-sm text-emerald-700"><span>Amount paid</span><span>&#8369; {{ paid() |
@@ -292,12 +293,17 @@
 
         <button (click)="checkout()" [disabled]="submitting() || cart().length === 0 || !transactorName.trim()"
           class="w-full mt-3 py-2.5 bg-[var(--sumi-primary)] text-white rounded text-sm font-medium disabled:opacity-50">
-          {{ submitting() ? 'Processing...' : (editingOrderId() ? 'Save changes' : 'Checkout') }}
+          @if (submitting()) {
+            Processing...
+          } @else if (editingOrderId()) {
+            Save changes
+          } @else if (total() === 0) {
+            Process (&#8369;0.00)
+          } @else {
+            Checkout
+          }
         </button>
-        <p class="text-[11px] text-slate-400">
-          This software is not BIR approved. Powered by SumiCare, for order-taking only. All BIR-related calculation
-          should be done by the user of this software.
-        </p>
+        <p class="text-[11px] text-slate-400 text-center">Powered by SumiCare</p>
       </div>
     </aside>
   </div>

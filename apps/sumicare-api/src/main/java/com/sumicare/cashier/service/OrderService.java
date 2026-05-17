@@ -189,9 +189,10 @@ public class OrderService {
                 ? request.subtotal()
                 : itemsSubtotal.add(roomCharge);
         BigDecimal discount = request.discount() != null ? request.discount() : BigDecimal.ZERO;
+        BigDecimal tax = request.tax() != null ? request.tax() : BigDecimal.ZERO;
         BigDecimal total = request.total() != null
                 ? request.total()
-                : subtotalFromRequest.subtract(discount).max(BigDecimal.ZERO);
+                : subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
 
         String nickname = request.clientNickname() != null ? request.clientNickname() : request.transactorName();
         if (nickname == null || nickname.isBlank()) nickname = "Walk-in";
@@ -199,6 +200,7 @@ public class OrderService {
         var bookingRequest = new CreateBookingRequest(
                 request.clientId(),
                 nickname,
+                null,
                 request.lockerNumber(),
                 firstServiceId,
                 "WALK_IN",
@@ -227,6 +229,7 @@ public class OrderService {
         order.setNotes(request.notes());
         order.setSubtotal(subtotalFromRequest);
         order.setDiscount(discount);
+        order.setTax(tax);
         order.setTotal(total);
         order.setAmountPaid(BigDecimal.ZERO);
         order.setStatus("OPEN");
@@ -374,9 +377,10 @@ public class OrderService {
                 ? request.subtotal()
                 : itemsSubtotal.add(roomCharge);
         BigDecimal discount = request.discount() != null ? request.discount() : BigDecimal.ZERO;
+        BigDecimal tax = request.tax() != null ? request.tax() : BigDecimal.ZERO;
         BigDecimal total = request.total() != null
                 ? request.total()
-                : subtotalFromRequest.subtract(discount).max(BigDecimal.ZERO);
+                : subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
 
         orderItemRepository.deleteAllByOrderId(order.getId());
         attendeeRepository.deleteAllByOrderId(order.getId());
@@ -390,6 +394,7 @@ public class OrderService {
         order.setNotes(request.notes());
         order.setSubtotal(subtotalFromRequest);
         order.setDiscount(discount);
+        order.setTax(tax);
         order.setTotal(total);
         order.setTransactorName(request.transactorName() != null ? request.transactorName()
                 : order.getTransactorName());
@@ -713,6 +718,86 @@ public class OrderService {
 
     @Transactional
     public void materialiseAttendeeSessions(Order order) {
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        if (booking == null) return;
+
+        List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
+        if (attendees.isEmpty()) return;
+
+        List<OrderItem> items = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId());
+        Map<UUID, OrderItem> itemById = new HashMap<>();
+        for (OrderItem item : items) {
+            itemById.put(item.getId(), item);
+        }
+
+        Map<Long, String> packageNameCache = new HashMap<>();
+        Map<Long, Boolean> packageVipCache = new HashMap<>();
+
+        for (OrderItemAttendee att : attendees) {
+            if (att.getSessionId() != null) continue;
+
+            Session session = new Session();
+            session.setOrganizationId(order.getOrganizationId());
+            session.setBookingId(booking.getId());
+            session.setStatus("PENDING");
+            session.setAttendeeId(att.getId());
+            session = sessionRepository.save(session);
+            att.setSessionId(session.getId());
+
+            OrderItem parentItem = att.getOrderItemId() != null ? itemById.get(att.getOrderItemId()) : null;
+            String pkgName = null;
+            boolean isVip = false;
+            if (parentItem != null && parentItem.getPackageId() != null) {
+                pkgName = packageNameCache.computeIfAbsent(parentItem.getPackageId(),
+                        pid -> packageRepository.findById(pid).map(Package::getName).orElse(null));
+                isVip = packageVipCache.computeIfAbsent(parentItem.getPackageId(),
+                        pid -> packageRepository.findById(pid).map(Package::isRequiresVipRoom).orElse(false));
+            }
+
+            if (att.getTreatmentSlipId() == null) {
+                TreatmentSlip slip = new TreatmentSlip();
+                slip.setOrganizationId(order.getOrganizationId());
+                slip.setBookingId(booking.getId());
+                slip.setSessionId(session.getId());
+                slip.setAttendeeId(att.getId());
+                slip.setTsn(generateTsn());
+                slip.setClientNickname(booking.getClientNickname() != null ? booking.getClientNickname() : "Walk-in");
+                slip.setLockerNumber(att.getLockerNumber() != null ? att.getLockerNumber() : booking.getLockerNumber());
+                slip.setOrNumber(order.getOrNumber());
+                slip.setStatus("DRAFT");
+                slip.setPackageName(pkgName);
+                slip.setTotalAmount(order.getTotal());
+                slip.setPax(booking.getPax());
+
+                if (isVip) {
+                    slip.setVip(true);
+                    slip.setJacuzziMinutes(60);
+                    slip.setMassageMinutes(60);
+                    slip.setWineIncluded(true);
+                }
+
+                String resolvedServiceName = "";
+                Integer resolvedDuration = null;
+                Long serviceIdToResolve = att.getServiceId() != null ? att.getServiceId() : booking.getServiceId();
+                if (serviceIdToResolve != null) {
+                    var svc = serviceRepository.findById(serviceIdToResolve).orElse(null);
+                    if (svc != null) {
+                        resolvedServiceName = svc.getName();
+                        resolvedDuration = svc.getDurationMinutes();
+                    }
+                }
+                slip.setServiceName(resolvedServiceName);
+                if (resolvedDuration != null) {
+                    slip.setTreatmentMinutes(resolvedDuration);
+                }
+
+                TreatmentSlip savedSlip = slipRepository.save(slip);
+                att.setTreatmentSlipId(savedSlip.getId());
+            }
+
+            attendeeRepository.save(att);
+        }
     }
 
     @Transactional
@@ -865,6 +950,7 @@ public class OrderService {
                 order.getNotes(),
                 order.getSubtotal(),
                 order.getDiscount(),
+                order.getTax(),
                 order.getTotal(),
                 order.getAmountPaid(),
                 balance,

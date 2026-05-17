@@ -1,6 +1,8 @@
 package com.sumicare.auth.controller;
 
+import com.sumicare.auth.dto.ForgotPasswordRequest;
 import com.sumicare.auth.dto.LoginRequest;
+import com.sumicare.auth.dto.RedeemInvitationRequest;
 import com.sumicare.auth.dto.ResetPasswordRequest;
 import com.sumicare.auth.dto.TokenResponse;
 import com.sumicare.auth.service.AuthService;
@@ -8,7 +10,10 @@ import com.sumicare.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -42,5 +47,16 @@ public class AuthController {
     @PostMapping("/reset-password")
     public void resetPassword(@RequestBody ResetPasswordRequest request) {
         userService.consumePasswordReset(request.token(), request.newPassword());
+    }
+
+    @PostMapping("/password-reset/request")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        userService.requestPublicPasswordReset(request.email());
+        return ResponseEntity.ok(Map.of("message", "If your email exists, a reset link has been sent."));
+    }
+
+    @PostMapping("/invitations/redeem")
+    public void redeemInvitation(@Valid @RequestBody RedeemInvitationRequest request) {
+        userService.redeemInvitation(request.token(), request.password());
     }
 }

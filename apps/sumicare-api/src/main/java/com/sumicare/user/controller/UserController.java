@@ -7,6 +7,7 @@ import com.sumicare.user.dto.UpdateUserRequest;
 import com.sumicare.user.dto.UserResponse;
 import com.sumicare.user.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -29,17 +30,40 @@ public class UserController {
         return userService.listForOrganization(UUID.fromString(principal.organizationId()));
     }
 
+    @GetMapping("/deactivated")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public List<UserResponse> listDeactivated(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return userService.listDeactivatedForOrganization(UUID.fromString(principal.organizationId()));
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public UserResponse create(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                @Valid @RequestBody CreateUserRequest request) {
-        return userService.createUser(UUID.fromString(principal.organizationId()), request);
+        return userService.createUser(UUID.fromString(principal.organizationId()), principal.role(), request);
     }
 
     @PatchMapping("/{userId}")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
-    public UserResponse update(@PathVariable UUID userId, @RequestBody UpdateUserRequest request) {
-        return userService.updateUser(userId, request);
+    public UserResponse update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                               @PathVariable UUID userId,
+                               @RequestBody UpdateUserRequest request) {
+        return userService.updateUser(UUID.fromString(principal.userId()), principal.role(), userId, request);
+    }
+
+    @DeleteMapping("/{userId}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    public ResponseEntity<Void> deactivate(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                           @PathVariable UUID userId) {
+        userService.deactivateUser(UUID.fromString(principal.userId()), principal.role(), userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{userId}/reactivate")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    public UserResponse reactivate(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                   @PathVariable UUID userId) {
+        return userService.reactivateUser(UUID.fromString(principal.userId()), principal.role(), userId);
     }
 
     @GetMapping("/me")

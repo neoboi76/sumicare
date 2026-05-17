@@ -22,6 +22,9 @@ public class EmailVerificationToken {
     @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
 
+    @Column(name = "token_type", nullable = false, length = 20)
+    private String tokenType = "VERIFY_EMAIL";
+
     @Column(name = "consumed_at")
     private OffsetDateTime consumedAt;
 
@@ -37,6 +40,8 @@ public class EmailVerificationToken {
     public void setExpiresAt(OffsetDateTime expiresAt) { this.expiresAt = expiresAt; }
     public OffsetDateTime getConsumedAt() { return consumedAt; }
     public void setConsumedAt(OffsetDateTime consumedAt) { this.consumedAt = consumedAt; }
+    public String getTokenType() { return tokenType; }
+    public void setTokenType(String tokenType) { this.tokenType = tokenType; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public boolean isExpired() { return OffsetDateTime.now().isAfter(expiresAt); }
     public boolean isConsumed() { return consumedAt != null; }

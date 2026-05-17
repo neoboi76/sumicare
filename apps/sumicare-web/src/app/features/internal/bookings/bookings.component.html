@@ -88,8 +88,8 @@
           <td class="p-3 text-right space-x-2">
             @if (b.status === 'PENDING') {
             @if (isOrderPaid(b.id)) {
-              @if (orderForBooking(b.id)?.groupBooking) {
-              <span class="text-xs text-slate-400" title="Start sub-sessions below">Sub-sessions</span>
+              @if (attendeeCount(b.id) > 1) {
+              <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
               } @else {
               <button (click)="openStart(b)" class="text-[var(--sumi-primary)] hover:underline">Start session</button>
               }
@@ -98,19 +98,23 @@
               payment</span>
             }
             }
-            @if (b.status === 'ACTIVE' && !orderForBooking(b.id)?.groupBooking) {
-            <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
-            <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+30min</button>
-            <button (click)="openAdjust(b)" class="text-slate-700 hover:underline">Adjust</button>
-            <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
+            @if (b.status === 'ACTIVE') {
+              @if (attendeeCount(b.id) > 1) {
+              <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
+              } @else {
+              <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
+              <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+30min</button>
+              <button (click)="openAdjust(b)" class="text-slate-700 hover:underline">Adjust</button>
+              <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
+              }
             }
           </td>
         </tr>
-        @if (expandedBookingId() === b.id && orderForBooking(b.id); as ord) {
+        @if (expandedBookingId() === b.id && attendeeCount(b.id) > 1 && orderForBooking(b.id); as ord) {
         <tr class="border-t bg-slate-50">
           <td colspan="9" class="p-3">
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
-              Sub-sessions ({{ ord.roomType }} room{{ ord.groupBooking ? ' · group booking' : '' }})
+              Sub-sessions ({{ ord.roomType }} room)
             </div>
             <table class="w-full text-xs">
               <thead class="text-slate-500">
@@ -154,9 +158,9 @@
                         class="text-slate-700 hover:underline">Adjust</button>
                       <button (click)="generateSlipForSession(a.sessionId!)"
                         class="text-blue-700 hover:underline">Slip</button>
-                      } @else if (isOrderPaid(b.id) && b.status === 'PENDING' && !a.sessionId) {
+                      } @else {
                       <button (click)="openStartForAttendee(b, a)"
-                        class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+                        class="text-[var(--sumi-primary)] hover:underline font-medium">Start session</button>
                       }
                     </td>
                   </tr>

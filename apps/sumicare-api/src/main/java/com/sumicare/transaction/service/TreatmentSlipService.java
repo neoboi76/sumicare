@@ -5,7 +5,10 @@ import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
+import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
+import com.sumicare.cashier.repository.PackageRepository;
 import com.sumicare.client.repository.ClientRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
@@ -34,6 +37,9 @@ public class TreatmentSlipService {
     private final RoomRepository roomRepository;
     private final OrderRepository orderRepository;
     private final ClientRepository clientRepository;
+    private final OrderItemAttendeeRepository attendeeRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final PackageRepository packageRepository;
 
     public TreatmentSlipService(TreatmentSlipRepository slipRepository,
                                 BookingRepository bookingRepository,
@@ -42,7 +48,10 @@ public class TreatmentSlipService {
                                 TherapistRepository therapistRepository,
                                 RoomRepository roomRepository,
                                 OrderRepository orderRepository,
-                                ClientRepository clientRepository) {
+                                ClientRepository clientRepository,
+                                OrderItemAttendeeRepository attendeeRepository,
+                                OrderItemRepository orderItemRepository,
+                                PackageRepository packageRepository) {
         this.slipRepository = slipRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -51,6 +60,9 @@ public class TreatmentSlipService {
         this.roomRepository = roomRepository;
         this.orderRepository = orderRepository;
         this.clientRepository = clientRepository;
+        this.attendeeRepository = attendeeRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.packageRepository = packageRepository;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -132,6 +144,19 @@ public class TreatmentSlipService {
                     slip.setTreatmentMinutes(service.getDurationMinutes());
                 }
             }
+        }
+
+        if (slip.getPackageName() == null && session.getAttendeeId() != null) {
+            attendeeRepository.findById(session.getAttendeeId()).ifPresent(att -> {
+                if (att.getOrderItemId() != null) {
+                    orderItemRepository.findById(att.getOrderItemId()).ifPresent(item -> {
+                        if (item.getPackageId() != null) {
+                            packageRepository.findById(item.getPackageId())
+                                    .ifPresent(pkg -> slip.setPackageName(pkg.getName()));
+                        }
+                    });
+                }
+            });
         }
 
         return slipRepository.save(slip);

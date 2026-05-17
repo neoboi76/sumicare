@@ -90,6 +90,9 @@ public class TreatmentSlip {
     @Column(name = "nationality", length = 64)
     private String nationality;
 
+    @Column(name = "package_name", length = 120)
+    private String packageName;
+
     @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
@@ -173,4 +176,6 @@ public class TreatmentSlip {
     public void setStatus(String status) { this.status = status; }
     public String getNationality() { return nationality; }
     public void setNationality(String nationality) { this.nationality = nationality; }
+    public String getPackageName() { return packageName; }
+    public void setPackageName(String packageName) { this.packageName = packageName; }
 }

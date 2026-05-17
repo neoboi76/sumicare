@@ -5,6 +5,7 @@ import com.sumicare.auth.domain.PasswordResetToken;
 import com.sumicare.auth.repository.EmailVerificationTokenRepository;
 import com.sumicare.auth.repository.PasswordResetTokenRepository;
 import com.sumicare.auth.service.EmailService;
+import com.sumicare.auth.service.JwtService;
 import com.sumicare.user.domain.Role;
 import com.sumicare.user.domain.User;
 import com.sumicare.user.dto.CreateUserRequest;
@@ -13,6 +14,7 @@ import com.sumicare.user.dto.UpdateUserRequest;
 import com.sumicare.user.dto.UserResponse;
 import com.sumicare.user.repository.RoleRepository;
 import com.sumicare.user.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,10 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class UserService {
+
+    private static final Set<String> ADMIN_EDITABLE_ROLES = Set.of("MANAGER", "RECEPTIONIST", "STAFF");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -31,43 +36,87 @@ public class UserService {
     private final EmailVerificationTokenRepository tokenRepository;
     private final PasswordResetTokenRepository resetTokenRepository;
     private final EmailService emailService;
+    private final JwtService jwtService;
 
     public UserService(UserRepository userRepository, RoleRepository roleRepository,
                        PasswordEncoder passwordEncoder, EmailVerificationTokenRepository tokenRepository,
                        PasswordResetTokenRepository resetTokenRepository,
-                       EmailService emailService) {
+                       EmailService emailService, JwtService jwtService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenRepository = tokenRepository;
         this.resetTokenRepository = resetTokenRepository;
         this.emailService = emailService;
+        this.jwtService = jwtService;
+    }
+
+    private void enforceTierForTarget(String actorRole, User target) {
+        String targetRole = target.getRole() == null ? null : target.getRole().getCode();
+        if ("ADMIN".equals(actorRole)) {
+            if (targetRole == null || !ADMIN_EDITABLE_ROLES.contains(targetRole)) {
+                throw new AccessDeniedException("ADMIN can only manage MANAGER, RECEPTIONIST, and STAFF users");
+            }
+        } else if ("SUPERADMIN".equals(actorRole)) {
+            if ("SUPERADMIN".equals(targetRole)) {
+                throw new AccessDeniedException("Cannot modify another SUPERADMIN account");
+            }
+        }
+    }
+
+    private void enforceTierForNewRole(String actorRole, String newRole) {
+        if ("ADMIN".equals(actorRole) && !ADMIN_EDITABLE_ROLES.contains(newRole)) {
+            throw new AccessDeniedException("ADMIN cannot create or assign role: " + newRole);
+        }
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public List<UserResponse> listForOrganization(UUID organizationId) {
-        return userRepository.findAllByOrganizationId(organizationId).stream()
+        return userRepository.findAllByOrganizationIdAndActiveTrue(organizationId).stream()
+                .map(this::toResponse).toList();
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public List<UserResponse> listDeactivatedForOrganization(UUID organizationId) {
+        return userRepository.findAllByOrganizationIdAndActiveFalse(organizationId).stream()
                 .map(this::toResponse).toList();
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Transactional
-    public UserResponse createUser(UUID organizationId, CreateUserRequest request) {
-        validatePasswordStrength(request.password());
+    public UserResponse createUser(UUID organizationId, String actorRole, CreateUserRequest request) {
+        enforceTierForNewRole(actorRole, request.role());
         Role role = roleRepository.findByCode(request.role())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown role: " + request.role()));
         User user = new User();
         user.setOrganizationId(organizationId);
         user.setUsername(request.username());
         user.setEmail(request.email());
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(role);
         user.setDisplayName(request.displayName());
         user.setActive(true);
-        user.setEmailVerified(true);
+
+        boolean inviteFlow = request.password() == null || request.password().isBlank();
+        if (inviteFlow) {
+            user.setPasswordHash(null);
+            user.setEmailVerified(false);
+        } else {
+            validatePasswordStrength(request.password());
+            user.setPasswordHash(passwordEncoder.encode(request.password()));
+            user.setEmailVerified(true);
+        }
         userRepository.save(user);
 
-        if (request.email() != null && !request.email().isBlank()) {
+        if (inviteFlow && request.email() != null && !request.email().isBlank()) {
+            EmailVerificationToken invToken = new EmailVerificationToken();
+            invToken.setUserId(user.getId());
+            invToken.setToken(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""));
+            invToken.setExpiresAt(OffsetDateTime.now().plusDays(7));
+            invToken.setTokenType("INVITATION");
+            tokenRepository.save(invToken);
+            String displayName = request.displayName() != null ? request.displayName() : request.username();
+            emailService.sendInvitationEmail(request.email(), displayName, invToken.getToken());
+        } else if (!inviteFlow && request.email() != null && !request.email().isBlank()) {
             EmailVerificationToken evToken = new EmailVerificationToken();
             evToken.setUserId(user.getId());
             evToken.setToken(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""));
@@ -81,11 +130,15 @@ public class UserService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Transactional
-    public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
+    public UserResponse updateUser(UUID actorId, String actorRole, UUID userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId).orElseThrow();
+        if (!actorId.equals(userId)) {
+            enforceTierForTarget(actorRole, user);
+        }
         if (request.displayName() != null) user.setDisplayName(request.displayName());
         if (request.email() != null) user.setEmail(request.email());
         if (request.role() != null) {
+            enforceTierForNewRole(actorRole, request.role());
             Role role = roleRepository.findByCode(request.role()).orElseThrow();
             user.setRole(role);
         }
@@ -96,6 +149,31 @@ public class UserService {
         }
         user.setUpdatedAt(OffsetDateTime.now());
         return toResponse(user);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @Transactional
+    public void deactivateUser(UUID actorId, String actorRole, UUID userId) {
+        if (actorId.equals(userId)) {
+            throw new IllegalArgumentException("Cannot deactivate your own account");
+        }
+        User target = userRepository.findById(userId).orElseThrow();
+        enforceTierForTarget(actorRole, target);
+        target.setActive(false);
+        target.setUpdatedAt(OffsetDateTime.now());
+        userRepository.save(target);
+        jwtService.revokeAllForUser(userId);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @Transactional
+    public UserResponse reactivateUser(UUID actorId, String actorRole, UUID userId) {
+        User target = userRepository.findById(userId).orElseThrow();
+        enforceTierForTarget(actorRole, target);
+        target.setActive(true);
+        target.setUpdatedAt(OffsetDateTime.now());
+        userRepository.save(target);
+        return toResponse(target);
     }
 
     @Transactional
@@ -118,7 +196,7 @@ public class UserService {
         PasswordResetToken resetToken = new PasswordResetToken();
         resetToken.setUserId(userId);
         resetToken.setToken(rawToken);
-        resetToken.setExpiresAt(OffsetDateTime.now().plusMinutes(30));
+        resetToken.setExpiresAt(OffsetDateTime.now().plusHours(1));
         resetTokenRepository.save(resetToken);
         String name = user.getDisplayName() != null && !user.getDisplayName().isBlank()
                 ? user.getDisplayName() : user.getUsername();
@@ -141,6 +219,41 @@ public class UserService {
         user.setUpdatedAt(OffsetDateTime.now());
         resetToken.setConsumedAt(OffsetDateTime.now());
         resetTokenRepository.save(resetToken);
+    }
+
+    @Transactional
+    public void requestPublicPasswordReset(String email) {
+        userRepository.findByEmail(email).ifPresent(user -> {
+            String rawToken = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+            PasswordResetToken resetToken = new PasswordResetToken();
+            resetToken.setUserId(user.getId());
+            resetToken.setToken(rawToken);
+            resetToken.setExpiresAt(OffsetDateTime.now().plusHours(1));
+            resetTokenRepository.save(resetToken);
+            String name = user.getDisplayName() != null && !user.getDisplayName().isBlank()
+                    ? user.getDisplayName() : user.getUsername();
+            emailService.sendPublicPasswordResetEmail(user.getEmail(), name, rawToken);
+        });
+    }
+
+    @Transactional
+    public void redeemInvitation(String token, String newPassword) {
+        validatePasswordStrength(newPassword);
+        EmailVerificationToken invToken = tokenRepository.findByTokenAndTokenType(token, "INVITATION")
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired invitation link"));
+        if (invToken.isConsumed()) {
+            throw new IllegalArgumentException("Invitation has already been used");
+        }
+        if (invToken.isExpired()) {
+            throw new IllegalArgumentException("Invitation link has expired");
+        }
+        User user = userRepository.findById(invToken.getUserId()).orElseThrow();
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setEmailVerified(true);
+        user.setUpdatedAt(OffsetDateTime.now());
+        invToken.setConsumedAt(OffsetDateTime.now());
+        tokenRepository.save(invToken);
+        userRepository.save(user);
     }
 
     public UserResponse getById(UUID userId) {

@@ -2,13 +2,14 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { PasswordInputComponent } from '../../shared/components/password-input/password-input.component';
 import { PasswordStrengthComponent } from '../../shared/components/password-strength/password-strength.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'sumi-reset-password',
   standalone: true,
-  imports: [FormsModule, PasswordStrengthComponent, RouterLink],
+  imports: [FormsModule, PasswordInputComponent, PasswordStrengthComponent, RouterLink],
   template: `
     <div class="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div class="sm:mx-auto sm:w-full sm:max-w-md">
@@ -48,24 +49,31 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
               }
 
               <div>
-                <label for="password" class="block text-sm font-medium text-slate-700">
+                <label class="block text-sm font-medium text-slate-700 mb-1">
                   New Password
                 </label>
-                <div class="mt-1">
-                  <input id="password" name="password" type="password" required [(ngModel)]="password"
-                         class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-[var(--sumi-primary)] focus:border-[var(--sumi-primary)] sm:text-sm">
-                </div>
+                <sumi-password-input
+                  [(value)]="password"
+                  name="password"
+                  autocomplete="new-password"
+                  [required]="true">
+                </sumi-password-input>
                 <sumi-password-strength [password]="password"></sumi-password-strength>
               </div>
 
               <div>
-                <label for="confirmPassword" class="block text-sm font-medium text-slate-700">
+                <label class="block text-sm font-medium text-slate-700 mb-1">
                   Confirm New Password
                 </label>
-                <div class="mt-1">
-                  <input id="confirmPassword" name="confirmPassword" type="password" required [(ngModel)]="confirmPassword"
-                         class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-[var(--sumi-primary)] focus:border-[var(--sumi-primary)] sm:text-sm">
-                </div>
+                <sumi-password-input
+                  [(value)]="confirmPassword"
+                  name="confirmPassword"
+                  autocomplete="new-password"
+                  [required]="true">
+                </sumi-password-input>
+                @if (confirmPassword && password !== confirmPassword) {
+                  <p class="mt-1 text-xs text-red-600">Passwords do not match.</p>
+                }
               </div>
 
               <div>

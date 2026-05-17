@@ -43,6 +43,7 @@ interface Order {
   notes: string | null;
   subtotal: number;
   discount: number;
+  tax: number;
   total: number;
   amountPaid: number;
   balance: number;

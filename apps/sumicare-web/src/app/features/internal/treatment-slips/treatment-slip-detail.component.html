@@ -66,17 +66,31 @@
         <div class="vip-tag">VIP TREATMENT SLIP</div>
       }
 
-      <div class="row top-meta">
-        @if (s.vip) {
-          <div class="cell">
-            <span class="label">Jacuzzi</span>
-            <div class="value">{{ s.jacuzziMinutes != null ? s.jacuzziMinutes + ' min' : '' }}</div>
+      @if (s.vip) {
+        <div class="vip-top-block">
+          <div class="vip-row">
+            <span class="vip-label">JACUZZI TIME</span>
+            <span class="vip-value">{{ s.jacuzziMinutes != null ? s.jacuzziMinutes + ' min' : '' }}</span>
           </div>
-          <div class="cell">
-            <span class="label">Massage</span>
-            <div class="value">{{ s.massageMinutes != null ? s.massageMinutes + ' min' : '' }}</div>
+          <div class="vip-row">
+            <span class="vip-label">MASSAGE TIME</span>
+            <span class="vip-value">{{ s.massageMinutes != null ? s.massageMinutes + ' min' : '' }}</span>
           </div>
-        } @else {
+          <div class="vip-row">
+            <span class="vip-label">ROOM</span>
+            <span class="vip-value">{{ s.roomNumber || '' }}</span>
+          </div>
+          <div class="vip-row">
+            <span class="vip-label">WINE</span>
+            <span class="vip-value vip-wine">
+              <span [class.vip-choice-active]="s.wineIncluded === true">Yes</span>
+              <span class="vip-choice-sep">/</span>
+              <span [class.vip-choice-active]="s.wineIncluded === false">No</span>
+            </span>
+          </div>
+        </div>
+      } @else {
+        <div class="row top-meta">
           <div class="cell">
             <span class="label">Treatment Time</span>
             <div class="value">{{ s.treatmentMinutes != null ? s.treatmentMinutes + ' min' : '' }}</div>
@@ -85,8 +99,8 @@
             <span class="label">Pax</span>
             <div class="value">{{ s.pax ?? 1 }}</div>
           </div>
-        }
-      </div>
+        </div>
+      }
 
       <div class="brand">LASEMA</div>
 
@@ -112,16 +126,25 @@
         </div>
       </div>
 
-      <div class="row row-2">
-        <div class="cell">
-          <span class="label">Locker Key #</span>
-          <div class="value">{{ s.lockerNumber || '' }}</div>
+      @if (s.vip) {
+        <div class="row">
+          <div class="cell" style="grid-column: span 2;">
+            <span class="label">Locker Key #</span>
+            <div class="value">{{ s.lockerNumber || '' }}</div>
+          </div>
         </div>
-        <div class="cell">
-          <span class="label">Room</span>
-          <div class="value">{{ s.roomNumber || '' }}</div>
+      } @else {
+        <div class="row row-2">
+          <div class="cell">
+            <span class="label">Locker Key #</span>
+            <div class="value">{{ s.lockerNumber || '' }}</div>
+          </div>
+          <div class="cell">
+            <span class="label">Room</span>
+            <div class="value">{{ s.roomNumber || '' }}</div>
+          </div>
         </div>
-      </div>
+      }
 
       <div class="row row-2">
         <div class="cell">
@@ -185,25 +208,12 @@
         </div>
       </div>
 
-      @if (s.vip) {
-        <div class="row row-2">
-          <div class="cell">
-            <span class="label">Wine</span>
-            <div class="value">{{ s.wineIncluded === true ? 'Yes' : (s.wineIncluded === false ? 'No' : '') }}</div>
-          </div>
-          <div class="cell">
-            <span class="label">Waiver</span>
-            <div class="value">{{ s.waiverAccepted ? 'Accepted' : 'Pending' }}</div>
-          </div>
+      <div class="row">
+        <div class="cell" style="grid-column: span 2;">
+          <span class="label">Waiver</span>
+          <div class="value">{{ s.waiverAccepted ? 'Accepted' : 'Pending' }}</div>
         </div>
-      } @else {
-        <div class="row">
-          <div class="cell" style="grid-column: span 2;">
-            <span class="label">Waiver</span>
-            <div class="value">{{ s.waiverAccepted ? 'Accepted' : 'Pending' }}</div>
-          </div>
-        </div>
-      }
+      </div>
 
       <div class="waiver-title">WAIVER</div>
       <div class="waiver">

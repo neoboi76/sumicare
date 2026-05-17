@@ -11,6 +11,7 @@ import java.util.UUID;
 public interface EmailVerificationTokenRepository extends JpaRepository<EmailVerificationToken, UUID> {
 
     Optional<EmailVerificationToken> findByToken(String token);
+    Optional<EmailVerificationToken> findByTokenAndTokenType(String token, String tokenType);
 
     @Modifying
     @Query("DELETE FROM EmailVerificationToken t WHERE t.userId = :userId")

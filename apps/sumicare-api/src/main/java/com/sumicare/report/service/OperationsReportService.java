@@ -73,6 +73,7 @@ public class OperationsReportService {
             String checkInTime,
             String orNumber,
             String lockerNumber,
+            String packageName,
             String treatment,
             BigDecimal amount,
             String tsn,
@@ -107,7 +108,9 @@ public class OperationsReportService {
 
         Map<String, ServiceAccumulator> bucket = new HashMap<>();
         for (TreatmentSlip s : slips) {
-            String key = s.getServiceName() == null ? "Unknown" : s.getServiceName();
+            String pkg = s.getPackageName() != null ? s.getPackageName() : "(Walk-in)";
+            String svc = s.getServiceName() == null ? "Unknown" : s.getServiceName();
+            String key = pkg + " — " + svc;
             bucket.computeIfAbsent(key, k -> new ServiceAccumulator()).accept(s);
         }
         List<ServiceLine> lines = new ArrayList<>();
@@ -209,6 +212,7 @@ public class OperationsReportService {
                     : (o != null && o.getOrNumber() != null ? o.getOrNumber() : "");
             String locker = slip.getLockerNumber() != null ? slip.getLockerNumber()
                     : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
+            String packageName = slip.getPackageName();
             String treatment = slip.getServiceName() == null ? "" : slip.getServiceName();
             BigDecimal amount = slip.getTotalAmount() != null ? slip.getTotalAmount() : BigDecimal.ZERO;
             String tsn = slip.getTsn() == null ? "" : slip.getTsn();
@@ -228,7 +232,7 @@ public class OperationsReportService {
             String start = formatTime(s != null ? s.getStartedAt() : slip.getStartTime(), timeFmt);
             String end = formatTime(s != null ? s.getEndedAt() : slip.getEndTime(), timeFmt);
             String status = s != null ? s.getStatus() : slip.getStatus();
-            rows.add(new DailyRow(checkIn, orNumber, locker, treatment, amount, tsn, therapist, room, start, end, status));
+            rows.add(new DailyRow(checkIn, orNumber, locker, packageName, treatment, amount, tsn, therapist, room, start, end, status));
         }
         rows.sort((a, b) -> {
             String ka = a.checkInTime() == null ? "" : a.checkInTime();
@@ -254,11 +258,12 @@ public class OperationsReportService {
 
     private byte[] rowsToCsv(List<DailyRow> rows, BigDecimal grandTotal) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Check-in Time,OR#,Locker#,Treatment,Amount,TS#,Therapist,Room,Massage Start,Massage End,Status\n");
+        sb.append("Check-in Time,OR#,Locker#,Package,Treatment,Amount,TS#,Therapist,Room,Massage Start,Massage End,Status\n");
         for (DailyRow r : rows) {
             sb.append(csvCell(r.checkInTime())).append(',')
               .append(csvCell(r.orNumber())).append(',')
               .append(csvCell(r.lockerNumber())).append(',')
+              .append(csvCell(r.packageName())).append(',')
               .append(csvCell(r.treatment())).append(',')
               .append(r.amount() != null ? r.amount().toPlainString() : "0").append(',')
               .append(csvCell(r.tsn())).append(',')
@@ -268,8 +273,8 @@ public class OperationsReportService {
               .append(csvCell(r.massageEnd())).append(',')
               .append(csvCell(r.status())).append('\n');
         }
-        sb.append("\n,,,,").append(grandTotal != null ? grandTotal.toPlainString() : "0")
-          .append(",,GRAND TOTAL,,,,\n");
+        sb.append("\n,,,,,").append(grandTotal != null ? grandTotal.toPlainString() : "0")
+          .append(",,GRAND TOTAL,,,\n");
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 

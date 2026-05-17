@@ -19,6 +19,7 @@ public record OrderResponse(
         String notes,
         BigDecimal subtotal,
         BigDecimal discount,
+        BigDecimal tax,
         BigDecimal total,
         BigDecimal amountPaid,
         BigDecimal balance,

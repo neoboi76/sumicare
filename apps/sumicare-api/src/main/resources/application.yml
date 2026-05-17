@@ -20,8 +20,8 @@ spring:
         jdbc:
           time_zone: ${HIBERNATE_TIME_ZONE:Asia/Manila}
   liquibase:
-    change-log: classpath:db/changelog/db.changelog-master.xml
     enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
   data:
     redis:
       url: ${REDIS_URL:redis://localhost:6379}

@@ -60,12 +60,62 @@ public class EmailService {
                       Reset Password
                     </a>
                   </p>
-                  <p>This link expires in 30 minutes. If you did not request a password reset, you may safely ignore this email.</p>
+                  <p>This link expires in 1 hour. If you did not request a password reset, you may safely ignore this email.</p>
                   <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
                   <p style="font-size: 12px; color: #6b7280;">SumiCare &mdash; Spa Operations Management</p>
                 </body>
                 </html>
                 """.formatted(displayName, link);
+        sendHtml(to, subject, body);
+    }
+
+    @Async
+    public void sendInvitationEmail(String to, String displayName, String token) {
+        String link = appProperties.app().publicBaseUrl() + "/invite?token=" + token;
+        String subject = "You have been invited to SumiCare";
+        String body = """
+                <html>
+                <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
+                  <h2 style="color: #c42441;">Welcome to SumiCare</h2>
+                  <p>Hello %s,</p>
+                  <p>Your SumiCare account has been created. Click the button below to set your password and get started.</p>
+                  <p style="margin: 32px 0;">
+                    <a href="%s"
+                       style="background-color: #c42441; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                      Accept Invitation
+                    </a>
+                  </p>
+                  <p>This link expires in 7 days. If you did not expect this email, you may safely ignore it.</p>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+                  <p style="font-size: 12px; color: #6b7280;">SumiCare &mdash; Spa Operations Management</p>
+                </body>
+                </html>
+                """.formatted(displayName == null ? "there" : displayName, link);
+        sendHtml(to, subject, body);
+    }
+
+    @Async
+    public void sendPublicPasswordResetEmail(String to, String displayName, String token) {
+        String link = appProperties.app().publicBaseUrl() + "/reset-password?token=" + token;
+        String subject = "Reset your SumiCare password";
+        String body = """
+                <html>
+                <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
+                  <h2 style="color: #c42441;">Password Reset Request</h2>
+                  <p>Hello %s,</p>
+                  <p>We received a request to reset your SumiCare account password. Click the button below to choose a new password.</p>
+                  <p style="margin: 32px 0;">
+                    <a href="%s"
+                       style="background-color: #c42441; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                      Reset Password
+                    </a>
+                  </p>
+                  <p>This link expires in 1 hour. If you did not request a password reset, you may safely ignore this email.</p>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+                  <p style="font-size: 12px; color: #6b7280;">SumiCare &mdash; Spa Operations Management</p>
+                </body>
+                </html>
+                """.formatted(displayName == null ? "there" : displayName, link);
         sendHtml(to, subject, body);
     }
 

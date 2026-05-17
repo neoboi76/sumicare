@@ -24,6 +24,7 @@ public record CreateOrderRequest(
         @Size(max = 50) String orNumber,
         @DecimalMin("0.00") BigDecimal subtotal,
         @DecimalMin("0.00") BigDecimal discount,
+        @DecimalMin("0.00") BigDecimal tax,
         @DecimalMin("0.00") BigDecimal total,
         InitialPayment initialPayment,
         @Size(max = 120) String transactorName,

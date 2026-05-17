@@ -30,6 +30,8 @@ import com.sumicare.transaction.domain.Commission;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import com.sumicare.transaction.service.TreatmentSlipService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,8 @@ import java.util.UUID;
 
 @org.springframework.stereotype.Service
 public class BookingService {
+
+    private static final Logger log = LoggerFactory.getLogger(BookingService.class);
 
     private static final int PREP_BUFFER_MINUTES = 15;
 
@@ -125,6 +129,7 @@ public class BookingService {
         booking.setOrganizationId(organizationId);
         booking.setClientId(request.clientId());
         booking.setClientNickname(request.clientNickname());
+        booking.setClientEmail(request.clientEmail());
         booking.setLockerNumber(request.lockerNumber());
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
@@ -278,6 +283,10 @@ public class BookingService {
             }
         }
 
+        if (service != null && service.isRequiresTwoTherapists() && request.secondaryTherapistId() == null) {
+            throw new IllegalArgumentException("This service requires two therapists; pick a secondary.");
+        }
+
         session.setPrimaryTherapistId(request.primaryTherapistId());
         session.setSecondaryTherapistId(request.secondaryTherapistId());
         session.setRoomId(request.roomId());
@@ -359,9 +368,8 @@ public class BookingService {
         OffsetDateTime now = OffsetDateTime.now();
         session.setEndedAt(now);
         session.setStatus("COMPLETED");
-        if (session.getRoomId() != null && session.getBedId() != null) {
-            occupancyService.release(organizationId, session.getRoomId(), session.getBedId());
-        }
+        sessionRepository.save(session);
+
         Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
 
         boolean isGroupSession = orderRepository.findByBookingId(booking.getId())
@@ -404,12 +412,19 @@ public class BookingService {
             });
         }
 
-        if (session.getRoomId() != null && session.getBedId() != null) {
-            notificationService.broadcastRoomUpdate(organizationId, session.getRoomId(), session.getBedId(),
+        posService.recordCommissionsForSession(organizationId, session);
+
+        UUID roomId = session.getRoomId();
+        UUID bedId = session.getBedId();
+        if (roomId != null && bedId != null) {
+            try {
+                occupancyService.release(organizationId, roomId, bedId);
+            } catch (Exception e) {
+                log.warn("Redis bed release failed for room {} bed {} — will be healed by reconciler: {}", roomId, bedId, e.getMessage());
+            }
+            notificationService.broadcastRoomUpdate(organizationId, roomId, bedId,
                     Map.of("event", "SESSION_ENDED", "sessionId", session.getId()));
         }
-
-        posService.recordCommissionsForSession(organizationId, session);
 
         return toSessionResponse(session);
     }
@@ -527,7 +542,7 @@ public class BookingService {
         UUID orderId = orderRepository.findByBookingId(b.getId())
                 .map(com.sumicare.cashier.domain.Order::getId)
                 .orElse(null);
-        return new BookingResponse(b.getId(), b.getClientNickname(), b.getLockerNumber(),
+        return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), b.getScheduledAt(),
                 effectiveStart, projectedEnd, b.getStatus(), orderId);
     }

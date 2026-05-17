@@ -34,6 +34,14 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./features/auth/reset-password.component').then(m => m.ResetPasswordComponent)
   },
   {
+    path: 'invite',
+    loadComponent: () => import('./features/auth/invite.component').then(m => m.InviteComponent)
+  },
+  {
+    path: 'forgot-password',
+    loadComponent: () => import('./features/auth/forgot-password.component').then(m => m.ForgotPasswordComponent)
+  },
+  {
     path: 'app',
     canActivate: [authGuard],
     loadComponent: () => import('./features/internal/internal-shell.component').then(m => m.InternalShellComponent),

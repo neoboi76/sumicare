@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -110,8 +111,10 @@ public class ReceiptPdfService {
         }
 
         BigDecimal total = order.getTotal() != null ? order.getTotal() : BigDecimal.ZERO;
-        BigDecimal vatable = total.divide(new BigDecimal("1.12"), 2, RoundingMode.HALF_UP);
-        BigDecimal vat = total.subtract(vatable).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal orderTax = Objects.requireNonNullElse(order.getTax(), BigDecimal.ZERO);
+        String taxRow = orderTax.compareTo(BigDecimal.ZERO) > 0
+                ? "<tr><td class=\"lbl\">Tax</td><td class=\"val\">" + fmt(orderTax) + "</td></tr>"
+                : "";
 
         String now = OffsetDateTime.now().atZoneSameInstant(MANILA).format(STAMP);
         String html = """
@@ -153,19 +156,12 @@ public class ReceiptPdfService {
               <table class="totals small">
                 <tr><td class="lbl">Subtotal</td><td class="val">%s</td></tr>
                 <tr><td class="lbl">Discount</td><td class="val">%s</td></tr>
+                %s
                 <tr><td class="lbl bold">Bill Amount</td><td class="val bold">%s</td></tr>
                 <tr><td class="lbl">Amount Paid</td><td class="val">%s</td></tr>
               </table>
               <hr/>
-              <div class="small">Tax Details</div>
-              <table class="totals small">
-                <tr><td class="lbl">Vatable Amount</td><td class="val">%s</td></tr>
-                <tr><td class="lbl">VAT-Exempt Sales</td><td class="val">0.00</td></tr>
-                <tr><td class="lbl">VAT-Zero Rate</td><td class="val">0.00</td></tr>
-                <tr><td class="lbl">VAT 12%%</td><td class="val">%s</td></tr>
-              </table>
-              <hr/>
-              <div class="center small">Powered by SumiCare. This is not a BIR-approved receipt.</div>
+              <div class="center small">Powered by SumiCare</div>
             </body></html>
             """.formatted(
                 esc(org == null ? "La Sema Spa" : (org.getDisplayName() != null ? org.getDisplayName() : org.getSlug())),
@@ -178,10 +174,9 @@ public class ReceiptPdfService {
                 lines.toString(),
                 fmt(order.getSubtotal()),
                 fmt(order.getDiscount()),
+                taxRow,
                 fmt(total),
-                fmt(order.getAmountPaid()),
-                fmt(vatable),
-                fmt(vat)
+                fmt(order.getAmountPaid())
         );
 
         return pdfRenderer.renderHtml(html);

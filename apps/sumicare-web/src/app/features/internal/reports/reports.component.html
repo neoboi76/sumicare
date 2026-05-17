@@ -99,7 +99,14 @@
             <td class="px-2 py-1.5">{{ row.checkInTime }}</td>
             <td class="px-2 py-1.5 font-mono">{{ row.orNumber }}</td>
             <td class="px-2 py-1.5">{{ row.lockerNumber }}</td>
-            <td class="px-2 py-1.5">{{ row.treatment }}</td>
+            <td class="px-2 py-1.5">
+              @if (row.packageName) {
+                <span class="text-slate-400 text-[10px] block leading-tight">{{ row.packageName }}</span>
+              } @else {
+                <span class="text-slate-400 text-[10px] block leading-tight">(walk-in service)</span>
+              }
+              {{ row.treatment }}
+            </td>
             <td class="px-2 py-1.5 text-right">&#8369; {{ row.amount | number:'1.2-2' }}</td>
             <td class="px-2 py-1.5 font-mono">{{ row.tsn }}</td>
             <td class="px-2 py-1.5">{{ row.therapist }}</td>

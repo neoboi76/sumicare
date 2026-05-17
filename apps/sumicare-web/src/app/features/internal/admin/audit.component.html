@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-4">
   <header>
     <h1 class="text-2xl font-semibold text-slate-900">Audit log</h1>
     <p class="text-slate-500">Immutable record of every state-modifying action. Read-only.</p>
@@ -9,20 +9,36 @@
         <th class="text-left p-3">When</th>
         <th class="text-left p-3">Actor role</th>
         <th class="text-left p-3">Action</th>
+        <th class="text-left p-3">Target</th>
         <th class="text-left p-3">IP</th>
       </tr>
     </thead>
     <tbody>
       @for (entry of entries(); track entry.id) {
-        <tr class="border-t">
+        <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono text-xs">{{ formatDate(entry.occurredAt) }}</td>
           <td class="p-3">{{ entry.actorRole }}</td>
           <td class="p-3">{{ entry.actionType }}</td>
+          <td class="p-3 font-mono text-xs">
+            @if (entry.targetEntity) {
+              {{ entry.targetEntity }}@if (entry.targetId) { / {{ entry.targetId | slice:0:8 }} }
+            }
+          </td>
           <td class="p-3 font-mono text-xs">{{ entry.ipAddress }}</td>
         </tr>
       } @empty {
-        <tr><td colspan="4" class="p-6 text-center text-slate-500">No audit events.</td></tr>
+        <tr><td colspan="5" class="p-6 text-center text-slate-500">No audit events.</td></tr>
       }
     </tbody>
   </table>
+
+  @if (totalPages() > 1) {
+    <div class="flex items-center justify-between text-sm text-slate-600">
+      <button (click)="prevPage()" [disabled]="page() === 0"
+              class="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40">Previous</button>
+      <span>Page {{ page() + 1 }} of {{ totalPages() }} &nbsp;({{ totalElements() }} entries)</span>
+      <button (click)="nextPage()" [disabled]="page() >= totalPages() - 1"
+              class="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40">Next</button>
+    </div>
+  }
 </div>

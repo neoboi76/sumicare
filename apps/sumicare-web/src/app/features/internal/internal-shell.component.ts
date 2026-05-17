@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } 
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { BrandingService } from '../../core/branding/branding.service';
+import { ConfirmService } from '../../shared/components/confirm-dialog/confirm.service';
 
 interface NavItem {
   label: string;
@@ -29,6 +30,7 @@ export class InternalShellComponent implements OnInit {
   private auth = inject(AuthService);
   private router = inject(Router);
   protected branding = inject(BrandingService);
+  private confirmService = inject(ConfirmService);
   session = this.auth.session;
 
   readonly sidebarOpen = signal(true);
@@ -106,7 +108,13 @@ export class InternalShellComponent implements OnInit {
     });
   }
 
-  signOut(): void {
+  async signOut(): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Sign out',
+      message: 'Are you sure you want to sign out of SumiCare?',
+      confirmText: 'Sign out'
+    });
+    if (!confirmed) return;
     this.auth.logout().subscribe({
       next: () => this.router.navigate(['/login']),
       error: () => this.router.navigate(['/login'])

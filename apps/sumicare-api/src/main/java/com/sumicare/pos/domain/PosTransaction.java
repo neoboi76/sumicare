@@ -33,6 +33,9 @@ public class PosTransaction {
     @Column(name = "discount")
     private BigDecimal discount = BigDecimal.ZERO;
 
+    @Column(name = "tax")
+    private BigDecimal tax = BigDecimal.ZERO;
+
     @Column(name = "total", nullable = false)
     private BigDecimal total;
 
@@ -62,6 +65,8 @@ public class PosTransaction {
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
     public BigDecimal getDiscount() { return discount; }
     public void setDiscount(BigDecimal discount) { this.discount = discount; }
+    public BigDecimal getTax() { return tax; }
+    public void setTax(BigDecimal tax) { this.tax = tax; }
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
     public String getPaymentMethod() { return paymentMethod; }

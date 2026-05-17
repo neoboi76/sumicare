@@ -57,6 +57,9 @@ public class Order {
     @Column(name = "discount", nullable = false)
     private BigDecimal discount = BigDecimal.ZERO;
 
+    @Column(name = "tax", nullable = false)
+    private BigDecimal tax = BigDecimal.ZERO;
+
     @Column(name = "total", nullable = false)
     private BigDecimal total = BigDecimal.ZERO;
 
@@ -104,6 +107,8 @@ public class Order {
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
     public BigDecimal getDiscount() { return discount; }
     public void setDiscount(BigDecimal discount) { this.discount = discount; }
+    public BigDecimal getTax() { return tax; }
+    public void setTax(BigDecimal tax) { this.tax = tax; }
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
     public BigDecimal getAmountPaid() { return amountPaid; }

@@ -8,7 +8,7 @@ interface ServiceLine { serviceId: number | null; serviceName: string; qty: numb
 interface CutoffServicesReport { from: string; to: string; lines: ServiceLine[]; grandTotal: number; }
 interface DailyRow {
   checkInTime: string; orNumber: string; lockerNumber: string; treatment: string;
-  amount: number; tsn: string; therapist: string; room: string;
+  packageName: string | null; amount: number; tsn: string; therapist: string; room: string;
   massageStart: string; massageEnd: string; status: string;
 }
 interface DailyReport { date: string; rows: DailyRow[]; grandTotal: number; }

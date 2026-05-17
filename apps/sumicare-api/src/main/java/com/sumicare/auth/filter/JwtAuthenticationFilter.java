@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 
 @Component
@@ -41,6 +42,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Claims claims = jwtService.parse(token);
             if (jwtService.isRevoked(claims.getId())) {
+                chain.doFilter(request, response);
+                return;
+            }
+            Date issuedAt = claims.getIssuedAt();
+            if (issuedAt != null && jwtService.isTokenIssuedBeforeRevocation(
+                    claims.getSubject(), issuedAt.toInstant().getEpochSecond())) {
                 chain.doFilter(request, response);
                 return;
             }

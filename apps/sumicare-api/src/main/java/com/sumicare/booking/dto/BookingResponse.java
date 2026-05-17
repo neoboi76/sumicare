@@ -6,6 +6,7 @@ import java.util.UUID;
 public record BookingResponse(
         UUID id,
         String clientNickname,
+        String clientEmail,
         String lockerNumber,
         Long serviceId,
         String reservationType,

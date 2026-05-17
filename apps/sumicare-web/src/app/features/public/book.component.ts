@@ -58,12 +58,19 @@ export class BookComponent implements OnInit {
   packages = signal<PublicPackage[]>([]);
   error = signal<string | null>(null);
   submitting = signal(false);
+  loadingInitial = signal(true);
+  private servicesReady = false;
+  private packagesReady = false;
+  private markReady(which: 'services' | 'packages'): void {
+    if (which === 'services') this.servicesReady = true;
+    else this.packagesReady = true;
+    if (this.servicesReady && this.packagesReady) this.loadingInitial.set(false);
+  }
   confirmation = signal<BookingCreated | null>(null);
   bookingRef = signal<string | null>(null);
 
   clientNickname = '';
-  pax = 1;
-  serviceId: number | null = null;
+  clientEmail = '';
   packageId: number | null = null;
   packageTierId: number | null = null;
   reservationType = 'SOFT';
@@ -85,31 +92,19 @@ export class BookComponent implements OnInit {
     this.http
       .get<ServiceItem[]>(`${environment.apiBaseUrl}/api/public/services/${environment.defaultOrganizationSlug}`)
       .subscribe({
-        next: (s) => {
-          this.services.set(s);
-          const queryId = Number(this.route.snapshot.queryParamMap.get('serviceId'));
-          if (queryId && s.find(svc => svc.id === queryId)) {
-            this.serviceId = queryId;
-          } else if (s.length > 0 && this.serviceId === null) {
-            this.serviceId = s[0].id;
-          }
-        },
-        error: () => this.services.set([])
+        next: (s) => { this.services.set(s); this.markReady('services'); },
+        error: () => { this.services.set([]); this.markReady('services'); }
       });
     this.http
       .get<PublicPackage[]>(`${environment.apiBaseUrl}/api/public/packages/${environment.defaultOrganizationSlug}`)
       .subscribe({
-        next: (p) => this.packages.set(p.filter(pkg => pkg.active)),
-        error: () => this.packages.set([])
+        next: (p) => { this.packages.set(p.filter(pkg => pkg.active)); this.markReady('packages'); },
+        error: () => { this.packages.set([]); this.markReady('packages'); }
       });
   }
 
   onPackageChange(): void {
     this.packageTierId = null;
-    const pkg = this.selectedPackage();
-    if (pkg) {
-      this.pax = Math.max(1, pkg.defaultPax || 1);
-    }
   }
 
   submit(event: Event): void {
@@ -117,12 +112,8 @@ export class BookComponent implements OnInit {
     if (this.submitting()) return;
     const missing: string[] = [];
     if (!this.clientNickname.trim()) missing.push('nickname');
-    const usingPackage = this.packageId != null;
-    if (usingPackage) {
-      if (this.packageTierId == null) missing.push('massage');
-    } else if (this.serviceId == null) {
-      missing.push('service');
-    }
+    if (this.packageId == null) missing.push('package');
+    if (this.packageTierId == null) missing.push('massage');
     if (!this.scheduledDate) missing.push('date');
     if (!this.scheduledTime) missing.push('time');
     if (!this.consent) missing.push('consent');
@@ -131,14 +122,11 @@ export class BookComponent implements OnInit {
       return;
     }
 
-    let effectiveServiceId: number | null = this.serviceId;
-    if (usingPackage) {
-      const tier = this.packageTiers().find(t => t.id === Number(this.packageTierId));
-      effectiveServiceId = tier?.serviceId ?? null;
-      if (effectiveServiceId == null) {
-        this.error.set('The selected massage is not bookable. Please pick another.');
-        return;
-      }
+    const tier = this.packageTiers().find(t => t.id === Number(this.packageTierId));
+    const effectiveServiceId = tier?.serviceId ?? null;
+    if (effectiveServiceId == null) {
+      this.error.set('The selected massage is not bookable. Please pick another.');
+      return;
     }
 
     const combined = new Date(`${this.scheduledDate}T${this.scheduledTime}`);
@@ -152,13 +140,13 @@ export class BookComponent implements OnInit {
 
     const payload = {
       clientNickname: this.clientNickname.trim(),
-      pax: Number(this.pax) || 1,
+      clientEmail: this.clientEmail.trim() || null,
       serviceId: Number(effectiveServiceId),
       reservationType: this.reservationType,
       scheduledAt: combined.toISOString(),
       clientGender: this.clientGender,
-      packageId: usingPackage ? Number(this.packageId) : null,
-      packageTierId: usingPackage ? Number(this.packageTierId) : null
+      packageId: Number(this.packageId),
+      packageTierId: Number(this.packageTierId)
     };
 
     this.http
@@ -185,14 +173,13 @@ export class BookComponent implements OnInit {
     this.bookingRef.set(null);
     this.error.set(null);
     this.clientNickname = '';
-    this.pax = 1;
+    this.clientEmail = '';
     this.scheduledDate = '';
     this.scheduledTime = '';
     this.clientGender = 'F';
     this.consent = false;
     this.packageId = null;
     this.packageTierId = null;
-    if (this.services().length > 0) this.serviceId = this.services()[0].id;
   }
 
   formatDateTime(iso: string | null): string {

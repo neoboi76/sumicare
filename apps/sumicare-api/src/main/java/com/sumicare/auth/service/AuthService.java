@@ -46,6 +46,9 @@ public class AuthService {
         User user = userRepository.findByUsername(request.username())
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
         if (!user.isActive()) throw new AccessDeniedException("User is deactivated");
+        if (user.getPasswordHash() == null) {
+            throw new BadCredentialsException("Account setup is not complete. Please use the invitation link sent to your email.");
+        }
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid credentials");
         }
@@ -79,6 +82,15 @@ public class AuthService {
     }
 
     public void logout(HttpServletRequest request, HttpServletResponse response) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            try {
+                Claims claims = jwtService.parse(authHeader.substring(7));
+                long ttl = Math.max(claims.getExpiration().getTime() - System.currentTimeMillis(), 0L);
+                jwtService.revoke(claims.getId(), Duration.ofMillis(ttl));
+            } catch (Exception ignored) {
+            }
+        }
         String refreshToken = readRefreshCookie(request);
         if (refreshToken != null) {
             try {

@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
@@ -29,16 +28,6 @@ public class TreatmentSlipPdfService {
     public byte[] renderSlip(UUID slipId) {
         TreatmentSlip slip = slipRepository.findById(slipId).orElseThrow();
         boolean vip = slip.isVip();
-        String topLeftLabel = vip ? "Jacuzzi" : "Treatment Time";
-        String topLeftValue = vip
-                ? (slip.getJacuzziMinutes() != null ? slip.getJacuzziMinutes() + " min" : "")
-                : (slip.getTreatmentMinutes() != null ? slip.getTreatmentMinutes() + " min" : "");
-        String topRightLabel = vip ? "Massage" : "Pax";
-        String topRightValue = vip
-                ? (slip.getMassageMinutes() != null ? slip.getMassageMinutes() + " min" : "")
-                : Integer.toString(slip.getPax() == null ? 1 : slip.getPax());
-
-        String tag = vip ? "VIP TREATMENT SLIP" : "";
 
         String customerName = slip.getClientNickname() == null ? "" : slip.getClientNickname();
         String therapist = slip.getPrimaryTherapistNickname() == null ? "" : slip.getPrimaryTherapistNickname();
@@ -46,100 +35,161 @@ public class TreatmentSlipPdfService {
             therapist += " / " + slip.getSecondaryTherapistNickname();
         }
 
-        String html = """
+        StringBuilder sb = new StringBuilder();
+        sb.append(CSS_PREFIX);
+        sb.append("<div class=\"slip\">");
+
+        if (vip) {
+            sb.append("<div class=\"tag\">VIP TREATMENT SLIP</div>");
+            sb.append("<div class=\"vip-top\">");
+            sb.append(vipRow("JACUZZI TIME",
+                    slip.getJacuzziMinutes() != null ? slip.getJacuzziMinutes() + " min" : ""));
+            sb.append(vipRow("MASSAGE TIME",
+                    slip.getMassageMinutes() != null ? slip.getMassageMinutes() + " min" : ""));
+            sb.append(vipRow("ROOM", slip.getRoomNumber() == null ? "" : slip.getRoomNumber()));
+            sb.append(wineRow(slip.getWineIncluded()));
+            sb.append("</div>");
+        } else {
+            String treatTime = slip.getTreatmentMinutes() != null ? slip.getTreatmentMinutes() + " min" : "";
+            String pax = Integer.toString(slip.getPax() == null ? 1 : slip.getPax());
+            sb.append("<div class=\"row row-2\">")
+              .append(cell("Treatment Time", treatTime))
+              .append(cell("Pax", pax))
+              .append("</div>");
+        }
+
+        sb.append("<div class=\"brand\">LASEMA</div>");
+
+        sb.append("<div class=\"row row-2\">")
+          .append(cell("Customer Name", customerName))
+          .append(cell("Nationality", ""))
+          .append("</div>");
+
+        sb.append("<div class=\"row row-2\">")
+          .append(cell("TS #", slip.getTsn() == null ? "" : slip.getTsn()))
+          .append(cell("Date", slip.getCreatedAt() == null ? "" :
+                  slip.getCreatedAt().atZoneSameInstant(MANILA).format(DATE_FMT)))
+          .append("</div>");
+
+        if (vip) {
+            sb.append("<div class=\"row row-1\">")
+              .append(cell("Locker Key #", slip.getLockerNumber() == null ? "" : slip.getLockerNumber()))
+              .append("</div>");
+        } else {
+            sb.append("<div class=\"row row-2\">")
+              .append(cell("Locker Key #", slip.getLockerNumber() == null ? "" : slip.getLockerNumber()))
+              .append(cell("Room", slip.getRoomNumber() == null ? "" : slip.getRoomNumber()))
+              .append("</div>");
+        }
+
+        sb.append("<div class=\"row row-2\">")
+          .append(cell("Start Time", slip.getStartTime() == null ? "" :
+                  slip.getStartTime().atZoneSameInstant(MANILA).format(TIME_FMT)))
+          .append(cell("End Time", slip.getEndTime() == null ? "" :
+                  slip.getEndTime().atZoneSameInstant(MANILA).format(TIME_FMT)))
+          .append("</div>");
+
+        sb.append("<div class=\"row row-2\">")
+          .append(cell("Therapist", therapist))
+          .append("<div class=\"cell\"><span class=\"label\">Signature</span><div class=\"value\">&#160;</div></div>")
+          .append("</div>");
+
+        sb.append("<div class=\"row row-treat\">")
+          .append("<div class=\"cell t1\">").append(cellInner("Treatment",
+                  slip.getServiceName() == null ? "" : slip.getServiceName())).append("</div>")
+          .append("<div class=\"cell t2\">").append(cellInner("OR #",
+                  slip.getOrNumber() == null ? "" : slip.getOrNumber())).append("</div>")
+          .append("</div>");
+
+        sb.append("<div class=\"row row-treat\">")
+          .append("<div class=\"cell t1\">").append(cellInner("Others / Add On",
+                  slip.getOthersAddOn() == null ? "" : slip.getOthersAddOn())).append("</div>")
+          .append("<div class=\"cell t2\">").append(cellInner("Add-on OR #",
+                  slip.getAddOnOrNumber() == null ? "" : slip.getAddOnOrNumber())).append("</div>")
+          .append("</div>");
+
+        sb.append("<div class=\"row row-treat\">")
+          .append("<div class=\"cell t1\">").append(cellInner("Remarks",
+                  slip.getRemarks() == null ? "" : slip.getRemarks())).append("</div>")
+          .append("<div class=\"cell t2\">").append(cellInner("Total", fmt(slip.getTotalAmount()))).append("</div>")
+          .append("</div>");
+
+        sb.append("<div class=\"row row-1\">")
+          .append(cell("Waiver", slip.isWaiverAccepted() ? "Accepted" : "Pending"))
+          .append("</div>");
+
+        sb.append("<div class=\"waiver-title\">WAIVER</div>");
+        sb.append("<div class=\"waiver\">")
+          .append("I understand that the massage or body scrub received is provided for the basic purpose of relaxation ")
+          .append("and relief of MUSCULAR TENSION. If I experience any pain or discomfort during the session, ")
+          .append("I will immediately inform the practitioner so that pressure and/or strokes may be adjusted to my level of comfort. ")
+          .append("I further understand that the massage/body scrub is not a substitute for medical examination, diagnosis, or treatment, ")
+          .append("and that I should see a qualified physician for any physical/mental ailment. ")
+          .append("THERE SHALL BE NO LIABILITY ON THE PRACTITIONER'S PART OR THE LASEMA Management. ")
+          .append("Any illicit or sexually suggestive remarks or advances will result in immediate termination of the session, ")
+          .append("with payment forfeited.")
+          .append("</div>");
+
+        sb.append("<div class=\"sig\">Signature over printed name</div>");
+        sb.append("</div></body></html>");
+
+        return pdfRenderer.renderHtml(sb.toString());
+    }
+
+    private static final String CSS_PREFIX = """
             <!DOCTYPE html>
             <html><head><meta charset="UTF-8"/>
             <style>
               @page { size: A6 portrait; margin: 4mm; }
               body { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #000; }
-              .slip { width: 100%%; border: 1.5px solid #000; }
-              .row { display: table; width: 100%%; border-bottom: 1px solid #000; }
+              .slip { width: 100%; border: 1.5px solid #000; }
+              .row { display: table; width: 100%; border-bottom: 1px solid #000; }
               .row:last-child { border-bottom: none; }
               .cell { display: table-cell; padding: 1.5mm 2mm; border-right: 1px solid #000; vertical-align: top; }
               .cell:last-child { border-right: none; }
-              .row-2 .cell { width: 50%%; }
-              .row-1 .cell { width: 100%%; }
-              .row-treat .cell.t1 { width: 66%%; }
-              .row-treat .cell.t2 { width: 34%%; }
+              .row-2 .cell { width: 50%; }
+              .row-1 .cell { width: 100%; }
+              .row-treat .cell.t1 { width: 66%; }
+              .row-treat .cell.t2 { width: 34%; }
               .label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; display: block; }
               .value { font-size: 9pt; font-weight: 600; margin-top: 0.5mm; }
               .brand { text-align: center; font-weight: 800; font-size: 16pt; letter-spacing: 0.18em; padding: 2mm; border-bottom: 1.5px solid #000; }
               .tag { background: #000; color: #fff; text-align: center; font-weight: 800; letter-spacing: 0.2em; font-size: 8pt; padding: 1mm 0; }
+              .vip-top { border-bottom: 1.5px solid #000; }
+              .vip-row { display: flex; justify-content: space-between; align-items: baseline; padding: 1mm 2mm; border-bottom: 1px solid #000; }
+              .vip-row:last-child { border-bottom: none; }
+              .vip-lbl { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+              .vip-val { font-size: 9pt; font-weight: 600; }
+              .sep { opacity: 0.5; font-weight: 400; }
+              .active-choice { font-weight: 800; text-decoration: underline; text-underline-offset: 1px; }
               .waiver-title { text-align: center; font-weight: 800; letter-spacing: 0.1em; font-size: 8pt; padding-top: 1mm; }
               .waiver { padding: 2mm; font-size: 6pt; line-height: 1.35; text-align: justify; border-top: 1px solid #000; border-bottom: 1px solid #000; }
               .sig { padding: 8mm 2mm 1mm; text-align: center; font-size: 6.5pt; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid #000; margin-top: 3mm; }
             </style></head><body>
-              <div class="slip">
-                %s
-                <div class="row row-2">
-                  <div class="cell"><span class="label">%s</span><div class="value">%s</div></div>
-                  <div class="cell"><span class="label">%s</span><div class="value">%s</div></div>
-                </div>
-                <div class="brand">LASEMA</div>
-                <div class="row row-2">
-                  <div class="cell"><span class="label">Customer Name</span><div class="value">%s</div></div>
-                  <div class="cell"><span class="label">Nationality</span><div class="value">&#160;</div></div>
-                </div>
-                <div class="row row-2">
-                  <div class="cell"><span class="label">TS #</span><div class="value">%s</div></div>
-                  <div class="cell"><span class="label">Date</span><div class="value">%s</div></div>
-                </div>
-                <div class="row row-2">
-                  <div class="cell"><span class="label">Locker Key #</span><div class="value">%s</div></div>
-                  <div class="cell"><span class="label">Room</span><div class="value">%s</div></div>
-                </div>
-                <div class="row row-2">
-                  <div class="cell"><span class="label">Start Time</span><div class="value">%s</div></div>
-                  <div class="cell"><span class="label">End Time</span><div class="value">%s</div></div>
-                </div>
-                <div class="row row-2">
-                  <div class="cell"><span class="label">Therapist</span><div class="value">%s</div></div>
-                  <div class="cell"><span class="label">Signature</span><div class="value">&#160;</div></div>
-                </div>
-                <div class="row row-treat">
-                  <div class="cell t1"><span class="label">Treatment</span><div class="value">%s</div></div>
-                  <div class="cell t2"><span class="label">OR #</span><div class="value">%s</div></div>
-                </div>
-                <div class="row row-treat">
-                  <div class="cell t1"><span class="label">Others / Add On</span><div class="value">%s</div></div>
-                  <div class="cell t2"><span class="label">OR #</span><div class="value">%s</div></div>
-                </div>
-                <div class="row row-treat">
-                  <div class="cell t1"><span class="label">Remarks</span><div class="value">%s</div></div>
-                  <div class="cell t2"><span class="label">Total</span><div class="value">%s</div></div>
-                </div>
-                <div class="waiver-title">WAIVER</div>
-                <div class="waiver">
-                  I understand that the massage or body scrub received is provided for the basic purpose of relaxation and relief of MUSCULAR TENSION.
-                  If I experience any pain or discomfort during the session, I will immediately inform the practitioner so that pressure and/or strokes may be adjusted to my level of comfort.
-                  I further understand that the massage/body scrub is not a substitute for medical examination, diagnosis, or treatment, and that I should see a qualified physician for any physical/mental ailment.
-                  THERE SHALL BE NO LIABILITY ON THE PRACTITIONER'S PART OR THE LASEMA Management.
-                  Any illicit or sexually suggestive remarks or advances will result in immediate termination of the session, with payment forfeited.
-                </div>
-                <div class="sig">Signature over printed name</div>
-              </div>
-            </body></html>
-            """.formatted(
-                vip ? "<div class='tag'>" + tag + "</div>" : "",
-                esc(topLeftLabel), esc(topLeftValue),
-                esc(topRightLabel), esc(topRightValue),
-                esc(customerName),
-                esc(slip.getTsn() == null ? "" : slip.getTsn()),
-                slip.getCreatedAt() == null ? "" : slip.getCreatedAt().atZoneSameInstant(MANILA).format(DATE_FMT),
-                esc(slip.getLockerNumber() == null ? "" : slip.getLockerNumber()),
-                esc(slip.getRoomNumber() == null ? "" : slip.getRoomNumber()),
-                slip.getStartTime() == null ? "" : slip.getStartTime().atZoneSameInstant(MANILA).format(TIME_FMT),
-                slip.getEndTime() == null ? "" : slip.getEndTime().atZoneSameInstant(MANILA).format(TIME_FMT),
-                esc(therapist),
-                esc(slip.getServiceName() == null ? "" : slip.getServiceName()),
-                esc(slip.getOrNumber() == null ? "" : slip.getOrNumber()),
-                esc(slip.getOthersAddOn() == null ? "" : slip.getOthersAddOn()),
-                esc(slip.getAddOnOrNumber() == null ? "" : slip.getAddOnOrNumber()),
-                esc(slip.getRemarks() == null ? "" : slip.getRemarks()),
-                fmt(slip.getTotalAmount())
-        );
+            """;
 
-        return pdfRenderer.renderHtml(html);
+    private String vipRow(String label, String value) {
+        return "<div class=\"vip-row\"><span class=\"vip-lbl\">" + esc(label) +
+               "</span><span class=\"vip-val\">" + esc(value) + "</span></div>";
+    }
+
+    private String wineRow(Boolean wineIncluded) {
+        String yes = Boolean.TRUE.equals(wineIncluded)
+                ? "<span class=\"active-choice\">Yes</span>"
+                : "<span>Yes</span>";
+        String no = Boolean.FALSE.equals(wineIncluded)
+                ? "<span class=\"active-choice\">No</span>"
+                : "<span>No</span>";
+        return "<div class=\"vip-row\"><span class=\"vip-lbl\">WINE</span>" +
+               "<span class=\"vip-val\">" + yes + " <span class=\"sep\">/</span> " + no + "</span></div>";
+    }
+
+    private String cell(String label, String value) {
+        return "<div class=\"cell\">" + cellInner(label, value) + "</div>";
+    }
+
+    private String cellInner(String label, String value) {
+        return "<span class=\"label\">" + esc(label) + "</span><div class=\"value\">" + esc(value) + "</div>";
     }
 
     private String fmt(BigDecimal v) {
@@ -151,7 +201,4 @@ public class TreatmentSlipPdfService {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
-
-    @SuppressWarnings("unused")
-    private static OffsetDateTime nowManila() { return OffsetDateTime.now(); }
 }

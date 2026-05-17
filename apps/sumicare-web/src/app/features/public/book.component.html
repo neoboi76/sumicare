@@ -56,6 +56,11 @@
       </button>
     </div>
   } @else {
+    @if (loadingInitial()) {
+      <div class="flex justify-center py-16">
+        <div class="sumi-spinner"></div>
+      </div>
+    } @else {
     @if (error(); as err) {
       <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
         <p class="text-sm text-red-700">{{ err }}</p>
@@ -69,17 +74,17 @@
                placeholder="e.g. Kayla" />
       </label>
       <label class="block text-sm text-gray-700">
-        Number of guests (PAX) <span class="text-red-500">*</span>
-        <input [(ngModel)]="pax" name="pax" type="number" min="1" max="20" required
+        Email (optional)
+        <input [(ngModel)]="clientEmail" name="clientEmail" type="email"
                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
-               placeholder="1" />
+               placeholder="e.g. kayla@email.com" />
       </label>
       @if (packages().length > 0) {
       <label class="block text-sm text-gray-700">
-        Package (optional)
-        <select [(ngModel)]="packageId" name="packageId" (ngModelChange)="onPackageChange()"
+        Package <span class="text-red-500">*</span>
+        <select [(ngModel)]="packageId" name="packageId" (ngModelChange)="onPackageChange()" required
                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
-          <option [ngValue]="null">No package — pick an individual service</option>
+          <option [ngValue]="null" disabled>Select a package</option>
           @for (p of packages(); track p.id) {
             <option [ngValue]="p.id">{{ p.name }}</option>
           }
@@ -90,26 +95,14 @@
       @if (packageId != null) {
       <label class="block text-sm text-gray-700">
         Massage <span class="text-red-500">*</span>
-        <select [(ngModel)]="packageTierId" name="packageTierId"
+        <select [(ngModel)]="packageTierId" name="packageTierId" required
                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
           <option [ngValue]="null" disabled>Select a massage</option>
           @for (t of packageTiers(); track t.id) {
             <option [ngValue]="t.id">{{ t.serviceName }} — &#8369;{{ t.weekdayPrice }}</option>
           }
         </select>
-        <span class="text-xs text-gray-400 mt-1 block">The front desk will finalise pax, lockers and payment when you
-          arrive.</span>
-      </label>
-      } @else {
-      <label class="block text-sm text-gray-700">
-        Service <span class="text-red-500">*</span>
-        <select [(ngModel)]="serviceId" name="serviceId"
-                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
-          <option [ngValue]="null" disabled>Select a service</option>
-          @for (s of services(); track s.id) {
-            <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min)</option>
-          }
-        </select>
+        <span class="text-xs text-gray-400 mt-1 block">The front desk will finalise the headcount, lockers and payment when you arrive.</span>
       </label>
       }
       <label class="block text-sm text-gray-700">
@@ -151,9 +144,15 @@
         <span>I consent to the spa storing my booking details for the purpose of attending to my reservation.</span>
       </label>
       <button type="submit" [disabled]="submitting()"
-              class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50">
-        {{ submitting() ? 'Processing...' : 'Submit reservation' }}
+              class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+        @if (submitting()) {
+          <div class="sumi-spinner sumi-spinner-sm" style="border-top-color:#fff; border-color:rgba(255,255,255,0.3); border-top-color:#fff;"></div>
+          Processing...
+        } @else {
+          Submit reservation
+        }
       </button>
     </form>
+    }
   }
 </section>

@@ -10,6 +10,8 @@ import java.util.UUID;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     Page<AuditLog> findAllByOrganizationIdOrderByOccurredAtDesc(UUID organizationId, Pageable pageable);
+    Page<AuditLog> findAllByOrganizationIdAndActorUserIdOrderByOccurredAtDesc(
+            UUID organizationId, UUID actorUserId, Pageable pageable);
     List<AuditLog> findAllByOrganizationIdAndTargetEntityAndTargetIdOrderByOccurredAtDesc(
             UUID organizationId, String targetEntity, String targetId);
 }

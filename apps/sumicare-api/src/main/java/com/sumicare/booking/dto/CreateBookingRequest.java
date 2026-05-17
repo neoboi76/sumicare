@@ -9,6 +9,7 @@ import java.util.UUID;
 public record CreateBookingRequest(
         UUID clientId,
         @NotBlank String clientNickname,
+        String clientEmail,
         String lockerNumber,
         @NotNull Long serviceId,
         @NotBlank String reservationType,

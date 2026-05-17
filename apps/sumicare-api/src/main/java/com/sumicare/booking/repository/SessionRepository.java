@@ -24,4 +24,5 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
 
     boolean existsByPrimaryTherapistIdAndStatus(UUID primaryTherapistId, String status);
     boolean existsBySecondaryTherapistIdAndStatus(UUID secondaryTherapistId, String status);
+    List<Session> findAllByOrganizationIdAndStatus(UUID organizationId, String status);
 }
