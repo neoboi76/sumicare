@@ -1,9 +1,12 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DecimalPipe } from '@angular/common';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
+import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
+import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
+import { SortState, sortRows } from '../../../shared/utils/compare-by';
 
 interface Service {
   id: number;
@@ -24,7 +27,7 @@ interface Service {
 @Component({
   selector: 'sumi-admin-services',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule, DecimalPipe, SortableColumnDirective, SortIconComponent],
   templateUrl: './services.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -49,6 +52,19 @@ export class ServicesAdminComponent implements OnInit {
   editingId = signal<number | null>(null);
   editDescription = '';
   editImageUrl = '';
+
+  sortState = signal<SortState>({ key: 'code', direction: 'asc' });
+
+  sortedServices = computed(() => sortRows(this.services(), this.sortState(), (s) => {
+    switch (this.sortState().key) {
+      case 'code': return s.code;
+      case 'name': return s.name;
+      case 'durationMinutes': return s.durationMinutes;
+      case 'price': return s.price;
+      case 'category': return s.category ?? '';
+      default: return '';
+    }
+  }));
 
   ngOnInit(): void {
     this.reload();

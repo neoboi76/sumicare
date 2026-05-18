@@ -3,18 +3,46 @@
     <h1 class="text-2xl font-semibold text-slate-900">Audit log</h1>
     <p class="text-slate-500">Immutable record of every state-modifying action. Read-only.</p>
   </header>
+
+  <form (ngSubmit)="applyFilter()" class="flex items-end gap-2 bg-white rounded-xl shadow p-4">
+    <label class="block text-sm">
+      <span class="text-slate-700">From</span>
+      <input type="date" [(ngModel)]="fromDate" name="fromDate"
+        class="mt-1 rounded border border-slate-300 px-3 py-1.5 text-sm" />
+    </label>
+    <label class="block text-sm">
+      <span class="text-slate-700">To</span>
+      <input type="date" [(ngModel)]="toDate" name="toDate"
+        class="mt-1 rounded border border-slate-300 px-3 py-1.5 text-sm" />
+    </label>
+    <button type="submit"
+      class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Apply</button>
+    <button type="button" (click)="clearFilter()"
+      class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Clear</button>
+  </form>
+
   <table class="bg-white rounded-xl shadow overflow-hidden w-full text-sm">
     <thead class="bg-slate-100">
       <tr>
-        <th class="text-left p-3">When</th>
-        <th class="text-left p-3">Actor role</th>
-        <th class="text-left p-3">Action</th>
-        <th class="text-left p-3">Target</th>
-        <th class="text-left p-3">IP</th>
+        <th class="text-left p-3" [sumiSortable]="'occurredAt'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          When <sumi-sort-icon [active]="sortState().key === 'occurredAt'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'actorRole'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Actor role <sumi-sort-icon [active]="sortState().key === 'actorRole'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'actionType'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Action <sumi-sort-icon [active]="sortState().key === 'actionType'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'targetEntity'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Target <sumi-sort-icon [active]="sortState().key === 'targetEntity'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'ipAddress'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          IP <sumi-sort-icon [active]="sortState().key === 'ipAddress'" [direction]="sortState().direction"/>
+        </th>
       </tr>
     </thead>
     <tbody>
-      @for (entry of entries(); track entry.id) {
+      @for (entry of sortedEntries(); track entry.id) {
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono text-xs">{{ formatDate(entry.occurredAt) }}</td>
           <td class="p-3">{{ entry.actorRole }}</td>

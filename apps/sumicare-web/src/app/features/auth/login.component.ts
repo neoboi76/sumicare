@@ -22,6 +22,7 @@ export class LoginComponent implements OnInit {
   busy = signal(false);
   error = signal<string | null>(null);
   verifiedBanner = signal<'success' | 'expired' | null>(null);
+  idleBanner = signal(false);
   showContactModal = signal(false);
 
   openContactModal(): void { this.showContactModal.set(true); }
@@ -31,6 +32,8 @@ export class LoginComponent implements OnInit {
     const verified = this.route.snapshot.queryParamMap.get('verified');
     if (verified === '1') this.verifiedBanner.set('success');
     else if (verified === 'expired') this.verifiedBanner.set('expired');
+    const reason = this.route.snapshot.queryParamMap.get('reason');
+    if (reason === 'idle') this.idleBanner.set(true);
   }
 
   submit(event: Event): void {

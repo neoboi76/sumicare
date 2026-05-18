@@ -92,6 +92,7 @@ interface OrderAttendee {
 
 interface OrderItemLite {
   id: string;
+  packageId: number | null;
   packageName: string;
   unitPrice: number;
   attendees: OrderAttendee[];
@@ -168,8 +169,23 @@ export class BookingsComponent implements OnInit, OnDestroy {
   });
 
   availableTherapists = computed(() => {
-    return this.lineup().filter(t => !t.onCall);
+    return this.lineup().filter(t => !t.onCall && !t.skipped);
   });
+
+  onBreakTherapists = computed(() => this.lineup().filter(t => t.skipped));
+
+  vipPackageIds = signal<Set<number>>(new Set());
+
+  isVipBooking(b: BookingResponse): boolean {
+    const order = this.ordersByBooking().get(b.id);
+    if (!order || !order.items) return false;
+    const vip = this.vipPackageIds();
+    return order.items.some(it => it.packageId != null && vip.has(it.packageId));
+  }
+
+  isVipAttendee(_a: OrderAttendee, b: BookingResponse): boolean {
+    return this.isVipBooking(b);
+  }
 
   selectedStartService = computed(() => {
     const attendeeServiceId = this.startAttendeeServiceId();
@@ -240,9 +256,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   reload(): void {
     const d = this.selectedDate();
-    const start = `${d}T00:00:00.000+08:00`;
-    const end = `${d}T23:59:59.999+08:00`;
-    const params = `?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
+    const params = `?from=${encodeURIComponent(d)}&to=${encodeURIComponent(d)}`;
     this.http.get<BookingResponse[]>(`${environment.apiBaseUrl}/api/bookings${params}`).subscribe({
       next: (b) => {
         this.bookings.set(b);
@@ -320,6 +334,14 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.refreshLineup();
     this.http.get<RoomItem[]>(`${environment.apiBaseUrl}/api/rooms`).subscribe({
       next: (r) => this.rooms.set(r)
+    });
+    this.http.get<Array<{ id: number; requiresVipRoom: boolean }>>(`${environment.apiBaseUrl}/api/cashier/packages/all`).subscribe({
+      next: (pkgs) => {
+        const vipIds = new Set<number>();
+        for (const p of pkgs) if (p.requiresVipRoom) vipIds.add(p.id);
+        this.vipPackageIds.set(vipIds);
+      },
+      error: () => this.vipPackageIds.set(new Set())
     });
   }
 

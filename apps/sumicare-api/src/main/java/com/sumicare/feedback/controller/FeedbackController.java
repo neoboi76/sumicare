@@ -6,6 +6,7 @@ import com.sumicare.feedback.repository.FeedbackRepository;
 import com.sumicare.organization.repository.OrganizationRepository;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
@@ -17,13 +18,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
 @RestController
 public class FeedbackController {
+
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     private final FeedbackRepository repository;
     private final OrganizationRepository organizationRepository;
@@ -40,6 +43,9 @@ public class FeedbackController {
         feedback.setOrganizationId(orgId);
         feedback.setRatingStars(request.ratingStars());
         feedback.setComment(request.comment());
+        if (request.nickname() != null && !request.nickname().isBlank()) {
+            feedback.setNickname(request.nickname().trim());
+        }
         return repository.save(feedback);
     }
 
@@ -66,14 +72,19 @@ public class FeedbackController {
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to) {
         UUID orgId = UUID.fromString(principal.organizationId());
-        OffsetDateTime start = from != null ? LocalDate.parse(from).atStartOfDay().atOffset(ZoneOffset.UTC) : OffsetDateTime.now().minusYears(10);
-        OffsetDateTime end = to != null ? LocalDate.parse(to).plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC) : OffsetDateTime.now().plusDays(1);
+        OffsetDateTime start = from != null
+                ? LocalDate.parse(from).atStartOfDay(MANILA).toOffsetDateTime()
+                : OffsetDateTime.now().minusYears(10);
+        OffsetDateTime end = to != null
+                ? LocalDate.parse(to).plusDays(1).atStartOfDay(MANILA).toOffsetDateTime()
+                : OffsetDateTime.now().plusDays(1);
         List<Feedback> rows = repository.findAllByOrganizationIdAndSubmittedAtBetweenOrderBySubmittedAtAsc(orgId, start, end);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        StringBuilder csv = new StringBuilder("Submitted at,Rating,Session ID,Client ID,Comment\r\n");
+        StringBuilder csv = new StringBuilder("Submitted at,Rating,Nickname,Session ID,Client ID,Comment\r\n");
         for (Feedback f : rows) {
             csv.append(csvVal(f.getSubmittedAt() != null ? f.getSubmittedAt().format(fmt) : "")).append(',');
             csv.append(f.getRatingStars()).append(',');
+            csv.append(csvVal(f.getNickname())).append(',');
             csv.append(csvVal(f.getSessionId() != null ? f.getSessionId().toString() : "")).append(',');
             csv.append(csvVal(f.getClientId() != null ? f.getClientId().toString() : "")).append(',');
             csv.append(csvVal(f.getComment())).append("\r\n");
@@ -93,5 +104,9 @@ public class FeedbackController {
         return v;
     }
 
-    public record PublicFeedbackRequest(@Min(1) @Max(5) int ratingStars, String comment) {}
+    public record PublicFeedbackRequest(
+            @Min(1) @Max(5) int ratingStars,
+            String comment,
+            @Size(max = 120) String nickname
+    ) {}
 }

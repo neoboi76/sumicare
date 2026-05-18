@@ -18,7 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -99,8 +99,9 @@ public class ContactMessageController {
             @RequestParam(required = false) String to,
             @RequestParam(required = false, defaultValue = "false") boolean unread) {
         UUID orgId = UUID.fromString(principal.organizationId());
-        OffsetDateTime start = from != null ? LocalDate.parse(from).atStartOfDay().atOffset(ZoneOffset.UTC) : OffsetDateTime.now().minusYears(10);
-        OffsetDateTime end = to != null ? LocalDate.parse(to).plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC) : OffsetDateTime.now().plusDays(1);
+        ZoneId manila = ZoneId.of("Asia/Manila");
+        OffsetDateTime start = from != null ? LocalDate.parse(from).atStartOfDay(manila).toOffsetDateTime() : OffsetDateTime.now().minusYears(10);
+        OffsetDateTime end = to != null ? LocalDate.parse(to).plusDays(1).atStartOfDay(manila).toOffsetDateTime() : OffsetDateTime.now().plusDays(1);
         List<ContactMessage> rows = repository.findAllByOrganizationIdAndCreatedAtBetweenOrderByCreatedAtAsc(orgId, start, end);
         if (unread) rows = rows.stream().filter(m -> m.getReadAt() == null).toList();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");

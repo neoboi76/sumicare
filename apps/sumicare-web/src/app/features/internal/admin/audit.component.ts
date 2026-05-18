@@ -1,7 +1,11 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { SlicePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
+import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
+import { SortState, sortRows } from '../../../shared/utils/compare-by';
 
 interface AuditEntry {
   id: number;
@@ -24,7 +28,7 @@ interface AuditPage {
 @Component({
   selector: 'sumi-audit',
   standalone: true,
-  imports: [SlicePipe],
+  imports: [SlicePipe, FormsModule, SortableColumnDirective, SortIconComponent],
   templateUrl: './audit.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -36,22 +40,49 @@ export class AuditComponent implements OnInit {
   totalElements = signal(0);
   readonly pageSize = 50;
 
+  fromDate = '';
+  toDate = '';
+
+  sortState = signal<SortState>({ key: 'occurredAt', direction: 'desc' });
+
+  sortedEntries = computed(() => sortRows(this.entries(), this.sortState(), (e) => {
+    switch (this.sortState().key) {
+      case 'occurredAt': return e.occurredAt;
+      case 'actorRole': return e.actorRole;
+      case 'actionType': return e.actionType;
+      case 'targetEntity': return e.targetEntity ?? '';
+      case 'ipAddress': return e.ipAddress;
+      default: return '';
+    }
+  }));
+
   ngOnInit(): void {
     this.load(0);
   }
 
   load(page: number): void {
-    this.http
-      .get<AuditPage>(`${environment.apiBaseUrl}/api/audit-logs?page=${page}&size=${this.pageSize}`)
-      .subscribe({
-        next: (p) => {
-          this.entries.set(p.content ?? []);
-          this.page.set(p.number ?? 0);
-          this.totalPages.set(p.totalPages ?? 0);
-          this.totalElements.set(p.totalElements ?? 0);
-        },
-        error: () => this.entries.set([])
-      });
+    let url = `${environment.apiBaseUrl}/api/audit-logs?page=${page}&size=${this.pageSize}`;
+    if (this.fromDate) url += `&from=${encodeURIComponent(this.fromDate)}`;
+    if (this.toDate) url += `&to=${encodeURIComponent(this.toDate)}`;
+    this.http.get<AuditPage>(url).subscribe({
+      next: (p) => {
+        this.entries.set(p.content ?? []);
+        this.page.set(p.number ?? 0);
+        this.totalPages.set(p.totalPages ?? 0);
+        this.totalElements.set(p.totalElements ?? 0);
+      },
+      error: () => this.entries.set([])
+    });
+  }
+
+  applyFilter(): void {
+    this.load(0);
+  }
+
+  clearFilter(): void {
+    this.fromDate = '';
+    this.toDate = '';
+    this.load(0);
   }
 
   prevPage(): void {

@@ -85,7 +85,7 @@
         @if (packages().length > 0) {
           <label class="block text-sm text-gray-700">
             Package <span class="text-red-500">*</span>
-            <select [(ngModel)]="packageId" name="packageId" (ngModelChange)="onPackageChange()" required
+            <select [ngModel]="packageId()" (ngModelChange)="packageId.set($event); onPackageChange()" name="packageId" required
                     class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
               <option [ngValue]="null" disabled>Select a package</option>
               @for (p of packages(); track p.id) {
@@ -101,10 +101,10 @@
           </div>
         }
 
-        @if (packageId != null) {
+        @if (packageId() != null) {
           <label class="block text-sm text-gray-700">
             Massage <span class="text-red-500">*</span>
-            <select [(ngModel)]="packageTierId" name="packageTierId" required
+            <select [ngModel]="packageTierId()" (ngModelChange)="packageTierId.set($event)" name="packageTierId" required
                     class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
               <option [ngValue]="null" disabled>Select a massage</option>
               @for (t of packageTiers(); track t.id) {
@@ -120,12 +120,12 @@
             <legend class="mb-1">Room type</legend>
             <div class="grid grid-cols-2 gap-2">
               <button type="button" (click)="setRoomType('COMMON')"
-                      [class]="'rounded-lg border px-3 py-2 text-sm text-left ' + (roomType === 'COMMON' ? 'border-[var(--sumi-primary)] bg-rose-50 text-[var(--sumi-primary)] font-semibold' : 'border-gray-300 text-gray-700')">
+                      [class]="'rounded-lg border px-3 py-2 text-sm text-left ' + (roomType() === 'COMMON' ? 'border-[var(--sumi-primary)] bg-rose-50 text-[var(--sumi-primary)] font-semibold' : 'border-gray-300 text-gray-700')">
                 Common room
                 <span class="block text-[11px] text-gray-500">No surcharge</span>
               </button>
               <button type="button" (click)="setRoomType('PRIVATE')"
-                      [class]="'rounded-lg border px-3 py-2 text-sm text-left ' + (roomType === 'PRIVATE' ? 'border-[var(--sumi-primary)] bg-rose-50 text-[var(--sumi-primary)] font-semibold' : 'border-gray-300 text-gray-700')">
+                      [class]="'rounded-lg border px-3 py-2 text-sm text-left ' + (roomType() === 'PRIVATE' ? 'border-[var(--sumi-primary)] bg-rose-50 text-[var(--sumi-primary)] font-semibold' : 'border-gray-300 text-gray-700')">
                 Private room
                 <span class="block text-[11px] text-gray-500">+&#8369;500</span>
               </button>

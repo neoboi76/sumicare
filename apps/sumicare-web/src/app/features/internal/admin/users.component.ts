@@ -5,6 +5,9 @@ import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 import { UserAuditDrawerComponent } from './user-audit-drawer.component';
+import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
+import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
+import { SortState, sortRows } from '../../../shared/utils/compare-by';
 
 interface UserRow {
   id: string;
@@ -18,7 +21,7 @@ interface UserRow {
 @Component({
   selector: 'sumi-users',
   standalone: true,
-  imports: [FormsModule, UserAuditDrawerComponent],
+  imports: [FormsModule, UserAuditDrawerComponent, SortableColumnDirective, SortIconComponent],
   templateUrl: './users.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -35,6 +38,18 @@ export class UsersComponent implements OnInit {
 
   auditUserId = signal<string | null>(null);
   auditUsername = signal('');
+
+  sortState = signal<SortState>({ key: 'username', direction: 'asc' });
+
+  sortedUsers = computed(() => sortRows(this.users(), this.sortState(), (u) => {
+    switch (this.sortState().key) {
+      case 'username': return u.username;
+      case 'displayName': return u.displayName ?? '';
+      case 'email': return u.email ?? '';
+      case 'role': return u.role;
+      default: return '';
+    }
+  }));
 
   myRole = computed(() => this.auth.session()?.role ?? '');
   canManage = computed(() => this.myRole() === 'SUPERADMIN' || this.myRole() === 'ADMIN');

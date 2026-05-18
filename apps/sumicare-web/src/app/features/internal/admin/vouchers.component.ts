@@ -1,8 +1,11 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DecimalPipe } from '@angular/common';
 import { environment } from '../../../../environments/environment';
+import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
+import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
+import { SortState, sortRows } from '../../../shared/utils/compare-by';
 
 interface Voucher {
   id: string;
@@ -19,7 +22,7 @@ interface Voucher {
 @Component({
   selector: 'sumi-admin-vouchers',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule, DecimalPipe, SortableColumnDirective, SortIconComponent],
   templateUrl: './vouchers.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -36,6 +39,20 @@ export class VouchersAdminComponent implements OnInit {
   formFrom = '';
   formUntil = '';
   formActive = true;
+
+  sortState = signal<SortState>({ key: 'code', direction: 'asc' });
+
+  sortedVouchers = computed(() => sortRows(this.vouchers(), this.sortState(), (v) => {
+    switch (this.sortState().key) {
+      case 'code': return v.code;
+      case 'name': return v.name ?? '';
+      case 'discountAmount': return v.discountAmount ?? 0;
+      case 'discountPercent': return v.discountPercent ?? 0;
+      case 'validFrom': return v.validFrom ?? '';
+      case 'validUntil': return v.validUntil ?? '';
+      default: return '';
+    }
+  }));
 
   ngOnInit(): void {
     this.reload();

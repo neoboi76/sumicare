@@ -118,7 +118,9 @@
               <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
               } @else {
               <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
-              <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+1 hr</button>
+              @if (!isVipBooking(b)) {
+                <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+1 hr</button>
+              }
               <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
               }
             }
@@ -166,8 +168,10 @@
                       @if (a.sessionStatus === 'ACTIVE') {
                       <button (click)="endAttendeeSession(a)"
                         class="text-emerald-700 hover:underline">End</button>
-                      <button (click)="extendAttendeeSession(a)"
-                        class="text-amber-700 hover:underline">+1 hr</button>
+                      @if (!isVipAttendee(a, b)) {
+                        <button (click)="extendAttendeeSession(a)"
+                          class="text-amber-700 hover:underline">+1 hr</button>
+                      }
                       <button (click)="generateSlipForSession(a.sessionId!)"
                         class="text-blue-700 hover:underline">Slip</button>
                       } @else {

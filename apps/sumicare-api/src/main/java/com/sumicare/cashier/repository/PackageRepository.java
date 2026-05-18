@@ -9,5 +9,6 @@ import java.util.UUID;
 
 public interface PackageRepository extends JpaRepository<Package, Long> {
     List<Package> findAllByOrganizationIdAndActiveTrueOrderByName(UUID organizationId);
+    List<Package> findAllByOrganizationIdOrderByActiveDescNameAsc(UUID organizationId);
     Optional<Package> findByOrganizationIdAndCode(UUID organizationId, String code);
 }

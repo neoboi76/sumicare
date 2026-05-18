@@ -12,17 +12,25 @@
     <table class="w-full text-sm">
       <thead class="bg-slate-100">
         <tr>
-          <th class="text-left p-3">Code</th>
-          <th class="text-left p-3">Name</th>
+          <th class="text-left p-3" [sumiSortable]="'code'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Code <sumi-sort-icon [active]="sortState().key === 'code'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'name'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Name <sumi-sort-icon [active]="sortState().key === 'name'" [direction]="sortState().direction"/>
+          </th>
           <th class="text-left p-3">Discount</th>
-          <th class="text-left p-3">Valid from</th>
-          <th class="text-left p-3">Valid until</th>
+          <th class="text-left p-3" [sumiSortable]="'validFrom'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Valid from <sumi-sort-icon [active]="sortState().key === 'validFrom'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'validUntil'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Valid until <sumi-sort-icon [active]="sortState().key === 'validUntil'" [direction]="sortState().direction"/>
+          </th>
           <th class="text-left p-3">Status</th>
           <th class="text-right p-3"></th>
         </tr>
       </thead>
       <tbody>
-        @for (v of vouchers(); track v.id) {
+        @for (v of sortedVouchers(); track v.id) {
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono">{{ v.code }}</td>
           <td class="p-3">{{ v.name ?? '-' }}</td>

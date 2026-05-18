@@ -29,6 +29,9 @@ public class Feedback {
     @Column(name = "comment", columnDefinition = "text")
     private String comment;
 
+    @Column(name = "nickname", length = 120)
+    private String nickname;
+
     @Column(name = "submitted_at", nullable = false, updatable = false)
     private OffsetDateTime submittedAt = OffsetDateTime.now();
 
@@ -44,6 +47,8 @@ public class Feedback {
     public void setRatingStars(int ratingStars) { this.ratingStars = ratingStars; }
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
     public OffsetDateTime getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(OffsetDateTime submittedAt) { this.submittedAt = submittedAt; }
 }

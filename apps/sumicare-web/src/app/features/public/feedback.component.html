@@ -9,7 +9,14 @@
       Leaving feedback for session <strong>{{ sessionRef() }}</strong>.
     </div>
   }
-  <form (submit)="submit($event)" class="bg-white rounded-xl shadow p-6 space-y-4">
+
+  <form (ngSubmit)="submit($event)" class="bg-white rounded-xl shadow p-6 space-y-4">
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">Nickname (optional)</span>
+      <input [(ngModel)]="nickname" name="nickname" maxlength="120"
+        placeholder="What should we call you?"
+        class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+    </label>
     <div>
       <span class="text-sm font-medium text-slate-700">Your rating</span>
       <div class="mt-2 flex gap-1">
@@ -23,23 +30,38 @@
       <span class="text-sm font-medium text-slate-700">Comment (optional)</span>
       <textarea [(ngModel)]="comment" name="comment" rows="4" class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></textarea>
     </label>
-    <button [disabled]="rating() === 0 || submitted()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50">
-      {{ submitted() ? 'Submitted, thank you' : 'Submit' }}
+    <button type="submit" [disabled]="rating() === 0 || submitted() || submitting()"
+      class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50 flex items-center gap-2">
+      @if (submitting()) {
+        <div class="sumi-spinner sumi-spinner-sm" style="border-top-color:#fff; border-color:rgba(255,255,255,0.3); border-top-color:#fff;"></div>
+        Submitting...
+      } @else {
+        {{ submitted() ? 'Submitted, thank you' : 'Submit' }}
+      }
     </button>
   </form>
 
   <section>
     <h3 class="text-lg font-semibold text-slate-900 mb-3">Recent feedback</h3>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      @for (f of recent(); track f.id) {
-        <article class="bg-white rounded-xl shadow p-4">
-          <div class="text-amber-500 mb-1">{{ stars(f.ratingStars) }}</div>
-          <p class="text-sm text-slate-700">{{ f.comment || '(no comment)' }}</p>
-          <p class="text-xs text-slate-400 mt-2">{{ formatDate(f.submittedAt) }}</p>
-        </article>
-      } @empty {
-        <p class="text-slate-500 col-span-full">Be the first to leave feedback.</p>
-      }
-    </div>
+    @if (loadingInitial()) {
+      <div class="flex justify-center py-8">
+        <div class="sumi-spinner"></div>
+      </div>
+    } @else {
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        @for (f of recent(); track f.id) {
+          <article class="bg-white rounded-xl shadow p-4">
+            <div class="text-amber-500 mb-1">{{ stars(f.ratingStars) }}</div>
+            @if (f.nickname) {
+              <p class="text-xs text-slate-500 font-medium">{{ f.nickname }}</p>
+            }
+            <p class="text-sm text-slate-700">{{ f.comment || '(no comment)' }}</p>
+            <p class="text-xs text-slate-400 mt-2">{{ formatDate(f.submittedAt) }}</p>
+          </article>
+        } @empty {
+          <p class="text-slate-500 col-span-full">Be the first to leave feedback.</p>
+        }
+      </div>
+    }
   </section>
 </section>

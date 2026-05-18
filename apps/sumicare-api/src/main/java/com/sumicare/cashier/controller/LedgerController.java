@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/cashier/ledger")
 public class LedgerController {
+
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     private final TransactionLedgerRepository ledgerRepository;
     private final PosTransactionRepository transactionRepository;
@@ -60,29 +64,22 @@ public class LedgerController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public List<LedgerEntryResponse> list(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                           @RequestParam(required = false) String method,
-                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
-                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to) {
+                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         UUID orgId = UUID.fromString(principal.organizationId());
-        OffsetDateTime start = from != null ? from : OffsetDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
-        OffsetDateTime end = to != null ? to : start.plusDays(1);
-        List<TransactionLedgerEntry> entries = (method != null && !method.isBlank() && !"ALL".equalsIgnoreCase(method))
-                ? ledgerRepository.findAllByOrganizationIdAndPaymentMethodAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, method, start, end)
-                : ledgerRepository.findAllByOrganizationIdAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, start, end);
-        return enrich(entries);
+        DateRange range = resolveRange(from, to);
+        return enrich(loadEntries(orgId, method, range.start(), range.end()));
     }
 
     @GetMapping("/balance")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public BalanceResponse balance(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                     @RequestParam(required = false) String method,
-                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
-                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to) {
+                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         UUID orgId = UUID.fromString(principal.organizationId());
-        OffsetDateTime start = from != null ? from : OffsetDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
-        OffsetDateTime end = to != null ? to : start.plusDays(1);
-        List<TransactionLedgerEntry> entries = (method != null && !method.isBlank() && !"ALL".equalsIgnoreCase(method))
-                ? ledgerRepository.findAllByOrganizationIdAndPaymentMethodAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, method, start, end)
-                : ledgerRepository.findAllByOrganizationIdAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, start, end);
+        DateRange range = resolveRange(from, to);
+        List<TransactionLedgerEntry> entries = loadEntries(orgId, method, range.start(), range.end());
         BigDecimal inflow = BigDecimal.ZERO;
         BigDecimal outflow = BigDecimal.ZERO;
         for (TransactionLedgerEntry e : entries) {
@@ -99,21 +96,17 @@ public class LedgerController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public ResponseEntity<byte[]> exportCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                              @RequestParam(required = false) String method,
-                                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
-                                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to) {
+                                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         UUID orgId = UUID.fromString(principal.organizationId());
-        OffsetDateTime start = from != null ? from : OffsetDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
-        OffsetDateTime end = to != null ? to : start.plusDays(1);
-        List<TransactionLedgerEntry> entries = (method != null && !method.isBlank() && !"ALL".equalsIgnoreCase(method))
-                ? ledgerRepository.findAllByOrganizationIdAndPaymentMethodAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, method, start, end)
-                : ledgerRepository.findAllByOrganizationIdAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, start, end);
-        List<LedgerEntryResponse> rows = enrich(entries);
+        DateRange range = resolveRange(from, to);
+        List<LedgerEntryResponse> rows = enrich(loadEntries(orgId, method, range.start(), range.end()));
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         StringBuilder sb = new StringBuilder();
         sb.append("Recorded At,OR#,Client,Method,Type,Amount,Notes\n");
         for (LedgerEntryResponse r : rows) {
-            sb.append(csvCell(r.recordedAt() != null ? r.recordedAt().format(fmt) : "")).append(',')
+            sb.append(csvCell(r.recordedAt() != null ? r.recordedAt().atZoneSameInstant(MANILA).format(fmt) : "")).append(',')
               .append(csvCell(r.orNumber())).append(',')
               .append(csvCell(r.clientNickname())).append(',')
               .append(csvCell(r.paymentMethod())).append(',')
@@ -123,12 +116,30 @@ public class LedgerController {
               .append('\n');
         }
         String label = method == null || method.isBlank() ? "all" : method.toLowerCase();
-        String filename = "ledger-" + label + "-" + start.toLocalDate() + "-to-" + end.toLocalDate() + ".csv";
+        LocalDate startDate = from != null ? from : LocalDate.now(MANILA);
+        LocalDate endDate = to != null ? to : startDate;
+        String filename = "ledger-" + label + "-" + startDate + "-to-" + endDate + ".csv";
         byte[] data = sb.toString().getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
                 .body(data);
+    }
+
+    private record DateRange(OffsetDateTime start, OffsetDateTime end) {}
+
+    private DateRange resolveRange(LocalDate from, LocalDate to) {
+        LocalDate startDate = from != null ? from : LocalDate.now(MANILA);
+        LocalDate endDate = to != null ? to : startDate;
+        OffsetDateTime start = startDate.atStartOfDay(MANILA).toOffsetDateTime();
+        OffsetDateTime end = endDate.plusDays(1).atStartOfDay(MANILA).toOffsetDateTime();
+        return new DateRange(start, end);
+    }
+
+    private List<TransactionLedgerEntry> loadEntries(UUID orgId, String method, OffsetDateTime start, OffsetDateTime end) {
+        return (method != null && !method.isBlank() && !"ALL".equalsIgnoreCase(method))
+                ? ledgerRepository.findAllByOrganizationIdAndPaymentMethodAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, method, start, end)
+                : ledgerRepository.findAllByOrganizationIdAndRecordedAtBetweenOrderByRecordedAtDesc(orgId, start, end);
     }
 
     private List<LedgerEntryResponse> enrich(List<TransactionLedgerEntry> entries) {

@@ -73,16 +73,20 @@ export class BookComponent implements OnInit {
   clientNickname = '';
   clientEmail = '';
   nationality = '';
-  packageId: number | null = null;
-  packageTierId: number | null = null;
+  packageId = signal<number | null>(null);
+  packageTierId = signal<number | null>(null);
   reservationType = 'SOFT';
   scheduledDate = '';
   scheduledTime = '';
   clientGender = 'F';
   consent = false;
-  roomType: RoomType = 'COMMON';
+  roomType = signal<RoomType>('COMMON');
 
-  selectedPackage = computed(() => this.packages().find(p => p.id === Number(this.packageId)) ?? null);
+  selectedPackage = computed(() => {
+    const id = this.packageId();
+    if (id == null) return null;
+    return this.packages().find(p => p.id === Number(id)) ?? null;
+  });
   packageTiers = computed(() => this.selectedPackage()?.tiers ?? []);
 
   forcedDoubleGuests = computed(() => {
@@ -120,17 +124,17 @@ export class BookComponent implements OnInit {
   }
 
   onPackageChange(): void {
-    this.packageTierId = null;
+    this.packageTierId.set(null);
     if (this.forcedVipRoom()) {
-      this.roomType = 'VIP';
-    } else if (this.roomType === 'VIP') {
-      this.roomType = 'COMMON';
+      this.roomType.set('VIP');
+    } else if (this.roomType() === 'VIP') {
+      this.roomType.set('COMMON');
     }
   }
 
   setRoomType(rt: RoomType): void {
     if (this.forcedVipRoom()) return;
-    this.roomType = rt;
+    this.roomType.set(rt);
   }
 
   submit(event: Event): void {
@@ -139,8 +143,8 @@ export class BookComponent implements OnInit {
     const missing: string[] = [];
     if (!this.clientNickname.trim()) missing.push('nickname');
     if (!this.clientEmail.trim()) missing.push('email');
-    if (this.packageId == null) missing.push('package');
-    if (this.packageTierId == null) missing.push('massage');
+    if (this.packageId() == null) missing.push('package');
+    if (this.packageTierId() == null) missing.push('massage');
     if (!this.scheduledDate) missing.push('date');
     if (!this.scheduledTime) missing.push('time');
     if (!this.consent) missing.push('consent');
@@ -149,7 +153,7 @@ export class BookComponent implements OnInit {
       return;
     }
 
-    const tier = this.packageTiers().find(t => t.id === Number(this.packageTierId));
+    const tier = this.packageTiers().find(t => t.id === Number(this.packageTierId()));
     const effectiveServiceId = tier?.serviceId ?? null;
     if (effectiveServiceId == null) {
       this.error.set('The selected massage is not bookable. Please pick another.');
@@ -173,10 +177,10 @@ export class BookComponent implements OnInit {
       reservationType: this.reservationType,
       scheduledAt: combined.toISOString(),
       clientGender: this.clientGender,
-      packageId: Number(this.packageId),
-      packageTierId: Number(this.packageTierId),
+      packageId: Number(this.packageId()),
+      packageTierId: Number(this.packageTierId()),
       pax: this.effectiveGuests(),
-      roomType: this.forcedVipRoom() ? 'VIP' : this.roomType
+      roomType: this.forcedVipRoom() ? 'VIP' : this.roomType()
     };
 
     this.http
@@ -209,9 +213,9 @@ export class BookComponent implements OnInit {
     this.scheduledTime = '';
     this.clientGender = 'F';
     this.consent = false;
-    this.packageId = null;
-    this.packageTierId = null;
-    this.roomType = 'COMMON';
+    this.packageId.set(null);
+    this.packageTierId.set(null);
+    this.roomType.set('COMMON');
   }
 
   formatDateTime(iso: string | null): string {

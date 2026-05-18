@@ -1,6 +1,9 @@
 <section class="max-w-6xl mx-auto px-4 py-10">
   <h2 class="text-2xl font-semibold text-slate-900">Our services</h2>
   <p class="text-slate-600 mb-6">All durations include a 15-minute room preparation buffer between bookings.</p>
+  @if (loadingInitial()) {
+    <div class="flex justify-center py-12"><div class="sumi-spinner"></div></div>
+  } @else {
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     @for (s of services(); track s.id) {
       <article class="bg-white rounded-xl shadow overflow-hidden flex flex-col">
@@ -31,4 +34,5 @@
       <p class="text-slate-500 col-span-full">Services are loading or not yet configured.</p>
     }
   </div>
+  }
 </section>

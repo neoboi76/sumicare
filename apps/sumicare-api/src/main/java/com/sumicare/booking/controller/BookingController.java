@@ -14,10 +14,13 @@ import com.sumicare.booking.service.BookingService;
 import com.sumicare.booking.service.WalkInService;
 import com.sumicare.organization.repository.OrganizationRepository;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -63,9 +66,12 @@ public class BookingController {
 
     @GetMapping("/api/bookings")
     public List<BookingResponse> dayBookings(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                             @RequestParam OffsetDateTime from,
-                                             @RequestParam OffsetDateTime to) {
-        return bookingService.listBookingsForDay(UUID.fromString(principal.organizationId()), from, to);
+                                             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        ZoneId manila = ZoneId.of("Asia/Manila");
+        OffsetDateTime start = from.atStartOfDay(manila).toOffsetDateTime();
+        OffsetDateTime end = to.plusDays(1).atStartOfDay(manila).toOffsetDateTime();
+        return bookingService.listBookingsForDay(UUID.fromString(principal.organizationId()), start, end);
     }
 
     @PostMapping("/api/bookings/{bookingId}/sessions")

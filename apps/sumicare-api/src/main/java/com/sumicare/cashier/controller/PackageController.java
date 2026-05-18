@@ -3,17 +3,19 @@ package com.sumicare.cashier.controller;
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.cashier.domain.Package;
 import com.sumicare.cashier.domain.PackageTier;
+import com.sumicare.cashier.dto.PackageRequest;
 import com.sumicare.cashier.dto.PackageResponse;
 import com.sumicare.cashier.dto.PackageTierResponse;
 import com.sumicare.cashier.repository.PackageRepository;
 import com.sumicare.cashier.repository.PackageTierRepository;
+import com.sumicare.cashier.service.PackageService;
 import com.sumicare.service_catalogue.domain.Service;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,13 +30,16 @@ public class PackageController {
     private final PackageRepository packageRepository;
     private final PackageTierRepository tierRepository;
     private final ServiceRepository serviceRepository;
+    private final PackageService packageService;
 
     public PackageController(PackageRepository packageRepository,
                              PackageTierRepository tierRepository,
-                             ServiceRepository serviceRepository) {
+                             ServiceRepository serviceRepository,
+                             PackageService packageService) {
         this.packageRepository = packageRepository;
         this.tierRepository = tierRepository;
         this.serviceRepository = serviceRepository;
+        this.packageService = packageService;
     }
 
     @GetMapping
@@ -68,5 +73,41 @@ public class PackageController {
             ));
         }
         return responses;
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public List<PackageResponse> listAll(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return packageService.listAll(UUID.fromString(principal.organizationId()));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public PackageResponse create(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                  @Valid @RequestBody PackageRequest request) {
+        return packageService.create(UUID.fromString(principal.organizationId()), request);
+    }
+
+    @PatchMapping("/{packageId}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public PackageResponse update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                  @PathVariable Long packageId,
+                                  @Valid @RequestBody PackageRequest request) {
+        return packageService.update(UUID.fromString(principal.organizationId()), packageId, request);
+    }
+
+    @DeleteMapping("/{packageId}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public ResponseEntity<Void> deactivate(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                           @PathVariable Long packageId) {
+        packageService.deactivate(UUID.fromString(principal.organizationId()), packageId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{packageId}/reactivate")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public PackageResponse reactivate(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                      @PathVariable Long packageId) {
+        return packageService.reactivate(UUID.fromString(principal.organizationId()), packageId);
     }
 }

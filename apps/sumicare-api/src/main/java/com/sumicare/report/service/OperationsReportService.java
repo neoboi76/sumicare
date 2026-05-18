@@ -5,6 +5,8 @@ import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.domain.OrderItemAttendee;
+import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.domain.Service;
@@ -45,6 +47,7 @@ public class OperationsReportService {
     private final OrderRepository orderRepository;
     private final ShiftRepository shiftRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
+    private final OrderItemAttendeeRepository attendeeRepository;
 
     public OperationsReportService(SessionRepository sessionRepository,
                                    BookingRepository bookingRepository,
@@ -54,7 +57,8 @@ public class OperationsReportService {
                                    RoomRepository roomRepository,
                                    OrderRepository orderRepository,
                                    ShiftRepository shiftRepository,
-                                   ShiftAssignmentRepository shiftAssignmentRepository) {
+                                   ShiftAssignmentRepository shiftAssignmentRepository,
+                                   OrderItemAttendeeRepository attendeeRepository) {
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
         this.slipRepository = slipRepository;
@@ -64,6 +68,7 @@ public class OperationsReportService {
         this.orderRepository = orderRepository;
         this.shiftRepository = shiftRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
+        this.attendeeRepository = attendeeRepository;
     }
 
     public record ServiceLine(Long serviceId, String serviceName, int qty, BigDecimal unitPrice, BigDecimal lineTotal) {}
@@ -106,12 +111,25 @@ public class OperationsReportService {
             }).collect(Collectors.toList());
         }
 
+        Map<UUID, UUID> slipToOrderItemId = resolveSlipToOrderItem(slips);
         Map<String, ServiceAccumulator> bucket = new HashMap<>();
+        Set<UUID> countedOrderItemIds = new HashSet<>();
         for (TreatmentSlip s : slips) {
             String pkg = s.getPackageName() != null ? s.getPackageName() : "(Walk-in)";
             String svc = s.getServiceName() == null ? "Unknown" : s.getServiceName();
             String key = pkg + " — " + svc;
-            bucket.computeIfAbsent(key, k -> new ServiceAccumulator()).accept(s);
+            UUID orderItemId = slipToOrderItemId.get(s.getId());
+            ServiceAccumulator acc = bucket.computeIfAbsent(key, k -> new ServiceAccumulator());
+            if (orderItemId != null) {
+                if (countedOrderItemIds.add(orderItemId)) {
+                    acc.qty++;
+                }
+            } else {
+                acc.qty++;
+            }
+            if (s.getTotalAmount() != null) {
+                acc.total = acc.total.add(s.getTotalAmount());
+            }
         }
         List<ServiceLine> lines = new ArrayList<>();
         BigDecimal grand = BigDecimal.ZERO;
@@ -124,6 +142,27 @@ public class OperationsReportService {
         }
         lines.sort((a, b) -> b.lineTotal().compareTo(a.lineTotal()));
         return new CutoffServicesReport(from, to, lines, grand);
+    }
+
+    private Map<UUID, UUID> resolveSlipToOrderItem(List<TreatmentSlip> slips) {
+        Map<UUID, UUID> out = new HashMap<>();
+        Set<UUID> attendeeIds = new HashSet<>();
+        for (TreatmentSlip s : slips) {
+            if (s.getAttendeeId() != null) attendeeIds.add(s.getAttendeeId());
+        }
+        if (attendeeIds.isEmpty()) return out;
+        Map<UUID, UUID> attendeeToOrderItem = new HashMap<>();
+        for (OrderItemAttendee a : attendeeRepository.findAllById(attendeeIds)) {
+            attendeeToOrderItem.put(a.getId(), a.getOrderItemId());
+        }
+        for (TreatmentSlip s : slips) {
+            UUID a = s.getAttendeeId();
+            if (a != null) {
+                UUID oid = attendeeToOrderItem.get(a);
+                if (oid != null) out.put(s.getId(), oid);
+            }
+        }
+        return out;
     }
 
     public byte[] cutoffServicesCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
@@ -184,62 +223,128 @@ public class OperationsReportService {
                 .filter(o -> o.getBookingId() != null)
                 .collect(Collectors.toMap(Order::getBookingId, o -> o, (a, b) -> a));
 
+        Map<UUID, UUID> slipToOrderItemId = resolveSlipToOrderItem(slips);
+
+        Map<UUID, List<TreatmentSlip>> groupedByOrderItem = new HashMap<>();
+        List<TreatmentSlip> orphanSlips = new ArrayList<>();
+        for (TreatmentSlip slip : slips) {
+            UUID oid = slipToOrderItemId.get(slip.getId());
+            if (oid != null) {
+                groupedByOrderItem.computeIfAbsent(oid, k -> new ArrayList<>()).add(slip);
+            } else {
+                orphanSlips.add(slip);
+            }
+        }
+
         DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
         List<DailyRow> rows = new ArrayList<>();
-        for (TreatmentSlip slip : slips) {
+
+        for (Map.Entry<UUID, List<TreatmentSlip>> e : groupedByOrderItem.entrySet()) {
+            List<TreatmentSlip> group = e.getValue();
+            group.sort((x, y) -> {
+                OffsetDateTime cx = x.getCreatedAt();
+                OffsetDateTime cy = y.getCreatedAt();
+                if (cx == null && cy == null) return 0;
+                if (cx == null) return 1;
+                if (cy == null) return -1;
+                return cx.compareTo(cy);
+            });
+            TreatmentSlip head = group.get(0);
+            Booking b = head.getBookingId() == null ? null
+                    : bookingById.computeIfAbsent(head.getBookingId(),
+                        id -> bookingRepository.findById(id).orElse(null));
+            if (b != null && "CANCELLED".equals(b.getStatus())) continue;
+            Order o = b == null ? null : orderByBooking.get(b.getId());
+            if (o != null && "CANCELLED".equals(o.getStatus())) continue;
+            DailyRow row = buildRow(head, group, b, o, sessionById, timeFmt, true);
+            rows.add(row);
+        }
+
+        for (TreatmentSlip slip : orphanSlips) {
             Booking b = slip.getBookingId() == null ? null
                     : bookingById.computeIfAbsent(slip.getBookingId(),
                         id -> bookingRepository.findById(id).orElse(null));
             if (b != null && "CANCELLED".equals(b.getStatus())) continue;
             Order o = b == null ? null : orderByBooking.get(b.getId());
             if (o != null && "CANCELLED".equals(o.getStatus())) continue;
-
-            Session s = slip.getSessionId() == null ? null
-                    : sessionById.computeIfAbsent(slip.getSessionId(),
-                        id -> sessionRepository.findById(id).orElse(null));
-
-            String checkIn;
-            if (s != null && s.getStartedAt() != null) {
-                checkIn = formatTime(s.getStartedAt(), timeFmt);
-            } else if (b != null && b.getActualStartAt() != null) {
-                checkIn = formatTime(b.getActualStartAt(), timeFmt);
-            } else if (b != null) {
-                checkIn = formatTime(b.getScheduledAt(), timeFmt);
-            } else {
-                checkIn = formatTime(slip.getCreatedAt(), timeFmt);
-            }
-            String orNumber = slip.getOrNumber() != null ? slip.getOrNumber()
-                    : (o != null && o.getOrNumber() != null ? o.getOrNumber() : "");
-            String locker = slip.getLockerNumber() != null ? slip.getLockerNumber()
-                    : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
-            String packageName = slip.getPackageName();
-            String treatment = slip.getServiceName() == null ? "" : slip.getServiceName();
-            BigDecimal amount = slip.getTotalAmount() != null ? slip.getTotalAmount() : BigDecimal.ZERO;
-            String tsn = slip.getTsn() == null ? "" : slip.getTsn();
-            String therapist = "";
-            if (s != null && s.getPrimaryTherapistId() != null) {
-                therapist = therapistRepository.findById(s.getPrimaryTherapistId())
-                        .map(t -> t.getNickname()).orElse("");
-            } else if (slip.getPrimaryTherapistNickname() != null) {
-                therapist = slip.getPrimaryTherapistNickname();
-            }
-            String room = "";
-            if (s != null && s.getRoomId() != null) {
-                room = roomRepository.findById(s.getRoomId()).map(r -> r.getRoomNumber()).orElse("");
-            } else if (slip.getRoomNumber() != null) {
-                room = slip.getRoomNumber();
-            }
-            String start = formatTime(s != null ? s.getStartedAt() : slip.getStartTime(), timeFmt);
-            String end = formatTime(s != null ? s.getEndedAt() : slip.getEndTime(), timeFmt);
-            String status = s != null ? s.getStatus() : slip.getStatus();
-            rows.add(new DailyRow(checkIn, orNumber, locker, packageName, treatment, amount, tsn, therapist, room, start, end, status));
+            DailyRow row = buildRow(slip, List.of(slip), b, o, sessionById, timeFmt, false);
+            rows.add(row);
         }
+
         rows.sort((a, b) -> {
             String ka = a.checkInTime() == null ? "" : a.checkInTime();
             String kb = b.checkInTime() == null ? "" : b.checkInTime();
             return ka.compareTo(kb);
         });
         return rows;
+    }
+
+    private DailyRow buildRow(TreatmentSlip head, List<TreatmentSlip> group, Booking b, Order o,
+                              Map<UUID, Session> sessionById, DateTimeFormatter timeFmt, boolean grouped) {
+        Session s = head.getSessionId() == null ? null
+                : sessionById.computeIfAbsent(head.getSessionId(),
+                    id -> sessionRepository.findById(id).orElse(null));
+
+        String checkIn;
+        if (s != null && s.getStartedAt() != null) {
+            checkIn = formatTime(s.getStartedAt(), timeFmt);
+        } else if (b != null && b.getActualStartAt() != null) {
+            checkIn = formatTime(b.getActualStartAt(), timeFmt);
+        } else if (b != null) {
+            checkIn = formatTime(b.getScheduledAt(), timeFmt);
+        } else {
+            checkIn = formatTime(head.getCreatedAt(), timeFmt);
+        }
+        String orNumber = head.getOrNumber() != null ? head.getOrNumber()
+                : (o != null && o.getOrNumber() != null ? o.getOrNumber() : "");
+
+        String locker;
+        if (grouped && group.size() > 1) {
+            locker = group.stream()
+                    .map(TreatmentSlip::getLockerNumber)
+                    .filter(l -> l != null && !l.isBlank())
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+            if (locker.isBlank() && b != null && b.getLockerNumber() != null) {
+                locker = b.getLockerNumber();
+            }
+        } else {
+            locker = head.getLockerNumber() != null ? head.getLockerNumber()
+                    : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
+        }
+
+        String packageName = head.getPackageName();
+        String treatment = head.getServiceName() == null ? "" : head.getServiceName();
+
+        BigDecimal amount;
+        if (grouped) {
+            amount = group.stream()
+                    .map(TreatmentSlip::getTotalAmount)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        } else {
+            amount = head.getTotalAmount() != null ? head.getTotalAmount() : BigDecimal.ZERO;
+        }
+
+        String tsn = head.getTsn() == null ? "" : head.getTsn();
+
+        String therapist = "";
+        if (s != null && s.getPrimaryTherapistId() != null) {
+            therapist = therapistRepository.findById(s.getPrimaryTherapistId())
+                    .map(t -> t.getNickname()).orElse("");
+        } else if (head.getPrimaryTherapistNickname() != null) {
+            therapist = head.getPrimaryTherapistNickname();
+        }
+        String room = "";
+        if (s != null && s.getRoomId() != null) {
+            room = roomRepository.findById(s.getRoomId()).map(r -> r.getRoomNumber()).orElse("");
+        } else if (head.getRoomNumber() != null) {
+            room = head.getRoomNumber();
+        }
+        String start = formatTime(s != null ? s.getStartedAt() : head.getStartTime(), timeFmt);
+        String end = formatTime(s != null ? s.getEndedAt() : head.getEndTime(), timeFmt);
+        String status = s != null ? s.getStatus() : head.getStatus();
+        return new DailyRow(checkIn, orNumber, locker, packageName, treatment, amount, tsn, therapist, room, start, end, status);
     }
 
     private UUID resolveTherapistId(String nickname, UUID sessionId) {

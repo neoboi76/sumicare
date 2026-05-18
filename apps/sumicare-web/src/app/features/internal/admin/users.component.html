@@ -19,17 +19,25 @@
   <table class="bg-white rounded-xl shadow overflow-hidden w-full text-sm">
     <thead class="bg-slate-100">
       <tr>
-        <th class="text-left p-3">Username</th>
-        <th class="text-left p-3">Display</th>
-        <th class="text-left p-3">Email</th>
-        <th class="text-left p-3">Role</th>
+        <th class="text-left p-3" [sumiSortable]="'username'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Username <sumi-sort-icon [active]="sortState().key === 'username'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'displayName'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Display <sumi-sort-icon [active]="sortState().key === 'displayName'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'email'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Email <sumi-sort-icon [active]="sortState().key === 'email'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'role'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Role <sumi-sort-icon [active]="sortState().key === 'role'" [direction]="sortState().direction"/>
+        </th>
         @if (canManage()) {
           <th class="text-left p-3">Actions</th>
         }
       </tr>
     </thead>
     <tbody>
-      @for (u of users(); track u.id) {
+      @for (u of sortedUsers(); track u.id) {
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono">{{ u.username }}</td>
           <td class="p-3">{{ u.displayName || '-' }}</td>
