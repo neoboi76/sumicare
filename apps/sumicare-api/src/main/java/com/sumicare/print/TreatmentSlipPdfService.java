@@ -1,5 +1,7 @@
 package com.sumicare.print;
 
+import com.sumicare.common.config.AppProperties;
+import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import org.springframework.stereotype.Component;
@@ -19,10 +21,13 @@ public class TreatmentSlipPdfService {
 
     private final PdfRenderer pdfRenderer;
     private final TreatmentSlipRepository slipRepository;
+    private final AppProperties appProperties;
 
-    public TreatmentSlipPdfService(PdfRenderer pdfRenderer, TreatmentSlipRepository slipRepository) {
+    public TreatmentSlipPdfService(PdfRenderer pdfRenderer, TreatmentSlipRepository slipRepository,
+                                   AppProperties appProperties) {
         this.pdfRenderer = pdfRenderer;
         this.slipRepository = slipRepository;
+        this.appProperties = appProperties;
     }
 
     public byte[] renderSlip(UUID slipId) {
@@ -62,7 +67,7 @@ public class TreatmentSlipPdfService {
 
         sb.append("<div class=\"row row-2\">")
           .append(cell("Customer Name", customerName))
-          .append(cell("Nationality", ""))
+          .append(cell("Nationality", slip.getNationality() == null ? "" : slip.getNationality()))
           .append("</div>");
 
         sb.append("<div class=\"row row-2\">")
@@ -131,6 +136,13 @@ public class TreatmentSlipPdfService {
           .append("</div>");
 
         sb.append("<div class=\"sig\">Signature over printed name</div>");
+
+        String feedbackUrl = appProperties.app().publicBaseUrl() + "/feedback?slip="
+                + java.net.URLEncoder.encode(slip.getTsn() == null ? "" : slip.getTsn(),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        String qrDataUri = QrCodeUtil.pngDataUri(feedbackUrl, 180);
+        sb.append("<div class=\"qr-block\"><div class=\"qr-label\">Scan to share feedback</div>")
+          .append("<img src=\"").append(qrDataUri).append("\" width=\"90\" height=\"90\"/></div>");
         sb.append("</div></body></html>");
 
         return pdfRenderer.renderHtml(sb.toString());
@@ -165,6 +177,8 @@ public class TreatmentSlipPdfService {
               .waiver-title { text-align: center; font-weight: 800; letter-spacing: 0.1em; font-size: 8pt; padding-top: 1mm; }
               .waiver { padding: 2mm; font-size: 6pt; line-height: 1.35; text-align: justify; border-top: 1px solid #000; border-bottom: 1px solid #000; }
               .sig { padding: 8mm 2mm 1mm; text-align: center; font-size: 6.5pt; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid #000; margin-top: 3mm; }
+              .qr-block { padding: 2mm; text-align: center; border-top: 1px solid #000; }
+              .qr-label { font-size: 6pt; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1mm; }
             </style></head><body>
             """;
 

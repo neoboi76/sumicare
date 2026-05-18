@@ -29,6 +29,7 @@ export class UsersComponent implements OnInit {
 
   users = signal<UserRow[]>([]);
   deactivated = signal<UserRow[]>([]);
+  resetSent = signal<string | null>(null);
   showForm = signal(false);
   error = signal<string | null>(null);
 
@@ -120,5 +121,18 @@ export class UsersComponent implements OnInit {
 
   closeAudit(): void {
     this.auditUserId.set(null);
+  }
+
+  async sendResetLink(user: UserRow): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Send password reset link',
+      message: `Send a password reset link to ${user.displayName || user.username} at ${user.email || '(no email)'}?`,
+      confirmText: 'Send link'
+    });
+    if (!confirmed) return;
+    this.http.post(`${environment.apiBaseUrl}/api/users/${user.id}/send-reset-link`, {}).subscribe({
+      next: () => this.resetSent.set(`Reset link emailed to ${user.email}`),
+      error: (e) => this.error.set(e.error?.message || 'Could not send reset link.')
+    });
   }
 }

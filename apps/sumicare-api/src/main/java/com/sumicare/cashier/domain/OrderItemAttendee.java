@@ -44,6 +44,12 @@ public class OrderItemAttendee {
     @Column(name = "position", nullable = false)
     private int position = 0;
 
+    @Column(name = "discount", nullable = false, precision = 12, scale = 2)
+    private java.math.BigDecimal discount = java.math.BigDecimal.ZERO;
+
+    @Column(name = "provided_tsn", length = 64)
+    private String providedTsn;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -69,6 +75,10 @@ public class OrderItemAttendee {
     public void setTreatmentSlipId(UUID treatmentSlipId) { this.treatmentSlipId = treatmentSlipId; }
     public int getPosition() { return position; }
     public void setPosition(int position) { this.position = position; }
+    public java.math.BigDecimal getDiscount() { return discount; }
+    public void setDiscount(java.math.BigDecimal discount) { this.discount = discount == null ? java.math.BigDecimal.ZERO : discount; }
+    public String getProvidedTsn() { return providedTsn; }
+    public void setProvidedTsn(String providedTsn) { this.providedTsn = providedTsn; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

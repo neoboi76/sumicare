@@ -111,7 +111,7 @@ public class UserService {
             EmailVerificationToken invToken = new EmailVerificationToken();
             invToken.setUserId(user.getId());
             invToken.setToken(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""));
-            invToken.setExpiresAt(OffsetDateTime.now().plusDays(7));
+            invToken.setExpiresAt(OffsetDateTime.now().plusMinutes(30));
             invToken.setTokenType("INVITATION");
             tokenRepository.save(invToken);
             String displayName = request.displayName() != null ? request.displayName() : request.username();
@@ -203,6 +203,23 @@ public class UserService {
         emailService.sendPasswordResetEmail(user.getEmail(), name, rawToken);
     }
 
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @Transactional
+    public void sendResetLink(String actorRole, UUID targetUserId) {
+        User target = userRepository.findById(targetUserId).orElseThrow();
+        enforceTierForTarget(actorRole, target);
+        requestPasswordReset(targetUserId);
+    }
+
+    public List<User> listOrgAdmins(UUID organizationId) {
+        return userRepository.findAllByOrganizationIdAndActiveTrue(organizationId).stream()
+                .filter(u -> {
+                    String code = u.getRole() == null ? null : u.getRole().getCode();
+                    return "ADMIN".equals(code) || "SUPERADMIN".equals(code);
+                })
+                .toList();
+    }
+
     @Transactional
     public void consumePasswordReset(String token, String newPassword) {
         validatePasswordStrength(newPassword);
@@ -219,21 +236,6 @@ public class UserService {
         user.setUpdatedAt(OffsetDateTime.now());
         resetToken.setConsumedAt(OffsetDateTime.now());
         resetTokenRepository.save(resetToken);
-    }
-
-    @Transactional
-    public void requestPublicPasswordReset(String email) {
-        userRepository.findByEmail(email).ifPresent(user -> {
-            String rawToken = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
-            PasswordResetToken resetToken = new PasswordResetToken();
-            resetToken.setUserId(user.getId());
-            resetToken.setToken(rawToken);
-            resetToken.setExpiresAt(OffsetDateTime.now().plusHours(1));
-            resetTokenRepository.save(resetToken);
-            String name = user.getDisplayName() != null && !user.getDisplayName().isBlank()
-                    ? user.getDisplayName() : user.getUsername();
-            emailService.sendPublicPasswordResetEmail(user.getEmail(), name, rawToken);
-        });
     }
 
     @Transactional

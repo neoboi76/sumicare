@@ -11,8 +11,8 @@ public record BookingResponse(
         Long serviceId,
         String reservationType,
         OffsetDateTime scheduledAt,
-        OffsetDateTime effectiveStartAt,
         OffsetDateTime projectedEndAt,
         String status,
-        UUID orderId
+        UUID orderId,
+        String nationality
 ) {}

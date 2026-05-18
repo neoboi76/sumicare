@@ -4,6 +4,9 @@ import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
+import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
+import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
+import { SortState, sortRows } from '../../../shared/utils/compare-by';
 
 interface BookingResponse {
   id: string;
@@ -12,7 +15,6 @@ interface BookingResponse {
   serviceId: number;
   reservationType: string;
   scheduledAt: string;
-  effectiveStartAt: string;
   projectedEndAt: string;
   status: string;
   clientGender?: string | null;
@@ -108,7 +110,7 @@ interface OrderLite {
 @Component({
   selector: 'sumi-bookings',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, SortableColumnDirective, SortIconComponent],
   templateUrl: './bookings.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -144,12 +146,26 @@ export class BookingsComponent implements OnInit, OnDestroy {
   editLockerNumber = '';
   editClientNickname = '';
   editError = signal<string | null>(null);
+  extendError = signal<string | null>(null);
 
-  adjustBooking = signal<BookingResponse | null>(null);
-  adjustSessionId = signal<string | null>(null);
-  adjustAttendeeLabel = signal<string>('');
-  adjustNewStart = '';
-  adjustNewEnd = '';
+  sortState = signal<SortState>({ key: 'scheduledAt', direction: 'asc' });
+
+  sortedBookings = computed(() => {
+    const rows = this.bookings();
+    const state = this.sortState();
+    return sortRows(rows, state, (b) => {
+      switch (state.key) {
+        case 'scheduledAt': return b.scheduledAt;
+        case 'clientNickname': return b.clientNickname;
+        case 'lockerNumber': return b.lockerNumber ?? '';
+        case 'serviceName': return this.serviceName(b.serviceId);
+        case 'reservationType': return b.reservationType;
+        case 'status': return b.status;
+        case 'paymentStatus': return this.getOrderStatus(b.id);
+        default: return '';
+      }
+    });
+  });
 
   availableTherapists = computed(() => {
     return this.lineup().filter(t => !t.onCall);
@@ -496,74 +512,33 @@ export class BookingsComponent implements OnInit, OnDestroy {
     if (!attendee.sessionId) return;
     const confirmed = await this.confirmService.confirm({
       title: 'Extend Sub-session',
-      message: 'Do you want to extend this sub-session by 30 minutes?',
+      message: 'Do you want to extend this sub-session by 1 hour?',
       confirmText: 'Extend'
     });
     if (!confirmed) return;
-    this.http.post(`${environment.apiBaseUrl}/api/sessions/${attendee.sessionId}/extend?minutes=30`, {}).subscribe({
-      next: () => this.reload()
+    this.http.post(`${environment.apiBaseUrl}/api/sessions/${attendee.sessionId}/extend?minutes=60`, {}).subscribe({
+      next: () => this.reload(),
+      error: (err) => this.extendError.set(err?.error?.message || 'Could not extend the session.')
     });
   }
 
   async extendSession(b: BookingResponse): Promise<void> {
     const confirmed = await this.confirmService.confirm({
       title: 'Extend Session',
-      message: 'Do you want to extend this session by 30 minutes?',
+      message: 'Do you want to extend this session by 1 hour?',
       confirmText: 'Extend'
     });
     if (!confirmed) return;
-    
+
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
-      this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/extend?minutes=30`, {}).subscribe({
-        next: () => this.reload()
+      this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/extend?minutes=60`, {}).subscribe({
+        next: () => this.reload(),
+        error: (err) => this.extendError.set(err?.error?.message || 'Could not extend the session.')
       });
     });
   }
 
-  openAdjust(b: BookingResponse, sessionId?: string, label?: string): void {
-    this.adjustBooking.set(b);
-    this.adjustSessionId.set(sessionId ?? null);
-    this.adjustAttendeeLabel.set(label ?? '');
-    this.adjustNewStart = '';
-    this.adjustNewEnd = '';
-  }
-
-  cancelAdjust(): void {
-    this.adjustBooking.set(null);
-    this.adjustSessionId.set(null);
-    this.adjustAttendeeLabel.set('');
-  }
-
-  async submitAdjust(): Promise<void> {
-    const b = this.adjustBooking();
-    if (!b) return;
-    const confirmed = await this.confirmService.confirm({
-      title: 'Adjust Session Times',
-      message: 'Are you sure you want to adjust the session times?',
-      confirmText: 'Apply'
-    });
-    if (!confirmed) return;
-    const sid = this.adjustSessionId();
-    const lookup$ = sid
-      ? this.http.get<SessionResponse>(`${environment.apiBaseUrl}/api/sessions/by-id/${sid}`)
-      : this.lookupSession(b.id);
-    lookup$.subscribe(session => {
-      if (!session) return;
-      const params: string[] = [];
-      if (this.adjustNewStart) params.push(`startAt=${encodeURIComponent(new Date(this.adjustNewStart).toISOString())}`);
-      if (this.adjustNewEnd) params.push(`endAt=${encodeURIComponent(new Date(this.adjustNewEnd).toISOString())}`);
-      const qs = params.length ? `?${params.join('&')}` : '';
-      this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/adjust-times${qs}`, {}).subscribe({
-        next: () => {
-          this.adjustBooking.set(null);
-          this.adjustSessionId.set(null);
-          this.adjustAttendeeLabel.set('');
-          this.reload();
-        }
-      });
-    });
-  }
 
   async generateSlip(b: BookingResponse): Promise<void> {
     const confirmed = await this.confirmService.confirm({

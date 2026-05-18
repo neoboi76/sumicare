@@ -18,19 +18,35 @@
     <table class="w-full text-sm">
       <thead class="bg-slate-100">
         <tr>
-          <th class="text-left p-3">TSN</th>
-          <th class="text-left p-3">Client</th>
-          <th class="text-left p-3">Service</th>
-          <th class="text-left p-3">Room</th>
-          <th class="text-left p-3">Therapist</th>
-          <th class="text-left p-3">Start</th>
-          <th class="text-left p-3">End</th>
-          <th class="text-left p-3">VIP</th>
+          <th class="text-left p-3" [sumiSortable]="'tsn'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            TSN <sumi-sort-icon [active]="sortState().key === 'tsn'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'clientNickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Client <sumi-sort-icon [active]="sortState().key === 'clientNickname'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'serviceName'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Service <sumi-sort-icon [active]="sortState().key === 'serviceName'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'roomNumber'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Room <sumi-sort-icon [active]="sortState().key === 'roomNumber'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'primaryTherapistNickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Therapist <sumi-sort-icon [active]="sortState().key === 'primaryTherapistNickname'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'startTime'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Start <sumi-sort-icon [active]="sortState().key === 'startTime'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'endTime'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            End <sumi-sort-icon [active]="sortState().key === 'endTime'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'vip'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            VIP <sumi-sort-icon [active]="sortState().key === 'vip'" [direction]="sortState().direction" />
+          </th>
           <th class="text-right p-3"></th>
         </tr>
       </thead>
       <tbody>
-        @for (s of slips(); track s.id) {
+        @for (s of sortedSlips(); track s.id) {
           <tr class="border-t hover:bg-slate-50">
             <td class="p-3 font-mono text-xs">{{ s.tsn }}</td>
             <td class="p-3 font-medium">{{ s.clientNickname }}</td>

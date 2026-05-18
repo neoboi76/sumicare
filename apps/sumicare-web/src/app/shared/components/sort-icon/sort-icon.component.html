@@ -1,0 +1,11 @@
+<span class="inline-block ml-1 text-[10px] leading-none align-middle"
+      [class.text-slate-400]="!active"
+      [class.text-slate-700]="active">
+  @if (!active) {
+    <span aria-hidden="true">&#8693;</span>
+  } @else if (direction === 'asc') {
+    <span aria-hidden="true">&#9650;</span>
+  } @else {
+    <span aria-hidden="true">&#9660;</span>
+  }
+</span>

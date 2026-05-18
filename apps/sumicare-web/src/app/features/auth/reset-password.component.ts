@@ -10,84 +10,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
   selector: 'sumi-reset-password',
   standalone: true,
   imports: [FormsModule, PasswordInputComponent, PasswordStrengthComponent, RouterLink],
-  template: `
-    <div class="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div class="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-slate-900">
-          Reset your password
-        </h2>
-      </div>
-
-      <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          @if (success()) {
-            <div class="rounded-md bg-emerald-50 p-4 mb-6">
-              <div class="flex">
-                <div class="ml-3">
-                  <h3 class="text-sm font-medium text-emerald-800">Password reset successful</h3>
-                  <div class="mt-2 text-sm text-emerald-700">
-                    <p>Your password has been successfully reset. You may now log in with your new password.</p>
-                  </div>
-                  <div class="mt-4">
-                    <a routerLink="/login" class="text-sm font-medium text-emerald-800 hover:text-emerald-700">
-                      Go to Login &rarr;
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          } @else {
-            <form class="space-y-6" (ngSubmit)="submit()">
-              @if (error()) {
-                <div class="rounded-md bg-rose-50 p-4">
-                  <div class="flex">
-                    <div class="ml-3">
-                      <h3 class="text-sm font-medium text-rose-800">{{ error() }}</h3>
-                    </div>
-                  </div>
-                </div>
-              }
-
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
-                  New Password
-                </label>
-                <sumi-password-input
-                  [(value)]="password"
-                  name="password"
-                  autocomplete="new-password"
-                  [required]="true">
-                </sumi-password-input>
-                <sumi-password-strength [password]="password"></sumi-password-strength>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
-                  Confirm New Password
-                </label>
-                <sumi-password-input
-                  [(value)]="confirmPassword"
-                  name="confirmPassword"
-                  autocomplete="new-password"
-                  [required]="true">
-                </sumi-password-input>
-                @if (confirmPassword && password !== confirmPassword) {
-                  <p class="mt-1 text-xs text-red-600">Passwords do not match.</p>
-                }
-              </div>
-
-              <div>
-                <button type="submit" [disabled]="submitting() || !password || password !== confirmPassword"
-                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--sumi-primary)] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed">
-                  {{ submitting() ? 'Saving...' : 'Reset Password' }}
-                </button>
-              </div>
-            </form>
-          }
-        </div>
-      </div>
-    </div>
-  `,
+  templateUrl: './reset-password.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ResetPasswordComponent implements OnInit {
@@ -117,10 +40,8 @@ export class ResetPasswordComponent implements OnInit {
       this.error.set('Passwords do not match.');
       return;
     }
-    
     this.submitting.set(true);
     this.error.set(null);
-    
     this.http.post(`${environment.apiBaseUrl}/api/auth/reset-password`, {
       token: this.token,
       newPassword: this.password

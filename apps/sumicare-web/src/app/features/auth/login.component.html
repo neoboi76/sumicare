@@ -21,7 +21,7 @@
       <label class="block">
         <div class="flex items-center justify-between mb-1">
           <span class="text-sm text-slate-700">Password</span>
-          <a routerLink="/forgot-password" class="text-xs text-[var(--sumi-primary)] hover:underline">Forgot password?</a>
+          <button type="button" (click)="openContactModal()" class="text-xs text-[var(--sumi-primary)] hover:underline">Contact administrator</button>
         </div>
         <sumi-password-input
           [(value)]="password"
@@ -39,4 +39,5 @@
       }
     </form>
   </div>
+  <sumi-contact-admin-modal [show]="showContactModal()" (closed)="closeContactModal()"></sumi-contact-admin-modal>
 </div>

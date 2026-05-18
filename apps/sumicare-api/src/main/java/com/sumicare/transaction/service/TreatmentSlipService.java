@@ -242,6 +242,18 @@ public class TreatmentSlipService {
             slip.setWaiverAccepted(true);
             slip.setWaiverAcceptedAt(OffsetDateTime.now());
         }
+        if (request.startTime() != null) slip.setStartTime(request.startTime());
+        if (request.endTime() != null) slip.setEndTime(request.endTime());
+        if (slip.getSessionId() != null && (request.startTime() != null || request.endTime() != null)) {
+            sessionRepository.findById(slip.getSessionId()).ifPresent(session -> {
+                if (request.startTime() != null) session.setStartedAt(request.startTime());
+                if (request.endTime() != null) {
+                    session.setEndedAt(request.endTime());
+                    session.setExpectedEndAt(request.endTime());
+                }
+                sessionRepository.save(session);
+            });
+        }
         return slipRepository.save(slip);
     }
 

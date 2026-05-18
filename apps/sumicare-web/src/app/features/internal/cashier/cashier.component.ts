@@ -45,6 +45,8 @@ interface CartAttendee {
   serviceName: string;
   lockerNumber: string;
   clientGender: 'M' | 'F';
+  discount: number;
+  providedTsn: string | null;
 }
 
 interface CartItem {
@@ -126,6 +128,7 @@ export class CashierComponent implements OnInit {
 
   referenceNumber = '';
   orNumber = '';
+  tsNumber = '';
   notes = '';
 
   editingOrderId = signal<string | null>(null);
@@ -167,7 +170,11 @@ export class CashierComponent implements OnInit {
   totalAttendees = computed(() => this.cart().reduce((sum, c) => sum + c.attendees.length, 0));
   itemsSubtotal = computed(() => this.cart().reduce((sum, c) => sum + Number(c.lineTotal || 0), 0));
   subtotal = computed(() => this.itemsSubtotal() + this.roomSurcharge());
-  totalDiscount = computed(() => this.discountSummary().reduce((sum, d) => sum + d.amount, 0));
+  attendeeDiscountTotal = computed(() =>
+    this.cart().reduce((sum, c) =>
+      sum + c.attendees.reduce((acc, a) => acc + Number(a.discount || 0), 0), 0));
+  totalDiscount = computed(() =>
+    this.discountSummary().reduce((sum, d) => sum + d.amount, 0) + this.attendeeDiscountTotal());
   total = computed(() => Math.max(0, this.subtotal() - this.totalDiscount() + this.tax()));
   paid = computed(() => this.payments().reduce((sum, p) => sum + Number(p.amount || 0), 0));
   due = computed(() => Math.max(0, this.total() - this.paid()));
@@ -318,7 +325,7 @@ export class CashierComponent implements OnInit {
   }
 
   private blankAttendee(): CartAttendee {
-    return { serviceId: null, packageTierId: null, serviceName: '', lockerNumber: '', clientGender: 'F' };
+    return { serviceId: null, packageTierId: null, serviceName: '', lockerNumber: '', clientGender: 'F', discount: 0, providedTsn: null };
   }
 
   addPackage(): void {
@@ -611,10 +618,11 @@ export class CashierComponent implements OnInit {
       lockerNumber: first.attendees[0].lockerNumber || null,
       referenceNumber: this.referenceNumber || null,
       orNumber: this.orNumber || null,
+      tsNumber: this.tsNumber || null,
       notes: this.notes || null,
       voucherId: this.voucherId(),
       subtotal: this.subtotal(),
-      discount: this.totalDiscount(),
+      discount: this.discountSummary().reduce((sum, d) => sum + d.amount, 0),
       tax: this.tax(),
       total: this.total(),
       items: this.cart().map((c, i) => ({
@@ -628,7 +636,9 @@ export class CashierComponent implements OnInit {
           packageTierId: a.packageTierId,
           lockerNumber: a.lockerNumber,
           clientGender: a.clientGender,
-          position: j
+          position: j,
+          discount: a.discount || 0,
+          providedTsn: a.providedTsn || null
         }))
       })),
       initialPayment: firstPayment ? {
@@ -661,8 +671,13 @@ export class CashierComponent implements OnInit {
     if (editId) {
       this.http.put<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders/${editId}`, payload).subscribe({
         next: (order) => {
-          this.submitting.set(false);
-          this.router.navigate(['/app/orders', order.id]);
+          const extras = this.payments().slice(1);
+          if (extras.length === 0) {
+            this.submitting.set(false);
+            this.router.navigate(['/app/orders', order.id]);
+            return;
+          }
+          this.recordExtraPayments(order.id, extras, 0);
         },
         error: (e) => {
           this.submitting.set(false);

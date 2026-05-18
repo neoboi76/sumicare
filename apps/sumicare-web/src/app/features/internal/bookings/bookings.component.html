@@ -18,22 +18,37 @@
     <table class="w-full text-sm">
       <thead class="bg-slate-100">
         <tr>
-          <th class="text-left p-3">Scheduled</th>
-          <th class="text-left p-3">Effective start</th>
-          <th class="text-left p-3">Client</th>
-          <th class="text-left p-3">Locker</th>
-          <th class="text-left p-3">Service</th>
-          <th class="text-left p-3">Type</th>
-          <th class="text-left p-3">Status</th>
-          <th class="text-left p-3">Payment</th>
+          <th class="text-left p-3" [sumiSortable]="'scheduledAt'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Scheduled <sumi-sort-icon [active]="sortState().key === 'scheduledAt'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'clientNickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Client <sumi-sort-icon [active]="sortState().key === 'clientNickname'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'lockerNumber'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Locker <sumi-sort-icon [active]="sortState().key === 'lockerNumber'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'serviceName'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Service <sumi-sort-icon [active]="sortState().key === 'serviceName'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'reservationType'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Type <sumi-sort-icon [active]="sortState().key === 'reservationType'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'status'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Status <sumi-sort-icon [active]="sortState().key === 'status'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'paymentStatus'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Payment <sumi-sort-icon [active]="sortState().key === 'paymentStatus'" [direction]="sortState().direction"/>
+          </th>
           <th class="text-right p-3">Actions</th>
         </tr>
       </thead>
       <tbody>
-        @for (b of bookings(); track b.id) {
+        @if (extendError(); as ee) {
+          <tr><td colspan="8" class="p-3 text-sm text-red-700 bg-red-50">{{ ee }}</td></tr>
+        }
+        @for (b of sortedBookings(); track b.id) {
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono text-xs">{{ formatTime(b.scheduledAt) }}</td>
-          <td class="p-3 font-mono text-xs">{{ formatTime(b.effectiveStartAt) }}</td>
           <td class="p-3 font-medium">
             {{ b.clientNickname }}
             @if (attendeeCount(b.id) > 1) {
@@ -103,8 +118,7 @@
               <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
               } @else {
               <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
-              <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+30min</button>
-              <button (click)="openAdjust(b)" class="text-slate-700 hover:underline">Adjust</button>
+              <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+1 hr</button>
               <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
               }
             }
@@ -112,7 +126,7 @@
         </tr>
         @if (expandedBookingId() === b.id && attendeeCount(b.id) > 1 && orderForBooking(b.id); as ord) {
         <tr class="border-t bg-slate-50">
-          <td colspan="9" class="p-3">
+          <td colspan="8" class="p-3">
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
               Sub-sessions ({{ ord.roomType }} room)
             </div>
@@ -153,9 +167,7 @@
                       <button (click)="endAttendeeSession(a)"
                         class="text-emerald-700 hover:underline">End</button>
                       <button (click)="extendAttendeeSession(a)"
-                        class="text-amber-700 hover:underline">+30min</button>
-                      <button (click)="openAdjust(b, a.sessionId ?? undefined, a.serviceName || 'Guest')"
-                        class="text-slate-700 hover:underline">Adjust</button>
+                        class="text-amber-700 hover:underline">+1 hr</button>
                       <button (click)="generateSlipForSession(a.sessionId!)"
                         class="text-blue-700 hover:underline">Slip</button>
                       } @else {
@@ -173,7 +185,7 @@
         }
         } @empty {
         <tr>
-          <td colspan="9" class="p-6 text-center text-slate-500">No bookings for this date.</td>
+          <td colspan="8" class="p-6 text-center text-slate-500">No bookings for this date.</td>
         </tr>
         }
       </tbody>
@@ -306,28 +318,4 @@
   </div>
   }
 
-  <!-- Adjust Session Modal -->
-  @if (adjustBooking(); as ab) {
-  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="cancelAdjust()">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
-      <h2 class="text-lg font-semibold">Adjust session — {{ adjustAttendeeLabel() || ab.clientNickname }}</h2>
-      <p class="text-sm text-slate-500">Leave blank to keep current value.</p>
-      <label class="block text-sm">
-        New start time
-        <input type="datetime-local" [(ngModel)]="adjustNewStart" name="adjustNewStart"
-          class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
-      </label>
-      <label class="block text-sm">
-        New end time
-        <input type="datetime-local" [(ngModel)]="adjustNewEnd" name="adjustNewEnd"
-          class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
-      </label>
-      <div class="flex justify-end gap-2 pt-2">
-        <button (click)="cancelAdjust()" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-        <button (click)="submitAdjust()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Apply
-          changes</button>
-      </div>
-    </div>
-  </div>
-  }
 </div>

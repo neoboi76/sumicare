@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { PasswordInputComponent } from '../../shared/components/password-input/password-input.component';
+import { ContactAdminModalComponent } from './contact-admin-modal/contact-admin-modal.component';
 
 @Component({
   selector: 'sumi-login',
   standalone: true,
-  imports: [FormsModule, RouterLink, PasswordInputComponent],
+  imports: [FormsModule, PasswordInputComponent, ContactAdminModalComponent],
   templateUrl: './login.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -21,6 +22,10 @@ export class LoginComponent implements OnInit {
   busy = signal(false);
   error = signal<string | null>(null);
   verifiedBanner = signal<'success' | 'expired' | null>(null);
+  showContactModal = signal(false);
+
+  openContactModal(): void { this.showContactModal.set(true); }
+  closeContactModal(): void { this.showContactModal.set(false); }
 
   ngOnInit(): void {
     const verified = this.route.snapshot.queryParamMap.get('verified');

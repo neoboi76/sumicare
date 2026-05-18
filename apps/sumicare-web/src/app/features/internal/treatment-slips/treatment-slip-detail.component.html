@@ -39,6 +39,14 @@
         <label class="block">Total amount
           <input [(ngModel)]="edit.totalAmount" name="etotal" type="number" min="0" step="0.01" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
         </label>
+        <label class="block">Start time
+          <input [(ngModel)]="edit.startTime" name="estart" type="datetime-local"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">End time
+          <input [(ngModel)]="edit.endTime" name="eend" type="datetime-local"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
         @if (s.vip) {
           <label class="block">Jacuzzi (min)
             <input [(ngModel)]="edit.jacuzziMinutes" name="ejacuzzi" type="number" min="0" max="120" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />

@@ -188,7 +188,18 @@ public class OrderService {
         BigDecimal subtotalFromRequest = request.subtotal() != null
                 ? request.subtotal()
                 : itemsSubtotal.add(roomCharge);
-        BigDecimal discount = request.discount() != null ? request.discount() : BigDecimal.ZERO;
+        BigDecimal attendeeDiscountTotal = BigDecimal.ZERO;
+        if (hasItems) {
+            for (CreateOrderItemRequest ci : request.items()) {
+                for (CreateOrderItemAttendeeRequest ar : ci.attendees()) {
+                    if (ar.discount() != null) {
+                        attendeeDiscountTotal = attendeeDiscountTotal.add(ar.discount());
+                    }
+                }
+            }
+        }
+        BigDecimal requestDiscount = request.discount() != null ? request.discount() : BigDecimal.ZERO;
+        BigDecimal discount = requestDiscount.add(attendeeDiscountTotal);
         BigDecimal tax = request.tax() != null ? request.tax() : BigDecimal.ZERO;
         BigDecimal total = request.total() != null
                 ? request.total()
@@ -207,6 +218,8 @@ public class OrderService {
                 OffsetDateTime.now(),
                 request.pax() == null ? Math.max(1, totalAttendees) : request.pax(),
                 request.clientGender(),
+                null,
+                null,
                 null,
                 null
         );
@@ -271,6 +284,8 @@ public class OrderService {
                     att.setLockerNumber(ar.lockerNumber());
                     att.setClientGender(ar.clientGender());
                     att.setPosition(ar.position() != null ? ar.position() : attPos.getAndIncrement());
+                    att.setDiscount(ar.discount() != null ? ar.discount() : BigDecimal.ZERO);
+                    att.setProvidedTsn(ar.providedTsn());
                     attendeeRepository.save(att);
                 }
             }
@@ -376,7 +391,16 @@ public class OrderService {
         BigDecimal subtotalFromRequest = request.subtotal() != null
                 ? request.subtotal()
                 : itemsSubtotal.add(roomCharge);
-        BigDecimal discount = request.discount() != null ? request.discount() : BigDecimal.ZERO;
+        BigDecimal attendeeDiscountTotal = BigDecimal.ZERO;
+        for (CreateOrderItemRequest ci : request.items()) {
+            for (CreateOrderItemAttendeeRequest ar : ci.attendees()) {
+                if (ar.discount() != null) {
+                    attendeeDiscountTotal = attendeeDiscountTotal.add(ar.discount());
+                }
+            }
+        }
+        BigDecimal requestDiscount = request.discount() != null ? request.discount() : BigDecimal.ZERO;
+        BigDecimal discount = requestDiscount.add(attendeeDiscountTotal);
         BigDecimal tax = request.tax() != null ? request.tax() : BigDecimal.ZERO;
         BigDecimal total = request.total() != null
                 ? request.total()
@@ -434,6 +458,8 @@ public class OrderService {
                 att.setLockerNumber(ar.lockerNumber());
                 att.setClientGender(ar.clientGender());
                 att.setPosition(ar.position() != null ? ar.position() : attPos.getAndIncrement());
+                att.setDiscount(ar.discount() != null ? ar.discount() : BigDecimal.ZERO);
+                att.setProvidedTsn(ar.providedTsn());
                 attendeeRepository.save(att);
             }
         }
@@ -449,6 +475,21 @@ public class OrderService {
             booking.setPax(request.pax() == null ? Math.max(1, totalAttendees) : request.pax());
             if (request.clientGender() != null) booking.setClientGender(request.clientGender());
             bookingRepository.save(booking);
+        }
+
+        if (request.initialPayment() != null) {
+            BigDecimal payAmount = request.initialPayment().amount();
+            if (payAmount.compareTo(BigDecimal.ZERO) > 0 && payAmount.compareTo(total) > 0) {
+                throw new IllegalArgumentException("Payment amount exceeds order total");
+            }
+            UUID actorUserId = order.getCashierUserId();
+            recordPaymentInternal(order, null, actorUserId, request.initialPayment().paymentMethod(),
+                    payAmount, request.initialPayment().referenceNumber());
+            if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
+                order.setStatus("PAID");
+                order.setFinishedAt(OffsetDateTime.now());
+                materialiseAttendeeSessions(order);
+            }
         }
 
         return toResponse(order, booking);
@@ -727,12 +768,34 @@ public class OrderService {
 
         List<OrderItem> items = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId());
         Map<UUID, OrderItem> itemById = new HashMap<>();
+        Map<UUID, List<OrderItemAttendee>> attendeesByItem = new HashMap<>();
         for (OrderItem item : items) {
             itemById.put(item.getId(), item);
+        }
+        for (OrderItemAttendee a : attendees) {
+            attendeesByItem.computeIfAbsent(a.getOrderItemId(), k -> new ArrayList<>()).add(a);
         }
 
         Map<Long, String> packageNameCache = new HashMap<>();
         Map<Long, Boolean> packageVipCache = new HashMap<>();
+        Map<UUID, BigDecimal> sharePerAttendee = new HashMap<>();
+        for (OrderItem item : items) {
+            List<OrderItemAttendee> bucket = attendeesByItem.getOrDefault(item.getId(), List.of());
+            int n = bucket.size();
+            if (n == 0) continue;
+            BigDecimal lineTotal = item.getLineTotal() != null ? item.getLineTotal() : BigDecimal.ZERO;
+            BigDecimal even = lineTotal.divide(BigDecimal.valueOf(n), 2, java.math.RoundingMode.HALF_UP);
+            BigDecimal accumulated = even.multiply(BigDecimal.valueOf(n - 1L));
+            BigDecimal remainder = lineTotal.subtract(accumulated);
+            for (int i = 0; i < n; i++) {
+                OrderItemAttendee a = bucket.get(i);
+                BigDecimal share = (i == n - 1) ? remainder : even;
+                if (a.getDiscount() != null && a.getDiscount().compareTo(BigDecimal.ZERO) > 0) {
+                    share = share.subtract(a.getDiscount()).max(BigDecimal.ZERO);
+                }
+                sharePerAttendee.put(a.getId(), share);
+            }
+        }
 
         for (OrderItemAttendee att : attendees) {
             if (att.getSessionId() != null) continue;
@@ -761,14 +824,17 @@ public class OrderService {
                 slip.setBookingId(booking.getId());
                 slip.setSessionId(session.getId());
                 slip.setAttendeeId(att.getId());
-                slip.setTsn(generateTsn());
+                slip.setTsn(att.getProvidedTsn() != null && !att.getProvidedTsn().isBlank()
+                        ? att.getProvidedTsn() : generateTsn());
                 slip.setClientNickname(booking.getClientNickname() != null ? booking.getClientNickname() : "Walk-in");
                 slip.setLockerNumber(att.getLockerNumber() != null ? att.getLockerNumber() : booking.getLockerNumber());
                 slip.setOrNumber(order.getOrNumber());
                 slip.setStatus("DRAFT");
                 slip.setPackageName(pkgName);
-                slip.setTotalAmount(order.getTotal());
+                BigDecimal share = sharePerAttendee.get(att.getId());
+                slip.setTotalAmount(share != null ? share : order.getTotal());
                 slip.setPax(booking.getPax());
+                slip.setNationality(booking.getNationality());
 
                 if (isVip) {
                     slip.setVip(true);
@@ -926,7 +992,8 @@ public class OrderService {
                 attRes.add(new OrderItemAttendeeResponse(
                         a.getId(), a.getServiceId(), sName, a.getPackageTierId(),
                         a.getLockerNumber(), a.getClientGender(),
-                        a.getSessionId(), sessionStatus, a.getTreatmentSlipId(), a.getPosition()
+                        a.getSessionId(), sessionStatus, a.getTreatmentSlipId(), a.getPosition(),
+                        a.getDiscount(), a.getProvidedTsn()
                 ));
             }
             itemResponses.add(new OrderItemResponse(

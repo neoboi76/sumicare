@@ -60,6 +60,9 @@ public class ClientController {
         if (request.getNickname() == null || request.getNickname().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nickname required");
         }
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email required");
+        }
         if (clientRepository.existsByOrganizationIdAndNickname(orgId, request.getNickname())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Nickname already taken");
         }

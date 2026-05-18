@@ -81,4 +81,12 @@ public class UserController {
     public void requestPasswordReset(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
         userService.requestPasswordReset(UUID.fromString(principal.userId()));
     }
+
+    @PostMapping("/{userId}/send-reset-link")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    public ResponseEntity<Void> sendResetLink(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                              @PathVariable UUID userId) {
+        userService.sendResetLink(principal.role(), userId);
+        return ResponseEntity.noContent().build();
+    }
 }

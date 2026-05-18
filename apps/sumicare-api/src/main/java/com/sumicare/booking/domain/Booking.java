@@ -50,6 +50,9 @@ public class Booking {
     @Column(name = "client_gender", length = 1)
     private String clientGender;
 
+    @Column(name = "nationality", length = 80)
+    private String nationality;
+
     @Column(name = "status", nullable = false)
     private String status = "PENDING";
 
@@ -88,6 +91,8 @@ public class Booking {
     public void setPax(Integer pax) { this.pax = pax; }
     public String getClientGender() { return clientGender; }
     public void setClientGender(String clientGender) { this.clientGender = clientGender; }
+    public String getNationality() { return nationality; }
+    public void setNationality(String nationality) { this.nationality = nationality; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getPaymentStatus() { return paymentStatus; }

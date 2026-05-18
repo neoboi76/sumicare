@@ -104,9 +104,9 @@
               </div>
             </div>
             @for (att of it.attendees; track $index; let attIdx = $index) {
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm border-t border-slate-100 pt-2">
-              <label class="block">
-                <span class="text-xs text-slate-500">Guest {{ attIdx + 1 }} — Massage</span>
+            <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-sm border-t border-slate-100 pt-2">
+              <label class="block sm:col-span-2">
+                <span class="text-xs text-slate-500">Guest {{ attIdx + 1 }} &mdash; Massage</span>
                 @if (it.couple && attIdx > 0) {
                   <div class="mt-1 px-2 py-1.5 bg-slate-100 rounded text-slate-500 text-sm">Shared</div>
                 } @else {
@@ -132,6 +132,12 @@
                   <option value="F">Female</option>
                   <option value="M">Male</option>
                 </select>
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-500">Discount (this guest)</span>
+                <input type="number" min="0" step="0.01"
+                  [(ngModel)]="att.discount" name="discount{{$index}}_{{attIdx}}"
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
               </label>
             </div>
             }
@@ -193,6 +199,12 @@
           <label class="block">
             OR #
             <input [(ngModel)]="orNumber" name="orNumber" maxlength="50" placeholder="Leave blank to auto-generate"
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+            <span class="text-[11px] text-slate-400">Editable. Generated automatically if left blank.</span>
+          </label>
+          <label class="block">
+            TS #
+            <input [(ngModel)]="tsNumber" name="tsNumber" maxlength="64" placeholder="Leave blank to auto-generate"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
             <span class="text-[11px] text-slate-400">Editable. Generated automatically if left blank.</span>
           </label>

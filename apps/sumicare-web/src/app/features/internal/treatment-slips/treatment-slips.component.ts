@@ -1,8 +1,11 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
+import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
+import { SortState, sortRows } from '../../../shared/utils/compare-by';
 
 interface TreatmentSlip {
   id: string;
@@ -23,7 +26,7 @@ interface TreatmentSlip {
 @Component({
   selector: 'sumi-treatment-slips',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, SortableColumnDirective, SortIconComponent],
   templateUrl: './treatment-slips.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -31,6 +34,25 @@ export class TreatmentSlipsComponent implements OnInit {
   private http = inject(HttpClient);
   selectedDate = signal(new Date().toISOString().slice(0, 10));
   slips = signal<TreatmentSlip[]>([]);
+
+  sortState = signal<SortState>({ key: 'tsn', direction: 'asc' });
+
+  sortedSlips = computed(() => {
+    const state = this.sortState();
+    return sortRows(this.slips(), state, (s) => {
+      switch (state.key) {
+        case 'tsn': return s.tsn;
+        case 'clientNickname': return s.clientNickname;
+        case 'serviceName': return s.serviceName;
+        case 'roomNumber': return s.roomNumber ?? '';
+        case 'primaryTherapistNickname': return s.primaryTherapistNickname ?? '';
+        case 'startTime': return s.startTime ?? '';
+        case 'endTime': return s.endTime ?? '';
+        case 'vip': return s.vip ? 1 : 0;
+        default: return '';
+      }
+    });
+  });
 
   ngOnInit(): void {
     this.reload();

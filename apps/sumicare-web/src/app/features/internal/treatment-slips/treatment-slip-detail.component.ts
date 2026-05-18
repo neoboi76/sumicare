@@ -63,7 +63,9 @@ export class TreatmentSlipDetailComponent implements OnInit {
     totalAmount: 0,
     jacuzziMinutes: 0,
     massageMinutes: 0,
-    wineIncluded: false
+    wineIncluded: false,
+    startTime: '',
+    endTime: ''
   };
 
   ngOnInit(): void {
@@ -87,7 +89,9 @@ export class TreatmentSlipDetailComponent implements OnInit {
           totalAmount: s.totalAmount || 0,
           jacuzziMinutes: s.jacuzziMinutes || 0,
           massageMinutes: s.massageMinutes || 0,
-          wineIncluded: s.wineIncluded === true
+          wineIncluded: s.wineIncluded === true,
+          startTime: s.startTime ? this.toLocalInput(s.startTime) : '',
+          endTime: s.endTime ? this.toLocalInput(s.endTime) : ''
         };
       }
     });
@@ -117,7 +121,9 @@ export class TreatmentSlipDetailComponent implements OnInit {
       totalAmount: Number(this.edit.totalAmount || 0),
       jacuzziMinutes: s.vip ? Number(this.edit.jacuzziMinutes || 0) : null,
       massageMinutes: s.vip ? Number(this.edit.massageMinutes || 0) : null,
-      wineIncluded: s.vip ? this.edit.wineIncluded : null
+      wineIncluded: s.vip ? this.edit.wineIncluded : null,
+      startTime: this.edit.startTime ? new Date(this.edit.startTime).toISOString() : null,
+      endTime: this.edit.endTime ? new Date(this.edit.endTime).toISOString() : null
     }).subscribe({
       next: (updated) => {
         this.slip.set(updated);
@@ -143,7 +149,14 @@ export class TreatmentSlipDetailComponent implements OnInit {
   }
 
   feedbackUrl(tsn: string): string {
-    return `${window.location.origin}/feedback?session=${tsn}`;
+    return `${window.location.origin}/feedback?slip=${tsn}`;
+  }
+
+  private toLocalInput(iso: string): string {
+    const d = new Date(iso);
+    const offset = d.getTimezoneOffset();
+    const adjusted = new Date(d.getTime() - offset * 60000);
+    return adjusted.toISOString().slice(0, 16);
   }
 
   print(): void {

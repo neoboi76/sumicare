@@ -10,78 +10,7 @@ import { PasswordStrengthComponent } from '../../shared/components/password-stre
   selector: 'sumi-invite',
   standalone: true,
   imports: [FormsModule, RouterLink, PasswordInputComponent, PasswordStrengthComponent],
-  template: `
-    <div class="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div class="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-slate-900">
-          Set your password
-        </h2>
-        <p class="mt-2 text-center text-sm text-slate-600">
-          Welcome to SumiCare. Choose a password to activate your account.
-        </p>
-      </div>
-
-      <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          @if (success()) {
-            <div class="rounded-md bg-emerald-50 p-4">
-              <h3 class="text-sm font-medium text-emerald-800">Account activated</h3>
-              <p class="mt-2 text-sm text-emerald-700">Your account is ready. You can now sign in.</p>
-              <div class="mt-4">
-                <a routerLink="/login" class="text-sm font-medium text-emerald-800 hover:text-emerald-700">
-                  Go to Login &rarr;
-                </a>
-              </div>
-            </div>
-          } @else if (invalidToken()) {
-            <div class="rounded-md bg-rose-50 p-4">
-              <h3 class="text-sm font-medium text-rose-800">Invalid invitation link</h3>
-              <p class="mt-2 text-sm text-rose-700">This invitation link is invalid, has already been used, or has expired. Please contact your administrator.</p>
-            </div>
-          } @else {
-            <form class="space-y-5" (ngSubmit)="submit()">
-              @if (error()) {
-                <div class="rounded-md bg-rose-50 p-4">
-                  <p class="text-sm font-medium text-rose-800">{{ error() }}</p>
-                </div>
-              }
-
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-                <sumi-password-input
-                  [(value)]="password"
-                  name="password"
-                  autocomplete="new-password"
-                  [required]="true">
-                </sumi-password-input>
-                <sumi-password-strength [password]="password"></sumi-password-strength>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
-                <sumi-password-input
-                  [(value)]="confirmPassword"
-                  name="confirmPassword"
-                  autocomplete="new-password"
-                  [required]="true">
-                </sumi-password-input>
-                @if (confirmPassword && password !== confirmPassword) {
-                  <p class="mt-1 text-xs text-red-600">Passwords do not match.</p>
-                }
-              </div>
-
-              <button
-                type="submit"
-                [disabled]="submitting() || !password || password !== confirmPassword || password.length < 8"
-                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--sumi-primary)] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed">
-                {{ submitting() ? 'Activating...' : 'Activate Account' }}
-              </button>
-            </form>
-          }
-        </div>
-      </div>
-    </div>
-  `,
+  templateUrl: './invite.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class InviteComponent implements OnInit {

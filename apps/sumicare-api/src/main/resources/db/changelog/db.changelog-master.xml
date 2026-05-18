@@ -25,4 +25,5 @@
     <include file="changes/0019-batch-fixes-2.xml" relativeToChangelogFile="true"/>
     <include file="changes/0020-batch-fixes-3.xml" relativeToChangelogFile="true"/>
     <include file="changes/0021-booking-email.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0022-batch-fixes-4.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

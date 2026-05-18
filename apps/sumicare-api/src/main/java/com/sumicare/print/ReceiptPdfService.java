@@ -8,6 +8,8 @@ import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
+import com.sumicare.common.config.AppProperties;
+import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.organization.domain.Organization;
 import com.sumicare.organization.repository.OrganizationRepository;
 import com.sumicare.service_catalogue.domain.Service;
@@ -40,6 +42,7 @@ public class ReceiptPdfService {
     private final ServiceRepository serviceRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final AppProperties appProperties;
 
     public ReceiptPdfService(PdfRenderer pdfRenderer,
                              OrderRepository orderRepository,
@@ -48,7 +51,8 @@ public class ReceiptPdfService {
                              PackageRepository packageRepository,
                              ServiceRepository serviceRepository,
                              OrganizationRepository organizationRepository,
-                             UserRepository userRepository) {
+                             UserRepository userRepository,
+                             AppProperties appProperties) {
         this.pdfRenderer = pdfRenderer;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -57,6 +61,7 @@ public class ReceiptPdfService {
         this.serviceRepository = serviceRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
+        this.appProperties = appProperties;
     }
 
     public byte[] renderReceipt(UUID orderId) {
@@ -116,6 +121,10 @@ public class ReceiptPdfService {
                 ? "<tr><td class=\"lbl\">Tax</td><td class=\"val\">" + fmt(orderTax) + "</td></tr>"
                 : "";
 
+        String feedbackUrl = appProperties.app().publicBaseUrl() + "/feedback?or="
+                + java.net.URLEncoder.encode(order.getOrNumber() == null ? "" : order.getOrNumber(),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        String qrDataUri = QrCodeUtil.pngDataUri(feedbackUrl, 160);
         String now = OffsetDateTime.now().atZoneSameInstant(MANILA).format(STAMP);
         String html = """
             <!DOCTYPE html>
@@ -161,6 +170,8 @@ public class ReceiptPdfService {
                 <tr><td class="lbl">Amount Paid</td><td class="val">%s</td></tr>
               </table>
               <hr/>
+              <div class="center small">Share your feedback</div>
+              <div class="center"><img src="%s" width="80" height="80"/></div>
               <div class="center small">Powered by SumiCare</div>
             </body></html>
             """.formatted(
@@ -176,7 +187,8 @@ public class ReceiptPdfService {
                 fmt(order.getDiscount()),
                 taxRow,
                 fmt(total),
-                fmt(order.getAmountPaid())
+                fmt(order.getAmountPaid()),
+                qrDataUri
         );
 
         return pdfRenderer.renderHtml(html);

@@ -39,9 +39,10 @@ interface BookingCreated {
   clientNickname: string;
   reservationType: string;
   scheduledAt: string;
-  effectiveStartAt: string;
   serviceId: number;
 }
+
+type RoomType = 'COMMON' | 'PRIVATE' | 'VIP';
 
 @Component({
   selector: 'sumi-book',
@@ -71,6 +72,7 @@ export class BookComponent implements OnInit {
 
   clientNickname = '';
   clientEmail = '';
+  nationality = '';
   packageId: number | null = null;
   packageTierId: number | null = null;
   reservationType = 'SOFT';
@@ -78,9 +80,23 @@ export class BookComponent implements OnInit {
   scheduledTime = '';
   clientGender = 'F';
   consent = false;
+  roomType: RoomType = 'COMMON';
 
   selectedPackage = computed(() => this.packages().find(p => p.id === Number(this.packageId)) ?? null);
   packageTiers = computed(() => this.selectedPackage()?.tiers ?? []);
+
+  forcedDoubleGuests = computed(() => {
+    const p = this.selectedPackage();
+    return !!p && (p.couple || p.requiresVipRoom);
+  });
+
+  effectiveGuests = computed(() => {
+    const p = this.selectedPackage();
+    if (!p) return 1;
+    return Math.max(1, p.defaultPax || (p.couple || p.requiresVipRoom ? 2 : 1));
+  });
+
+  forcedVipRoom = computed(() => this.selectedPackage()?.requiresVipRoom ?? false);
 
   serviceLabel = computed(() => {
     const id = this.confirmation()?.serviceId;
@@ -105,6 +121,16 @@ export class BookComponent implements OnInit {
 
   onPackageChange(): void {
     this.packageTierId = null;
+    if (this.forcedVipRoom()) {
+      this.roomType = 'VIP';
+    } else if (this.roomType === 'VIP') {
+      this.roomType = 'COMMON';
+    }
+  }
+
+  setRoomType(rt: RoomType): void {
+    if (this.forcedVipRoom()) return;
+    this.roomType = rt;
   }
 
   submit(event: Event): void {
@@ -112,6 +138,7 @@ export class BookComponent implements OnInit {
     if (this.submitting()) return;
     const missing: string[] = [];
     if (!this.clientNickname.trim()) missing.push('nickname');
+    if (!this.clientEmail.trim()) missing.push('email');
     if (this.packageId == null) missing.push('package');
     if (this.packageTierId == null) missing.push('massage');
     if (!this.scheduledDate) missing.push('date');
@@ -140,13 +167,16 @@ export class BookComponent implements OnInit {
 
     const payload = {
       clientNickname: this.clientNickname.trim(),
-      clientEmail: this.clientEmail.trim() || null,
+      clientEmail: this.clientEmail.trim(),
+      nationality: this.nationality.trim() || null,
       serviceId: Number(effectiveServiceId),
       reservationType: this.reservationType,
       scheduledAt: combined.toISOString(),
       clientGender: this.clientGender,
       packageId: Number(this.packageId),
-      packageTierId: Number(this.packageTierId)
+      packageTierId: Number(this.packageTierId),
+      pax: this.effectiveGuests(),
+      roomType: this.forcedVipRoom() ? 'VIP' : this.roomType
     };
 
     this.http
@@ -174,12 +204,14 @@ export class BookComponent implements OnInit {
     this.error.set(null);
     this.clientNickname = '';
     this.clientEmail = '';
+    this.nationality = '';
     this.scheduledDate = '';
     this.scheduledTime = '';
     this.clientGender = 'F';
     this.consent = false;
     this.packageId = null;
     this.packageTierId = null;
+    this.roomType = 'COMMON';
   }
 
   formatDateTime(iso: string | null): string {

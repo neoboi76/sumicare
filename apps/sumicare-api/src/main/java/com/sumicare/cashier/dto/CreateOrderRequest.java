@@ -22,6 +22,7 @@ public record CreateOrderRequest(
         @Size(max = 100) String referenceNumber,
         @Size(max = 1000) String notes,
         @Size(max = 50) String orNumber,
+        @Size(max = 64) String tsNumber,
         @DecimalMin("0.00") BigDecimal subtotal,
         @DecimalMin("0.00") BigDecimal discount,
         @DecimalMin("0.00") BigDecimal tax,

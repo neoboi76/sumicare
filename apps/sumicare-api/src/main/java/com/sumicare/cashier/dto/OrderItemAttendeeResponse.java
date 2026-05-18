@@ -1,5 +1,6 @@
 package com.sumicare.cashier.dto;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public record OrderItemAttendeeResponse(
@@ -12,5 +13,7 @@ public record OrderItemAttendeeResponse(
         UUID sessionId,
         String sessionStatus,
         UUID treatmentSlipId,
-        int position
+        int position,
+        BigDecimal discount,
+        String providedTsn
 ) {}

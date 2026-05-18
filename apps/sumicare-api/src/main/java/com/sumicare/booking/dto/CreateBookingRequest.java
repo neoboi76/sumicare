@@ -17,5 +17,7 @@ public record CreateBookingRequest(
         Integer pax,
         String clientGender,
         Long packageId,
-        Long packageTierId
+        Long packageTierId,
+        String nationality,
+        String roomType
 ) {}
