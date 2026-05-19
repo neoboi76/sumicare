@@ -38,10 +38,15 @@ export class AuditComponent implements OnInit {
   page = signal(0);
   totalPages = signal(0);
   totalElements = signal(0);
-  readonly pageSize = 50;
+  pageSize = signal(50);
 
   fromDate = '';
   toDate = '';
+
+  setPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.load(0);
+  }
 
   sortState = signal<SortState>({ key: 'occurredAt', direction: 'desc' });
 
@@ -61,7 +66,7 @@ export class AuditComponent implements OnInit {
   }
 
   load(page: number): void {
-    let url = `${environment.apiBaseUrl}/api/audit-logs?page=${page}&size=${this.pageSize}`;
+    let url = `${environment.apiBaseUrl}/api/audit-logs?page=${page}&size=${this.pageSize()}`;
     if (this.fromDate) url += `&from=${encodeURIComponent(this.fromDate)}`;
     if (this.toDate) url += `&to=${encodeURIComponent(this.toDate)}`;
     this.http.get<AuditPage>(url).subscribe({

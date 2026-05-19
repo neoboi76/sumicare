@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record CreateBookingRequest(
@@ -19,5 +20,6 @@ public record CreateBookingRequest(
         Long packageId,
         Long packageTierId,
         String nationality,
-        String roomType
+        String roomType,
+        List<PublicAttendeeRequest> attendees
 ) {}

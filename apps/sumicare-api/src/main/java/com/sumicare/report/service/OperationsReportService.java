@@ -123,12 +123,15 @@ public class OperationsReportService {
             if (orderItemId != null) {
                 if (countedOrderItemIds.add(orderItemId)) {
                     acc.qty++;
+                    if (s.getTotalAmount() != null) {
+                        acc.total = acc.total.add(s.getTotalAmount());
+                    }
                 }
             } else {
                 acc.qty++;
-            }
-            if (s.getTotalAmount() != null) {
-                acc.total = acc.total.add(s.getTotalAmount());
+                if (s.getTotalAmount() != null) {
+                    acc.total = acc.total.add(s.getTotalAmount());
+                }
             }
         }
         List<ServiceLine> lines = new ArrayList<>();
@@ -316,15 +319,7 @@ public class OperationsReportService {
         String packageName = head.getPackageName();
         String treatment = head.getServiceName() == null ? "" : head.getServiceName();
 
-        BigDecimal amount;
-        if (grouped) {
-            amount = group.stream()
-                    .map(TreatmentSlip::getTotalAmount)
-                    .filter(java.util.Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-        } else {
-            amount = head.getTotalAmount() != null ? head.getTotalAmount() : BigDecimal.ZERO;
-        }
+        BigDecimal amount = head.getTotalAmount() != null ? head.getTotalAmount() : BigDecimal.ZERO;
 
         String tsn = head.getTsn() == null ? "" : head.getTsn();
 

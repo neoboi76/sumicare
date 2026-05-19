@@ -221,6 +221,7 @@ public class OrderService {
                 null,
                 null,
                 null,
+                null,
                 null
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
@@ -490,6 +491,7 @@ public class OrderService {
                 order.setFinishedAt(OffsetDateTime.now());
                 materialiseAttendeeSessions(order);
             }
+            orderRepository.save(order);
         }
 
         return toResponse(order, booking);
@@ -831,8 +833,7 @@ public class OrderService {
                 slip.setOrNumber(order.getOrNumber());
                 slip.setStatus("DRAFT");
                 slip.setPackageName(pkgName);
-                BigDecimal share = sharePerAttendee.get(att.getId());
-                slip.setTotalAmount(share != null ? share : order.getTotal());
+                slip.setTotalAmount(order.getTotal());
                 slip.setPax(booking.getPax());
                 slip.setNationality(booking.getNationality());
 
@@ -891,7 +892,7 @@ public class OrderService {
         }
     }
 
-    private void recordPaymentInternal(Order order, UUID sessionId, UUID actorUserId, String paymentMethod,
+    public void recordPaymentInternal(Order order, UUID sessionId, UUID actorUserId, String paymentMethod,
                                        BigDecimal amount, String referenceNumber) {
         PosTransaction tx = new PosTransaction();
         tx.setOrganizationId(order.getOrganizationId());
@@ -924,6 +925,10 @@ public class OrderService {
 
     private String generateReceiptNumber() {
         return "OR" + System.currentTimeMillis() % 1000000;
+    }
+
+    public String nextOrNumber() {
+        return generateOrNumber();
     }
 
     private String generateOrNumber() {

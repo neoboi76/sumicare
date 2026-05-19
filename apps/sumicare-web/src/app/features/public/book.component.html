@@ -95,27 +95,60 @@
           </label>
         }
 
-        @if (forcedDoubleGuests()) {
-          <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
-            Guests: <span class="font-semibold">{{ effectiveGuests() }}</span> — this package is for two guests.
+        @if (packageId() != null) {
+          @if (forcedDoubleGuests()) {
+            <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+              This package is for <span class="font-semibold">{{ pax() }}</span> guests. Both guests share the same massage selection.
+            </div>
+          } @else {
+            <label class="block text-sm text-gray-700">
+              Number of guests <span class="text-red-500">*</span>
+              <input type="number" min="1" max="12" [ngModel]="pax()" (ngModelChange)="setPax($event)" name="pax" required
+                class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+              <span class="text-xs text-gray-400 mt-1 block">Each guest can pick their own massage. Lockers are finalised at the front desk.</span>
+            </label>
+          }
+
+          <div class="space-y-3">
+            @for (a of attendees(); track $index; let i = $index) {
+              <div class="rounded-lg border border-gray-200 p-3 space-y-2">
+                <div class="text-xs uppercase tracking-wide text-gray-500 font-semibold">Guest {{ i + 1 }}</div>
+                @if (i === 0 || !forcedDoubleGuests()) {
+                  <label class="block text-sm text-gray-700">
+                    Massage <span class="text-red-500">*</span>
+                    <select [ngModel]="a.packageTierId" (ngModelChange)="setAttendeeTier(i, $event)" name="tier{{i}}" required
+                      class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+                      <option [ngValue]="null" disabled>Select a massage</option>
+                      @for (t of packageTiers(); track t.id) {
+                        <option [ngValue]="t.id">{{ t.serviceName }} &mdash; &#8369;{{ t.weekdayPrice }}</option>
+                      }
+                    </select>
+                  </label>
+                } @else {
+                  <div class="text-xs text-gray-500">Massage: same as Guest 1</div>
+                }
+                <div class="grid grid-cols-2 gap-2">
+                  <label class="block text-sm text-gray-700">
+                    Locker #
+                    <input type="text" maxlength="16" [ngModel]="a.lockerNumber" (ngModelChange)="setAttendeeLocker(i, $event)" name="locker{{i}}"
+                      placeholder="Optional"
+                      class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+                  </label>
+                  <label class="block text-sm text-gray-700">
+                    Sex <span class="text-red-500">*</span>
+                    <select [ngModel]="a.clientGender" (ngModelChange)="setAttendeeGender(i, $event)" name="gender{{i}}" required
+                      class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+                      <option value="F">Female</option>
+                      <option value="M">Male</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            }
           </div>
         }
 
-        @if (packageId() != null) {
-          <label class="block text-sm text-gray-700">
-            Massage <span class="text-red-500">*</span>
-            <select [ngModel]="packageTierId()" (ngModelChange)="packageTierId.set($event)" name="packageTierId" required
-                    class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
-              <option [ngValue]="null" disabled>Select a massage</option>
-              @for (t of packageTiers(); track t.id) {
-                <option [ngValue]="t.id">{{ t.serviceName }} — &#8369;{{ t.weekdayPrice }}</option>
-              }
-            </select>
-            <span class="text-xs text-gray-400 mt-1 block">The front desk will finalise the headcount, lockers and payment when you arrive.</span>
-          </label>
-        }
-
-        @if (packageId != null && !forcedVipRoom()) {
+        @if (packageId() != null && !forcedVipRoom()) {
           <fieldset class="block text-sm text-gray-700">
             <legend class="mb-1">Room type</legend>
             <div class="grid grid-cols-2 gap-2">
@@ -161,20 +194,6 @@
           </label>
         </div>
         <span class="text-xs text-gray-400 -mt-2 block">Both date and time are required.</span>
-
-        <fieldset class="block text-sm text-gray-700">
-          <legend class="mb-1">Sex <span class="text-red-500">*</span></legend>
-          <div class="flex gap-6">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" [(ngModel)]="clientGender" name="clientGender" value="F" class="accent-[var(--sumi-primary)]" />
-              Female
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" [(ngModel)]="clientGender" name="clientGender" value="M" class="accent-[var(--sumi-primary)]" />
-              Male
-            </label>
-          </div>
-        </fieldset>
 
         <label class="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
           <input [(ngModel)]="consent" name="consent" type="checkbox" required class="mt-0.5 rounded" />

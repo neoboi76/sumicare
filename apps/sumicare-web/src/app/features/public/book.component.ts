@@ -42,6 +42,12 @@ interface BookingCreated {
   serviceId: number;
 }
 
+interface AttendeeForm {
+  packageTierId: number | null;
+  lockerNumber: string;
+  clientGender: 'M' | 'F';
+}
+
 type RoomType = 'COMMON' | 'PRIVATE' | 'VIP';
 
 @Component({
@@ -74,13 +80,13 @@ export class BookComponent implements OnInit {
   clientEmail = '';
   nationality = '';
   packageId = signal<number | null>(null);
-  packageTierId = signal<number | null>(null);
   reservationType = 'SOFT';
   scheduledDate = '';
   scheduledTime = '';
-  clientGender = 'F';
   consent = false;
   roomType = signal<RoomType>('COMMON');
+  pax = signal(1);
+  attendees = signal<AttendeeForm[]>([this.blankAttendee()]);
 
   selectedPackage = computed(() => {
     const id = this.packageId();
@@ -92,12 +98,6 @@ export class BookComponent implements OnInit {
   forcedDoubleGuests = computed(() => {
     const p = this.selectedPackage();
     return !!p && (p.couple || p.requiresVipRoom);
-  });
-
-  effectiveGuests = computed(() => {
-    const p = this.selectedPackage();
-    if (!p) return 1;
-    return Math.max(1, p.defaultPax || (p.couple || p.requiresVipRoom ? 2 : 1));
   });
 
   forcedVipRoom = computed(() => this.selectedPackage()?.requiresVipRoom ?? false);
@@ -124,17 +124,77 @@ export class BookComponent implements OnInit {
   }
 
   onPackageChange(): void {
-    this.packageTierId.set(null);
     if (this.forcedVipRoom()) {
       this.roomType.set('VIP');
     } else if (this.roomType() === 'VIP') {
       this.roomType.set('COMMON');
+    }
+    const pkg = this.selectedPackage();
+    if (pkg && (pkg.couple || pkg.requiresVipRoom)) {
+      const forced = Math.max(2, pkg.defaultPax);
+      this.pax.set(forced);
+      this.syncAttendees(forced, true);
+    } else {
+      this.syncAttendees(this.pax(), false);
     }
   }
 
   setRoomType(rt: RoomType): void {
     if (this.forcedVipRoom()) return;
     this.roomType.set(rt);
+  }
+
+  setPax(n: number): void {
+    if (this.forcedDoubleGuests()) return;
+    const next = Math.max(1, Math.min(12, n || 1));
+    this.pax.set(next);
+    this.syncAttendees(next, false);
+  }
+
+  setAttendeeTier(idx: number, tierId: number | null): void {
+    const list = [...this.attendees()];
+    if (!list[idx]) return;
+    list[idx] = { ...list[idx], packageTierId: tierId };
+    if (this.forcedDoubleGuests()) {
+      for (let i = 0; i < list.length; i++) {
+        list[i] = { ...list[i], packageTierId: tierId };
+      }
+    }
+    this.attendees.set(list);
+  }
+
+  setAttendeeLocker(idx: number, locker: string): void {
+    const list = [...this.attendees()];
+    if (!list[idx]) return;
+    list[idx] = { ...list[idx], lockerNumber: locker };
+    this.attendees.set(list);
+  }
+
+  setAttendeeGender(idx: number, gender: 'M' | 'F'): void {
+    const list = [...this.attendees()];
+    if (!list[idx]) return;
+    list[idx] = { ...list[idx], clientGender: gender };
+    this.attendees.set(list);
+  }
+
+  private blankAttendee(): AttendeeForm {
+    return { packageTierId: null, lockerNumber: '', clientGender: 'F' };
+  }
+
+  private syncAttendees(count: number, sharedTier: boolean): void {
+    const current = this.attendees();
+    const next: AttendeeForm[] = [];
+    for (let i = 0; i < count; i++) {
+      const existing = current[i];
+      next.push(existing ? { ...existing } : this.blankAttendee());
+    }
+    if (sharedTier && next.length > 0) {
+      const tier = next[0].packageTierId;
+      for (let i = 1; i < next.length; i++) {
+        next[i] = { ...next[i], packageTierId: tier };
+      }
+    }
+    this.attendees.set(next);
   }
 
   submit(event: Event): void {
@@ -144,7 +204,12 @@ export class BookComponent implements OnInit {
     if (!this.clientNickname.trim()) missing.push('nickname');
     if (!this.clientEmail.trim()) missing.push('email');
     if (this.packageId() == null) missing.push('package');
-    if (this.packageTierId() == null) missing.push('massage');
+    const atts = this.attendees();
+    for (let i = 0; i < atts.length; i++) {
+      if (atts[i].packageTierId == null) {
+        missing.push(`guest ${i + 1} massage`);
+      }
+    }
     if (!this.scheduledDate) missing.push('date');
     if (!this.scheduledTime) missing.push('time');
     if (!this.consent) missing.push('consent');
@@ -153,9 +218,9 @@ export class BookComponent implements OnInit {
       return;
     }
 
-    const tier = this.packageTiers().find(t => t.id === Number(this.packageTierId()));
-    const effectiveServiceId = tier?.serviceId ?? null;
-    if (effectiveServiceId == null) {
+    const firstTier = this.packageTiers().find(t => t.id === Number(atts[0].packageTierId));
+    const firstServiceId = firstTier?.serviceId ?? null;
+    if (firstServiceId == null) {
       this.error.set('The selected massage is not bookable. Please pick another.');
       return;
     }
@@ -173,14 +238,20 @@ export class BookComponent implements OnInit {
       clientNickname: this.clientNickname.trim(),
       clientEmail: this.clientEmail.trim(),
       nationality: this.nationality.trim() || null,
-      serviceId: Number(effectiveServiceId),
+      serviceId: Number(firstServiceId),
       reservationType: this.reservationType,
       scheduledAt: combined.toISOString(),
-      clientGender: this.clientGender,
+      clientGender: atts[0].clientGender,
       packageId: Number(this.packageId()),
-      packageTierId: Number(this.packageTierId()),
-      pax: this.effectiveGuests(),
-      roomType: this.forcedVipRoom() ? 'VIP' : this.roomType()
+      packageTierId: Number(atts[0].packageTierId),
+      lockerNumber: atts[0].lockerNumber || null,
+      pax: atts.length,
+      roomType: this.forcedVipRoom() ? 'VIP' : this.roomType(),
+      attendees: atts.map(a => ({
+        packageTierId: a.packageTierId,
+        lockerNumber: a.lockerNumber || null,
+        clientGender: a.clientGender
+      }))
     };
 
     this.http
@@ -211,10 +282,10 @@ export class BookComponent implements OnInit {
     this.nationality = '';
     this.scheduledDate = '';
     this.scheduledTime = '';
-    this.clientGender = 'F';
     this.consent = false;
     this.packageId.set(null);
-    this.packageTierId.set(null);
+    this.pax.set(1);
+    this.attendees.set([this.blankAttendee()]);
     this.roomType.set('COMMON');
   }
 

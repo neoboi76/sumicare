@@ -602,9 +602,12 @@ export class CashierComponent implements OnInit {
   private buildPayload(): any {
     const first = this.cart()[0];
     const payments = this.payments();
-    const firstPayment = payments.length > 0
-      ? payments[0]
-      : (this.total() === 0 ? { paymentMethod: 'CASH', amount: 0, referenceNumber: undefined } : null);
+    const isEdit = !!this.editingOrderId();
+    const firstPayment = isEdit
+      ? null
+      : (payments.length > 0
+        ? payments[0]
+        : (this.total() === 0 ? { paymentMethod: 'CASH', amount: 0, referenceNumber: undefined } : null));
     return {
       clientId: this.selectedClient()?.id || null,
       clientNickname: this.transactorName,
@@ -671,13 +674,13 @@ export class CashierComponent implements OnInit {
     if (editId) {
       this.http.put<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders/${editId}`, payload).subscribe({
         next: (order) => {
-          const extras = this.payments().slice(1);
-          if (extras.length === 0) {
+          const queued = this.payments();
+          if (queued.length === 0) {
             this.submitting.set(false);
             this.router.navigate(['/app/orders', order.id]);
             return;
           }
-          this.recordExtraPayments(order.id, extras, 0);
+          this.recordExtraPayments(order.id, queued, 0);
         },
         error: (e) => {
           this.submitting.set(false);

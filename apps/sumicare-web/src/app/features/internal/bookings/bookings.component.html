@@ -174,7 +174,7 @@
                       }
                       <button (click)="generateSlipForSession(a.sessionId!)"
                         class="text-blue-700 hover:underline">Slip</button>
-                      } @else {
+                      } @else if (a.sessionStatus !== 'COMPLETED' && a.sessionStatus !== 'CANCELLED') {
                       <button (click)="openStartForAttendee(b, a)"
                         class="text-[var(--sumi-primary)] hover:underline font-medium">Start session</button>
                       }

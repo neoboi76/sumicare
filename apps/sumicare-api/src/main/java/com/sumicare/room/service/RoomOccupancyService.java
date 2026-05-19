@@ -1,12 +1,17 @@
 package com.sumicare.room.service;
 
 import com.sumicare.notification.service.NotificationService;
+import com.sumicare.room.domain.Bed;
+import com.sumicare.room.domain.Room;
+import com.sumicare.room.repository.BedRepository;
+import com.sumicare.room.repository.RoomRepository;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -15,10 +20,32 @@ public class RoomOccupancyService {
 
     private final StringRedisTemplate redis;
     private final NotificationService notificationService;
+    private final RoomRepository roomRepository;
+    private final BedRepository bedRepository;
 
-    public RoomOccupancyService(StringRedisTemplate redis, NotificationService notificationService) {
+    public RoomOccupancyService(StringRedisTemplate redis,
+                                NotificationService notificationService,
+                                RoomRepository roomRepository,
+                                BedRepository bedRepository) {
         this.redis = redis;
         this.notificationService = notificationService;
+        this.roomRepository = roomRepository;
+        this.bedRepository = bedRepository;
+    }
+
+    public long countOccupiedBeds(UUID organizationId) {
+        List<Room> rooms = roomRepository.findAllByOrganizationId(organizationId);
+        long count = 0;
+        for (Room r : rooms) {
+            for (Bed b : bedRepository.findAllByRoomId(r.getId())) {
+                Map<Object, Object> entries = read(r.getId(), b.getId());
+                Object status = entries == null ? null : entries.get("status");
+                if (status != null && "OCCUPIED".equals(status.toString())) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     public String key(UUID roomId, UUID bedId) {

@@ -25,4 +25,9 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
     boolean existsByPrimaryTherapistIdAndStatus(UUID primaryTherapistId, String status);
     boolean existsBySecondaryTherapistIdAndStatus(UUID secondaryTherapistId, String status);
     List<Session> findAllByOrganizationIdAndStatus(UUID organizationId, String status);
+
+    List<Session> findAllByOrganizationIdAndStatusAndExpectedEndAtBefore(
+            UUID organizationId, String status, OffsetDateTime cutoff);
+
+    long countByOrganizationIdAndStatus(UUID organizationId, String status);
 }

@@ -87,7 +87,7 @@ public class TreatmentSlipService {
             slip.setWaiverAccepted(true);
             slip.setWaiverAcceptedAt(OffsetDateTime.now());
         }
-
+        
         Booking booking = session.getBookingId() != null ? bookingRepository.findById(session.getBookingId()).orElse(null) : null;
         if (booking != null) {
             slip.setBookingId(booking.getId());

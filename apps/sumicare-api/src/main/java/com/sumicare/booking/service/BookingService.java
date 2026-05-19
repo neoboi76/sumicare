@@ -4,6 +4,7 @@ import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
+import com.sumicare.booking.dto.PublicAttendeeRequest;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.booking.repository.BookingRepository;
@@ -171,28 +172,34 @@ public class BookingService {
             }
         }
 
-        Booking booking = new Booking();
-        booking.setOrganizationId(organizationId);
-        booking.setClientId(resolvedClientId);
-        booking.setClientNickname(request.clientNickname());
-        booking.setClientEmail(request.clientEmail());
-        booking.setLockerNumber(request.lockerNumber());
-        booking.setServiceId(request.serviceId());
-        booking.setReservationType(request.reservationType());
-        booking.setScheduledAt(request.scheduledAt());
-        booking.setPax(request.pax());
-        booking.setClientGender(request.clientGender());
-        booking.setNationality(request.nationality());
-        booking.setStatus("PENDING");
-        bookingRepository.save(booking);
-
         Package selectedPackage = request.packageId() == null ? null
                 : packageRepository.findById(request.packageId()).orElse(null);
-        com.sumicare.cashier.domain.PackageTier tier = request.packageTierId() == null ? null
+        com.sumicare.cashier.domain.PackageTier defaultTier = request.packageTierId() == null ? null
                 : packageTierRepository.findById(request.packageTierId()).orElse(null);
-        BigDecimal tierPrice = tier != null
-                ? tier.getWeekdayPrice()
+        BigDecimal defaultTierPrice = defaultTier != null
+                ? defaultTier.getWeekdayPrice()
                 : (service.getPrice() == null ? BigDecimal.ZERO : service.getPrice());
+
+        boolean coupleOrVip = selectedPackage != null
+                && (selectedPackage.isCouple() || selectedPackage.isRequiresVipRoom());
+
+        List<PublicAttendeeRequest> requestedAttendees = request.attendees();
+        if (requestedAttendees == null || requestedAttendees.isEmpty()) {
+            requestedAttendees = List.of(new PublicAttendeeRequest(
+                    request.packageTierId(), request.lockerNumber(), request.clientGender()));
+        }
+        if (coupleOrVip && selectedPackage != null) {
+            int requiredPax = Math.max(2, selectedPackage.getDefaultPax());
+            if (requestedAttendees.size() < requiredPax) {
+                List<PublicAttendeeRequest> padded = new java.util.ArrayList<>(requestedAttendees);
+                PublicAttendeeRequest seed = requestedAttendees.get(0);
+                while (padded.size() < requiredPax) {
+                    padded.add(new PublicAttendeeRequest(seed.packageTierId(), null, seed.clientGender()));
+                }
+                requestedAttendees = padded;
+            }
+        }
+        final List<PublicAttendeeRequest> attendees = requestedAttendees;
 
         String resolvedRoomType;
         BigDecimal resolvedRoomCharge;
@@ -206,7 +213,41 @@ public class BookingService {
             resolvedRoomType = "COMMON";
             resolvedRoomCharge = BigDecimal.ZERO;
         }
-        BigDecimal orderTotal = tierPrice.add(resolvedRoomCharge);
+
+        BigDecimal lineTotal;
+        if (coupleOrVip) {
+            lineTotal = defaultTierPrice;
+        } else {
+            BigDecimal sum = BigDecimal.ZERO;
+            for (PublicAttendeeRequest a : attendees) {
+                com.sumicare.cashier.domain.PackageTier t = a.packageTierId() != null
+                        ? packageTierRepository.findById(a.packageTierId()).orElse(defaultTier)
+                        : defaultTier;
+                BigDecimal p = t != null
+                        ? t.getWeekdayPrice()
+                        : defaultTierPrice;
+                sum = sum.add(p == null ? BigDecimal.ZERO : p);
+            }
+            lineTotal = sum;
+        }
+        BigDecimal orderTotal = lineTotal.add(resolvedRoomCharge);
+
+        int resolvedPax = attendees.size();
+
+        Booking booking = new Booking();
+        booking.setOrganizationId(organizationId);
+        booking.setClientId(resolvedClientId);
+        booking.setClientNickname(request.clientNickname());
+        booking.setClientEmail(request.clientEmail());
+        booking.setLockerNumber(request.lockerNumber());
+        booking.setServiceId(request.serviceId());
+        booking.setReservationType(request.reservationType());
+        booking.setScheduledAt(request.scheduledAt());
+        booking.setPax(resolvedPax);
+        booking.setClientGender(request.clientGender());
+        booking.setNationality(request.nationality());
+        booking.setStatus("PENDING");
+        bookingRepository.save(booking);
 
         com.sumicare.cashier.domain.Order order = new com.sumicare.cashier.domain.Order();
         order.setOrganizationId(organizationId);
@@ -224,53 +265,49 @@ public class BookingService {
             item.setOrderId(order.getId());
             item.setOrganizationId(organizationId);
             item.setPackageId(request.packageId());
-            item.setQuantity(1);
-            item.setUnitPrice(tierPrice);
-            item.setLineTotal(tierPrice);
+            item.setQuantity(coupleOrVip ? 1 : resolvedPax);
+            item.setUnitPrice(coupleOrVip ? lineTotal
+                    : (resolvedPax > 0
+                        ? lineTotal.divide(BigDecimal.valueOf(resolvedPax), 2, java.math.RoundingMode.HALF_UP)
+                        : lineTotal));
+            item.setLineTotal(lineTotal);
             item.setPosition(0);
             orderItemRepository.save(item);
 
-            com.sumicare.cashier.domain.OrderItemAttendee att = new com.sumicare.cashier.domain.OrderItemAttendee();
-            att.setOrderItemId(item.getId());
-            att.setOrderId(order.getId());
-            att.setOrganizationId(organizationId);
-            att.setServiceId(request.serviceId());
-            att.setPackageTierId(request.packageTierId());
-            att.setLockerNumber(request.lockerNumber());
-            att.setClientGender(request.clientGender());
-            att.setPosition(0);
-            attendeeRepository.save(att);
+            int pos = 0;
+            for (PublicAttendeeRequest a : attendees) {
+                Long resolvedTierId = a.packageTierId() != null ? a.packageTierId() : request.packageTierId();
+                Long resolvedServiceId = request.serviceId();
+                if (resolvedTierId != null) {
+                    com.sumicare.cashier.domain.PackageTier t = packageTierRepository.findById(resolvedTierId).orElse(null);
+                    if (t != null && t.getServiceId() != null) {
+                        resolvedServiceId = t.getServiceId();
+                    }
+                }
+                com.sumicare.cashier.domain.OrderItemAttendee att = new com.sumicare.cashier.domain.OrderItemAttendee();
+                att.setOrderItemId(item.getId());
+                att.setOrderId(order.getId());
+                att.setOrganizationId(organizationId);
+                att.setServiceId(resolvedServiceId);
+                att.setPackageTierId(resolvedTierId);
+                att.setLockerNumber(a.lockerNumber() != null ? a.lockerNumber() : request.lockerNumber());
+                att.setClientGender(a.clientGender() != null ? a.clientGender() : request.clientGender());
+                att.setPosition(pos++);
+                attendeeRepository.save(att);
+            }
         }
 
         if ("HARD".equalsIgnoreCase(request.reservationType())) {
+            order.setOrNumber(orderService.nextOrNumber());
             order.setStatus("PAID");
-            order.setAmountPaid(orderTotal);
             order.setFinishedAt(OffsetDateTime.now());
             orderRepository.save(order);
 
-            PosTransaction tx = new PosTransaction();
-            tx.setOrganizationId(order.getOrganizationId());
-            tx.setOrderId(order.getId());
-            tx.setReceiptNumber("OR" + (System.currentTimeMillis() % 1000000L));
-            tx.setSubtotal(orderTotal);
-            tx.setDiscount(BigDecimal.ZERO);
-            tx.setTotal(orderTotal);
-            tx.setPaymentMethod("PUBLIC_PREPAY");
-            tx.setProcessedAt(OffsetDateTime.now());
-            tx.setStatus("COMPLETED");
-            tx = transactionRepository.save(tx);
-
-            TransactionLedgerEntry entry = new TransactionLedgerEntry();
-            entry.setOrganizationId(order.getOrganizationId());
-            entry.setTransactionId(tx.getId());
-            entry.setEntryType("PAYMENT_RECEIVED");
-            entry.setAmount(orderTotal);
-            entry.setPaymentMethod("PUBLIC_PREPAY");
-            entry.setStatus("COMPLETED");
-            entry.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"source\":\"hard_reservation\"}");
-            ledgerRepository.save(entry);
+            orderService.recordPaymentInternal(order, null, null, "CASH", orderTotal, "hard_reservation");
+            orderRepository.save(order);
 
             orderService.materialiseAttendeeSessions(order);
+            orderRepository.save(order);
         }
 
         if (request.clientEmail() != null && !request.clientEmail().isBlank()) {
@@ -660,6 +697,22 @@ public class BookingService {
 
     public List<Session> findExpiredActiveSessions() {
         return sessionRepository.findAllByStatusAndExpectedEndAtBefore("ACTIVE", OffsetDateTime.now());
+    }
+
+    @Transactional
+    public int autoEndExpiredSessions(UUID organizationId) {
+        List<Session> expired = sessionRepository
+                .findAllByOrganizationIdAndStatusAndExpectedEndAtBefore(organizationId, "ACTIVE", OffsetDateTime.now());
+        int ended = 0;
+        for (Session s : expired) {
+            try {
+                endSession(organizationId, s.getId());
+                ended++;
+            } catch (Exception ex) {
+                log.warn("autoEndExpiredSessions failed to end session {}: {}", s.getId(), ex.getMessage());
+            }
+        }
+        return ended;
     }
 
     private Service requireService(Long serviceId) {
