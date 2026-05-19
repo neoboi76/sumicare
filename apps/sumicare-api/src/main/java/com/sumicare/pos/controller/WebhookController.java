@@ -6,7 +6,6 @@ import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.gateway.PayMongoGateway;
-import com.sumicare.pos.gateway.StripeGateway;
 import com.sumicare.pos.repository.TransactionLedgerRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,46 +19,19 @@ import java.util.UUID;
 @RequestMapping("/api/webhooks")
 public class WebhookController {
 
-    private final StripeGateway stripeGateway;
     private final PayMongoGateway payMongoGateway;
     private final TransactionLedgerRepository ledgerRepository;
     private final BookingRepository bookingRepository;
     private final ObjectMapper objectMapper;
 
-    public WebhookController(StripeGateway stripeGateway, PayMongoGateway payMongoGateway,
-                             TransactionLedgerRepository ledgerRepository, BookingRepository bookingRepository,
+    public WebhookController(PayMongoGateway payMongoGateway,
+                             TransactionLedgerRepository ledgerRepository,
+                             BookingRepository bookingRepository,
                              ObjectMapper objectMapper) {
-        this.stripeGateway = stripeGateway;
         this.payMongoGateway = payMongoGateway;
         this.ledgerRepository = ledgerRepository;
         this.bookingRepository = bookingRepository;
         this.objectMapper = objectMapper;
-    }
-
-    @PostMapping("/stripe")
-    public ResponseEntity<String> stripeWebhook(
-            @RequestBody String payload,
-            @RequestHeader("Stripe-Signature") String signature) {
-
-        if (!stripeGateway.verifyWebhook(payload, signature)) {
-            return ResponseEntity.badRequest().body("Invalid signature");
-        }
-
-        try {
-            JsonNode event = objectMapper.readTree(payload);
-            String type = event.get("type").asText();
-            if ("payment_intent.succeeded".equals(type)) {
-                JsonNode pi = event.at("/data/object");
-                String bookingId = pi.at("/metadata/bookingId").asText(null);
-                BigDecimal amount = BigDecimal.valueOf(pi.get("amount").asLong(), 2);
-                String paymentIntentId = pi.get("id").asText();
-                recordPayment(bookingId, amount, "STRIPE", paymentIntentId);
-            }
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Processing error");
-        }
-
-        return ResponseEntity.ok("ok");
     }
 
     @PostMapping("/paymongo")

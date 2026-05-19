@@ -10,8 +10,12 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -28,14 +32,17 @@ public class AuthService {
     private final JwtService jwtService;
     private final AppProperties appProperties;
     private final LoginRateLimiter rateLimiter;
+    private final AuthenticationManager authenticationManager;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
-                       AppProperties appProperties, LoginRateLimiter rateLimiter) {
+                       AppProperties appProperties, LoginRateLimiter rateLimiter,
+                       AuthenticationManager authenticationManager) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.appProperties = appProperties;
         this.rateLimiter = rateLimiter;
+        this.authenticationManager = authenticationManager;
     }
 
     public TokenResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
@@ -43,15 +50,16 @@ public class AuthService {
         if (!rateLimiter.tryConsume(key)) {
             throw new LockedException("Too many login attempts");
         }
-        User user = userRepository.findByUsername(request.username())
-                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
-        if (!user.isActive()) throw new AccessDeniedException("User is deactivated");
-        if (user.getPasswordHash() == null) {
-            throw new BadCredentialsException("Account setup is not complete. Please use the invitation link sent to your email.");
-        }
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.username(), request.password()));
+        } catch (DisabledException ex) {
+            throw new AccessDeniedException("User is deactivated");
+        } catch (AuthenticationException ex) {
             throw new BadCredentialsException("Invalid credentials");
         }
+        User user = userRepository.findByUsername(request.username())
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
         if (!user.isEmailVerified()) {
             throw new AccessDeniedException("Email address not verified. Please check your inbox for the verification link.");
         }

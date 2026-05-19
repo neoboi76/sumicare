@@ -21,7 +21,6 @@ import com.sumicare.pos.domain.PosTransaction;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.repository.PosTransactionRepository;
 import com.sumicare.pos.repository.TransactionLedgerRepository;
-import com.sumicare.pos.service.PosService;
 import com.sumicare.room.domain.Bed;
 import com.sumicare.room.domain.Room;
 import com.sumicare.room.repository.BedRepository;
@@ -68,7 +67,6 @@ public class BookingService {
     private final TreatmentSlipRepository slipRepository;
     private final TreatmentSlipService treatmentSlipService;
     private final OrderRepository orderRepository;
-    private final PosService posService;
     private final PosTransactionRepository transactionRepository;
     private final com.sumicare.cashier.repository.OrderItemAttendeeRepository attendeeRepository;
     private final com.sumicare.transaction.repository.CommissionRepository commissionRepository;
@@ -88,7 +86,6 @@ public class BookingService {
                           TreatmentSlipRepository slipRepository,
                           TreatmentSlipService treatmentSlipService,
                           OrderRepository orderRepository,
-                          PosService posService,
                           PosTransactionRepository transactionRepository,
                           com.sumicare.cashier.repository.OrderItemAttendeeRepository attendeeRepository,
                           com.sumicare.transaction.repository.CommissionRepository commissionRepository,
@@ -111,7 +108,6 @@ public class BookingService {
         this.slipRepository = slipRepository;
         this.treatmentSlipService = treatmentSlipService;
         this.orderRepository = orderRepository;
-        this.posService = posService;
         this.transactionRepository = transactionRepository;
         this.attendeeRepository = attendeeRepository;
         this.commissionRepository = commissionRepository;
@@ -234,12 +230,15 @@ public class BookingService {
 
         int resolvedPax = attendees.size();
 
+        boolean publicReservation = !"WALK_IN".equalsIgnoreCase(request.reservationType());
+        String resolvedBookingLocker = publicReservation ? null : request.lockerNumber();
+
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(resolvedClientId);
         booking.setClientNickname(request.clientNickname());
         booking.setClientEmail(request.clientEmail());
-        booking.setLockerNumber(request.lockerNumber());
+        booking.setLockerNumber(resolvedBookingLocker);
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
         booking.setScheduledAt(request.scheduledAt());
@@ -290,7 +289,8 @@ public class BookingService {
                 att.setOrganizationId(organizationId);
                 att.setServiceId(resolvedServiceId);
                 att.setPackageTierId(resolvedTierId);
-                att.setLockerNumber(a.lockerNumber() != null ? a.lockerNumber() : request.lockerNumber());
+                att.setLockerNumber(publicReservation ? null
+                        : (a.lockerNumber() != null ? a.lockerNumber() : request.lockerNumber()));
                 att.setClientGender(a.clientGender() != null ? a.clientGender() : request.clientGender());
                 att.setPosition(pos++);
                 attendeeRepository.save(att);
@@ -564,7 +564,7 @@ public class BookingService {
             });
         }
 
-        posService.recordCommissionsForSession(organizationId, session);
+        orderService.recordCommissionsForSession(organizationId, session);
 
         UUID roomId = session.getRoomId();
         UUID bedId = session.getBedId();
@@ -722,10 +722,38 @@ public class BookingService {
 
     private BookingResponse toBookingResponse(Booking b, Service s) {
         OffsetDateTime effectiveStart = b.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
-        OffsetDateTime projectedEnd = effectiveStart.plusMinutes(s.getDurationMinutes());
-        UUID orderId = orderRepository.findByBookingId(b.getId())
-                .map(com.sumicare.cashier.domain.Order::getId)
-                .orElse(null);
+        int maxDuration = s.getDurationMinutes();
+        com.sumicare.cashier.domain.Order order = orderRepository.findByBookingId(b.getId()).orElse(null);
+        UUID orderId = order == null ? null : order.getId();
+        if (order != null) {
+            List<com.sumicare.cashier.domain.OrderItemAttendee> atts =
+                    attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
+            int sessionMax = 0;
+            OffsetDateTime latestExpectedEnd = null;
+            for (com.sumicare.cashier.domain.OrderItemAttendee a : atts) {
+                Long sid = a.getServiceId() != null ? a.getServiceId() : b.getServiceId();
+                if (sid != null) {
+                    Service svc = serviceRepository.findById(sid).orElse(null);
+                    if (svc != null) sessionMax = Math.max(sessionMax, svc.getDurationMinutes());
+                }
+                if (a.getSessionId() != null) {
+                    Session sess = sessionRepository.findById(a.getSessionId()).orElse(null);
+                    if (sess != null && sess.getExpectedEndAt() != null) {
+                        if (latestExpectedEnd == null || sess.getExpectedEndAt().isAfter(latestExpectedEnd)) {
+                            latestExpectedEnd = sess.getExpectedEndAt();
+                        }
+                    }
+                }
+            }
+            if (sessionMax > 0) maxDuration = Math.max(maxDuration, sessionMax);
+            OffsetDateTime projectedEnd = latestExpectedEnd != null
+                    ? latestExpectedEnd
+                    : effectiveStart.plusMinutes(maxDuration);
+            return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
+                    b.getServiceId(), b.getReservationType(), effectiveStart,
+                    projectedEnd, b.getStatus(), orderId, b.getNationality());
+        }
+        OffsetDateTime projectedEnd = effectiveStart.plusMinutes(maxDuration);
         return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), effectiveStart,
                 projectedEnd, b.getStatus(), orderId, b.getNationality());

@@ -32,7 +32,7 @@ interface TreatmentSlip {
 })
 export class TreatmentSlipsComponent implements OnInit {
   private http = inject(HttpClient);
-  selectedDate = signal(new Date().toISOString().slice(0, 10));
+  selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
   slips = signal<TreatmentSlip[]>([]);
 
   sortState = signal<SortState>({ key: 'tsn', direction: 'asc' });

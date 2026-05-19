@@ -23,8 +23,8 @@ export class AttendanceComponent implements OnInit {
 
   records = signal<AttendanceRecord[]>([]);
   loading = signal(false);
-  fromDate = signal(new Date().toISOString().slice(0, 10));
-  toDate = signal(new Date().toISOString().slice(0, 10));
+  fromDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
+  toDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
 
   ngOnInit(): void {
     this.load();

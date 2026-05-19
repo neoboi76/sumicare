@@ -127,22 +127,14 @@
                 } @else {
                   <div class="text-xs text-gray-500">Massage: same as Guest 1</div>
                 }
-                <div class="grid grid-cols-2 gap-2">
-                  <label class="block text-sm text-gray-700">
-                    Locker #
-                    <input type="text" maxlength="16" [ngModel]="a.lockerNumber" (ngModelChange)="setAttendeeLocker(i, $event)" name="locker{{i}}"
-                      placeholder="Optional"
-                      class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
-                  </label>
-                  <label class="block text-sm text-gray-700">
-                    Sex <span class="text-red-500">*</span>
-                    <select [ngModel]="a.clientGender" (ngModelChange)="setAttendeeGender(i, $event)" name="gender{{i}}" required
-                      class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
-                      <option value="F">Female</option>
-                      <option value="M">Male</option>
-                    </select>
-                  </label>
-                </div>
+                <label class="block text-sm text-gray-700">
+                  Sex <span class="text-red-500">*</span>
+                  <select [ngModel]="a.clientGender" (ngModelChange)="setAttendeeGender(i, $event)" name="gender{{i}}" required
+                    class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]">
+                    <option value="F">Female</option>
+                    <option value="M">Male</option>
+                  </select>
+                </label>
               </div>
             }
           </div>

@@ -47,8 +47,8 @@ export class LedgerComponent implements OnInit {
   entries = signal<LedgerEntry[]>([]);
   balance = signal<Balance>({ inflow: 0, outflow: 0, balance: 0, count: 0 });
   loading = signal(false);
-  fromDate = signal(new Date().toISOString().slice(0, 10));
-  toDate = signal(new Date().toISOString().slice(0, 10));
+  fromDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
+  toDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
   selectedMethod = signal<string | null>(null);
   searchQuery = signal('');
   accountBalances = signal<Map<string, number>>(new Map());

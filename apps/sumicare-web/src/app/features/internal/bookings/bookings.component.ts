@@ -121,7 +121,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private confirmService = inject(ConfirmService);
   private therapistRefreshTimer: any;
 
-  selectedDate = signal(new Date().toISOString().slice(0, 10));
+  selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
   bookings = signal<BookingResponse[]>([]);
   services = signal<ServiceItem[]>([]);
   lineup = signal<LineupTherapist[]>([]);

@@ -244,12 +244,12 @@ export class BookComponent implements OnInit {
       clientGender: atts[0].clientGender,
       packageId: Number(this.packageId()),
       packageTierId: Number(atts[0].packageTierId),
-      lockerNumber: atts[0].lockerNumber || null,
+      lockerNumber: null,
       pax: atts.length,
       roomType: this.forcedVipRoom() ? 'VIP' : this.roomType(),
       attendees: atts.map(a => ({
         packageTierId: a.packageTierId,
-        lockerNumber: a.lockerNumber || null,
+        lockerNumber: null,
         clientGender: a.clientGender
       }))
     };

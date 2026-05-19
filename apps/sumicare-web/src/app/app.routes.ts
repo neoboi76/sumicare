@@ -15,10 +15,7 @@ export const APP_ROUTES: Routes = [
       { path: 'recommendation', loadComponent: () => import('./features/public/recommendation.component').then(m => m.RecommendationComponent) },
       { path: 'book', loadComponent: () => import('./features/public/book.component').then(m => m.BookComponent) },
       { path: 'feedback', loadComponent: () => import('./features/public/feedback.component').then(m => m.FeedbackComponent) },
-      { path: 'contact', loadComponent: () => import('./features/public/contact.component').then(m => m.ContactComponent) },
-      { path: 'pay/:bookingId', loadComponent: () => import('./features/public/pay.component').then(m => m.PayComponent) },
-      { path: 'pay/success', loadComponent: () => import('./features/public/pay-result.component').then(m => m.PayResultComponent) },
-      { path: 'pay/failed', loadComponent: () => import('./features/public/pay-result.component').then(m => m.PayResultComponent) }
+      { path: 'contact', loadComponent: () => import('./features/public/contact.component').then(m => m.ContactComponent) }
     ]
   },
   {
