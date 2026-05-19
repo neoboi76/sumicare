@@ -26,13 +26,14 @@ interface ServiceItem {
 export class ServicesComponent implements OnInit {
   private http = inject(HttpClient);
   services = signal<ServiceItem[]>([]);
+  loadingInitial = signal(true);
 
   ngOnInit(): void {
     this.http
       .get<ServiceItem[]>(`${environment.apiBaseUrl}/api/public/services/${environment.defaultOrganizationSlug}`)
       .subscribe({
-        next: (s) => this.services.set(s),
-        error: () => this.services.set([])
+        next: (s) => { this.services.set(s); this.loadingInitial.set(false); },
+        error: () => { this.services.set([]); this.loadingInitial.set(false); }
       });
   }
 }

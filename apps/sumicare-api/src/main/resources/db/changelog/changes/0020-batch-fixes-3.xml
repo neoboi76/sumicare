@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0020-1-reactivate-massage-couple" author="sumicare">
+        <sql>
+            UPDATE packages
+            SET is_active = true
+            WHERE code = 'PKG_MASSAGE_COUPLE'
+              AND organization_id = (SELECT id FROM organizations WHERE slug = 'lasema');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0020-2-massage-couple-tier-backfill" author="sumicare">
+        <sql>
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 3800, 4200
+            FROM packages p
+            JOIN services_catalogue s ON s.organization_id = p.organization_id
+            WHERE p.code = 'PKG_MASSAGE_COUPLE'
+              AND p.organization_id = (SELECT id FROM organizations WHERE slug = 'lasema')
+              AND s.code IN ('SALT_GLOW_SCRUB','DAEMIDI','THAI','MILK_BATH_SCRUB','AROMA_REFLEX','VENTOSA','TANDEM')
+              AND NOT EXISTS (
+                  SELECT 1 FROM package_tiers pt2
+                  WHERE pt2.package_id = p.id AND pt2.service_id = s.id
+              );
+        </sql>
+    </changeSet>
+
+    <changeSet id="0020-3-orders-tax" author="sumicare">
+        <addColumn tableName="orders">
+            <column name="tax" type="NUMERIC(12,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0020-4-pos-tx-tax" author="sumicare">
+        <addColumn tableName="transactions">
+            <column name="tax" type="NUMERIC(12,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0020-5-treatment-slip-package-name" author="sumicare">
+        <addColumn tableName="treatment_slips">
+            <column name="package_name" type="VARCHAR(120)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

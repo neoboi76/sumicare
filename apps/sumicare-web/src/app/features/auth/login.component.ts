@@ -2,11 +2,13 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { PasswordInputComponent } from '../../shared/components/password-input/password-input.component';
+import { ContactAdminModalComponent } from './contact-admin-modal/contact-admin-modal.component';
 
 @Component({
   selector: 'sumi-login',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PasswordInputComponent, ContactAdminModalComponent],
   templateUrl: './login.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -20,11 +22,18 @@ export class LoginComponent implements OnInit {
   busy = signal(false);
   error = signal<string | null>(null);
   verifiedBanner = signal<'success' | 'expired' | null>(null);
+  idleBanner = signal(false);
+  showContactModal = signal(false);
+
+  openContactModal(): void { this.showContactModal.set(true); }
+  closeContactModal(): void { this.showContactModal.set(false); }
 
   ngOnInit(): void {
     const verified = this.route.snapshot.queryParamMap.get('verified');
     if (verified === '1') this.verifiedBanner.set('success');
     else if (verified === 'expired') this.verifiedBanner.set('expired');
+    const reason = this.route.snapshot.queryParamMap.get('reason');
+    if (reason === 'idle') this.idleBanner.set(true);
   }
 
   submit(event: Event): void {

@@ -44,17 +44,47 @@
                   #{{ entry.position }} &middot; {{ entry.gender === 'M' ? 'Male' : 'Female' }}
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
-                  @if (!entry.skipped) {
                   <button (click)="skip(entry.therapistId)" [disabled]="entry.onCall"
                     class="text-[11px] rounded px-2 py-0.5 text-amber-700 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed"
                     [title]="entry.onCall ? 'Cannot skip while on call' : 'Skip 30 minutes'">Skip 30m</button>
-                  } @else {
-                  <button (click)="cancelSkip(entry.therapistId)"
-                    class="text-[11px] rounded px-2 py-0.5 text-emerald-700 hover:bg-emerald-50">Resume</button>
-                  }
                   <button (click)="remove(entry.therapistId)" [disabled]="entry.onCall"
                     class="text-[11px] rounded px-2 py-0.5 text-red-700 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
                     [title]="entry.onCall ? 'Cannot remove while on call' : 'Remove from lineup'">Remove</button>
+                </div>
+              </div>
+            </div>
+          </article>
+          }
+        </div>
+      </section>
+    }
+
+    @if (onBreakLineup().length > 0) {
+      <section>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-amber-700 border-b border-amber-200 pb-2 mb-3">
+          On Break
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          @for (entry of onBreakLineup(); track entry.therapistId) {
+          <article class="bg-amber-50 rounded-xl shadow p-4 opacity-90">
+            <div class="flex items-start gap-3">
+              <div
+                [class]="'w-11 h-11 rounded-full flex items-center justify-center font-bold text-base flex-shrink-0 ' + avatarClass(entry.gender)">
+                {{ entry.nickname.charAt(0).toUpperCase() }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="font-semibold text-slate-900 truncate">{{ entry.nickname }}</div>
+                  <span class="text-xs rounded-full px-2 py-0.5 font-medium flex-shrink-0 bg-amber-100 text-amber-700">
+                    On break
+                  </span>
+                </div>
+                <div class="text-[11px] text-slate-500 mt-0.5">
+                  #{{ entry.position }} &middot; {{ entry.gender === 'M' ? 'Male' : 'Female' }}
+                </div>
+                <div class="mt-2 flex flex-wrap gap-1">
+                  <button (click)="cancelSkip(entry.therapistId)"
+                    class="text-[11px] rounded px-2 py-0.5 text-emerald-700 hover:bg-emerald-100">Resume</button>
                 </div>
               </div>
             </div>
@@ -67,7 +97,8 @@
 
   @if (showAddModal()) {
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" (click)="closeAddModal()">
-    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4" (click)="$event.stopPropagation()">
+    <form (ngSubmit)="confirmAdd()"
+      class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4" (click)="$event.stopPropagation()">
       <h2 class="font-semibold text-slate-900">Add therapist to lineup</h2>
       <label class="block text-sm text-slate-700">
         Therapist
@@ -91,12 +122,12 @@
         </select>
       </label>
       <div class="flex justify-end gap-2 pt-2">
-        <button (click)="closeAddModal()"
+        <button type="button" (click)="closeAddModal()"
           class="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Cancel</button>
-        <button (click)="confirmAdd()" [disabled]="!addTherapistId"
+        <button type="submit" [disabled]="!addTherapistId"
           class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm disabled:opacity-50">Add</button>
       </div>
-    </div>
+    </form>
   </div>
   }
 </div>

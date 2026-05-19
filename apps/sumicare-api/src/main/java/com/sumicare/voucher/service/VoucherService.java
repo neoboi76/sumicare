@@ -63,4 +63,20 @@ public class VoucherService {
         v.setRedeemedAt(OffsetDateTime.now());
         v.setRedeemedByClientId(clientId);
     }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    @Transactional
+    public Voucher update(UUID organizationId, UUID id, Voucher updates) {
+        Voucher v = repository.findById(id)
+                .filter(existing -> existing.getOrganizationId().equals(organizationId))
+                .orElseThrow();
+        if (updates.getCode() != null && !updates.getCode().isBlank()) v.setCode(updates.getCode());
+        if (updates.getName() != null) v.setName(updates.getName());
+        if (updates.getDiscountAmount() != null) v.setDiscountAmount(updates.getDiscountAmount());
+        if (updates.getDiscountPercent() != null) v.setDiscountPercent(updates.getDiscountPercent());
+        if (updates.getValidFrom() != null) v.setValidFrom(updates.getValidFrom());
+        if (updates.getValidUntil() != null) v.setValidUntil(updates.getValidUntil());
+        if (updates.isActive() != v.isActive()) v.setActive(updates.isActive());
+        return repository.save(v);
+    }
 }

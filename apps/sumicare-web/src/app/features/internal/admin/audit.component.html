@@ -1,28 +1,83 @@
-<div class="space-y-6">
+<div class="space-y-4">
   <header>
     <h1 class="text-2xl font-semibold text-slate-900">Audit log</h1>
     <p class="text-slate-500">Immutable record of every state-modifying action. Read-only.</p>
   </header>
+
+  <form (ngSubmit)="applyFilter()"
+    class="bg-white rounded-xl shadow p-4 grid grid-cols-1 sm:grid-cols-[auto_auto_auto_auto_1fr] items-end gap-3">
+    <label class="block text-sm">
+      <span class="text-slate-700 block mb-1">From</span>
+      <input type="date" [(ngModel)]="fromDate" name="fromDate"
+        class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+    </label>
+    <label class="block text-sm">
+      <span class="text-slate-700 block mb-1">To</span>
+      <input type="date" [(ngModel)]="toDate" name="toDate"
+        class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+    </label>
+    <button type="submit"
+      class="rounded-lg bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm font-medium">Apply</button>
+    <button type="button" (click)="clearFilter()"
+      class="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Clear</button>
+    <div class="flex items-center justify-end gap-2 text-sm text-slate-600">
+      <label class="block">
+        <span class="text-slate-700 block mb-1 text-right">Page size</span>
+        <select [ngModel]="pageSize()" (ngModelChange)="setPageSize($event)" name="pageSize"
+          class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option [ngValue]="25">25</option>
+          <option [ngValue]="50">50</option>
+          <option [ngValue]="100">100</option>
+        </select>
+      </label>
+    </div>
+  </form>
+
   <table class="bg-white rounded-xl shadow overflow-hidden w-full text-sm">
     <thead class="bg-slate-100">
       <tr>
-        <th class="text-left p-3">When</th>
-        <th class="text-left p-3">Actor role</th>
-        <th class="text-left p-3">Action</th>
-        <th class="text-left p-3">IP</th>
+        <th class="text-left p-3" [sumiSortable]="'occurredAt'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          When <sumi-sort-icon [active]="sortState().key === 'occurredAt'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'actorRole'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Actor role <sumi-sort-icon [active]="sortState().key === 'actorRole'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'actionType'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Action <sumi-sort-icon [active]="sortState().key === 'actionType'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'targetEntity'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          Target <sumi-sort-icon [active]="sortState().key === 'targetEntity'" [direction]="sortState().direction"/>
+        </th>
+        <th class="text-left p-3" [sumiSortable]="'ipAddress'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+          IP <sumi-sort-icon [active]="sortState().key === 'ipAddress'" [direction]="sortState().direction"/>
+        </th>
       </tr>
     </thead>
     <tbody>
-      @for (entry of entries(); track entry.id) {
-        <tr class="border-t">
+      @for (entry of sortedEntries(); track entry.id) {
+        <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono text-xs">{{ formatDate(entry.occurredAt) }}</td>
           <td class="p-3">{{ entry.actorRole }}</td>
           <td class="p-3">{{ entry.actionType }}</td>
+          <td class="p-3 font-mono text-xs">
+            @if (entry.targetEntity) {
+              {{ entry.targetEntity }}@if (entry.targetId) { / {{ entry.targetId | slice:0:8 }} }
+            }
+          </td>
           <td class="p-3 font-mono text-xs">{{ entry.ipAddress }}</td>
         </tr>
       } @empty {
-        <tr><td colspan="4" class="p-6 text-center text-slate-500">No audit events.</td></tr>
+        <tr><td colspan="5" class="p-6 text-center text-slate-500">No audit events match the current filters.</td></tr>
       }
     </tbody>
   </table>
+
+  <div class="flex items-center justify-between text-sm text-slate-600">
+    <button (click)="prevPage()" [disabled]="page() === 0"
+            class="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40">Previous</button>
+    <span>Page {{ page() + 1 }} of {{ totalPages() === 0 ? 1 : totalPages() }}
+      &nbsp;&middot;&nbsp; {{ totalElements() }} entries</span>
+    <button (click)="nextPage()" [disabled]="page() >= totalPages() - 1"
+            class="px-3 py-1.5 rounded border border-slate-300 disabled:opacity-40">Next</button>
+  </div>
 </div>

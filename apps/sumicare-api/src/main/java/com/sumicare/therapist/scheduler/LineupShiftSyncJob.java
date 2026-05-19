@@ -14,10 +14,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalTime;
-import java.util.HashMap;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -44,9 +45,11 @@ public class LineupShiftSyncJob {
         this.deckingService = deckingService;
     }
 
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
+
     @Scheduled(fixedDelay = 60_000, initialDelay = 5_000)
     public void syncLineup() {
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now(MANILA);
         try {
             organizationRepository.findAll().forEach(org -> syncForOrganization(org.getId(), now));
         } catch (Exception e) {
@@ -54,34 +57,53 @@ public class LineupShiftSyncJob {
         }
     }
 
+    public void syncNow(UUID organizationId) {
+        try {
+            syncForOrganization(organizationId, LocalTime.now(MANILA));
+        } catch (Exception e) {
+            log.error("LineupShiftSyncJob.syncNow failed", e);
+        }
+    }
+
+    private record ShouldEntry(UUID therapistId, Long shiftId, LocalTime shiftStartTime) {}
+
     private void syncForOrganization(UUID orgId, LocalTime now) {
         List<Shift> activeShifts = shiftService.listActive(orgId).stream()
                 .filter(s -> shiftService.coversTime(s.getStartTime(), s.getEndTime(), now))
                 .toList();
 
-        Map<UUID, Long> shouldBeInLineup = new HashMap<>();
+        List<ShouldEntry> shouldBeInLineup = new ArrayList<>();
+        Set<UUID> seenTherapistIds = new HashSet<>();
         for (Shift shift : activeShifts) {
             for (ShiftAssignment sa : shiftAssignmentRepository.findAllByShiftId(shift.getId())) {
                 therapistRepository.findById(sa.getTherapistId())
                         .filter(t -> t.isActive() && !t.isBackup())
                         .filter(t -> orgId.equals(t.getOrganizationId()))
-                        .ifPresent(t -> shouldBeInLineup.putIfAbsent(t.getId(), shift.getId()));
+                        .ifPresent(t -> {
+                            if (seenTherapistIds.add(t.getId())) {
+                                shouldBeInLineup.add(new ShouldEntry(t.getId(), shift.getId(), shift.getStartTime()));
+                            }
+                        });
             }
         }
+
+        shouldBeInLineup.sort(Comparator.comparing(ShouldEntry::shiftStartTime));
 
         List<DeckingEntry> currentLineup = deckingService.currentLineup(orgId);
         Set<UUID> currentIds = new HashSet<>();
         for (DeckingEntry e : currentLineup) currentIds.add(e.therapistId());
 
-        for (Map.Entry<UUID, Long> entry : shouldBeInLineup.entrySet()) {
-            if (!currentIds.contains(entry.getKey())) {
-                deckingService.appendToBack(orgId, entry.getKey(), entry.getValue());
+        for (ShouldEntry entry : shouldBeInLineup) {
+            if (!currentIds.contains(entry.therapistId())) {
+                deckingService.prependToFront(orgId, entry.therapistId(), entry.shiftId());
             }
         }
 
+        Set<UUID> shouldIds = new HashSet<>();
+        for (ShouldEntry e : shouldBeInLineup) shouldIds.add(e.therapistId());
         for (DeckingEntry e : currentLineup) {
-            if ("BACKUP".equals(e.flag())) continue;
-            if (!shouldBeInLineup.containsKey(e.therapistId())) {
+            if ("BACKUP".equals(e.flag()) || "MANUAL".equals(e.flag())) continue;
+            if (!shouldIds.contains(e.therapistId())) {
                 deckingService.remove(orgId, e.therapistId());
             }
         }

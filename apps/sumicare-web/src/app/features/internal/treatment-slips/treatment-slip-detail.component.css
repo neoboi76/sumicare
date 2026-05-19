@@ -135,6 +135,52 @@
   padding: 1mm 0;
 }
 
+.slip .vip-top-block {
+  border-bottom: 1.5px solid #000;
+}
+
+.slip .vip-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 1mm 2mm;
+  border-bottom: 1px solid #000;
+}
+
+.slip .vip-row:last-child {
+  border-bottom: none;
+}
+
+.slip .vip-label {
+  font-size: 6.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.slip .vip-value {
+  font-size: 9pt;
+  font-weight: 600;
+  text-align: right;
+}
+
+.slip .vip-wine {
+  display: flex;
+  gap: 1mm;
+  align-items: center;
+}
+
+.slip .vip-choice-sep {
+  font-weight: 400;
+  opacity: 0.5;
+}
+
+.slip .vip-choice-active {
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 1px;
+}
+
 @media print {
   @page {
     size: A6 portrait;

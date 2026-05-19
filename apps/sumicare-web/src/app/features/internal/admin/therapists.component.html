@@ -12,16 +12,26 @@
     <table class="w-full text-sm">
       <thead class="bg-slate-100">
         <tr>
-          <th class="text-left p-3">Staff #</th>
-          <th class="text-left p-3">Nickname</th>
-          <th class="text-left p-3">Gender</th>
-          <th class="text-left p-3">Type</th>
-          <th class="text-left p-3">Shift</th>
+          <th class="text-left p-3" [sumiSortable]="'staffNumber'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Staff # <sumi-sort-icon [active]="sortState().key === 'staffNumber'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'nickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Nickname <sumi-sort-icon [active]="sortState().key === 'nickname'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'gender'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Gender <sumi-sort-icon [active]="sortState().key === 'gender'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'type'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Type <sumi-sort-icon [active]="sortState().key === 'type'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'shift'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Shift <sumi-sort-icon [active]="sortState().key === 'shift'" [direction]="sortState().direction" />
+          </th>
           <th class="text-right p-3"></th>
         </tr>
       </thead>
       <tbody>
-        @for (t of therapists(); track t.id) {
+        @for (t of sortedTherapists(); track t.id) {
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
           <td class="p-3 font-medium">{{ t.nickname }}</td>

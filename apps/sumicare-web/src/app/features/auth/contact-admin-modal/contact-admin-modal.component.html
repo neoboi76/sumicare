@@ -1,0 +1,50 @@
+@if (open()) {
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="close()">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
+      <h2 class="text-lg font-semibold text-slate-900">Contact your administrator</h2>
+      <p class="text-sm text-slate-600">
+        Your administrator can issue you a password reset link. Send them a short note below and they will email
+        you a link.
+      </p>
+
+      @if (success()) {
+        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
+          {{ success() }}
+        </div>
+      }
+      @if (error()) {
+        <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+          {{ error() }}
+        </div>
+      }
+
+      <label class="block text-sm text-slate-700">
+        Your name <span class="text-red-500">*</span>
+        <input [(ngModel)]="name" name="contactName" required maxlength="120"
+               class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+      </label>
+      <label class="block text-sm text-slate-700">
+        Your email <span class="text-red-500">*</span>
+        <input [(ngModel)]="email" name="contactEmail" type="email" required maxlength="255"
+               class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+      </label>
+      <label class="block text-sm text-slate-700">
+        Message
+        <textarea [(ngModel)]="message" name="contactMessage" rows="3" maxlength="1000"
+                  class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"
+                  placeholder="Tell your administrator who you are and why you need a reset."></textarea>
+      </label>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" (click)="close()"
+                class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+          Cancel
+        </button>
+        <button type="button" (click)="submit()" [disabled]="submitting() || !canSubmit()"
+                class="rounded-lg bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm disabled:opacity-50">
+          @if (submitting()) { Sending... } @else { Send request }
+        </button>
+      </div>
+    </div>
+  </div>
+}

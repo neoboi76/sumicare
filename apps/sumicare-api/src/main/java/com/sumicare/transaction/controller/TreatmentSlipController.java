@@ -1,6 +1,7 @@
 package com.sumicare.transaction.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
+import com.sumicare.print.TreatmentSlipPdfService;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.dto.UpdateTreatmentSlipRequest;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
@@ -22,10 +23,24 @@ public class TreatmentSlipController {
 
     private final TreatmentSlipService service;
     private final TreatmentSlipRepository repository;
+    private final TreatmentSlipPdfService pdfService;
 
-    public TreatmentSlipController(TreatmentSlipService service, TreatmentSlipRepository repository) {
+    public TreatmentSlipController(TreatmentSlipService service,
+                                   TreatmentSlipRepository repository,
+                                   TreatmentSlipPdfService pdfService) {
         this.service = service;
         this.repository = repository;
+        this.pdfService = pdfService;
+    }
+
+    @GetMapping("/{slipId}/slip.pdf")
+    public ResponseEntity<byte[]> slipPdf(@PathVariable UUID slipId) {
+        byte[] data = pdfService.renderSlip(slipId);
+        String filename = "slip-" + slipId + ".pdf";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(data);
     }
 
     @PostMapping("/from-session/{sessionId}")

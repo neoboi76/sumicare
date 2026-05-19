@@ -6,8 +6,10 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 
 public record UpdateTreatmentSlipRequest(
+        @Size(max = 64) String tsn,
         @Size(max = 16) String lockerNumber,
         @Size(max = 64) String roomNumber,
         @Size(max = 500) String othersAddOn,
@@ -18,5 +20,7 @@ public record UpdateTreatmentSlipRequest(
         @Min(0) @Max(120) Integer jacuzziMinutes,
         @Min(0) @Max(120) Integer massageMinutes,
         Boolean wineIncluded,
-        Boolean waiverAccepted
+        Boolean waiverAccepted,
+        OffsetDateTime startTime,
+        OffsetDateTime endTime
 ) {}

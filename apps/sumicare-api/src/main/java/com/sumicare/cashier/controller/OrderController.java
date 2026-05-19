@@ -5,7 +5,11 @@ import com.sumicare.cashier.dto.CreateOrderRequest;
 import com.sumicare.cashier.dto.OrderResponse;
 import com.sumicare.cashier.dto.RecordPaymentRequest;
 import com.sumicare.cashier.service.OrderService;
+import com.sumicare.print.ReceiptPdfService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -20,9 +24,11 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderService orderService;
+    private final ReceiptPdfService receiptPdfService;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, ReceiptPdfService receiptPdfService) {
         this.orderService = orderService;
+        this.receiptPdfService = receiptPdfService;
     }
 
     @PostMapping
@@ -31,6 +37,14 @@ public class OrderController {
                                 @Valid @RequestBody CreateOrderRequest request) {
         return orderService.create(UUID.fromString(principal.organizationId()),
                 UUID.fromString(principal.userId()), request);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public OrderResponse update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                @PathVariable UUID id,
+                                @Valid @RequestBody CreateOrderRequest request) {
+        return orderService.update(UUID.fromString(principal.organizationId()), id, request);
     }
 
     @GetMapping
@@ -88,5 +102,25 @@ public class OrderController {
     public OrderResponse cancelPayment(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                        @PathVariable UUID id) {
         return orderService.cancelPayment(UUID.fromString(principal.organizationId()), id);
+    }
+
+    @GetMapping("/by-booking/{bookingId}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public OrderResponse byBooking(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                   @PathVariable UUID bookingId) {
+        return orderService.getByBookingId(UUID.fromString(principal.organizationId()), bookingId);
+    }
+
+    @GetMapping("/{id}/receipt.pdf")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public ResponseEntity<byte[]> receiptPdf(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                              @PathVariable UUID id) {
+        orderService.get(UUID.fromString(principal.organizationId()), id);
+        byte[] data = receiptPdfService.renderReceipt(id);
+        String filename = "receipt-" + id + ".pdf";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(data);
     }
 }

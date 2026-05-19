@@ -1,22 +1,16 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { BrandingService } from '../../core/branding/branding.service';
 import { environment } from '../../../environments/environment';
 
-interface BookingResponse {
-  id: string;
-  status: string;
-}
-
-interface DeckingEntry {
-  therapistId: string;
-}
-
-interface RoomItem {
-  id: string;
-  beds: { id: string; occupancy: Record<string, string> }[];
+interface DashboardSummary {
+  todayBookings: number;
+  activeSessions: number;
+  therapistsInLineup: number;
+  bedsOccupied: number;
+  cashOnHand: number;
 }
 
 @Component({
@@ -26,7 +20,7 @@ interface RoomItem {
   templateUrl: './dashboard.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   protected auth = inject(AuthService);
   protected branding = inject(BrandingService);
@@ -35,7 +29,9 @@ export class DashboardComponent implements OnInit {
   activeSessions = signal(0);
   lineupCount = signal(0);
   occupiedBeds = signal(0);
-  totalBeds = signal(0);
+  loading = signal(true);
+
+  private pollHandle: ReturnType<typeof setInterval> | null = null;
 
   readonly role = computed(() => this.auth.session()?.role ?? '');
 
@@ -50,33 +46,24 @@ export class DashboardComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    const today = new Date().toISOString().slice(0, 10);
-    const start = `${today}T00:00:00.000Z`;
-    const end = `${today}T23:59:59.999Z`;
-    const params = `?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
+    this.reload();
+    this.pollHandle = setInterval(() => this.reload(), 30_000);
+  }
 
-    this.http.get<BookingResponse[]>(`${environment.apiBaseUrl}/api/bookings${params}`).subscribe({
-      next: (b) => {
-        this.todaysBookings.set(b.length);
-        this.activeSessions.set(b.filter(x => x.status === 'ACTIVE').length);
-      }
-    });
+  ngOnDestroy(): void {
+    if (this.pollHandle) clearInterval(this.pollHandle);
+  }
 
-    this.http.get<DeckingEntry[]>(`${environment.apiBaseUrl}/api/decking`).subscribe({
-      next: (d) => this.lineupCount.set(d.length)
-    });
-
-    this.http.get<RoomItem[]>(`${environment.apiBaseUrl}/api/rooms`).subscribe({
-      next: (rooms) => {
-        let total = 0;
-        let occupied = 0;
-        rooms.forEach(r => {
-          total += r.beds.length;
-          occupied += r.beds.filter(b => b.occupancy['status'] === 'OCCUPIED').length;
-        });
-        this.totalBeds.set(total);
-        this.occupiedBeds.set(occupied);
-      }
+  reload(): void {
+    this.http.get<DashboardSummary>(`${environment.apiBaseUrl}/api/dashboard/summary`).subscribe({
+      next: (s) => {
+        this.todaysBookings.set(s.todayBookings);
+        this.activeSessions.set(s.activeSessions);
+        this.lineupCount.set(s.therapistsInLineup);
+        this.occupiedBeds.set(s.bedsOccupied);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false)
     });
   }
 }

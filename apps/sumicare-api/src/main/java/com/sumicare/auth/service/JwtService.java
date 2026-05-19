@@ -67,6 +67,22 @@ public class JwtService {
         redis.opsForValue().set(revokedKey(jti), "1", ttl);
     }
 
+    public void revokeAllForUser(UUID userId) {
+        Duration ttl = Duration.ofMillis(appProperties.jwt().refreshExpiryMs());
+        redis.opsForValue().set("user:" + userId + ":tokens-since",
+                String.valueOf(Instant.now().toEpochMilli()), ttl);
+    }
+
+    public boolean isTokenIssuedBeforeRevocation(String userId, long issuedAtEpochSecond) {
+        String value = redis.opsForValue().get("user:" + userId + ":tokens-since");
+        if (value == null) return false;
+        try {
+            return issuedAtEpochSecond * 1000L < Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
     public Map<String, String> issuePair(UUID userId, UUID organizationId, String role) {
         return Map.of(
                 "accessToken", issueAccessToken(userId, organizationId, role),

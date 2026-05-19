@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface ContactMessageRepository extends JpaRepository<ContactMessage, UUID> {
     List<ContactMessage> findAllByOrganizationIdOrderByCreatedAtDesc(UUID organizationId);
+    List<ContactMessage> findAllByOrganizationIdAndCreatedAtBetweenOrderByCreatedAtAsc(UUID organizationId, OffsetDateTime from, OffsetDateTime to);
     List<ContactMessage> findAllByOrganizationIdAndReadAtIsNullOrderByCreatedAtDesc(UUID organizationId);
     long countByOrganizationIdAndReadAtIsNull(UUID organizationId);
     long countByIpAddressAndCreatedAtAfter(String ipAddress, OffsetDateTime since);

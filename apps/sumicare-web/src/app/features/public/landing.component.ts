@@ -21,13 +21,14 @@ interface ContentBlock {
 export class LandingComponent implements OnInit {
   private http = inject(HttpClient);
   blocks = signal<ContentBlock[]>([]);
+  loadingInitial = signal(true);
 
   ngOnInit(): void {
     this.http
       .get<ContentBlock[]>(`${environment.apiBaseUrl}/api/public/content/${environment.defaultOrganizationSlug}`)
       .subscribe({
-        next: (blocks) => this.blocks.set(blocks),
-        error: () => this.blocks.set([])
+        next: (blocks) => { this.blocks.set(blocks); this.loadingInitial.set(false); },
+        error: () => { this.blocks.set([]); this.loadingInitial.set(false); }
       });
   }
 }

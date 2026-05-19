@@ -52,8 +52,11 @@ export class LineupComponent implements OnInit {
 
   activeTherapists = computed(() => this.allTherapists().filter(t => t.active));
 
+  activeLineup = computed(() => this.lineup().filter(t => !t.skipped));
+  onBreakLineup = computed(() => this.lineup().filter(t => t.skipped));
+
   groupedLineup = computed(() => {
-    const list = this.lineup();
+    const list = this.activeLineup();
     const groups: { [key: string]: LineupGroup } = {};
     const result: LineupGroup[] = [];
 

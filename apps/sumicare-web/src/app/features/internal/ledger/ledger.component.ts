@@ -80,8 +80,8 @@ export class LedgerComponent implements OnInit {
   }
 
   private loadAccountBalances(): void {
-    const from = `${this.fromDate()}T00:00:00Z`;
-    const to = `${this.toDate()}T23:59:59Z`;
+    const from = this.fromDate();
+    const to = this.toDate();
     for (const m of this.methods) {
       const url = `${environment.apiBaseUrl}/api/cashier/ledger/balance?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&method=${m}`;
       this.http.get<Balance>(url).subscribe({
@@ -109,8 +109,8 @@ export class LedgerComponent implements OnInit {
     const m = this.selectedMethod();
     if (!m) return;
     this.loading.set(true);
-    const from = `${this.fromDate()}T00:00:00Z`;
-    const to = `${this.toDate()}T23:59:59Z`;
+    const from = this.fromDate();
+    const to = this.toDate();
     const url = `${environment.apiBaseUrl}/api/cashier/ledger?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&method=${m}`;
     this.http.get<LedgerEntry[]>(url).subscribe({
       next: (e) => { this.entries.set(e); this.loading.set(false); },
@@ -126,8 +126,8 @@ export class LedgerComponent implements OnInit {
   exportCsv(): void {
     const m = this.selectedMethod();
     if (!m) return;
-    const from = `${this.fromDate()}T00:00:00Z`;
-    const to = `${this.toDate()}T23:59:59Z`;
+    const from = this.fromDate();
+    const to = this.toDate();
     const url = `${environment.apiBaseUrl}/api/cashier/ledger/export.csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&method=${m}`;
     this.http.get(url, { responseType: 'blob' }).subscribe({
       next: (blob) => {

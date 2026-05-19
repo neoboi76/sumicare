@@ -2,6 +2,7 @@ package com.sumicare.cashier.dto;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record OrderResponse(
@@ -18,6 +19,7 @@ public record OrderResponse(
         String notes,
         BigDecimal subtotal,
         BigDecimal discount,
+        BigDecimal tax,
         BigDecimal total,
         BigDecimal amountPaid,
         BigDecimal balance,
@@ -26,5 +28,13 @@ public record OrderResponse(
         OffsetDateTime completedAt,
         OffsetDateTime finishedAt,
         OffsetDateTime cancelledAt,
-        String cancelledReason
+        String cancelledReason,
+        String transactorName,
+        boolean groupBooking,
+        boolean weekend,
+        String roomType,
+        BigDecimal roomTypeCharge,
+        boolean sessionCompleted,
+        boolean couplePackage,
+        List<OrderItemResponse> items
 ) {}

@@ -6,6 +6,29 @@ import { FormsModule } from '@angular/forms';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
+interface OrderItemAttendee {
+  id: string;
+  serviceId: number | null;
+  serviceName: string | null;
+  packageTierId: number | null;
+  lockerNumber: string | null;
+  clientGender: string | null;
+  sessionId: string | null;
+  treatmentSlipId: string | null;
+  position: number;
+}
+
+interface OrderItem {
+  id: string;
+  packageId: number;
+  packageName: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  position: number;
+  attendees: OrderItemAttendee[];
+}
+
 interface Order {
   id: string;
   bookingId: string;
@@ -20,6 +43,7 @@ interface Order {
   notes: string | null;
   subtotal: number;
   discount: number;
+  tax: number;
   total: number;
   amountPaid: number;
   balance: number;
@@ -29,6 +53,13 @@ interface Order {
   finishedAt: string | null;
   cancelledAt: string | null;
   cancelledReason: string | null;
+  transactorName: string | null;
+  groupBooking: boolean;
+  weekend: boolean;
+  roomType: string | null;
+  roomTypeCharge: number;
+  sessionCompleted: boolean;
+  items: OrderItem[];
 }
 
 interface AuditEntry {
@@ -91,8 +122,8 @@ export class OrderDetailComponent implements OnInit {
   recordPayment(): void {
     const o = this.order();
     if (!o || this.busy()) return;
-    if (!this.newPaymentAmount || this.newPaymentAmount <= 0) {
-      this.error.set('Enter a payment amount > 0.');
+    if (!this.newPaymentAmount || this.newPaymentAmount < 0) {
+      this.error.set('Enter a valid payment amount.');
       return;
     }
     if (this.newPaymentAmount > o.balance) {
@@ -243,5 +274,37 @@ export class OrderDetailComponent implements OnInit {
 
   back(): void {
     this.router.navigate(['/app/orders']);
+  }
+
+  editOrder(): void {
+    const o = this.order();
+    if (!o) return;
+    this.router.navigate(['/app/cashier'], { queryParams: { orderId: o.id } });
+  }
+
+  downloadReceipt(): void {
+    const o = this.order();
+    if (!o) return;
+    this.http.get(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/receipt.pdf`, {
+      responseType: 'blob' as const,
+      observe: 'response' as const
+    }).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (!blob) {
+          this.error.set('No PDF returned.');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `receipt-${o.orNumber || o.id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      error: () => this.error.set('Failed to download receipt PDF.')
+    });
   }
 }

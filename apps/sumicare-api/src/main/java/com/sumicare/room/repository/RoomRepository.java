@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface RoomRepository extends JpaRepository<Room, UUID> {
     List<Room> findAllByOrganizationIdAndActiveTrue(UUID organizationId);
+    List<Room> findAllByOrganizationId(UUID organizationId);
 }

@@ -83,6 +83,30 @@ public class AuditInterceptor implements HandlerInterceptor {
         if (segs.length >= 5 && "api".equals(segs[1]) && "contact-messages".equals(segs[2])) {
             return new ResolvedTarget("CONTACT_MESSAGE", segs[3], "CONTACT_MESSAGE.MARK_READ");
         }
+        if (segs.length >= 3 && "api".equals(segs[1]) && "users".equals(segs[2])) {
+            if (segs.length == 3 && "POST".equals(method)) {
+                return new ResolvedTarget("USER", null, "USER.CREATE");
+            }
+            if (segs.length >= 4) {
+                String userId = segs[3];
+                String action;
+                if (segs.length == 4) {
+                    action = switch (method) {
+                        case "PATCH" -> "USER.UPDATE";
+                        case "DELETE" -> "USER.DEACTIVATE";
+                        default -> defaultAction;
+                    };
+                } else {
+                    String sub = segs[4];
+                    action = switch (sub) {
+                        case "reactivate" -> "USER.REACTIVATE";
+                        case "profile" -> "USER.PROFILE_UPDATE";
+                        default -> defaultAction;
+                    };
+                }
+                return new ResolvedTarget("USER", userId, action);
+            }
+        }
         return new ResolvedTarget(null, null, defaultAction);
     }
 

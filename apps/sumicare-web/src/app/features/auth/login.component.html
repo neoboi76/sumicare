@@ -12,6 +12,11 @@
         Your verification link has expired. Please contact an administrator to resend it.
       </div>
     }
+    @if (idleBanner()) {
+      <div class="mb-4 rounded-lg bg-slate-100 border border-slate-200 px-4 py-3 text-sm text-slate-700">
+        You were signed out for inactivity. Sign in again to continue.
+      </div>
+    }
     <form (submit)="submit($event)" class="space-y-4">
       <label class="block">
         <span class="text-sm text-slate-700">Username</span>
@@ -19,9 +24,16 @@
                class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
       </label>
       <label class="block">
-        <span class="text-sm text-slate-700">Password</span>
-        <input [(ngModel)]="password" name="password" type="password" autocomplete="current-password" required
-               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-sm text-slate-700">Password</span>
+          <button type="button" (click)="openContactModal()" class="text-xs text-[var(--sumi-primary)] hover:underline">Contact administrator</button>
+        </div>
+        <sumi-password-input
+          [(value)]="password"
+          name="password"
+          autocomplete="current-password"
+          [required]="true">
+        </sumi-password-input>
       </label>
       <button type="submit" [disabled]="busy()"
               class="w-full rounded-md bg-[var(--sumi-primary)] text-white font-medium py-2.5 hover:opacity-95 disabled:opacity-60">
@@ -32,4 +44,5 @@
       }
     </form>
   </div>
+  <sumi-contact-admin-modal [show]="showContactModal()" (closed)="closeContactModal()"></sumi-contact-admin-modal>
 </div>

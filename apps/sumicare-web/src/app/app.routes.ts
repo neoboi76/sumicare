@@ -34,6 +34,10 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./features/auth/reset-password.component').then(m => m.ResetPasswordComponent)
   },
   {
+    path: 'invite',
+    loadComponent: () => import('./features/auth/invite.component').then(m => m.InviteComponent)
+  },
+  {
     path: 'app',
     canActivate: [authGuard],
     loadComponent: () => import('./features/internal/internal-shell.component').then(m => m.InternalShellComponent),
@@ -63,6 +67,7 @@ export const APP_ROUTES: Routes = [
       { path: 'admin/shifts', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/shifts.component').then(m => m.ShiftsAdminComponent) },
       { path: 'admin/rooms', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/rooms.component').then(m => m.RoomsAdminComponent) },
       { path: 'admin/services', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/services.component').then(m => m.ServicesAdminComponent) },
+      { path: 'admin/packages', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/packages.component').then(m => m.PackagesAdminComponent) },
       { path: 'admin/vouchers', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/vouchers.component').then(m => m.VouchersAdminComponent) },
       { path: 'admin/feedback', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/feedback.component').then(m => m.FeedbackAdminComponent) }
     ]

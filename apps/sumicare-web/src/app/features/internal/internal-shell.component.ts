@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { IdleTimeoutService } from '../../core/auth/idle-timeout.service';
 import { BrandingService } from '../../core/branding/branding.service';
+import { ConfirmService } from '../../shared/components/confirm-dialog/confirm.service';
 
 interface NavItem {
   label: string;
@@ -25,10 +27,12 @@ const ADMIN_PLUS = ['ADMIN', 'SUPERADMIN'];
   templateUrl: './internal-shell.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class InternalShellComponent implements OnInit {
+export class InternalShellComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private router = inject(Router);
   protected branding = inject(BrandingService);
+  private confirmService = inject(ConfirmService);
+  private idleTimeout = inject(IdleTimeoutService);
   session = this.auth.session;
 
   readonly sidebarOpen = signal(true);
@@ -44,12 +48,10 @@ export class InternalShellComponent implements OnInit {
         { label: 'Bookings', route: 'bookings', roles: STAFF_ROLES },
         { label: 'Room map', route: 'reception', roles: STAFF_ROLES },
         { label: 'Lineup', route: 'lineup', roles: STAFF_ROLES },
-
         { label: 'Treatment slips', route: 'treatment-slips', roles: STAFF_ROLES },
         { label: 'Cashier', route: 'cashier', roles: STAFF_ROLES },
         { label: 'Orders', route: 'orders', roles: STAFF_ROLES },
-        { label: 'Messages', route: 'messages', roles: STAFF_ROLES },
-        { label: 'Attendance', route: 'attendance', roles: STAFF_ROLES }
+        { label: 'Messages', route: 'messages', roles: STAFF_ROLES }
       ]
     },
     {
@@ -66,10 +68,10 @@ export class InternalShellComponent implements OnInit {
         { label: 'Shifts', route: 'admin/shifts', roles: MANAGER_PLUS },
         { label: 'Rooms', route: 'admin/rooms', roles: MANAGER_PLUS },
         { label: 'Services', route: 'admin/services', roles: MANAGER_PLUS },
+        { label: 'Packages', route: 'admin/packages', roles: MANAGER_PLUS },
         { label: 'Vouchers', route: 'admin/vouchers', roles: MANAGER_PLUS },
         { label: 'Feedback', route: 'admin/feedback', roles: MANAGER_PLUS },
-        { label: 'Branding', route: 'branding', roles: MANAGER_PLUS },
-        { label: 'Content', route: 'content', roles: MANAGER_PLUS }
+        { label: 'Branding', route: 'branding', roles: MANAGER_PLUS }
       ]
     },
     {
@@ -96,6 +98,11 @@ export class InternalShellComponent implements OnInit {
     if (saved !== null) {
       this.sidebarOpen.set(saved === 'true');
     }
+    this.idleTimeout.start();
+  }
+
+  ngOnDestroy(): void {
+    this.idleTimeout.stop();
   }
 
   toggleSidebar(): void {
@@ -106,7 +113,13 @@ export class InternalShellComponent implements OnInit {
     });
   }
 
-  signOut(): void {
+  async signOut(): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Sign out',
+      message: 'Are you sure you want to sign out of SumiCare?',
+      confirmText: 'Sign out'
+    });
+    if (!confirmed) return;
     this.auth.logout().subscribe({
       next: () => this.router.navigate(['/login']),
       error: () => this.router.navigate(['/login'])

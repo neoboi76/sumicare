@@ -6,12 +6,13 @@ import java.util.UUID;
 public record BookingResponse(
         UUID id,
         String clientNickname,
+        String clientEmail,
         String lockerNumber,
         Long serviceId,
         String reservationType,
         OffsetDateTime scheduledAt,
-        OffsetDateTime effectiveStartAt,
         OffsetDateTime projectedEndAt,
         String status,
-        UUID orderId
+        UUID orderId,
+        String nationality
 ) {}

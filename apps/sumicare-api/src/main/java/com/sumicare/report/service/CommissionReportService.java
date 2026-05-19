@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,6 +28,8 @@ import java.util.UUID;
 
 @org.springframework.stereotype.Service
 public class CommissionReportService {
+
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     private final CommissionRepository commissionRepository;
     private final SessionRepository sessionRepository;
@@ -56,10 +58,10 @@ public class CommissionReportService {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public ShiftReport shift(UUID organizationId, Long shiftId, LocalDate date) {
         Shift shift = shiftRepository.findById(shiftId).orElseThrow();
-        OffsetDateTime windowStart = date.atTime(shift.getStartTime()).atOffset(ZoneOffset.UTC);
+        OffsetDateTime windowStart = date.atTime(shift.getStartTime()).atZone(MANILA).toOffsetDateTime();
         OffsetDateTime windowEnd = shift.getEndTime().isBefore(shift.getStartTime())
-                ? date.plusDays(1).atTime(shift.getEndTime()).atOffset(ZoneOffset.UTC)
-                : date.atTime(shift.getEndTime()).atOffset(ZoneOffset.UTC);
+                ? date.plusDays(1).atTime(shift.getEndTime()).atZone(MANILA).toOffsetDateTime()
+                : date.atTime(shift.getEndTime()).atZone(MANILA).toOffsetDateTime();
 
         java.util.Set<UUID> assignedTherapistIds = new java.util.HashSet<>();
         for (ShiftAssignment sa : shiftAssignmentRepository.findAllByShiftId(shiftId)) {
@@ -86,7 +88,7 @@ public class CommissionReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public DailyReport daily(UUID organizationId, LocalDate date) {
-        OffsetDateTime from = date.atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime from = date.atStartOfDay(MANILA).toOffsetDateTime();
         OffsetDateTime to = from.plusDays(1);
         Map<UUID, BigDecimal> totals = totalsByTherapistInWindow(organizationId, from, to);
         List<TherapistRow> rows = toTherapistRows(organizationId, totals);
@@ -128,8 +130,8 @@ public class CommissionReportService {
     }
 
     private MatrixReport matrix(UUID organizationId, LocalDate start, LocalDate end) {
-        OffsetDateTime from = start.atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime to = end.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime from = start.atStartOfDay(MANILA).toOffsetDateTime();
+        OffsetDateTime to = end.plusDays(1).atStartOfDay(MANILA).toOffsetDateTime();
 
         List<Commission> commissions = commissionRepository
                 .findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
@@ -153,8 +155,8 @@ public class CommissionReportService {
         for (Commission c : commissions) {
             Session s = sessionsById.get(c.getSessionId());
             LocalDate day = (s != null && s.getStartedAt() != null)
-                    ? s.getStartedAt().toLocalDate()
-                    : c.getCreatedAt().toLocalDate();
+                    ? s.getStartedAt().atZoneSameInstant(MANILA).toLocalDate()
+                    : c.getCreatedAt().atZoneSameInstant(MANILA).toLocalDate();
             if (day.isBefore(start) || day.isAfter(end)) continue;
             grid.computeIfAbsent(c.getTherapistId(), k -> new HashMap<>())
                 .merge(day, c.getAmount(), BigDecimal::add);

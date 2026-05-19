@@ -5,6 +5,8 @@ import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.domain.OrderItemAttendee;
+import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.domain.Service;
@@ -45,6 +47,7 @@ public class OperationsReportService {
     private final OrderRepository orderRepository;
     private final ShiftRepository shiftRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
+    private final OrderItemAttendeeRepository attendeeRepository;
 
     public OperationsReportService(SessionRepository sessionRepository,
                                    BookingRepository bookingRepository,
@@ -54,7 +57,8 @@ public class OperationsReportService {
                                    RoomRepository roomRepository,
                                    OrderRepository orderRepository,
                                    ShiftRepository shiftRepository,
-                                   ShiftAssignmentRepository shiftAssignmentRepository) {
+                                   ShiftAssignmentRepository shiftAssignmentRepository,
+                                   OrderItemAttendeeRepository attendeeRepository) {
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
         this.slipRepository = slipRepository;
@@ -64,6 +68,7 @@ public class OperationsReportService {
         this.orderRepository = orderRepository;
         this.shiftRepository = shiftRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
+        this.attendeeRepository = attendeeRepository;
     }
 
     public record ServiceLine(Long serviceId, String serviceName, int qty, BigDecimal unitPrice, BigDecimal lineTotal) {}
@@ -73,6 +78,7 @@ public class OperationsReportService {
             String checkInTime,
             String orNumber,
             String lockerNumber,
+            String packageName,
             String treatment,
             BigDecimal amount,
             String tsn,
@@ -105,10 +111,28 @@ public class OperationsReportService {
             }).collect(Collectors.toList());
         }
 
+        Map<UUID, UUID> slipToOrderItemId = resolveSlipToOrderItem(slips);
         Map<String, ServiceAccumulator> bucket = new HashMap<>();
+        Set<UUID> countedOrderItemIds = new HashSet<>();
         for (TreatmentSlip s : slips) {
-            String key = s.getServiceName() == null ? "Unknown" : s.getServiceName();
-            bucket.computeIfAbsent(key, k -> new ServiceAccumulator()).accept(s);
+            String pkg = s.getPackageName() != null ? s.getPackageName() : "(Walk-in)";
+            String svc = s.getServiceName() == null ? "Unknown" : s.getServiceName();
+            String key = pkg + " — " + svc;
+            UUID orderItemId = slipToOrderItemId.get(s.getId());
+            ServiceAccumulator acc = bucket.computeIfAbsent(key, k -> new ServiceAccumulator());
+            if (orderItemId != null) {
+                if (countedOrderItemIds.add(orderItemId)) {
+                    acc.qty++;
+                    if (s.getTotalAmount() != null) {
+                        acc.total = acc.total.add(s.getTotalAmount());
+                    }
+                }
+            } else {
+                acc.qty++;
+                if (s.getTotalAmount() != null) {
+                    acc.total = acc.total.add(s.getTotalAmount());
+                }
+            }
         }
         List<ServiceLine> lines = new ArrayList<>();
         BigDecimal grand = BigDecimal.ZERO;
@@ -121,6 +145,27 @@ public class OperationsReportService {
         }
         lines.sort((a, b) -> b.lineTotal().compareTo(a.lineTotal()));
         return new CutoffServicesReport(from, to, lines, grand);
+    }
+
+    private Map<UUID, UUID> resolveSlipToOrderItem(List<TreatmentSlip> slips) {
+        Map<UUID, UUID> out = new HashMap<>();
+        Set<UUID> attendeeIds = new HashSet<>();
+        for (TreatmentSlip s : slips) {
+            if (s.getAttendeeId() != null) attendeeIds.add(s.getAttendeeId());
+        }
+        if (attendeeIds.isEmpty()) return out;
+        Map<UUID, UUID> attendeeToOrderItem = new HashMap<>();
+        for (OrderItemAttendee a : attendeeRepository.findAllById(attendeeIds)) {
+            attendeeToOrderItem.put(a.getId(), a.getOrderItemId());
+        }
+        for (TreatmentSlip s : slips) {
+            UUID a = s.getAttendeeId();
+            if (a != null) {
+                UUID oid = attendeeToOrderItem.get(a);
+                if (oid != null) out.put(s.getId(), oid);
+            }
+        }
+        return out;
     }
 
     public byte[] cutoffServicesCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
@@ -169,80 +214,132 @@ public class OperationsReportService {
     }
 
     private List<DailyRow> collectRows(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
-        List<Booking> bookings = bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(organizationId, from, to)
+        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to)
                 .stream()
-                .filter(b -> !"CANCELLED".equals(b.getStatus()))
+                .filter(s -> !"VOIDED".equals(s.getStatus()))
                 .collect(Collectors.toList());
-        if (bookings.isEmpty()) return Collections.emptyList();
+        if (slips.isEmpty()) return Collections.emptyList();
 
-        List<UUID> bookingIds = bookings.stream().map(Booking::getId).toList();
-
+        Map<UUID, Booking> bookingById = new HashMap<>();
+        Map<UUID, Session> sessionById = new HashMap<>();
         Map<UUID, Order> orderByBooking = orderRepository.findAllByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
-                .filter(o -> bookingIds.contains(o.getBookingId()) && !"CANCELLED".equals(o.getStatus()))
+                .filter(o -> o.getBookingId() != null)
                 .collect(Collectors.toMap(Order::getBookingId, o -> o, (a, b) -> a));
 
-        List<UUID> nonCancelledBookingIds = orderByBooking.keySet().stream().toList();
-        if (nonCancelledBookingIds.isEmpty()) return Collections.emptyList();
+        Map<UUID, UUID> slipToOrderItemId = resolveSlipToOrderItem(slips);
 
-        bookings = bookings.stream()
-                .filter(b -> nonCancelledBookingIds.contains(b.getId()))
-                .collect(Collectors.toList());
-
-        Map<UUID, Session> sessionByBooking = sessionRepository.findAll().stream()
-                .filter(s -> bookingIds.contains(s.getBookingId()))
-                .collect(Collectors.toMap(Session::getBookingId, s -> s, (a, b) -> a));
-        Map<UUID, TreatmentSlip> slipByBooking = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId,
-                from.minusDays(1), to.plusDays(1)).stream()
-                .filter(s -> bookingIds.contains(s.getBookingId()))
-                .collect(Collectors.toMap(TreatmentSlip::getBookingId, s -> s, (a, b) -> a));
-
-        Map<Long, Service> servicesById = new HashMap<>();
-        for (Booking b : bookings) {
-            servicesById.computeIfAbsent(b.getServiceId(),
-                    id -> serviceRepository.findById(id).orElse(null));
+        Map<UUID, List<TreatmentSlip>> groupedByOrderItem = new HashMap<>();
+        List<TreatmentSlip> orphanSlips = new ArrayList<>();
+        for (TreatmentSlip slip : slips) {
+            UUID oid = slipToOrderItemId.get(slip.getId());
+            if (oid != null) {
+                groupedByOrderItem.computeIfAbsent(oid, k -> new ArrayList<>()).add(slip);
+            } else {
+                orphanSlips.add(slip);
+            }
         }
 
         DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
         List<DailyRow> rows = new ArrayList<>();
-        for (Booking b : bookings) {
-            Session s = sessionByBooking.get(b.getId());
-            TreatmentSlip slip = slipByBooking.get(b.getId());
-            Order o = orderByBooking.get(b.getId());
-            Service svc = servicesById.get(b.getServiceId());
 
-            String checkIn = b.getActualStartAt() != null
-                    ? formatTime(b.getActualStartAt(), timeFmt)
-                    : formatTime(b.getScheduledAt(), timeFmt);
-            String orNumber = o != null && o.getOrNumber() != null ? o.getOrNumber()
-                    : (slip != null ? slip.getOrNumber() : "");
-            String locker = b.getLockerNumber() != null ? b.getLockerNumber() : (slip != null ? slip.getLockerNumber() : "");
-            String treatment = svc != null ? svc.getName() : (slip != null ? slip.getServiceName() : "");
-            BigDecimal amount = o != null ? o.getTotal() : (slip != null && slip.getTotalAmount() != null ? slip.getTotalAmount() : BigDecimal.ZERO);
-            String tsn = slip != null ? slip.getTsn() : "";
-            String therapist = "";
-            if (s != null && s.getPrimaryTherapistId() != null) {
-                therapist = therapistRepository.findById(s.getPrimaryTherapistId())
-                        .map(t -> t.getNickname()).orElse("");
-            } else if (slip != null) {
-                therapist = slip.getPrimaryTherapistNickname() == null ? "" : slip.getPrimaryTherapistNickname();
-            }
-            String room = "";
-            if (s != null && s.getRoomId() != null) {
-                room = roomRepository.findById(s.getRoomId()).map(r -> r.getRoomNumber()).orElse("");
-            } else if (slip != null) {
-                room = slip.getRoomNumber() == null ? "" : slip.getRoomNumber();
-            }
-            String start = formatTime(s != null ? s.getStartedAt() : null, timeFmt);
-            String end = formatTime(s != null ? s.getEndedAt() : null, timeFmt);
-            String status = b.getStatus();
-            rows.add(new DailyRow(checkIn, orNumber, locker, treatment, amount, tsn, therapist, room, start, end, status));
+        for (Map.Entry<UUID, List<TreatmentSlip>> e : groupedByOrderItem.entrySet()) {
+            List<TreatmentSlip> group = e.getValue();
+            group.sort((x, y) -> {
+                OffsetDateTime cx = x.getCreatedAt();
+                OffsetDateTime cy = y.getCreatedAt();
+                if (cx == null && cy == null) return 0;
+                if (cx == null) return 1;
+                if (cy == null) return -1;
+                return cx.compareTo(cy);
+            });
+            TreatmentSlip head = group.get(0);
+            Booking b = head.getBookingId() == null ? null
+                    : bookingById.computeIfAbsent(head.getBookingId(),
+                        id -> bookingRepository.findById(id).orElse(null));
+            if (b != null && "CANCELLED".equals(b.getStatus())) continue;
+            Order o = b == null ? null : orderByBooking.get(b.getId());
+            if (o != null && "CANCELLED".equals(o.getStatus())) continue;
+            DailyRow row = buildRow(head, group, b, o, sessionById, timeFmt, true);
+            rows.add(row);
         }
+
+        for (TreatmentSlip slip : orphanSlips) {
+            Booking b = slip.getBookingId() == null ? null
+                    : bookingById.computeIfAbsent(slip.getBookingId(),
+                        id -> bookingRepository.findById(id).orElse(null));
+            if (b != null && "CANCELLED".equals(b.getStatus())) continue;
+            Order o = b == null ? null : orderByBooking.get(b.getId());
+            if (o != null && "CANCELLED".equals(o.getStatus())) continue;
+            DailyRow row = buildRow(slip, List.of(slip), b, o, sessionById, timeFmt, false);
+            rows.add(row);
+        }
+
         rows.sort((a, b) -> {
             String ka = a.checkInTime() == null ? "" : a.checkInTime();
             String kb = b.checkInTime() == null ? "" : b.checkInTime();
             return ka.compareTo(kb);
         });
         return rows;
+    }
+
+    private DailyRow buildRow(TreatmentSlip head, List<TreatmentSlip> group, Booking b, Order o,
+                              Map<UUID, Session> sessionById, DateTimeFormatter timeFmt, boolean grouped) {
+        Session s = head.getSessionId() == null ? null
+                : sessionById.computeIfAbsent(head.getSessionId(),
+                    id -> sessionRepository.findById(id).orElse(null));
+
+        String checkIn;
+        if (s != null && s.getStartedAt() != null) {
+            checkIn = formatTime(s.getStartedAt(), timeFmt);
+        } else if (b != null && b.getActualStartAt() != null) {
+            checkIn = formatTime(b.getActualStartAt(), timeFmt);
+        } else if (b != null) {
+            checkIn = formatTime(b.getScheduledAt(), timeFmt);
+        } else {
+            checkIn = formatTime(head.getCreatedAt(), timeFmt);
+        }
+        String orNumber = head.getOrNumber() != null ? head.getOrNumber()
+                : (o != null && o.getOrNumber() != null ? o.getOrNumber() : "");
+
+        String locker;
+        if (grouped && group.size() > 1) {
+            locker = group.stream()
+                    .map(TreatmentSlip::getLockerNumber)
+                    .filter(l -> l != null && !l.isBlank())
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+            if (locker.isBlank() && b != null && b.getLockerNumber() != null) {
+                locker = b.getLockerNumber();
+            }
+        } else {
+            locker = head.getLockerNumber() != null ? head.getLockerNumber()
+                    : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
+        }
+
+        String packageName = head.getPackageName();
+        String treatment = head.getServiceName() == null ? "" : head.getServiceName();
+
+        BigDecimal amount = head.getTotalAmount() != null ? head.getTotalAmount() : BigDecimal.ZERO;
+
+        String tsn = head.getTsn() == null ? "" : head.getTsn();
+
+        String therapist = "";
+        if (s != null && s.getPrimaryTherapistId() != null) {
+            therapist = therapistRepository.findById(s.getPrimaryTherapistId())
+                    .map(t -> t.getNickname()).orElse("");
+        } else if (head.getPrimaryTherapistNickname() != null) {
+            therapist = head.getPrimaryTherapistNickname();
+        }
+        String room = "";
+        if (s != null && s.getRoomId() != null) {
+            room = roomRepository.findById(s.getRoomId()).map(r -> r.getRoomNumber()).orElse("");
+        } else if (head.getRoomNumber() != null) {
+            room = head.getRoomNumber();
+        }
+        String start = formatTime(s != null ? s.getStartedAt() : head.getStartTime(), timeFmt);
+        String end = formatTime(s != null ? s.getEndedAt() : head.getEndTime(), timeFmt);
+        String status = s != null ? s.getStatus() : head.getStatus();
+        return new DailyRow(checkIn, orNumber, locker, packageName, treatment, amount, tsn, therapist, room, start, end, status);
     }
 
     private UUID resolveTherapistId(String nickname, UUID sessionId) {
@@ -261,11 +358,12 @@ public class OperationsReportService {
 
     private byte[] rowsToCsv(List<DailyRow> rows, BigDecimal grandTotal) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Check-in Time,OR#,Locker#,Treatment,Amount,TS#,Therapist,Room,Massage Start,Massage End,Status\n");
+        sb.append("Check-in Time,OR#,Locker#,Package,Treatment,Amount,TS#,Therapist,Room,Massage Start,Massage End,Status\n");
         for (DailyRow r : rows) {
             sb.append(csvCell(r.checkInTime())).append(',')
               .append(csvCell(r.orNumber())).append(',')
               .append(csvCell(r.lockerNumber())).append(',')
+              .append(csvCell(r.packageName())).append(',')
               .append(csvCell(r.treatment())).append(',')
               .append(r.amount() != null ? r.amount().toPlainString() : "0").append(',')
               .append(csvCell(r.tsn())).append(',')
@@ -275,8 +373,8 @@ public class OperationsReportService {
               .append(csvCell(r.massageEnd())).append(',')
               .append(csvCell(r.status())).append('\n');
         }
-        sb.append("\n,,,,").append(grandTotal != null ? grandTotal.toPlainString() : "0")
-          .append(",,GRAND TOTAL,,,,\n");
+        sb.append("\n,,,,,").append(grandTotal != null ? grandTotal.toPlainString() : "0")
+          .append(",,GRAND TOTAL,,,\n");
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 

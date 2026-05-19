@@ -131,6 +131,17 @@ public class DeckingController {
     public void addToLineup(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                             @PathVariable UUID therapistId,
                             @RequestParam(required = false) Long shiftId) {
-        deckingService.appendToBack(UUID.fromString(principal.organizationId()), therapistId, shiftId);
+        UUID orgId = UUID.fromString(principal.organizationId());
+        deckingService.appendToBack(orgId, therapistId, shiftId);
+        if (shiftId != null) {
+            if (!shiftAssignmentRepository.existsByShiftIdAndTherapistId(shiftId, therapistId)) {
+                com.sumicare.shift.domain.ShiftAssignment sa = new com.sumicare.shift.domain.ShiftAssignment();
+                sa.setShiftId(shiftId);
+                sa.setTherapistId(therapistId);
+                shiftAssignmentRepository.save(sa);
+            }
+        } else {
+            deckingService.setFlag(orgId, therapistId, DeckingFlag.MANUAL);
+        }
     }
 }

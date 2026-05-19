@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0013-packages-seed" author="sumicare">
+        <sql>
+            INSERT INTO packages (organization_id, code, name, description, max_stay_hours, default_pax, is_couple, includes_massage, bundles_private_room)
+            SELECT id, 'PKG_LASEMA', 'Lasema Package (12hr)', 'Full use of jacuzzi, sauna, kilns, full body massage, 12 hr max stay', 12, 1, false, true, false FROM organizations WHERE slug='lasema';
+
+            INSERT INTO packages (organization_id, code, name, description, max_stay_hours, default_pax, is_couple, includes_massage, bundles_private_room)
+            SELECT id, 'PKG_LASEMA_COUPLE', 'Lasema Couple Package', 'Private couple room, 60-min massage + jacuzzi each, wine, kilns, 12 hr stay', 12, 2, true, true, true FROM organizations WHERE slug='lasema';
+
+            INSERT INTO packages (organization_id, code, name, description, max_stay_hours, default_pax, is_couple, includes_massage, bundles_private_room)
+            SELECT id, 'PKG_MASSAGE_COUPLE', 'Massage Couple Package', 'Private couple room, 60-min massage + 60-min jacuzzi, wine, 3 hr stay', 3, 2, true, true, true FROM organizations WHERE slug='lasema';
+
+            INSERT INTO packages (organization_id, code, name, description, max_stay_hours, default_pax, is_couple, includes_massage, bundles_private_room)
+            SELECT id, 'PKG_SAUNA', 'Sauna Package', 'Jacuzzi + sauna + shower, 3 hr max stay (no massage)', 3, 1, false, false, false FROM organizations WHERE slug='lasema';
+
+            INSERT INTO packages (organization_id, code, name, description, max_stay_hours, default_pax, is_couple, includes_massage, bundles_private_room)
+            SELECT id, 'PKG_MASSAGE', 'Massage Package (3hr)', 'Jacuzzi + sauna + 60-min full body massage, 3 hr max stay', 3, 1, false, true, false FROM organizations WHERE slug='lasema';
+
+            INSERT INTO packages (organization_id, code, name, description, max_stay_hours, default_pax, is_couple, includes_massage, bundles_private_room)
+            SELECT id, 'PKG_JJIMJILBANG', 'Jjimjilbang Package', 'All kilns, sleeping cave, gym, entertainment, 12 hr max stay (no massage)', 12, 1, false, false, false FROM organizations WHERE slug='lasema';
+        </sql>
+    </changeSet>
+
+    <changeSet id="0013-package-tiers-seed" author="sumicare">
+        <sql>
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2000, 2200 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='FOOT_REFLEX' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2000, 2200 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SHIATSU' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2000, 2200 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SWEDISH' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2000, 2200 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='DEEP_TISSUE' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2000, 2200 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='LOMI_LOMI' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2000, 2200 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='LYMPHATIC' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2000, 2200 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='COMBINATION' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2100, 2300 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SALT_GLOW_SCRUB' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2250, 2500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='DAEMIDI' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2250, 2500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='THAI' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2300, 2550 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='MILK_BATH_SCRUB' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2450, 2750 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='AROMA_REFLEX' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2750, 3050 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='VENTOSA' WHERE p.code='PKG_LASEMA';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 3000, 3300 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='TANDEM' WHERE p.code='PKG_LASEMA';
+
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1600, 1750 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='FOOT_REFLEX' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1600, 1750 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SHIATSU' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1600, 1750 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SWEDISH' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1600, 1750 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='DEEP_TISSUE' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1600, 1750 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='LOMI_LOMI' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1600, 1750 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='LYMPHATIC' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1600, 1750 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='COMBINATION' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1700, 1850 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SALT_GLOW_SCRUB' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1850, 2050 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='DAEMIDI' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1850, 2050 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='THAI' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 1900, 2100 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='MILK_BATH_SCRUB' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2050, 2300 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='AROMA_REFLEX' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2350, 2600 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='VENTOSA' WHERE p.code='PKG_MASSAGE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 2600, 2850 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='TANDEM' WHERE p.code='PKG_MASSAGE';
+
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 7500, 7500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='FOOT_REFLEX' WHERE p.code='PKG_LASEMA_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 7500, 7500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SHIATSU' WHERE p.code='PKG_LASEMA_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 7500, 7500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SWEDISH' WHERE p.code='PKG_LASEMA_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 7500, 7500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='DEEP_TISSUE' WHERE p.code='PKG_LASEMA_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 7500, 7500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='LOMI_LOMI' WHERE p.code='PKG_LASEMA_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 7500, 7500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='LYMPHATIC' WHERE p.code='PKG_LASEMA_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 7500, 7500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='COMBINATION' WHERE p.code='PKG_LASEMA_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 7500, 7500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='AROMA_REFLEX' WHERE p.code='PKG_LASEMA_COUPLE';
+
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 5500, 5500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='FOOT_REFLEX' WHERE p.code='PKG_MASSAGE_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 5500, 5500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SHIATSU' WHERE p.code='PKG_MASSAGE_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 5500, 5500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='SWEDISH' WHERE p.code='PKG_MASSAGE_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 5500, 5500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='DEEP_TISSUE' WHERE p.code='PKG_MASSAGE_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 5500, 5500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='LOMI_LOMI' WHERE p.code='PKG_MASSAGE_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 5500, 5500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='LYMPHATIC' WHERE p.code='PKG_MASSAGE_COUPLE';
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 5500, 5500 FROM packages p JOIN services_catalogue s ON s.organization_id=p.organization_id AND s.code='COMBINATION' WHERE p.code='PKG_MASSAGE_COUPLE';
+
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, NULL, 700, 700 FROM packages p WHERE p.code='PKG_SAUNA' AND p.organization_id=(SELECT id FROM organizations WHERE slug='lasema');
+
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, NULL, 1300, 1500 FROM packages p WHERE p.code='PKG_JJIMJILBANG' AND p.organization_id=(SELECT id FROM organizations WHERE slug='lasema');
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

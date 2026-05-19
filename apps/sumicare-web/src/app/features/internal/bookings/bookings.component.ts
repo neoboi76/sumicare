@@ -4,6 +4,9 @@ import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
+import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
+import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
+import { SortState, sortRows } from '../../../shared/utils/compare-by';
 
 interface BookingResponse {
   id: string;
@@ -12,7 +15,6 @@ interface BookingResponse {
   serviceId: number;
   reservationType: string;
   scheduledAt: string;
-  effectiveStartAt: string;
   projectedEndAt: string;
   status: string;
   clientGender?: string | null;
@@ -77,10 +79,39 @@ interface OrderStatus {
   status: string;
 }
 
+interface OrderAttendee {
+  id: string;
+  serviceId: number | null;
+  serviceName: string | null;
+  lockerNumber: string | null;
+  clientGender: string | null;
+  sessionId: string | null;
+  sessionStatus: string | null;
+  treatmentSlipId: string | null;
+}
+
+interface OrderItemLite {
+  id: string;
+  packageId: number | null;
+  packageName: string;
+  unitPrice: number;
+  attendees: OrderAttendee[];
+}
+
+interface OrderLite {
+  id: string;
+  bookingId: string | null;
+  status: string;
+  roomType: string | null;
+  groupBooking: boolean;
+  couplePackage: boolean;
+  items: OrderItemLite[];
+}
+
 @Component({
   selector: 'sumi-bookings',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, SortableColumnDirective, SortIconComponent],
   templateUrl: './bookings.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -96,29 +127,71 @@ export class BookingsComponent implements OnInit, OnDestroy {
   lineup = signal<LineupTherapist[]>([]);
   rooms = signal<RoomItem[]>([]);
   orderStatuses = signal<Map<string, string>>(new Map());
+  ordersByBooking = signal<Map<string, OrderLite>>(new Map());
+  expandedBookingId = signal<string | null>(null);
 
   startBooking = signal<BookingResponse | null>(null);
+  startAttendeeId = signal<string | null>(null);
+  startAttendeeServiceId = signal<number | null>(null);
+  startAttendeeGender = signal<string | null>(null);
+  startAttendeeLabel = signal<string>('');
   startPrimaryTherapistId = signal<string | null>(null);
   startSecondaryTherapistId = signal<string | null>(null);
   startRoomId = signal<string | null>(null);
   startBedId = signal<string | null>(null);
   startSpecificallyRequested = signal(false);
+  startOrderRoomType = signal<string | null>(null);
 
   editBooking = signal<BookingResponse | null>(null);
   editServiceId = signal<number>(0);
   editLockerNumber = '';
   editClientNickname = '';
   editError = signal<string | null>(null);
+  extendError = signal<string | null>(null);
 
-  adjustBooking = signal<BookingResponse | null>(null);
-  adjustNewStart = '';
-  adjustNewEnd = '';
+  sortState = signal<SortState>({ key: 'scheduledAt', direction: 'asc' });
 
-  availableTherapists = computed(() => {
-    return this.lineup().filter(t => !t.onCall);
+  sortedBookings = computed(() => {
+    const rows = this.bookings();
+    const state = this.sortState();
+    return sortRows(rows, state, (b) => {
+      switch (state.key) {
+        case 'scheduledAt': return b.scheduledAt;
+        case 'clientNickname': return b.clientNickname;
+        case 'lockerNumber': return b.lockerNumber ?? '';
+        case 'serviceName': return this.serviceName(b.serviceId);
+        case 'reservationType': return b.reservationType;
+        case 'status': return b.status;
+        case 'paymentStatus': return this.getOrderStatus(b.id);
+        default: return '';
+      }
+    });
   });
 
+  availableTherapists = computed(() => {
+    return this.lineup().filter(t => !t.onCall && !t.skipped);
+  });
+
+  onBreakTherapists = computed(() => this.lineup().filter(t => t.skipped));
+
+  vipPackageIds = signal<Set<number>>(new Set());
+
+  isVipBooking(b: BookingResponse): boolean {
+    const order = this.ordersByBooking().get(b.id);
+    if (!order || !order.items) return false;
+    const vip = this.vipPackageIds();
+    return order.items.some(it => it.packageId != null && vip.has(it.packageId));
+  }
+
+  isVipAttendee(_a: OrderAttendee, b: BookingResponse): boolean {
+    return this.isVipBooking(b);
+  }
+
   selectedStartService = computed(() => {
+    const attendeeServiceId = this.startAttendeeServiceId();
+    if (attendeeServiceId != null) {
+      return this.services().find(s => s.id === attendeeServiceId) ?? null;
+    }
     const id = this.startBooking()?.serviceId;
     if (!id) return null;
     return this.services().find(s => s.id === id) ?? null;
@@ -144,6 +217,26 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startBedId() !== null
   );
 
+  isCouplePackage = computed(() => {
+    const booking = this.startBooking();
+    if (!booking) return false;
+    const ord = this.ordersByBooking().get(booking.id);
+    return ord?.couplePackage ?? false;
+  });
+
+  filteredStartRooms = computed(() => {
+    const rt = this.startOrderRoomType();
+    const all = this.rooms();
+    if (!rt) return all;
+    const want = rt.toUpperCase();
+    return all.filter(r => {
+      const t = (r.roomType || '').toUpperCase();
+      if (want === 'VIP') return t.includes('VIP');
+      if (want === 'PRIVATE') return t.includes('PRIVATE');
+      return !t.includes('VIP') && !t.includes('PRIVATE');
+    });
+  });
+
   ngOnInit(): void {
     this.reload();
     this.loadReference();
@@ -163,9 +256,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   reload(): void {
     const d = this.selectedDate();
-    const start = `${d}T00:00:00.000+08:00`;
-    const end = `${d}T23:59:59.999+08:00`;
-    const params = `?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
+    const params = `?from=${encodeURIComponent(d)}&to=${encodeURIComponent(d)}`;
     this.http.get<BookingResponse[]>(`${environment.apiBaseUrl}/api/bookings${params}`).subscribe({
       next: (b) => {
         this.bookings.set(b);
@@ -177,17 +268,52 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   private loadOrderStatuses(bookings: BookingResponse[]): void {
     if (bookings.length === 0) return;
-    this.http.get<any[]>(`${environment.apiBaseUrl}/api/cashier/orders`).subscribe({
-      next: (orders) => {
-        const map = new Map<string, string>();
-        for (const order of orders) {
-          if (order.bookingId) {
-            map.set(order.bookingId, order.status);
-          }
-        }
-        this.orderStatuses.set(map);
+    this.orderStatuses.set(new Map());
+    this.ordersByBooking.set(new Map());
+    for (const b of bookings) {
+      if (b.orderId) {
+        this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/${b.orderId}`).subscribe({
+          next: (order) => {
+            const currentStatuses = new Map(this.orderStatuses());
+            const currentOrders = new Map(this.ordersByBooking());
+            currentStatuses.set(b.id, order.status);
+            currentOrders.set(b.id, order);
+            this.orderStatuses.set(currentStatuses);
+            this.ordersByBooking.set(currentOrders);
+          },
+          error: () => { }
+        });
       }
-    });
+    }
+  }
+
+  orderForBooking(bookingId: string): OrderLite | null {
+    return this.ordersByBooking().get(bookingId) ?? null;
+  }
+
+  attendeeCount(bookingId: string): number {
+    const order = this.ordersByBooking().get(bookingId);
+    if (!order || !order.items) return 0;
+    return order.items.reduce((sum, it) => sum + (it.attendees ? it.attendees.length : 0), 0);
+  }
+
+  toggleExpand(bookingId: string): void {
+    const current = this.expandedBookingId();
+    if (current === bookingId) {
+      this.expandedBookingId.set(null);
+    } else {
+      this.expandedBookingId.set(bookingId);
+      const booking = this.bookings().find(b => b.id === bookingId);
+      if (booking?.orderId && !this.ordersByBooking().get(bookingId)) {
+        this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/${booking.orderId}`).subscribe({
+          next: (order) => {
+            const currentOrders = new Map(this.ordersByBooking());
+            currentOrders.set(bookingId, order);
+            this.ordersByBooking.set(currentOrders);
+          }
+        });
+      }
+    }
   }
 
   getOrderStatus(bookingId: string): string {
@@ -209,6 +335,14 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.http.get<RoomItem[]>(`${environment.apiBaseUrl}/api/rooms`).subscribe({
       next: (r) => this.rooms.set(r)
     });
+    this.http.get<Array<{ id: number; requiresVipRoom: boolean }>>(`${environment.apiBaseUrl}/api/cashier/packages/all`).subscribe({
+      next: (pkgs) => {
+        const vipIds = new Set<number>();
+        for (const p of pkgs) if (p.requiresVipRoom) vipIds.add(p.id);
+        this.vipPackageIds.set(vipIds);
+      },
+      error: () => this.vipPackageIds.set(new Set())
+    });
   }
 
   private refreshLineup(): void {
@@ -226,21 +360,43 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.services().find(s => s.id === id)?.name ?? '-';
   }
 
+  activeStartGender(): string | null {
+    return this.startAttendeeGender() ?? this.startBooking()?.clientGender ?? null;
+  }
+
   isBedSelectableForGender(bed: BedItem, clientGender: string | null | undefined): boolean {
     if (bed.occupancy['status'] === 'OCCUPIED') {
-      const lock = bed.occupancy['genderLock'];
-      if (lock && clientGender && lock !== clientGender) {
-        return false; // Opposing gender occupying room
-      }
-      return false; // Occupied
+      return false;
     }
     return true;
+  }
+
+  isRoomSelectableForGender(room: RoomItem, clientGender: string | null | undefined): boolean {
+    if ((room.roomType || '').toUpperCase() !== 'COMMON') return true;
+    if (!clientGender) return true;
+    if (this.isCouplePackage()) return true;
+    return !room.beds.some(b =>
+      b.occupancy['status'] === 'OCCUPIED' &&
+      b.occupancy['genderLock'] &&
+      b.occupancy['genderLock'] !== clientGender
+    );
+  }
+
+  roomCardClass(room: RoomItem): string {
+    const base = 'border rounded p-2 ';
+    if (!this.isRoomSelectableForGender(room, this.activeStartGender())) {
+      return base + 'opacity-50 bg-slate-100';
+    }
+    return base;
   }
 
   bedClass(room: RoomItem, bed: BedItem): string {
     const base = 'rounded border text-xs px-2 py-1 ';
     if (this.startBedId() === bed.id) return base + 'bg-[var(--sumi-primary)] text-white border-transparent';
-    const clientGender = this.startBooking()?.clientGender;
+    const clientGender = this.activeStartGender();
+    if (!this.isRoomSelectableForGender(room, clientGender)) {
+      return base + 'bg-slate-200 text-slate-400 cursor-not-allowed';
+    }
     if (!this.isBedSelectableForGender(bed, clientGender)) {
       const lock = bed.occupancy['genderLock'];
       if (lock === 'M') return base + 'bg-blue-100 text-blue-500 cursor-not-allowed';
@@ -251,24 +407,63 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   pickBed(room: RoomItem, bed: BedItem): void {
-    const clientGender = this.startBooking()?.clientGender;
+    const clientGender = this.activeStartGender();
+    if (!this.isRoomSelectableForGender(room, clientGender)) return;
     if (!this.isBedSelectableForGender(bed, clientGender)) return;
     this.startRoomId.set(room.id);
     this.startBedId.set(bed.id);
   }
 
-  openStart(b: BookingResponse): void {
+  private resetStartForm(b: BookingResponse): void {
     this.startBooking.set(b);
     this.startPrimaryTherapistId.set(null);
     this.startSecondaryTherapistId.set(null);
     this.startRoomId.set(null);
     this.startBedId.set(null);
     this.startSpecificallyRequested.set(false);
+    const order = this.ordersByBooking().get(b.id);
+    this.startOrderRoomType.set(order ? (order.roomType ?? null) : null);
+    this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/by-booking/${b.id}`).subscribe({
+      next: (o) => this.startOrderRoomType.set(o.roomType ?? null),
+      error: () => { /* no order yet — show all rooms */ }
+    });
     this.refreshLineup();
+  }
+
+  openStart(b: BookingResponse): void {
+    this.resetStartForm(b);
+    const order = this.ordersByBooking().get(b.id);
+    const attendees = order?.items?.flatMap(it => it.attendees) ?? [];
+    if (attendees.length === 1) {
+      const a = attendees[0];
+      this.startAttendeeId.set(a.id);
+      this.startAttendeeServiceId.set(a.serviceId ?? null);
+      this.startAttendeeGender.set(a.clientGender ?? b.clientGender ?? null);
+      this.startAttendeeLabel.set(a.serviceName || b.clientNickname);
+    } else {
+      this.startAttendeeId.set(null);
+      this.startAttendeeServiceId.set(null);
+      this.startAttendeeGender.set(b.clientGender ?? null);
+      this.startAttendeeLabel.set('');
+    }
+  }
+
+  openStartForAttendee(b: BookingResponse, attendee: OrderAttendee): void {
+    this.resetStartForm(b);
+    this.startAttendeeId.set(attendee.id);
+    this.startAttendeeServiceId.set(attendee.serviceId ?? null);
+    this.startAttendeeGender.set(attendee.clientGender ?? b.clientGender ?? null);
+    const svc = attendee.serviceId ? this.services().find(s => s.id === attendee.serviceId) : null;
+    const tandemSuffix = svc?.requiresTwoTherapists ? ' · TANDEM' : '';
+    this.startAttendeeLabel.set((attendee.serviceName || ('Guest · locker ' + (attendee.lockerNumber || '—'))) + tandemSuffix);
   }
 
   cancelStart(): void {
     this.startBooking.set(null);
+    this.startAttendeeId.set(null);
+    this.startAttendeeServiceId.set(null);
+    this.startAttendeeGender.set(null);
+    this.startAttendeeLabel.set('');
   }
 
   async submitStart(): Promise<void> {
@@ -289,14 +484,32 @@ export class BookingsComponent implements OnInit, OnDestroy {
       bedId: this.startBedId(),
       specificallyRequested: this.startSpecificallyRequested()
     };
-    this.http.post<SessionResponse>(`${environment.apiBaseUrl}/api/bookings/${booking.id}/sessions`, payload).subscribe({
+    const attendeeId = this.startAttendeeId();
+    const url = attendeeId
+      ? `${environment.apiBaseUrl}/api/bookings/attendees/${attendeeId}/sessions`
+      : `${environment.apiBaseUrl}/api/bookings/${booking.id}/sessions`;
+    this.http.post<SessionResponse>(url, payload).subscribe({
       next: () => {
-        this.startBooking.set(null);
+        this.cancelStart();
         this.reload();
       },
       error: (err) => {
         alert(err?.error?.message || 'Could not start session.');
       }
+    });
+  }
+
+  async endAttendeeSession(attendee: OrderAttendee): Promise<void> {
+    if (!attendee.sessionId) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'End Sub-session',
+      message: 'Are you sure you want to end this sub-session?',
+      confirmText: 'End Session',
+      danger: true
+    });
+    if (!confirmed) return;
+    this.http.post(`${environment.apiBaseUrl}/api/sessions/${attendee.sessionId}/end`, {}).subscribe({
+      next: () => this.reload()
     });
   }
 
@@ -317,55 +530,37 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  async extendSession(b: BookingResponse): Promise<void> {
+  async extendAttendeeSession(attendee: OrderAttendee): Promise<void> {
+    if (!attendee.sessionId) return;
     const confirmed = await this.confirmService.confirm({
-      title: 'Extend Session',
-      message: 'Do you want to extend this session by 30 minutes?',
+      title: 'Extend Sub-session',
+      message: 'Do you want to extend this sub-session by 1 hour?',
       confirmText: 'Extend'
     });
     if (!confirmed) return;
-    
-    this.lookupSession(b.id).subscribe(session => {
-      if (!session) return;
-      this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/extend?minutes=30`, {}).subscribe({
-        next: () => this.reload()
-      });
+    this.http.post(`${environment.apiBaseUrl}/api/sessions/${attendee.sessionId}/extend?minutes=60`, {}).subscribe({
+      next: () => this.reload(),
+      error: (err) => this.extendError.set(err?.error?.message || 'Could not extend the session.')
     });
   }
 
-  openAdjust(b: BookingResponse): void {
-    this.adjustBooking.set(b);
-    this.adjustNewStart = '';
-    this.adjustNewEnd = '';
-  }
-
-  cancelAdjust(): void {
-    this.adjustBooking.set(null);
-  }
-
-  async submitAdjust(): Promise<void> {
-    const b = this.adjustBooking();
-    if (!b) return;
+  async extendSession(b: BookingResponse): Promise<void> {
     const confirmed = await this.confirmService.confirm({
-      title: 'Adjust Session Times',
-      message: 'Are you sure you want to adjust the session times?',
-      confirmText: 'Apply'
+      title: 'Extend Session',
+      message: 'Do you want to extend this session by 1 hour?',
+      confirmText: 'Extend'
     });
     if (!confirmed) return;
+
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
-      const params: string[] = [];
-      if (this.adjustNewStart) params.push(`startAt=${encodeURIComponent(new Date(this.adjustNewStart).toISOString())}`);
-      if (this.adjustNewEnd) params.push(`endAt=${encodeURIComponent(new Date(this.adjustNewEnd).toISOString())}`);
-      const qs = params.length ? `?${params.join('&')}` : '';
-      this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/adjust-times${qs}`, {}).subscribe({
-        next: () => {
-          this.adjustBooking.set(null);
-          this.reload();
-        }
+      this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/extend?minutes=60`, {}).subscribe({
+        next: () => this.reload(),
+        error: (err) => this.extendError.set(err?.error?.message || 'Could not extend the session.')
       });
     });
   }
+
 
   async generateSlip(b: BookingResponse): Promise<void> {
     const confirmed = await this.confirmService.confirm({
@@ -379,6 +574,18 @@ export class BookingsComponent implements OnInit, OnDestroy {
       this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${session.id}`, {}).subscribe({
         next: (slip) => this.router.navigate(['/app/treatment-slips', slip.id])
       });
+    });
+  }
+
+  async generateSlipForSession(sessionId: string): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Generate Treatment Slip',
+      message: 'Generate a treatment slip for this sub-session?',
+      confirmText: 'Generate'
+    });
+    if (!confirmed) return;
+    this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${sessionId}`, {}).subscribe({
+      next: (slip) => this.router.navigate(['/app/treatment-slips', slip.id])
     });
   }
 

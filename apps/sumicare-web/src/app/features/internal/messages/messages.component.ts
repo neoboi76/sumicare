@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { environment } from '../../../../environments/environment';
 
 interface ContactMessage {
@@ -15,7 +16,7 @@ interface ContactMessage {
 @Component({
   selector: 'sumi-messages',
   standalone: true,
-  imports: [],
+  imports: [FormsModule],
   templateUrl: './messages.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -26,6 +27,9 @@ export class MessagesComponent implements OnInit {
   filter = signal<'all' | 'unread'>('unread');
   selected = signal<ContactMessage | null>(null);
   loading = signal(false);
+  exportFrom = '';
+  exportTo = '';
+  exporting = signal(false);
 
   ngOnInit(): void { this.load(); }
 
@@ -61,4 +65,25 @@ export class MessagesComponent implements OnInit {
   }
 
   formatDate(iso: string): string { return new Date(iso).toLocaleString(); }
+
+  exportCsv(): void {
+    this.exporting.set(true);
+    let url = `${environment.apiBaseUrl}/api/contact-messages/export.csv`;
+    const params: string[] = [];
+    if (this.exportFrom) params.push(`from=${this.exportFrom}`);
+    if (this.exportTo) params.push(`to=${this.exportTo}`);
+    if (params.length) url += '?' + params.join('&');
+
+    this.http.get(url, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'contact-messages.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        this.exporting.set(false);
+      },
+      error: () => this.exporting.set(false)
+    });
+  }
 }

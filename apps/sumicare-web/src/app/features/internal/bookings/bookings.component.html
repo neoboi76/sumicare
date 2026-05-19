@@ -18,23 +18,45 @@
     <table class="w-full text-sm">
       <thead class="bg-slate-100">
         <tr>
-          <th class="text-left p-3">Scheduled</th>
-          <th class="text-left p-3">Effective start</th>
-          <th class="text-left p-3">Client</th>
-          <th class="text-left p-3">Locker</th>
-          <th class="text-left p-3">Service</th>
-          <th class="text-left p-3">Type</th>
-          <th class="text-left p-3">Status</th>
-          <th class="text-left p-3">Payment</th>
+          <th class="text-left p-3" [sumiSortable]="'scheduledAt'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Scheduled <sumi-sort-icon [active]="sortState().key === 'scheduledAt'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'clientNickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Client <sumi-sort-icon [active]="sortState().key === 'clientNickname'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'lockerNumber'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Locker <sumi-sort-icon [active]="sortState().key === 'lockerNumber'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'serviceName'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Service <sumi-sort-icon [active]="sortState().key === 'serviceName'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'reservationType'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Type <sumi-sort-icon [active]="sortState().key === 'reservationType'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'status'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Status <sumi-sort-icon [active]="sortState().key === 'status'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'paymentStatus'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Payment <sumi-sort-icon [active]="sortState().key === 'paymentStatus'" [direction]="sortState().direction"/>
+          </th>
           <th class="text-right p-3">Actions</th>
         </tr>
       </thead>
       <tbody>
-        @for (b of bookings(); track b.id) {
+        @if (extendError(); as ee) {
+          <tr><td colspan="8" class="p-3 text-sm text-red-700 bg-red-50">{{ ee }}</td></tr>
+        }
+        @for (b of sortedBookings(); track b.id) {
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono text-xs">{{ formatTime(b.scheduledAt) }}</td>
-          <td class="p-3 font-mono text-xs">{{ formatTime(b.effectiveStartAt) }}</td>
-          <td class="p-3 font-medium">{{ b.clientNickname }}</td>
+          <td class="p-3 font-medium">
+            {{ b.clientNickname }}
+            @if (attendeeCount(b.id) > 1) {
+            <button (click)="toggleExpand(b.id)" class="ml-1 text-xs text-[var(--sumi-primary)] hover:underline">
+              {{ expandedBookingId() === b.id ? '▾' : '▸' }} {{ attendeeCount(b.id) }} pax
+            </button>
+            }
+          </td>
           <td class="p-3">{{ b.lockerNumber || '-' }}</td>
           <td class="p-3">{{ serviceName(b.serviceId) }}</td>
           <td class="p-3">
@@ -79,28 +101,95 @@
             }
           </td>
           <td class="p-3 text-right space-x-2">
-            @if (b.status !== 'CANCELLED' && b.status !== 'COMPLETED') {
-            <button (click)="openEdit(b)" class="text-slate-600 hover:underline text-xs">Edit</button>
-            }
             @if (b.status === 'PENDING') {
             @if (isOrderPaid(b.id)) {
-            <button (click)="openStart(b)" class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+              @if (attendeeCount(b.id) > 1) {
+              <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
+              } @else {
+              <button (click)="openStart(b)" class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+              }
             } @else {
             <span class="text-xs text-slate-400" title="Order must be paid before starting a session">Awaiting
               payment</span>
             }
             }
             @if (b.status === 'ACTIVE') {
-            <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
-            <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+30min</button>
-            <button (click)="openAdjust(b)" class="text-slate-700 hover:underline">Adjust</button>
-            <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
+              @if (attendeeCount(b.id) > 1) {
+              <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
+              } @else {
+              <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
+              @if (!isVipBooking(b)) {
+                <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+1 hr</button>
+              }
+              <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
+              }
             }
           </td>
         </tr>
+        @if (expandedBookingId() === b.id && attendeeCount(b.id) > 1 && orderForBooking(b.id); as ord) {
+        <tr class="border-t bg-slate-50">
+          <td colspan="8" class="p-3">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+              Sub-sessions ({{ ord.roomType }} room)
+            </div>
+            <table class="w-full text-xs">
+              <thead class="text-slate-500">
+                <tr>
+                  <th class="text-left py-1">Package</th>
+                  <th class="text-left py-1">Massage</th>
+                  <th class="text-left py-1">Locker</th>
+                  <th class="text-left py-1">Sex</th>
+                  <th class="text-left py-1">Status</th>
+                  <th class="text-left py-1">Slip</th>
+                  <th class="text-right py-1">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (it of ord.items; track it.id) {
+                  @for (a of it.attendees; track a.id) {
+                  <tr class="border-t border-slate-200">
+                    <td class="py-1">{{ it.packageName }}</td>
+                    <td class="py-1">{{ a.serviceName || '—' }}</td>
+                    <td class="py-1">{{ a.lockerNumber || '—' }}</td>
+                    <td class="py-1">{{ a.clientGender || '—' }}</td>
+                    <td class="py-1">
+                      @if (a.sessionStatus === 'ACTIVE') { active }
+                      @else if (a.sessionStatus === 'COMPLETED') { done }
+                      @else if (a.sessionStatus === 'CANCELLED') { cancelled }
+                      @else { pending }
+                    </td>
+                    <td class="py-1">
+                      @if (a.treatmentSlipId) {
+                      <a [routerLink]="['/app/treatment-slips', a.treatmentSlipId]"
+                        class="text-[var(--sumi-primary)] hover:underline">View slip</a>
+                      } @else { — }
+                    </td>
+                    <td class="py-1 text-right space-x-2">
+                      @if (a.sessionStatus === 'ACTIVE') {
+                      <button (click)="endAttendeeSession(a)"
+                        class="text-emerald-700 hover:underline">End</button>
+                      @if (!isVipAttendee(a, b)) {
+                        <button (click)="extendAttendeeSession(a)"
+                          class="text-amber-700 hover:underline">+1 hr</button>
+                      }
+                      <button (click)="generateSlipForSession(a.sessionId!)"
+                        class="text-blue-700 hover:underline">Slip</button>
+                      } @else if (a.sessionStatus !== 'COMPLETED' && a.sessionStatus !== 'CANCELLED') {
+                      <button (click)="openStartForAttendee(b, a)"
+                        class="text-[var(--sumi-primary)] hover:underline font-medium">Start session</button>
+                      }
+                    </td>
+                  </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        }
         } @empty {
         <tr>
-          <td colspan="9" class="p-6 text-center text-slate-500">No bookings for this date.</td>
+          <td colspan="8" class="p-6 text-center text-slate-500">No bookings for this date.</td>
         </tr>
         }
       </tbody>
@@ -112,7 +201,13 @@
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
       <h2 class="text-xl font-semibold">Start session for {{ sb.clientNickname }}</h2>
+      @if (startAttendeeLabel()) {
+      <p class="text-sm text-slate-600">Guest: <span class="font-medium">{{ startAttendeeLabel() }}</span>
+        @if (activeStartGender()) { · {{ activeStartGender() === 'M' ? 'Male' : 'Female' }} }
+      </p>
+      } @else {
       <p class="text-sm text-slate-500">Service: {{ serviceName(sb.serviceId) }}</p>
+      }
 
       <label class="flex items-center gap-2">
         <input type="checkbox" [(ngModel)]="startSpecificallyRequested" name="specificallyRequested" />
@@ -148,20 +243,31 @@
 
       <div>
         <span class="text-sm text-slate-700">Room and bed</span>
+        @if (startOrderRoomType()) {
+        <div class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+          Filtering rooms: <span class="font-semibold">{{ startOrderRoomType() }}</span> (per the order)
+        </div>
+        }
         <div
           class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto border border-slate-200 rounded p-3">
-          @for (room of rooms(); track room.id) {
-          <div class="border rounded p-2">
-            <div class="text-xs font-semibold text-slate-700">Room {{ room.roomNumber }} ({{ room.roomType }})</div>
+          @for (room of filteredStartRooms(); track room.id) {
+          <div [class]="roomCardClass(room)">
+            <div class="text-xs font-semibold text-slate-700">Room {{ room.roomNumber }} ({{ room.roomType }})
+              @if (!isRoomSelectableForGender(room, activeStartGender())) {
+              <span class="text-rose-500 font-normal">· locked to other sex</span>
+              }
+            </div>
             <div class="grid grid-cols-3 gap-1 mt-1">
               @for (bed of room.beds; track bed.id) {
               <button type="button" (click)="pickBed(room, bed)" [class]="bedClass(room, bed)"
-                [title]="!isBedSelectableForGender(bed, sb.clientGender) ? (bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : 'Occupied') : bed.label">
+                [title]="!isBedSelectableForGender(bed, activeStartGender()) ? (bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : 'Occupied') : bed.label">
                 {{ bed.label }}
               </button>
               }
             </div>
           </div>
+          } @empty {
+          <div class="text-xs text-slate-500 col-span-2 text-center py-3">No rooms available for this room type.</div>
           }
         </div>
         @if (startRoomId()) {
@@ -216,28 +322,4 @@
   </div>
   }
 
-  <!-- Adjust Session Modal -->
-  @if (adjustBooking(); as ab) {
-  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="cancelAdjust()">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
-      <h2 class="text-lg font-semibold">Adjust session — {{ ab.clientNickname }}</h2>
-      <p class="text-sm text-slate-500">Leave blank to keep current value.</p>
-      <label class="block text-sm">
-        New start time
-        <input type="datetime-local" [(ngModel)]="adjustNewStart" name="adjustNewStart"
-          class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
-      </label>
-      <label class="block text-sm">
-        New end time
-        <input type="datetime-local" [(ngModel)]="adjustNewEnd" name="adjustNewEnd"
-          class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
-      </label>
-      <div class="flex justify-end gap-2 pt-2">
-        <button (click)="cancelAdjust()" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-        <button (click)="submitAdjust()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Apply
-          changes</button>
-      </div>
-    </div>
-  </div>
-  }
 </div>

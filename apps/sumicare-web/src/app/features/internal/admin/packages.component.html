@@ -1,0 +1,171 @@
+<div class="space-y-4">
+  <header class="flex items-baseline justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Packages</h1>
+      <p class="text-slate-500">Add and edit the packages exposed to the public booking site and the cashier.</p>
+    </div>
+    <button (click)="startCreate()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add package</button>
+  </header>
+
+  @if (error(); as msg) {
+    <p class="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{{ msg }}</p>
+  }
+
+  @if (loading()) {
+    <div class="flex justify-center py-12">
+      <div class="sumi-spinner"></div>
+    </div>
+  } @else {
+    <table class="bg-white rounded-xl shadow overflow-hidden w-full text-sm">
+      <thead class="bg-slate-100">
+        <tr>
+          <th class="text-left p-3" [sumiSortable]="'code'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Code <sumi-sort-icon [active]="sortState().key === 'code'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'name'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Name <sumi-sort-icon [active]="sortState().key === 'name'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'defaultPax'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Default pax <sumi-sort-icon [active]="sortState().key === 'defaultPax'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'couple'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Couple <sumi-sort-icon [active]="sortState().key === 'couple'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'requiresVipRoom'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            VIP <sumi-sort-icon [active]="sortState().key === 'requiresVipRoom'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'active'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Active <sumi-sort-icon [active]="sortState().key === 'active'" [direction]="sortState().direction"/>
+          </th>
+          <th class="text-left p-3">Tiers</th>
+          <th class="text-right p-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of sortedPackages(); track p.id) {
+          <tr class="border-t hover:bg-slate-50" [class.opacity-60]="!p.active">
+            <td class="p-3 font-mono text-xs">{{ p.code }}</td>
+            <td class="p-3">{{ p.name }}</td>
+            <td class="p-3">{{ p.defaultPax }}</td>
+            <td class="p-3">{{ p.couple ? 'Yes' : '-' }}</td>
+            <td class="p-3">{{ p.requiresVipRoom ? 'Yes' : '-' }}</td>
+            <td class="p-3">{{ p.active ? 'Yes' : 'No' }}</td>
+            <td class="p-3 text-xs text-slate-600">{{ p.tiers.length }} services</td>
+            <td class="p-3 text-right space-x-2">
+              <button (click)="startEdit(p)" class="text-xs text-blue-700 hover:underline">Edit</button>
+              @if (p.active) {
+                <button (click)="deactivate(p)" class="text-xs text-red-600 hover:underline">Deactivate</button>
+              } @else {
+                <button (click)="reactivate(p)" class="text-xs text-emerald-700 hover:underline">Reactivate</button>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="8" class="p-6 text-center text-slate-500">No packages yet.</td></tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
+
+@if (showForm() && editing(); as e) {
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="cancelEdit()">
+    <form (ngSubmit)="save()" (click)="$event.stopPropagation()"
+      class="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 space-y-3 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-xl font-semibold">{{ e.id ? 'Edit package' : 'New package' }}</h2>
+      @if (error(); as msg) {
+        <p class="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{{ msg }}</p>
+      }
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-sm">
+          Code
+          <input [(ngModel)]="e.code" name="code" maxlength="40" required
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm font-mono" />
+        </label>
+        <label class="block text-sm">
+          Name
+          <input [(ngModel)]="e.name" name="name" maxlength="120" required
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+        <label class="block text-sm col-span-2">
+          Description
+          <textarea [(ngModel)]="e.description" name="description" maxlength="2000" rows="2"
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"></textarea>
+        </label>
+        <label class="block text-sm col-span-2">
+          Benefits
+          <textarea [(ngModel)]="e.benefits" name="benefits" maxlength="2000" rows="3"
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"></textarea>
+        </label>
+        <label class="block text-sm">
+          Max stay (hours)
+          <input [(ngModel)]="e.maxStayHours" name="maxStayHours" type="number" min="1" max="24"
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+        <label class="block text-sm">
+          Default pax
+          <input [(ngModel)]="e.defaultPax" name="defaultPax" type="number" min="1" max="12" required
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" [(ngModel)]="e.couple" name="couple" />
+          Couple package
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" [(ngModel)]="e.includesMassage" name="includesMassage" />
+          Includes massage
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" [(ngModel)]="e.bundlesPrivateRoom" name="bundlesPrivateRoom" />
+          Bundles private room
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" [(ngModel)]="e.requiresVipRoom" name="requiresVipRoom" />
+          Requires VIP room
+        </label>
+        <label class="flex items-center gap-2 text-sm col-span-2">
+          <input type="checkbox" [(ngModel)]="e.active" name="active" />
+          Active
+        </label>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-slate-700">Tiers (service prices)</h3>
+          <button type="button" (click)="addTier()" class="text-xs text-blue-700 hover:underline">+ Add tier</button>
+        </div>
+        @if (e.tiers.length === 0) {
+          <p class="text-xs text-slate-500 mt-2">No tiers yet. Add a tier per massage service you want bookable under this package.</p>
+        } @else {
+          <div class="mt-2 space-y-2">
+            @for (tier of e.tiers; track $index; let i = $index) {
+              <div class="grid grid-cols-12 gap-2 text-sm">
+                <select [ngModel]="tier.serviceId" name="tservice{{i}}"
+                  (ngModelChange)="onTierService(tier, $event)"
+                  class="col-span-6 rounded border border-slate-300 px-2 py-1.5">
+                  <option [ngValue]="null" disabled>Service</option>
+                  @for (s of services(); track s.id) {
+                    <option [ngValue]="s.id">{{ s.name }}</option>
+                  }
+                </select>
+                <input [(ngModel)]="tier.weekdayPrice" name="twd{{i}}" type="number" min="0" step="0.01"
+                  placeholder="Weekday"
+                  class="col-span-2 rounded border border-slate-300 px-2 py-1.5" />
+                <input [(ngModel)]="tier.weekendPrice" name="twe{{i}}" type="number" min="0" step="0.01"
+                  placeholder="Weekend"
+                  class="col-span-2 rounded border border-slate-300 px-2 py-1.5" />
+                <button type="button" (click)="removeTier(i)"
+                  class="col-span-2 text-xs text-red-600 hover:underline">Remove</button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" (click)="cancelEdit()" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+        <button type="submit" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
+      </div>
+    </form>
+  </div>
+}

@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0012-1-packages" author="sumicare">
+        <createTable tableName="packages">
+            <column name="id" type="BIGSERIAL" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="benefits" type="TEXT"/>
+            <column name="max_stay_hours" type="INT"/>
+            <column name="default_pax" type="INT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_couple" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="includes_massage" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="bundles_private_room" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="packages" columnNames="organization_id, code"
+                             constraintName="uq_packages_org_code"/>
+        <addForeignKeyConstraint baseTableName="packages" baseColumnNames="organization_id"
+                                 referencedTableName="organizations" referencedColumnNames="id"
+                                 constraintName="fk_packages_org"/>
+    </changeSet>
+
+    <changeSet id="0012-2-package-tiers" author="sumicare">
+        <createTable tableName="package_tiers">
+            <column name="id" type="BIGSERIAL" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="package_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="service_id" type="BIGINT"/>
+            <column name="weekday_price" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="weekend_price" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="package_tiers" baseColumnNames="package_id"
+                                 referencedTableName="packages" referencedColumnNames="id"
+                                 onDelete="CASCADE"
+                                 constraintName="fk_package_tiers_package"/>
+        <addForeignKeyConstraint baseTableName="package_tiers" baseColumnNames="service_id"
+                                 referencedTableName="services_catalogue" referencedColumnNames="id"
+                                 constraintName="fk_package_tiers_service"/>
+        <createIndex tableName="package_tiers" indexName="idx_package_tiers_package">
+            <column name="package_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0012-3-order-items" author="sumicare">
+        <createTable tableName="order_items">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="order_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="package_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="INT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unit_price" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="line_total" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="position" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="order_items" baseColumnNames="order_id"
+                                 referencedTableName="orders" referencedColumnNames="id"
+                                 onDelete="CASCADE"
+                                 constraintName="fk_order_items_order"/>
+        <addForeignKeyConstraint baseTableName="order_items" baseColumnNames="package_id"
+                                 referencedTableName="packages" referencedColumnNames="id"
+                                 constraintName="fk_order_items_package"/>
+        <createIndex tableName="order_items" indexName="idx_order_items_order">
+            <column name="order_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0012-4-order-item-attendees" author="sumicare">
+        <createTable tableName="order_item_attendees">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="order_item_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="order_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="service_id" type="BIGINT"/>
+            <column name="package_tier_id" type="BIGINT"/>
+            <column name="locker_number" type="VARCHAR(16)"/>
+            <column name="client_gender" type="VARCHAR(1)"/>
+            <column name="session_id" type="UUID"/>
+            <column name="treatment_slip_id" type="UUID"/>
+            <column name="position" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="order_item_attendees" baseColumnNames="order_item_id"
+                                 referencedTableName="order_items" referencedColumnNames="id"
+                                 onDelete="CASCADE"
+                                 constraintName="fk_oia_item"/>
+        <addForeignKeyConstraint baseTableName="order_item_attendees" baseColumnNames="order_id"
+                                 referencedTableName="orders" referencedColumnNames="id"
+                                 constraintName="fk_oia_order"/>
+        <addForeignKeyConstraint baseTableName="order_item_attendees" baseColumnNames="service_id"
+                                 referencedTableName="services_catalogue" referencedColumnNames="id"
+                                 constraintName="fk_oia_service"/>
+        <addForeignKeyConstraint baseTableName="order_item_attendees" baseColumnNames="package_tier_id"
+                                 referencedTableName="package_tiers" referencedColumnNames="id"
+                                 constraintName="fk_oia_tier"/>
+        <createIndex tableName="order_item_attendees" indexName="idx_oia_item">
+            <column name="order_item_id"/>
+        </createIndex>
+        <createIndex tableName="order_item_attendees" indexName="idx_oia_session">
+            <column name="session_id"/>
+        </createIndex>
+        <createIndex tableName="order_item_attendees" indexName="idx_oia_slip">
+            <column name="treatment_slip_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0012-5-orders-multi-relax" author="sumicare">
+        <sql splitStatements="false">
+            ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_booking_id_key;
+        </sql>
+        <dropNotNullConstraint tableName="orders" columnName="booking_id" columnDataType="UUID"/>
+        <createIndex tableName="orders" indexName="idx_orders_booking_id">
+            <column name="booking_id"/>
+        </createIndex>
+        <addColumn tableName="orders">
+            <column name="transactor_name" type="VARCHAR(120)"/>
+            <column name="is_group_booking" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="room_type" type="VARCHAR(20)" defaultValue="COMMON">
+                <constraints nullable="false"/>
+            </column>
+            <column name="room_type_charge" type="NUMERIC(12,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_weekend" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0012-5b-rooms-vip-tier" author="sumicare">
+        <addColumn tableName="rooms">
+            <column name="vip_tier" type="VARCHAR(20)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0012-6-session-slip-attendee" author="sumicare">
+        <addColumn tableName="sessions">
+            <column name="attendee_id" type="UUID"/>
+        </addColumn>
+        <createIndex tableName="sessions" indexName="idx_sessions_attendee">
+            <column name="attendee_id"/>
+        </createIndex>
+        <addColumn tableName="treatment_slips">
+            <column name="attendee_id" type="UUID"/>
+        </addColumn>
+        <createIndex tableName="treatment_slips" indexName="idx_slips_attendee">
+            <column name="attendee_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

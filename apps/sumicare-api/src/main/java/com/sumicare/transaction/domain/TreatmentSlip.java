@@ -87,6 +87,12 @@ public class TreatmentSlip {
     @Column(name = "remarks", columnDefinition = "text")
     private String remarks;
 
+    @Column(name = "nationality", length = 64)
+    private String nationality;
+
+    @Column(name = "package_name", length = 120)
+    private String packageName;
+
     @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
@@ -101,6 +107,12 @@ public class TreatmentSlip {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Column(name = "attendee_id", columnDefinition = "uuid")
+    private UUID attendeeId;
+
+    public UUID getAttendeeId() { return attendeeId; }
+    public void setAttendeeId(UUID attendeeId) { this.attendeeId = attendeeId; }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -162,4 +174,8 @@ public class TreatmentSlip {
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getNationality() { return nationality; }
+    public void setNationality(String nationality) { this.nationality = nationality; }
+    public String getPackageName() { return packageName; }
+    public void setPackageName(String packageName) { this.packageName = packageName; }
 }

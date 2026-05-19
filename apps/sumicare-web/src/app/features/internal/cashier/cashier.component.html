@@ -11,6 +11,11 @@
     </nav>
   </header>
 
+  @if (editingOrderId()) {
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">Editing an existing open order.
+    Saving will replace its items, attendees, discount and room selection.</div>
+  }
+
   @if (error(); as e) {
   <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{{ e }}</div>
   }
@@ -18,9 +23,15 @@
   <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
     <div class="space-y-4">
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Client orders</h2>
-        </div>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Transactor</h2>
+        <p class="text-xs text-slate-500">The single named entity on the receipt. Individual attendees are tracked per
+          package line by locker + sex. The first guest's sex follows the selected client profile.</p>
+        <label class="block text-sm">
+          Transactor name <span class="text-red-500">*</span>
+          <input [(ngModel)]="transactorName" name="transactorName" maxlength="120"
+            placeholder="e.g. Frias, Jeffrey / Company name"
+            class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+        </label>
 
         @if (selectedClient(); as c) {
         <div class="flex items-start justify-between border border-slate-200 rounded-lg p-3 bg-slate-50">
@@ -34,7 +45,7 @@
         </div>
         } @else {
         <div class="space-y-2">
-          <div class="text-sm font-semibold uppercase tracking-wide text-slate-500">Search client</div>
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Link a registered client (optional)</div>
           <div class="flex gap-2">
             <input [(ngModel)]="searchTerm" (input)="searchClients()" name="searchTerm" placeholder="Search by nickname"
               class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
@@ -56,43 +67,83 @@
       </div>
 
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Items</h2>
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Packages</h2>
+          <label class="flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" [checked]="weekend()" (change)="toggleWeekend()"
+              class="accent-[var(--sumi-primary)]" />
+            Weekend / holiday pricing
+          </label>
+        </div>
         <div class="flex gap-2">
-          <select [(ngModel)]="selectedServiceId" name="selectedServiceId"
+          <select [(ngModel)]="selectedPackageId" name="selectedPackageId"
             class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
-            <option [ngValue]="null" disabled>Select a service to add</option>
-            @for (s of services(); track s.id) {
-            <option [ngValue]="s.id">{{ s.name }} ({{ s.durationMinutes }} min) — &#8369; {{ s.price | number:'1.2-2' }}
-            </option>
+            <option [ngValue]="null" disabled>Select a package to add</option>
+            @for (p of packages(); track p.id) {
+            <option [ngValue]="p.id">{{ p.name }}{{ p.requiresVipRoom ? ' (VIP room incl.)' : '' }}</option>
             }
           </select>
-          <button (click)="addService()" [disabled]="selectedServiceId == null"
-            class="rounded bg-[var(--sumi-primary)] text-white px-4 text-sm disabled:opacity-50">Add product</button>
+          <button (click)="addPackage()" [disabled]="selectedPackageId == null"
+            class="rounded bg-[var(--sumi-primary)] text-white px-4 text-sm disabled:opacity-50">Add package</button>
         </div>
 
         @if (cart().length === 0) {
-        <p class="text-center text-xs text-slate-500 py-4">No items yet</p>
+        <p class="text-center text-xs text-slate-500 py-4">No packages yet. A package with a default pax greater than one
+          (e.g. couple package) adds one guest row per person.</p>
         } @else {
-        <table class="w-full text-sm">
-          <thead class="text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th class="text-left py-1">Service</th>
-              <th class="text-right py-1">Price</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            @for (it of cart(); track $index) {
-            <tr>
-              <td class="py-2">{{ it.name }}</td>
-              <td class="text-right py-2">&#8369; {{ it.price | number:'1.2-2' }}</td>
-              <td class="text-right py-2">
+        <div class="space-y-2">
+          @for (it of cart(); track $index) {
+          <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="font-medium text-sm">{{ $index + 1 }}. {{ it.packageName }}
+                <span class="text-xs text-slate-400">({{ it.attendees.length }} guest{{ it.attendees.length > 1 ? 's' : '' }})</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-semibold">&#8369; {{ it.lineTotal | number:'1.2-2' }}</span>
                 <button (click)="removeItem($index)" class="text-xs text-red-600 hover:underline">Remove</button>
-              </td>
-            </tr>
+              </div>
+            </div>
+            @for (att of it.attendees; track $index; let attIdx = $index) {
+            <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-sm border-t border-slate-100 pt-2">
+              <label class="block sm:col-span-2">
+                <span class="text-xs text-slate-500">Guest {{ attIdx + 1 }} &mdash; Massage</span>
+                @if (it.couple && attIdx > 0) {
+                  <div class="mt-1 px-2 py-1.5 bg-slate-100 rounded text-slate-500 text-sm">Shared</div>
+                } @else {
+                  <select [ngModel]="att.packageTierId" name="tier{{$index}}_{{attIdx}}"
+                    (ngModelChange)="onAttendeeMassageChange($index, attIdx, $event)"
+                    class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+                    <option [ngValue]="null" disabled>Choose massage</option>
+                    @for (t of it.tiers; track t.id) {
+                    <option [ngValue]="t.id">{{ t.serviceName }}</option>
+                    }
+                  </select>
+                }
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-500">Locker #</span>
+                <input [(ngModel)]="att.lockerNumber" name="locker{{$index}}_{{attIdx}}" maxlength="16"
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-500">Sex</span>
+                <select [(ngModel)]="att.clientGender" name="gender{{$index}}_{{attIdx}}"
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+                  <option value="F">Female</option>
+                  <option value="M">Male</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-500">Discount (this guest)</span>
+                <input type="number" min="0" step="0.01"
+                  [(ngModel)]="att.discount" name="discount{{$index}}_{{attIdx}}"
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+              </label>
+            </div>
             }
-          </tbody>
-        </table>
+          </div>
+          }
+        </div>
         }
 
         <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
@@ -121,12 +172,24 @@
       </div>
 
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Miscellaneous</h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Room &amp; miscellaneous</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <label class="block">
-            OR #
-            <input [(ngModel)]="orNumber" name="orNumber" maxlength="50"
-              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+            Room type
+            @if (anyVip()) {
+            <input value="VIP — included with VIP package" disabled
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500" />
+            } @else {
+            <select [ngModel]="roomType()" name="roomType" (ngModelChange)="setRoomType($event)"
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+              <option value="COMMON" [disabled]="roomAvailability().COMMON === 0">
+                Common ({{ roomAvailability().COMMON }} available) — +&#8369;0
+              </option>
+              <option value="PRIVATE" [disabled]="roomAvailability().PRIVATE === 0">
+                Private ({{ roomAvailability().PRIVATE }} available) — +&#8369;500
+              </option>
+            </select>
+            }
           </label>
           <label class="block">
             Reference number
@@ -134,16 +197,34 @@
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
           </label>
           <label class="block">
-            Locker
-            <input [(ngModel)]="lockerNumber" name="lockerNumber" maxlength="16"
+            OR #
+            <input [(ngModel)]="orNumber" name="orNumber" maxlength="50" placeholder="Leave blank to auto-generate"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+            <span class="text-[11px] text-slate-400">Editable. Generated automatically if left blank.</span>
           </label>
           <label class="block">
-            Pax
-            <input [(ngModel)]="pax" name="pax" type="number" min="1" max="20"
+            TS #
+            <input [(ngModel)]="tsNumber" name="tsNumber" maxlength="64" placeholder="Leave blank to auto-generate"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+            <span class="text-[11px] text-slate-400">Editable. Generated automatically if left blank.</span>
           </label>
-
+          <label class="flex items-center gap-2 mt-5"
+            [class.opacity-50]="totalAttendees() < 2">
+            <input type="checkbox" [checked]="groupBooking()" [disabled]="totalAttendees() < 2"
+              (change)="groupBooking.set(!groupBooking())"
+              class="accent-[var(--sumi-primary)]" />
+            Group booking
+          </label>
+          <label class="block">
+            Voucher code
+            <div class="flex gap-2 mt-1">
+              <input [(ngModel)]="voucherCode" name="voucherCode" maxlength="64"
+                class="flex-1 border border-slate-300 rounded px-2 py-1.5" />
+              <button type="button" (click)="applyVoucher()"
+                class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 text-sm">Apply</button>
+            </div>
+            @if (voucherError(); as ve) { <span class="text-[11px] text-red-600">{{ ve }}</span> }
+          </label>
           <label class="block md:col-span-2">
             Notes
             <textarea [(ngModel)]="notes" name="notes" maxlength="1000" rows="2"
@@ -201,10 +282,20 @@
     <aside class="space-y-4">
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-2">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Summary</h3>
+        <div class="flex justify-between text-sm"><span>Items subtotal</span><span>&#8369; {{ itemsSubtotal() |
+            number:'1.2-2' }}</span></div>
+        <div class="flex justify-between text-sm">
+          <span>Room ({{ effectiveRoomType() }})</span>
+          <span>
+            @if (effectiveRoomType() === 'VIP') { included }
+            @else { &#8369; {{ roomSurcharge() | number:'1.2-2' }} }
+          </span>
+        </div>
         <div class="flex justify-between text-sm"><span>Subtotal</span><span>&#8369; {{ subtotal() | number:'1.2-2'
             }}</span></div>
         <div class="flex justify-between text-sm"><span>Discount</span><span class="text-red-600">&#8369; {{
             totalDiscount() | number:'1.2-2' }}</span></div>
+        <div class="flex justify-between text-sm text-slate-500"><span>Tax</span><span>&#8369; {{ tax() | number:'1.2-2' }}</span></div>
         <div class="flex justify-between text-sm font-semibold"><span>Total</span><span>&#8369; {{ total() |
             number:'1.2-2' }}</span></div>
         <div class="flex justify-between text-sm text-emerald-700"><span>Amount paid</span><span>&#8369; {{ paid() |
@@ -212,14 +303,19 @@
         <div class="flex justify-between text-sm text-rose-700 border-t border-slate-100 pt-2"><span>Amount
             due</span><span>&#8369; {{ due() | number:'1.2-2' }}</span></div>
 
-        <button (click)="checkout()" [disabled]="submitting() || cart().length === 0 || !selectedClient()"
+        <button (click)="checkout()" [disabled]="submitting() || cart().length === 0 || !transactorName.trim()"
           class="w-full mt-3 py-2.5 bg-[var(--sumi-primary)] text-white rounded text-sm font-medium disabled:opacity-50">
-          {{ submitting() ? 'Processing...' : 'Checkout' }}
+          @if (submitting()) {
+            Processing...
+          } @else if (editingOrderId()) {
+            Save changes
+          } @else if (total() === 0) {
+            Process (&#8369;0.00)
+          } @else {
+            Checkout
+          }
         </button>
-        <p class="text-[11px] text-slate-400">
-          This software is not BIR approved. SumiCare is for order-taking only. All BIR-related calculation should be
-          done by the user of this software.
-        </p>
+        <p class="text-[11px] text-slate-400 text-center">Powered by SumiCare</p>
       </div>
     </aside>
   </div>
@@ -277,14 +373,19 @@
       <div class="px-6 py-4 space-y-5">
         <div>
           <div class="font-semibold text-slate-900 mb-2">Adjustment options and templates:</div>
-          <div class="flex gap-2">
-            @for (tmpl of discountTemplates; track tmpl.label) {
-            <button (click)="applyTemplate(tmpl)" class="px-3 py-1.5 text-xs rounded border"
-              [class.bg-\[var\(--sumi-primary\)\]]="activeTemplate() === tmpl.label"
-              [class.text-white]="activeTemplate() === tmpl.label"
-              [class.border-slate-300]="activeTemplate() !== tmpl.label">
-              {{ tmpl.label }}
-            </button>
+          <div class="flex gap-2 flex-wrap">
+            @for (tmpl of discountTemplates(); track tmpl.id || tmpl.label) {
+            <div class="inline-flex items-center gap-1">
+              <button (click)="applyTemplate(tmpl)" class="px-3 py-1.5 text-xs rounded border"
+                [class.bg-\[var\(--sumi-primary\)\]]="activeTemplate() === (tmpl.name || tmpl.label)"
+                [class.text-white]="activeTemplate() === (tmpl.name || tmpl.label)"
+                [class.border-slate-300]="activeTemplate() !== (tmpl.name || tmpl.label)">
+                {{ tmpl.name || tmpl.label }}
+              </button>
+              @if (tmpl.id) {
+                <button (click)="deleteTemplate(tmpl)" class="text-slate-400 hover:text-red-600 px-1 text-xs" title="Delete">×</button>
+              }
+            </div>
             }
           </div>
         </div>
@@ -353,13 +454,12 @@
 
         @if (cart().length > 0) {
         <div>
-          <div class="font-semibold text-slate-900 mb-2">Apply to products:</div>
+          <div class="font-semibold text-slate-900 mb-2">Apply to packages:</div>
           <table class="w-full text-sm">
             <thead class="text-xs text-slate-500">
               <tr>
                 <th class="text-left py-1">✓</th>
-                <th class="text-left py-1">Name</th>
-                <th class="text-right py-1">Quantity</th>
+                <th class="text-left py-1">Package</th>
                 <th class="text-right py-1">Amount</th>
               </tr>
             </thead>
@@ -371,9 +471,8 @@
                     (click)="$event.stopPropagation(); toggleItemInDiscount($index)"
                     class="accent-[var(--sumi-primary)]" />
                 </td>
-                <td class="py-2">{{ it.name }}</td>
-                <td class="text-right py-2">1</td>
-                <td class="text-right py-2">&#8369; {{ it.price | number:'1.2-2' }}</td>
+                <td class="py-2">{{ it.packageName }}</td>
+                <td class="text-right py-2">&#8369; {{ it.lineTotal | number:'1.2-2' }}</td>
               </tr>
               }
             </tbody>
@@ -381,11 +480,16 @@
         </div>
         }
       </div>
-      <div class="px-6 py-4 border-t flex justify-end gap-2">
-        <button (click)="closeDiscountModal()"
-          class="rounded border border-slate-300 text-slate-600 px-4 py-2 text-sm">Cancel</button>
-        <button (click)="applyDiscount()"
-          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Apply</button>
+      <div class="px-6 py-4 border-t flex justify-between gap-2">
+        <button (click)="saveAsTemplate()"
+          class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-4 py-2 text-sm">Save as
+          template</button>
+        <div class="flex gap-2">
+          <button (click)="closeDiscountModal()"
+            class="rounded border border-slate-300 text-slate-600 px-4 py-2 text-sm">Cancel</button>
+          <button (click)="applyDiscount()"
+            class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Apply</button>
+        </div>
       </div>
     </div>
   </div>

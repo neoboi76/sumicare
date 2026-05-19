@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0023-1-vip-packages-default-pax" author="sumicare">
+        <sql>
+            UPDATE packages
+            SET default_pax = 2
+            WHERE code IN ('PKG_VIP_MASSAGE', 'PKG_VIP_FULL')
+              AND organization_id = (SELECT id FROM organizations WHERE slug = 'lasema');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0023-2-feedback-nickname" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="feedback" columnName="nickname"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="feedback">
+            <column name="nickname" type="VARCHAR(120)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0023-3-package-tier-fanout-by-code" author="sumicare">
+        <sql>
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id,
+                   COALESCE(s.price, 0),
+                   COALESCE(s.price, 0) + CASE WHEN COALESCE(s.price, 0) &gt; 0 THEN 100 ELSE 0 END
+            FROM packages p
+            JOIN services_catalogue s ON s.organization_id = p.organization_id
+            WHERE p.is_active = true
+              AND s.is_active = true
+              AND s.code IN (
+                  'FOOT_REFLEX', 'SHIATSU', 'SWEDISH', 'DEEP_TISSUE', 'LOMI_LOMI',
+                  'LYMPHATIC', 'COMBINATION', 'SALT_GLOW_SCRUB', 'MILK_BATH_SCRUB',
+                  'DAEMIDI', 'THAI', 'AROMA_REFLEX', 'VENTOSA', 'TANDEM'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM package_tiers pt
+                  WHERE pt.package_id = p.id AND pt.service_id = s.id
+              );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

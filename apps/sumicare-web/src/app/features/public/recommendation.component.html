@@ -25,10 +25,20 @@
       <p class="text-sm text-red-600">Please answer all 5 questions before submitting.</p>
     }
     <button [disabled]="submitting()"
-            class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50">
-      {{ submitting() ? 'Finding your match...' : 'Get my recommendation' }}
+            class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50 flex items-center gap-2">
+      @if (submitting()) {
+        <div class="sumi-spinner sumi-spinner-sm" style="border-color:rgba(255,255,255,0.3); border-top-color:#fff;"></div>
+        Finding your match...
+      } @else {
+        Get my recommendation
+      }
     </button>
   </form>
+  @if (submitting()) {
+    <div class="flex justify-center py-8">
+      <div class="sumi-spinner"></div>
+    </div>
+  }
   @if (result(); as r) {
     @if (allAnswered()) {
       <article class="bg-white rounded-xl shadow p-6 space-y-3">

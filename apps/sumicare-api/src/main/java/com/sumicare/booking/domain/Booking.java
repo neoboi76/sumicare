@@ -23,6 +23,9 @@ public class Booking {
     @Column(name = "client_nickname", nullable = false)
     private String clientNickname;
 
+    @Column(name = "client_email")
+    private String clientEmail;
+
     @Column(name = "locker_number")
     private String lockerNumber;
 
@@ -47,6 +50,9 @@ public class Booking {
     @Column(name = "client_gender", length = 1)
     private String clientGender;
 
+    @Column(name = "nationality", length = 80)
+    private String nationality;
+
     @Column(name = "status", nullable = false)
     private String status = "PENDING";
 
@@ -67,6 +73,8 @@ public class Booking {
     public void setClientId(UUID clientId) { this.clientId = clientId; }
     public String getClientNickname() { return clientNickname; }
     public void setClientNickname(String clientNickname) { this.clientNickname = clientNickname; }
+    public String getClientEmail() { return clientEmail; }
+    public void setClientEmail(String clientEmail) { this.clientEmail = clientEmail; }
     public String getLockerNumber() { return lockerNumber; }
     public void setLockerNumber(String lockerNumber) { this.lockerNumber = lockerNumber; }
     public Long getServiceId() { return serviceId; }
@@ -83,6 +91,8 @@ public class Booking {
     public void setPax(Integer pax) { this.pax = pax; }
     public String getClientGender() { return clientGender; }
     public void setClientGender(String clientGender) { this.clientGender = clientGender; }
+    public String getNationality() { return nationality; }
+    public void setNationality(String nationality) { this.nationality = nationality; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getPaymentStatus() { return paymentStatus; }
