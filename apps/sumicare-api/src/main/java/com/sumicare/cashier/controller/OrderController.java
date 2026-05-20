@@ -44,7 +44,8 @@ public class OrderController {
     public OrderResponse update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                 @PathVariable UUID id,
                                 @Valid @RequestBody CreateOrderRequest request) {
-        return orderService.update(UUID.fromString(principal.organizationId()), id, request);
+        return orderService.update(UUID.fromString(principal.organizationId()), id,
+                UUID.fromString(principal.userId()), request);
     }
 
     @GetMapping

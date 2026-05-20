@@ -6,6 +6,7 @@ import com.sumicare.cashier.dto.PackageResponse;
 import com.sumicare.cashier.dto.PackageTierResponse;
 import com.sumicare.cashier.repository.PackageRepository;
 import com.sumicare.cashier.repository.PackageTierRepository;
+import com.sumicare.cashier.service.PackageService;
 import com.sumicare.organization.repository.OrganizationRepository;
 import com.sumicare.service_catalogue.domain.Service;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
@@ -26,15 +27,18 @@ public class PublicPackageController {
     private final PackageTierRepository tierRepository;
     private final ServiceRepository serviceRepository;
     private final OrganizationRepository organizationRepository;
+    private final PackageService packageService;
 
     public PublicPackageController(PackageRepository packageRepository,
                                    PackageTierRepository tierRepository,
                                    ServiceRepository serviceRepository,
-                                   OrganizationRepository organizationRepository) {
+                                   OrganizationRepository organizationRepository,
+                                   PackageService packageService) {
         this.packageRepository = packageRepository;
         this.tierRepository = tierRepository;
         this.serviceRepository = serviceRepository;
         this.organizationRepository = organizationRepository;
+        this.packageService = packageService;
     }
 
     @GetMapping("/api/public/packages/{slug}")
@@ -64,7 +68,7 @@ public class PublicPackageController {
                                 pkg.getId(), pkg.getCode(), pkg.getName(), pkg.getDescription(), pkg.getBenefits(),
                                 pkg.getMaxStayHours(), pkg.getDefaultPax(), pkg.isCouple(),
                                 pkg.isIncludesMassage(), pkg.isBundlesPrivateRoom(), pkg.isRequiresVipRoom(), pkg.isActive(),
-                                tierResponses));
+                                packageService.deriveInclusions(pkg), tierResponses));
                     }
                     return responses;
                 })

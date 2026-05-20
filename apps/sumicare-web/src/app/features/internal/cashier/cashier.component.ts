@@ -36,6 +36,7 @@ interface PackageDef {
   bundlesPrivateRoom: boolean;
   requiresVipRoom: boolean;
   active: boolean;
+  inclusions: string[];
   tiers: PackageTier[];
 }
 
@@ -58,6 +59,7 @@ interface CartItem {
   couple: boolean;
   defaultPax: number;
   tiers: PackageTier[];
+  inclusions: string[];
   unitPrice: number;
   lineTotal: number;
   attendees: CartAttendee[];
@@ -247,6 +249,7 @@ export class CashierComponent implements OnInit {
             couple: pkg?.couple ?? false,
             defaultPax: pkg?.defaultPax ?? 1,
             tiers: pkg?.tiers || [],
+            inclusions: pkg?.inclusions || [],
             unitPrice: Number(it.unitPrice || 0),
             lineTotal: Number(it.lineTotal || 0),
             attendees: attendees.length > 0 ? attendees : [this.blankAttendee()]
@@ -344,6 +347,7 @@ export class CashierComponent implements OnInit {
       couple: pkg.couple,
       defaultPax: pax,
       tiers: pkg.tiers,
+      inclusions: pkg.inclusions || [],
       unitPrice: 0,
       lineTotal: 0,
       attendees
@@ -365,7 +369,7 @@ export class CashierComponent implements OnInit {
     }
     this.cart.update(items => [...items, item]);
     this.selectedPackageId = null;
-    if (this.totalAttendees() > 1) this.groupBooking.set(true);
+    if (this.totalAttendees() > 1 || pkg.couple || pkg.requiresVipRoom) this.groupBooking.set(true);
   }
 
   removeItem(idx: number): void {
@@ -379,7 +383,7 @@ export class CashierComponent implements OnInit {
       if (i !== itemIdx) return it;
       const tier = tierIdNum != null ? it.tiers.find(t => t.id === tierIdNum) : null;
       const updatedAttendees = it.attendees.map((a, j) => {
-        if (it.couple && j > 0) {
+        if ((it.couple || it.requiresVipRoom) && j !== attIdx) {
           return {
             ...a,
             packageTierId: tier?.id ?? null,
@@ -486,13 +490,21 @@ export class CashierComponent implements OnInit {
 
   deleteTemplate(tmpl: DiscountTemplate): void {
     if (!tmpl.id) return;
-    if (!confirm(`Delete template "${tmpl.name || tmpl.label}"?`)) return;
-    this.http.delete(`${environment.apiBaseUrl}/api/cashier/discount-templates/${tmpl.id}`).subscribe({
-      next: () => {
-        this.savedTemplates.update(list => list.filter(t => t.id !== tmpl.id));
-        if (this.activeTemplate() === tmpl.name) this.activeTemplate.set('Custom');
-      },
-      error: () => this.error.set('Could not delete template.')
+    this.confirmService.confirm({
+      title: 'Delete discount template',
+      message: `Delete template "${tmpl.name || tmpl.label}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      danger: true
+    }).then(ok => {
+      if (!ok) return;
+      this.http.delete(`${environment.apiBaseUrl}/api/cashier/discount-templates/${tmpl.id}`).subscribe({
+        next: () => {
+          this.savedTemplates.update(list => list.filter(t => t.id !== tmpl.id));
+          if (this.activeTemplate() === tmpl.name) this.activeTemplate.set('Custom');
+        },
+        error: () => this.error.set('Could not delete template.')
+      });
     });
   }
 

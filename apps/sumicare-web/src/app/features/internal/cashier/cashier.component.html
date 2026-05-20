@@ -20,7 +20,7 @@
   <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{{ e }}</div>
   }
 
-  <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-[3fr_2fr] lg:grid-cols-[2fr_1fr] gap-4">
     <div class="space-y-4">
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Transactor</h2>
@@ -103,11 +103,18 @@
                 <button (click)="removeItem($index)" class="text-xs text-red-600 hover:underline">Remove</button>
               </div>
             </div>
+            @if (it.inclusions && it.inclusions.length > 0) {
+              <div class="flex flex-wrap gap-1.5">
+                @for (inc of it.inclusions; track inc) {
+                  <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{{ inc }}</span>
+                }
+              </div>
+            }
             @for (att of it.attendees; track $index; let attIdx = $index) {
             <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-sm border-t border-slate-100 pt-2">
               <label class="block sm:col-span-2">
                 <span class="text-xs text-slate-500">Guest {{ attIdx + 1 }} &mdash; Massage</span>
-                @if (it.couple && attIdx > 0) {
+                @if ((it.couple || it.requiresVipRoom) && attIdx > 0) {
                   <div class="mt-1 px-2 py-1.5 bg-slate-100 rounded text-slate-500 text-sm">Shared</div>
                 } @else {
                   <select [ngModel]="att.packageTierId" name="tier{{$index}}_{{attIdx}}"

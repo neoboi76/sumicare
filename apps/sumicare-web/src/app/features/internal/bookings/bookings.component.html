@@ -1,11 +1,11 @@
 <div>
-  <header class="flex items-baseline justify-between">
+  <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Bookings</h1>
       <p class="text-slate-500">Today's reservations and walk-ins. Always allow 15 minutes between sessions for room
         preparation.</p>
     </div>
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate"
         class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
       <button (click)="exportCsv()"
@@ -14,8 +14,8 @@
     </div>
   </header>
 
-  <section class="bg-white rounded-xl shadow overflow-hidden">
-    <table class="w-full text-sm">
+  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+    <table class="w-full text-sm min-w-[720px]">
       <thead class="bg-slate-100">
         <tr>
           <th class="text-left p-3" [sumiSortable]="'scheduledAt'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">

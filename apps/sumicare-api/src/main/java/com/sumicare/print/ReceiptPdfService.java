@@ -8,6 +8,7 @@ import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
+import com.sumicare.cashier.service.PackageService;
 import com.sumicare.common.config.AppProperties;
 import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.organization.domain.Organization;
@@ -43,6 +44,7 @@ public class ReceiptPdfService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final AppProperties appProperties;
+    private final PackageService packageService;
 
     public ReceiptPdfService(PdfRenderer pdfRenderer,
                              OrderRepository orderRepository,
@@ -52,7 +54,8 @@ public class ReceiptPdfService {
                              ServiceRepository serviceRepository,
                              OrganizationRepository organizationRepository,
                              UserRepository userRepository,
-                             AppProperties appProperties) {
+                             AppProperties appProperties,
+                             PackageService packageService) {
         this.pdfRenderer = pdfRenderer;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -62,6 +65,7 @@ public class ReceiptPdfService {
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.appProperties = appProperties;
+        this.packageService = packageService;
     }
 
     public byte[] renderReceipt(UUID orderId) {
@@ -69,6 +73,12 @@ public class ReceiptPdfService {
         Organization org = organizationRepository.findById(order.getOrganizationId()).orElse(null);
         String cashierName = order.getCashierUserId() == null ? ""
                 : userRepository.findById(order.getCashierUserId())
+                    .map(u -> u.getDisplayName() != null && !u.getDisplayName().isBlank()
+                            ? u.getDisplayName() : u.getUsername())
+                    .orElse("");
+        UUID lastEditorId = order.getLastEditedByUserId() != null ? order.getLastEditedByUserId() : order.getCashierUserId();
+        String transactedByName = lastEditorId == null ? ""
+                : userRepository.findById(lastEditorId)
                     .map(u -> u.getDisplayName() != null && !u.getDisplayName().isBlank()
                             ? u.getDisplayName() : u.getUsername())
                     .orElse("");
@@ -92,6 +102,14 @@ public class ReceiptPdfService {
             lines.append("<tr><td>").append(esc(pkgName)).append("</td><td class='qty'>")
                  .append(it.getQuantity()).append("</td><td class='amt'>")
                  .append(fmt(it.getLineTotal())).append("</td></tr>");
+            if (pkg != null) {
+                List<String> inclusions = packageService.deriveInclusions(pkg);
+                if (!inclusions.isEmpty()) {
+                    lines.append("<tr class='sub'><td colspan='3'>&#160;&#160;Includes: ")
+                         .append(esc(String.join(" - ", inclusions)))
+                         .append("</td></tr>");
+                }
+            }
             List<OrderItemAttendee> atts = attendeesByItem.getOrDefault(it.getId(), List.of());
             for (OrderItemAttendee a : atts) {
                 String svcName = "";
@@ -153,6 +171,7 @@ public class ReceiptPdfService {
                 <tr><td>Cashier:</td><td>%s</td></tr>
                 <tr><td>Date / Time:</td><td>%s</td></tr>
                 <tr><td>OR #:</td><td>%s</td></tr>
+                <tr><td>Customer:</td><td>%s</td></tr>
                 <tr><td>Transacted by:</td><td>%s</td></tr>
                 <tr><td>Covers:</td><td>%s</td></tr>
               </table>
@@ -181,6 +200,7 @@ public class ReceiptPdfService {
                 now,
                 esc(order.getOrNumber() == null ? "" : order.getOrNumber()),
                 esc(order.getTransactorName() == null ? "" : order.getTransactorName()),
+                esc(transactedByName),
                 items.size() == 0 ? "1" : Integer.toString(items.size()),
                 lines.toString(),
                 fmt(order.getSubtotal()),

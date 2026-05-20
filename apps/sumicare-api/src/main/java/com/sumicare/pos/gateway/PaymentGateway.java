@@ -5,9 +5,11 @@ import java.util.Map;
 
 public interface PaymentGateway {
 
-    String createIntent(BigDecimal amount, String currency, Map<String, String> metadata);
+    IntentResult createIntent(BigDecimal amount, String currency, String paymentMethod, Map<String, String> metadata);
 
     boolean verifyWebhook(String payload, String signature);
 
     String capture(String intentId);
+
+    record IntentResult(String intentId, String status, String nextActionUrl) {}
 }

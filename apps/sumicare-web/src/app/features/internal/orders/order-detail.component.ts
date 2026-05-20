@@ -35,6 +35,7 @@ interface Order {
   treatmentSlipId: string | null;
   cashierUserId: string | null;
   cashierDisplayName: string | null;
+  lastEditedByDisplayName: string | null;
   clientNickname: string | null;
   clientId: string | null;
   serviceName: string | null;

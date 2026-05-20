@@ -15,8 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @org.springframework.stereotype.Service
@@ -154,6 +156,39 @@ public class PackageService {
                 pkg.getId(), pkg.getCode(), pkg.getName(), pkg.getDescription(), pkg.getBenefits(),
                 pkg.getMaxStayHours(), pkg.getDefaultPax(), pkg.isCouple(),
                 pkg.isIncludesMassage(), pkg.isBundlesPrivateRoom(), pkg.isRequiresVipRoom(), pkg.isActive(),
-                tierResponses);
+                deriveInclusions(pkg), tierResponses);
+    }
+
+    public List<String> deriveInclusions(Package pkg) {
+        Set<String> out = new LinkedHashSet<>();
+        if (pkg.isIncludesMassage()) out.add("Massage");
+        String code = pkg.getCode() == null ? "" : pkg.getCode().toUpperCase();
+        String description = pkg.getDescription() == null ? "" : pkg.getDescription().toLowerCase();
+        String benefits = pkg.getBenefits() == null ? "" : pkg.getBenefits().toLowerCase();
+        String text = description + " " + benefits;
+        if (text.contains("jacuzzi") || pkg.isRequiresVipRoom() || code.contains("VIP") || code.contains("COUPLE")) {
+            out.add("Jacuzzi");
+        }
+        if (text.contains("sauna") || code.contains("LASEMA") || code.contains("VIP") || code.contains("SAUNA")) {
+            out.add("Sauna");
+        }
+        if (text.contains("kiln") || code.contains("LASEMA") || code.contains("JJIMJILBANG")) {
+            out.add("Kilns");
+        }
+        if (text.contains("shower") || pkg.isIncludesMassage() || code.contains("SAUNA")) {
+            out.add("Showers");
+        }
+        if (text.contains("wine") || pkg.isRequiresVipRoom() || code.contains("COUPLE")) {
+            out.add("Welcome wine");
+        }
+        if (pkg.isBundlesPrivateRoom()) out.add("Private room");
+        if (pkg.isRequiresVipRoom()) out.add("VIP room");
+        if (text.contains("sleeping cave") || code.contains("JJIMJILBANG")) out.add("Sleeping cave");
+        if (text.contains("gym") || code.contains("JJIMJILBANG")) out.add("Gym");
+        if (text.contains("entertainment") || code.contains("JJIMJILBANG")) out.add("Entertainment lounge");
+        if (pkg.getMaxStayHours() != null && pkg.getMaxStayHours() > 0) {
+            out.add(pkg.getMaxStayHours() + "-hour stay");
+        }
+        return new ArrayList<>(out);
     }
 }

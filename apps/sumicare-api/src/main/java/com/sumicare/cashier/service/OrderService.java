@@ -216,13 +216,15 @@ public class OrderService {
         }
 
         boolean anyVip = false;
+        boolean anyCoupleOrVip = false;
+        Map<Long, Package> packageCache = new HashMap<>();
         if (hasItems) {
             for (CreateOrderItemRequest ci : request.items()) {
-                Package pkg = packageRepository.findById(ci.packageId()).orElse(null);
-                if (pkg != null && pkg.isRequiresVipRoom()) {
-                    anyVip = true;
-                    break;
-                }
+                Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                        pid -> packageRepository.findById(pid).orElse(null));
+                if (pkg == null) continue;
+                if (pkg.isRequiresVipRoom()) anyVip = true;
+                if (pkg.isCouple() || pkg.isRequiresVipRoom()) anyCoupleOrVip = true;
             }
         }
 
@@ -303,11 +305,12 @@ public class OrderService {
         order.setAmountPaid(BigDecimal.ZERO);
         order.setStatus("OPEN");
         order.setTransactorName(request.transactorName() != null ? request.transactorName() : nickname);
-        order.setGroupBooking(Boolean.TRUE.equals(request.groupBooking()) || totalAttendees > 1);
+        order.setGroupBooking(Boolean.TRUE.equals(request.groupBooking()) || totalAttendees > 1 || anyCoupleOrVip);
         order.setWeekend(Boolean.TRUE.equals(request.weekend()));
         order.setRoomType(roomType);
         order.setRoomTypeCharge(roomCharge);
         order.setVoucherId(request.voucherId());
+        order.setLastEditedByUserId(cashierUserId);
         orderRepository.save(order);
 
         if (request.voucherId() != null) {
@@ -317,11 +320,15 @@ public class OrderService {
         if (hasItems) {
             AtomicInteger itemPos = new AtomicInteger(0);
             for (CreateOrderItemRequest ci : request.items()) {
+                Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                        pid -> packageRepository.findById(pid).orElse(null));
+                boolean coupleOrVip = pkg != null && (pkg.isCouple() || pkg.isRequiresVipRoom());
+                int derivedQuantity = coupleOrVip ? 1 : ci.attendees().size();
                 OrderItem item = new OrderItem();
                 item.setOrderId(order.getId());
                 item.setOrganizationId(organizationId);
                 item.setPackageId(ci.packageId());
-                item.setQuantity(ci.quantity() == null ? 1 : ci.quantity());
+                item.setQuantity(derivedQuantity);
                 item.setUnitPrice(ci.unitPrice() != null ? ci.unitPrice() : BigDecimal.ZERO);
                 BigDecimal lt = ci.lineTotal() != null ? ci.lineTotal()
                         : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
@@ -329,14 +336,22 @@ public class OrderService {
                 item.setPosition(ci.position() != null ? ci.position() : itemPos.getAndIncrement());
                 orderItemRepository.save(item);
 
+                Long sharedTierId = null;
+                Long sharedServiceId = null;
+                if (coupleOrVip && !ci.attendees().isEmpty()) {
+                    CreateOrderItemAttendeeRequest first = ci.attendees().get(0);
+                    sharedTierId = first.packageTierId();
+                    sharedServiceId = first.serviceId();
+                }
+
                 AtomicInteger attPos = new AtomicInteger(0);
                 for (CreateOrderItemAttendeeRequest ar : ci.attendees()) {
                     OrderItemAttendee att = new OrderItemAttendee();
                     att.setOrderItemId(item.getId());
                     att.setOrderId(order.getId());
                     att.setOrganizationId(organizationId);
-                    att.setServiceId(ar.serviceId());
-                    att.setPackageTierId(ar.packageTierId());
+                    att.setServiceId(coupleOrVip ? sharedServiceId : ar.serviceId());
+                    att.setPackageTierId(coupleOrVip ? sharedTierId : ar.packageTierId());
                     att.setLockerNumber(ar.lockerNumber());
                     att.setClientGender(ar.clientGender());
                     att.setPosition(ar.position() != null ? ar.position() : attPos.getAndIncrement());
@@ -391,7 +406,7 @@ public class OrderService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
-    public OrderResponse update(UUID organizationId, UUID orderId, CreateOrderRequest request) {
+    public OrderResponse update(UUID organizationId, UUID orderId, UUID actorUserId, CreateOrderRequest request) {
         Order order = requireOrder(organizationId, orderId);
         if (!"OPEN".equals(order.getStatus())) {
             throw new IllegalStateException("Re-open the order before editing");
@@ -429,9 +444,14 @@ public class OrderService {
             throw new IllegalArgumentException("Unknown room type: " + roomType);
         }
         boolean anyVip = false;
+        boolean anyCoupleOrVip = false;
+        Map<Long, Package> packageCache = new HashMap<>();
         for (CreateOrderItemRequest ci : request.items()) {
-            Package pkg = packageRepository.findById(ci.packageId()).orElse(null);
-            if (pkg != null && pkg.isRequiresVipRoom()) { anyVip = true; break; }
+            Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                    pid -> packageRepository.findById(pid).orElse(null));
+            if (pkg == null) continue;
+            if (pkg.isRequiresVipRoom()) anyVip = true;
+            if (pkg.isCouple() || pkg.isRequiresVipRoom()) anyCoupleOrVip = true;
         }
         BigDecimal roomCharge;
         if (anyVip) {
@@ -478,11 +498,14 @@ public class OrderService {
         order.setTotal(total);
         order.setTransactorName(request.transactorName() != null ? request.transactorName()
                 : order.getTransactorName());
-        order.setGroupBooking(Boolean.TRUE.equals(request.groupBooking()) || totalAttendees > 1);
+        order.setGroupBooking(Boolean.TRUE.equals(request.groupBooking()) || totalAttendees > 1 || anyCoupleOrVip);
         order.setWeekend(Boolean.TRUE.equals(request.weekend()));
         order.setRoomType(roomType);
         order.setRoomTypeCharge(roomCharge);
         order.setVoucherId(request.voucherId());
+        if (actorUserId != null) {
+            order.setLastEditedByUserId(actorUserId);
+        }
         orderRepository.save(order);
 
         if (request.voucherId() != null) {
@@ -491,11 +514,15 @@ public class OrderService {
 
         AtomicInteger itemPos = new AtomicInteger(0);
         for (CreateOrderItemRequest ci : request.items()) {
+            Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                    pid -> packageRepository.findById(pid).orElse(null));
+            boolean coupleOrVip = pkg != null && (pkg.isCouple() || pkg.isRequiresVipRoom());
+            int derivedQuantity = coupleOrVip ? 1 : ci.attendees().size();
             OrderItem item = new OrderItem();
             item.setOrderId(order.getId());
             item.setOrganizationId(organizationId);
             item.setPackageId(ci.packageId());
-            item.setQuantity(ci.quantity() == null ? 1 : ci.quantity());
+            item.setQuantity(derivedQuantity);
             item.setUnitPrice(ci.unitPrice() != null ? ci.unitPrice() : BigDecimal.ZERO);
             BigDecimal lt = ci.lineTotal() != null ? ci.lineTotal()
                     : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
@@ -503,14 +530,22 @@ public class OrderService {
             item.setPosition(ci.position() != null ? ci.position() : itemPos.getAndIncrement());
             orderItemRepository.save(item);
 
+            Long sharedTierId = null;
+            Long sharedServiceId = null;
+            if (coupleOrVip && !ci.attendees().isEmpty()) {
+                CreateOrderItemAttendeeRequest first = ci.attendees().get(0);
+                sharedTierId = first.packageTierId();
+                sharedServiceId = first.serviceId();
+            }
+
             AtomicInteger attPos = new AtomicInteger(0);
             for (CreateOrderItemAttendeeRequest ar : ci.attendees()) {
                 OrderItemAttendee att = new OrderItemAttendee();
                 att.setOrderItemId(item.getId());
                 att.setOrderId(order.getId());
                 att.setOrganizationId(organizationId);
-                att.setServiceId(ar.serviceId());
-                att.setPackageTierId(ar.packageTierId());
+                att.setServiceId(coupleOrVip ? sharedServiceId : ar.serviceId());
+                att.setPackageTierId(coupleOrVip ? sharedTierId : ar.packageTierId());
                 att.setLockerNumber(ar.lockerNumber());
                 att.setClientGender(ar.clientGender());
                 att.setPosition(ar.position() != null ? ar.position() : attPos.getAndIncrement());
@@ -538,8 +573,8 @@ public class OrderService {
             if (payAmount.compareTo(BigDecimal.ZERO) > 0 && payAmount.compareTo(total) > 0) {
                 throw new IllegalArgumentException("Payment amount exceeds order total");
             }
-            UUID actorUserId = order.getCashierUserId();
-            recordPaymentInternal(order, null, actorUserId, request.initialPayment().paymentMethod(),
+            UUID paymentActor = actorUserId != null ? actorUserId : order.getCashierUserId();
+            recordPaymentInternal(order, null, paymentActor, request.initialPayment().paymentMethod(),
                     payAmount, request.initialPayment().referenceNumber());
             if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
                 order.setStatus("PAID");
@@ -573,14 +608,14 @@ public class OrderService {
         if (com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod())) {
             com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
                     order, request.amount(), request.paymentMethod(), referenceNumber);
-            if (!"succeeded".equalsIgnoreCase(result.status())) {
-                throw new IllegalStateException("PayMongo charge did not succeed: " + result.status());
-            }
             referenceNumber = result.intentId();
         }
 
         recordPaymentInternal(order, sessionId, actorUserId, request.paymentMethod(), request.amount(), referenceNumber);
 
+        if (actorUserId != null) {
+            order.setLastEditedByUserId(actorUserId);
+        }
         if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
             order.setStatus("PAID");
             order.setFinishedAt(OffsetDateTime.now());
@@ -1011,6 +1046,13 @@ public class OrderService {
                             ? u.getDisplayName() : u.getUsername())
                     .orElse(null);
         }
+        String lastEditedByDisplayName = null;
+        if (order.getLastEditedByUserId() != null) {
+            lastEditedByDisplayName = userRepository.findById(order.getLastEditedByUserId())
+                    .map(u -> u.getDisplayName() != null && !u.getDisplayName().isBlank()
+                            ? u.getDisplayName() : u.getUsername())
+                    .orElse(null);
+        }
         List<OrderItem> items = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId());
         Map<UUID, List<OrderItemAttendee>> attendeesByItem = new HashMap<>();
         boolean sessionCompleted = false;
@@ -1091,6 +1133,7 @@ public class OrderService {
                 order.getRoomTypeCharge(),
                 sessionCompleted,
                 orderCouplePackage,
+                lastEditedByDisplayName,
                 itemResponses
         );
     }

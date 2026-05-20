@@ -36,5 +36,6 @@ public record OrderResponse(
         BigDecimal roomTypeCharge,
         boolean sessionCompleted,
         boolean couplePackage,
+        String lastEditedByDisplayName,
         List<OrderItemResponse> items
 ) {}

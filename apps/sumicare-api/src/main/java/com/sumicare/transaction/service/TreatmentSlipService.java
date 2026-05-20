@@ -123,27 +123,26 @@ public class TreatmentSlipService {
                     .ifPresent(t -> slip.setRequestedTherapistNickname(t.getNickname()));
         }
 
-        if (booking != null) {
-            orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
-                if (order.getOrNumber() != null && !order.getOrNumber().isBlank()) {
-                    slip.setOrNumber(order.getOrNumber());
-                }
-                if (order.getTotal() != null && slip.getTotalAmount() == null) {
-                    slip.setTotalAmount(order.getTotal());
-                }
-            });
-        }
-
         if (slip.getServiceName() == null && booking != null) {
             var service = serviceRepository.findById(booking.getServiceId()).orElse(null);
             if (service != null) {
                 slip.setServiceName(service.getName());
                 slip.setVip(service.isVip());
-                slip.setTotalAmount(service.getPrice());
                 if (!service.isVip()) {
                     slip.setTreatmentMinutes(service.getDurationMinutes());
                 }
             }
+        }
+
+        if (booking != null) {
+            orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
+                if (order.getOrNumber() != null && !order.getOrNumber().isBlank()) {
+                    slip.setOrNumber(order.getOrNumber());
+                }
+                if (order.getTotal() != null) {
+                    slip.setTotalAmount(order.getTotal());
+                }
+            });
         }
 
         if (slip.getPackageName() == null && session.getAttendeeId() != null) {

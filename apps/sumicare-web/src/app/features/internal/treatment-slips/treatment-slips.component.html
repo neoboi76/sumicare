@@ -1,10 +1,10 @@
 <div class="space-y-6">
-  <header class="flex items-baseline justify-between">
+  <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Treatment slips</h1>
       <p class="text-slate-500">Digitized slips. All identification by nickname only.</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2">
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="date"
              class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
       <button (click)="exportCsv()"
@@ -14,8 +14,8 @@
     </div>
   </header>
 
-  <section class="bg-white rounded-xl shadow overflow-hidden">
-    <table class="w-full text-sm">
+  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+    <table class="w-full text-sm min-w-[720px]">
       <thead class="bg-slate-100">
         <tr>
           <th class="text-left p-3" [sumiSortable]="'tsn'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">

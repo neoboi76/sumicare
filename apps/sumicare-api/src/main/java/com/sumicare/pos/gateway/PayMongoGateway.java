@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -31,17 +32,24 @@ public class PayMongoGateway implements PaymentGateway {
     }
 
     @Override
-    public String createIntent(BigDecimal amount, String currency, Map<String, String> metadata) {
+    public IntentResult createIntent(BigDecimal amount, String currency, String paymentMethod, Map<String, String> metadata) {
         long amountInCentavos = amount.multiply(BigDecimal.valueOf(100)).longValue();
+        List<String> allowedMethods = resolveAllowedMethods(paymentMethod);
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("amount", amountInCentavos);
         attributes.put("currency", currency.toUpperCase());
-        attributes.put("payment_method_allowed", new String[]{"gcash"});
-        attributes.put("payment_method_options", Map.of("gcash", Map.of("redirect", Map.of(
-                "success", appProperties.app().publicBaseUrl() + "/pay/success",
-                "failed", appProperties.app().publicBaseUrl() + "/pay/failed"
-        ))));
+        attributes.put("payment_method_allowed", allowedMethods);
+        attributes.put("capture_type", "automatic");
+        Map<String, Object> methodOptions = new HashMap<>();
+        for (String method : allowedMethods) {
+            methodOptions.put(method, Map.of("redirect", Map.of(
+                    "success", appProperties.app().publicBaseUrl() + "/pay/success",
+                    "failed", appProperties.app().publicBaseUrl() + "/pay/failed"
+            )));
+        }
+        attributes.put("payment_method_options", methodOptions);
         attributes.put("description", metadata.getOrDefault("description", "SumiCare payment"));
+        attributes.put("metadata", new HashMap<>(metadata));
 
         Map<String, Object> body = Map.of("data", Map.of("attributes", attributes));
 
@@ -53,14 +61,22 @@ public class PayMongoGateway implements PaymentGateway {
                     .body(Map.class);
             Map<?, ?> data = (Map<?, ?>) response.get("data");
             Map<?, ?> responseAttributes = (Map<?, ?>) data.get("attributes");
-            Map<?, ?> nextAction = (Map<?, ?>) responseAttributes.get("next_action");
-            if (nextAction != null) {
-                Map<?, ?> redirect = (Map<?, ?>) nextAction.get("redirect");
-                if (redirect != null) return (String) redirect.get("url");
+            String intentId = (String) data.get("id");
+            String status = responseAttributes == null ? null : (String) responseAttributes.get("status");
+            String nextActionUrl = null;
+            if (responseAttributes != null) {
+                Map<?, ?> nextAction = (Map<?, ?>) responseAttributes.get("next_action");
+                if (nextAction != null) {
+                    Map<?, ?> redirect = (Map<?, ?>) nextAction.get("redirect");
+                    if (redirect != null) {
+                        Object url = redirect.get("url");
+                        if (url != null) nextActionUrl = url.toString();
+                    }
+                }
             }
-            return (String) data.get("id");
+            return new IntentResult(intentId, status == null ? "pending" : status, nextActionUrl);
         } catch (Exception e) {
-            throw new RuntimeException("PayMongo source creation failed: " + e.getMessage(), e);
+            throw new RuntimeException("PayMongo intent creation failed: " + e.getMessage(), e);
         }
     }
 
@@ -80,5 +96,14 @@ public class PayMongoGateway implements PaymentGateway {
     @Override
     public String capture(String intentId) {
         return intentId;
+    }
+
+    private List<String> resolveAllowedMethods(String paymentMethod) {
+        if (paymentMethod == null) return List.of("gcash");
+        return switch (paymentMethod.toUpperCase()) {
+            case "CREDIT", "DEBIT" -> List.of("card");
+            case "GCASH" -> List.of("gcash");
+            default -> List.of("gcash");
+        };
     }
 }

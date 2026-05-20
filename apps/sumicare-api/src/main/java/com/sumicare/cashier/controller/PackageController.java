@@ -69,7 +69,7 @@ public class PackageController {
                     pkg.getId(), pkg.getCode(), pkg.getName(), pkg.getDescription(), pkg.getBenefits(),
                     pkg.getMaxStayHours(), pkg.getDefaultPax(), pkg.isCouple(),
                     pkg.isIncludesMassage(), pkg.isBundlesPrivateRoom(), pkg.isRequiresVipRoom(), pkg.isActive(),
-                    tierResponses
+                    packageService.deriveInclusions(pkg), tierResponses
             ));
         }
         return responses;

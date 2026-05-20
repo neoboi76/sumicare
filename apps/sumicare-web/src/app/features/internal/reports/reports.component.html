@@ -36,7 +36,7 @@
     </div>
     @if (servicesReport(); as r) {
     <div class="text-xs text-slate-500 mb-1">Shift: {{ selectedShiftLabel() }}</div>
-    <table class="w-full text-sm mt-2">
+    <div class="overflow-x-auto"><table class="w-full text-sm mt-2 min-w-[600px]">
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
         <tr>
           <th class="text-left px-3 py-2">Service</th>
@@ -61,7 +61,7 @@
           <td class="text-right px-3 py-2">&#8369; {{ r.grandTotal | number:'1.2-2' }}</td>
         </tr>
       </tfoot>
-    </table>
+    </table></div>
     }
   </div>
   }

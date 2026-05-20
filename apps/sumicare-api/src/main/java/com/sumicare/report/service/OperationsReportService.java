@@ -5,8 +5,10 @@ import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.domain.OrderItem;
 import com.sumicare.cashier.domain.OrderItemAttendee;
 import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
+import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.domain.Service;
@@ -48,6 +50,7 @@ public class OperationsReportService {
     private final ShiftRepository shiftRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
     private final OrderItemAttendeeRepository attendeeRepository;
+    private final OrderItemRepository orderItemRepository;
 
     public OperationsReportService(SessionRepository sessionRepository,
                                    BookingRepository bookingRepository,
@@ -58,7 +61,8 @@ public class OperationsReportService {
                                    OrderRepository orderRepository,
                                    ShiftRepository shiftRepository,
                                    ShiftAssignmentRepository shiftAssignmentRepository,
-                                   OrderItemAttendeeRepository attendeeRepository) {
+                                   OrderItemAttendeeRepository attendeeRepository,
+                                   OrderItemRepository orderItemRepository) {
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
         this.slipRepository = slipRepository;
@@ -69,6 +73,7 @@ public class OperationsReportService {
         this.shiftRepository = shiftRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
         this.attendeeRepository = attendeeRepository;
+        this.orderItemRepository = orderItemRepository;
     }
 
     public record ServiceLine(Long serviceId, String serviceName, int qty, BigDecimal unitPrice, BigDecimal lineTotal) {}
@@ -112,6 +117,11 @@ public class OperationsReportService {
         }
 
         Map<UUID, UUID> slipToOrderItemId = resolveSlipToOrderItem(slips);
+        Set<UUID> distinctOrderItemIds = new HashSet<>(slipToOrderItemId.values());
+        Map<UUID, OrderItem> orderItemById = new HashMap<>();
+        for (UUID oid : distinctOrderItemIds) {
+            orderItemRepository.findById(oid).ifPresent(it -> orderItemById.put(oid, it));
+        }
         Map<String, ServiceAccumulator> bucket = new HashMap<>();
         Set<UUID> countedOrderItemIds = new HashSet<>();
         for (TreatmentSlip s : slips) {
@@ -122,7 +132,9 @@ public class OperationsReportService {
             ServiceAccumulator acc = bucket.computeIfAbsent(key, k -> new ServiceAccumulator());
             if (orderItemId != null) {
                 if (countedOrderItemIds.add(orderItemId)) {
-                    acc.qty++;
+                    OrderItem item = orderItemById.get(orderItemId);
+                    int qty = item != null ? Math.max(1, item.getQuantity()) : 1;
+                    acc.qty += qty;
                     if (s.getTotalAmount() != null) {
                         acc.total = acc.total.add(s.getTotalAmount());
                     }

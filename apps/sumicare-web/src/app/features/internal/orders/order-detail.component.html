@@ -33,8 +33,8 @@
         <div class="text-xl font-semibold">{{ o.transactorName || o.clientNickname || 'Walk-in' }}</div>
         <div class="text-xs text-slate-500">OR# {{ o.orNumber || '\u2014' }} &middot; Created {{ formatDate(o.createdAt)
           }}</div>
-        @if (o.cashierDisplayName) {
-        <div class="text-xs text-slate-500">Transacted by: {{ o.cashierDisplayName }}</div>
+        @if (o.lastEditedByDisplayName || o.cashierDisplayName) {
+        <div class="text-xs text-slate-500">Transacted by: {{ o.lastEditedByDisplayName || o.cashierDisplayName }}</div>
         }
         @if (o.groupBooking) {
           <div class="mt-1 inline-block rounded bg-sky-100 text-sky-700 text-[10px] uppercase tracking-wide px-1.5 py-0.5">Group booking</div>

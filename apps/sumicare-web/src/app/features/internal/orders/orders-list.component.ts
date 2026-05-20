@@ -19,6 +19,7 @@ interface Order {
   clientNickname: string | null;
   transactorName: string | null;
   cashierDisplayName: string | null;
+  lastEditedByDisplayName: string | null;
   orNumber: string | null;
   total: number;
   amountPaid: number;

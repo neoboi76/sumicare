@@ -42,6 +42,9 @@ public class Order {
     @Column(name = "cashier_user_id", columnDefinition = "uuid")
     private UUID cashierUserId;
 
+    @Column(name = "last_edited_by_user_id", columnDefinition = "uuid")
+    private UUID lastEditedByUserId;
+
     @Column(name = "or_number", length = 50)
     private String orNumber;
 
@@ -97,6 +100,8 @@ public class Order {
     public void setTreatmentSlipId(UUID treatmentSlipId) { this.treatmentSlipId = treatmentSlipId; }
     public UUID getCashierUserId() { return cashierUserId; }
     public void setCashierUserId(UUID cashierUserId) { this.cashierUserId = cashierUserId; }
+    public UUID getLastEditedByUserId() { return lastEditedByUserId; }
+    public void setLastEditedByUserId(UUID lastEditedByUserId) { this.lastEditedByUserId = lastEditedByUserId; }
     public String getOrNumber() { return orNumber; }
     public void setOrNumber(String orNumber) { this.orNumber = orNumber; }
     public String getReferenceNumber() { return referenceNumber; }
