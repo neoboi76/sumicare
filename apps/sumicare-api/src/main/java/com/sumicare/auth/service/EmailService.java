@@ -105,6 +105,7 @@ public class EmailService {
                   <p>We have recorded your reservation. Here is a copy of your details:</p>
                   <table style="border-collapse: collapse; margin-top: 16px;">
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Reference</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">OR #</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Package</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Massage</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Reservation type</td><td style="padding: 6px 12px;">%s</td></tr>
@@ -121,6 +122,7 @@ public class EmailService {
                 """.formatted(
                         displayName == null ? "there" : displayName,
                         payload.reference(),
+                        payload.orNumber() == null || payload.orNumber().isBlank() ? "To be issued" : payload.orNumber(),
                         payload.packageName() == null ? "(no package)" : payload.packageName(),
                         payload.serviceName() == null ? "(walk-in)" : payload.serviceName(),
                         payload.reservationType(),
@@ -133,6 +135,7 @@ public class EmailService {
 
     public record BookingEmailPayload(
             String reference,
+            String orNumber,
             String packageName,
             String serviceName,
             String reservationType,
@@ -176,10 +179,18 @@ public class EmailService {
             helper.setFrom(appProperties.app().emailFrom());
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(body, true);
+            helper.setText(withPoweredBy(body), true);
             mailSender.send(message);
         } catch (Exception e) {
             throw new RuntimeException("Failed to send email", e);
         }
+    }
+
+    private String withPoweredBy(String body) {
+        String footer = "<p style=\"font-size: 11px; color: #9ca3af; text-align: center; margin-top: 16px;\">Powered by SumiCare</p>";
+        if (body.contains("</body>")) {
+            return body.replace("</body>", footer + "</body>");
+        }
+        return body + footer;
     }
 }

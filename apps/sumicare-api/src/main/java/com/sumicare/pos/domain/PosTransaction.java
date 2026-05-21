@@ -27,6 +27,9 @@ public class PosTransaction {
     @Column(name = "receipt_number", nullable = false)
     private String receiptNumber;
 
+    @Column(name = "reference_number", length = 100)
+    private String referenceNumber;
+
     @Column(name = "subtotal", nullable = false)
     private BigDecimal subtotal;
 
@@ -61,6 +64,8 @@ public class PosTransaction {
     public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
     public String getReceiptNumber() { return receiptNumber; }
     public void setReceiptNumber(String receiptNumber) { this.receiptNumber = receiptNumber; }
+    public String getReferenceNumber() { return referenceNumber; }
+    public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
     public BigDecimal getDiscount() { return discount; }

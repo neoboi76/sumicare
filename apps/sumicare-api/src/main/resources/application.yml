@@ -71,6 +71,7 @@ sumicare:
   payment:
     paymongo:
       secretKey: ${PAYMONGO_SECRET_KEY}
+      publicKey: ${PAYMONGO_PUBLIC_KEY:}
       webhookSecret: ${PAYMONGO_WEBHOOK_SECRET}
       mockMode: ${PAYMONGO_MOCK_MODE:true}
 

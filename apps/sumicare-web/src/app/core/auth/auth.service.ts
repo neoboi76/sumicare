@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, firstValueFrom, of, tap } from 'rxjs';
+import { Observable, catchError, finalize, firstValueFrom, of, shareReplay, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface AuthSession {
@@ -20,6 +20,7 @@ interface TokenResponse {
 export class AuthService {
   private http = inject(HttpClient);
   readonly session = signal<AuthSession | null>(null);
+  private refreshInFlight: Observable<TokenResponse> | null = null;
 
   bootstrapSession(): Promise<void> {
     return firstValueFrom(
@@ -39,9 +40,17 @@ export class AuthService {
   }
 
   refresh(): Observable<TokenResponse> {
-    return this.http
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+    this.refreshInFlight = this.http
       .post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/refresh`, {}, { withCredentials: true })
-      .pipe(tap((response) => this.applyToken(response)));
+      .pipe(
+        tap((response) => this.applyToken(response)),
+        finalize(() => { this.refreshInFlight = null; }),
+        shareReplay({ bufferSize: 1, refCount: true })
+      );
+    return this.refreshInFlight;
   }
 
   logout(): Observable<void> {

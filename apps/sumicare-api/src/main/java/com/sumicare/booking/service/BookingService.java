@@ -5,11 +5,13 @@ import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.PublicAttendeeRequest;
+import com.sumicare.booking.dto.PublicPaymentResponse;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.dto.PaymentDetailsRequest;
 import com.sumicare.cashier.domain.Package;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
@@ -77,6 +79,7 @@ public class BookingService {
     private final TransactionLedgerRepository ledgerRepository;
     private final OrderService orderService;
     private final EmailService emailService;
+    private final com.sumicare.pos.service.PayMongoService payMongoService;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
@@ -95,7 +98,8 @@ public class BookingService {
                           ClientRepository clientRepository,
                           TransactionLedgerRepository ledgerRepository,
                           @Lazy OrderService orderService,
-                          EmailService emailService) {
+                          EmailService emailService,
+                          com.sumicare.pos.service.PayMongoService payMongoService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -118,6 +122,7 @@ public class BookingService {
         this.ledgerRepository = ledgerRepository;
         this.orderService = orderService;
         this.emailService = emailService;
+        this.payMongoService = payMongoService;
     }
 
     @PreAuthorize("permitAll()")
@@ -297,7 +302,10 @@ public class BookingService {
             }
         }
 
-        if ("HARD".equalsIgnoreCase(request.reservationType())) {
+        boolean onlinePayment = "HARD".equalsIgnoreCase(request.reservationType())
+                && com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod());
+
+        if ("HARD".equalsIgnoreCase(request.reservationType()) && !onlinePayment) {
             order.setOrNumber(orderService.nextOrNumber());
             order.setStatus("PAID");
             order.setFinishedAt(OffsetDateTime.now());
@@ -310,28 +318,110 @@ public class BookingService {
             orderRepository.save(order);
         }
 
-        if (request.clientEmail() != null && !request.clientEmail().isBlank()) {
-            try {
-                OffsetDateTime effectiveStart = booking.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
-                java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d yyyy h:mm a");
-                emailService.sendBookingConfirmationEmail(
-                        request.clientEmail(),
-                        request.clientNickname(),
-                        new EmailService.BookingEmailPayload(
-                                booking.getId().toString(),
-                                selectedPackage == null ? null : selectedPackage.getName(),
-                                service.getName(),
-                                request.reservationType(),
-                                booking.getScheduledAt().atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
-                                effectiveStart.atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
-                                resolvedRoomType,
-                                orderTotal.toPlainString()));
-            } catch (Exception ex) {
-                log.warn("Could not send booking confirmation email to {}: {}", request.clientEmail(), ex.getMessage());
-            }
+        if (!onlinePayment && request.clientEmail() != null && !request.clientEmail().isBlank()) {
+            sendBookingEmail(booking, service, selectedPackage, resolvedRoomType, orderTotal, order.getOrNumber());
         }
 
         return toBookingResponse(booking, service);
+    }
+
+    @PreAuthorize("permitAll()")
+    @Transactional
+    public PublicPaymentResponse initiatePublicPayment(UUID organizationId, UUID orderId,
+                                                       String paymentMethod, PaymentDetailsRequest details) {
+        Order order = requirePublicOrder(organizationId, orderId);
+        if ("PAID".equals(order.getStatus())) {
+            return new PublicPaymentResponse("succeeded", null, null, order.getOrNumber());
+        }
+        if (order.getTotal() == null || order.getTotal().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("This reservation has no payable total");
+        }
+        if (!com.sumicare.pos.service.PayMongoService.supports(paymentMethod)) {
+            throw new IllegalArgumentException("Unsupported payment method: " + paymentMethod);
+        }
+        com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.initiate(
+                order, order.getTotal(), paymentMethod, null, details, "/book");
+        if ("succeeded".equalsIgnoreCase(result.status())) {
+            String orNumber = settlePublicPayment(order, result.intentId(), paymentMethod);
+            return new PublicPaymentResponse("succeeded", result.intentId(), null, orNumber);
+        }
+        return new PublicPaymentResponse(result.status(), result.intentId(), result.nextActionUrl(), null);
+    }
+
+    @PreAuthorize("permitAll()")
+    @Transactional
+    public PublicPaymentResponse confirmPublicPayment(UUID organizationId, UUID orderId,
+                                                      String intentId, String paymentMethod) {
+        Order order = requirePublicOrder(organizationId, orderId);
+        if ("PAID".equals(order.getStatus())) {
+            return new PublicPaymentResponse("succeeded", intentId, null, order.getOrNumber());
+        }
+        String status = payMongoService.confirm(intentId);
+        if (!"succeeded".equalsIgnoreCase(status) && !"processing".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("PayMongo payment was not authorized (status: " + status + ")");
+        }
+        String method = paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "GCASH";
+        String orNumber = settlePublicPayment(order, intentId, method);
+        return new PublicPaymentResponse("succeeded", intentId, null, orNumber);
+    }
+
+    private Order requirePublicOrder(UUID organizationId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown order"));
+        if (!order.getOrganizationId().equals(organizationId)) {
+            throw new IllegalArgumentException("Order not in organization");
+        }
+        return order;
+    }
+
+    private String settlePublicPayment(Order order, String intentId, String paymentMethod) {
+        if (order.getOrNumber() == null || order.getOrNumber().isBlank()) {
+            order.setOrNumber(orderService.nextOrNumber());
+            orderRepository.save(order);
+        }
+        orderService.settleGatewayPayment(order, null, intentId, paymentMethod, order.getTotal());
+
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        if (booking != null && booking.getClientEmail() != null && !booking.getClientEmail().isBlank()) {
+            Service service = serviceRepository.findById(booking.getServiceId()).orElse(null);
+            Package pkg = resolveOrderPackage(order);
+            if (service != null) {
+                sendBookingEmail(booking, service, pkg, order.getRoomType(), order.getTotal(), order.getOrNumber());
+            }
+        }
+        return order.getOrNumber();
+    }
+
+    private Package resolveOrderPackage(Order order) {
+        return orderItemRepository.findAllByOrderIdOrderByPosition(order.getId()).stream()
+                .filter(it -> it.getPackageId() != null)
+                .findFirst()
+                .flatMap(it -> packageRepository.findById(it.getPackageId()))
+                .orElse(null);
+    }
+
+    private void sendBookingEmail(Booking booking, Service service, Package selectedPackage,
+                                  String roomType, BigDecimal total, String orNumber) {
+        try {
+            OffsetDateTime effectiveStart = booking.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d yyyy h:mm a");
+            emailService.sendBookingConfirmationEmail(
+                    booking.getClientEmail(),
+                    booking.getClientNickname(),
+                    new EmailService.BookingEmailPayload(
+                            booking.getId().toString(),
+                            orNumber,
+                            selectedPackage == null ? null : selectedPackage.getName(),
+                            service.getName(),
+                            booking.getReservationType(),
+                            booking.getScheduledAt().atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
+                            effectiveStart.atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
+                            roomType,
+                            total.toPlainString()));
+        } catch (Exception ex) {
+            log.warn("Could not send booking confirmation email to {}: {}", booking.getClientEmail(), ex.getMessage());
+        }
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -516,8 +606,13 @@ public class BookingService {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
     public SessionResponse endSession(UUID organizationId, UUID sessionId) {
+        return endSessionAt(organizationId, sessionId, OffsetDateTime.now());
+    }
+
+    @Transactional
+    public SessionResponse endSessionAt(UUID organizationId, UUID sessionId, OffsetDateTime endTime) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = endTime != null ? endTime : OffsetDateTime.now();
         session.setEndedAt(now);
         session.setStatus("COMPLETED");
         sessionRepository.save(session);
@@ -585,7 +680,9 @@ public class BookingService {
     public void autoEndSession(UUID sessionId) {
         sessionRepository.findById(sessionId).ifPresent(session -> {
             if ("ACTIVE".equals(session.getStatus())) {
-                endSession(session.getOrganizationId(), sessionId);
+                OffsetDateTime endTime = session.getExpectedEndAt() != null
+                        ? session.getExpectedEndAt() : OffsetDateTime.now();
+                endSessionAt(session.getOrganizationId(), sessionId, endTime);
             }
         });
     }
@@ -706,7 +803,8 @@ public class BookingService {
         int ended = 0;
         for (Session s : expired) {
             try {
-                endSession(organizationId, s.getId());
+                OffsetDateTime endTime = s.getExpectedEndAt() != null ? s.getExpectedEndAt() : OffsetDateTime.now();
+                endSessionAt(organizationId, s.getId(), endTime);
                 ended++;
             } catch (Exception ex) {
                 log.warn("autoEndExpiredSessions failed to end session {}: {}", s.getId(), ex.getMessage());

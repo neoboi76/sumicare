@@ -87,6 +87,7 @@ export class OrderDetailComponent implements OnInit {
   order = signal<Order | null>(null);
   audits = signal<AuditEntry[]>([]);
   error = signal<string | null>(null);
+  paymentNotice = signal<string | null>(null);
   busy = signal(false);
   loading = signal(true);
 
@@ -95,10 +96,23 @@ export class OrderDetailComponent implements OnInit {
   newPaymentRef = '';
   cancelReason = '';
   showCancel = signal(false);
+  refundReason = 'requested_by_customer';
+  refundNotes = '';
+  showRefund = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) return;
+    const paymentError = this.route.snapshot.queryParamMap.get('paymentError');
+    if (paymentError) {
+      if (paymentError === 'cancelled') {
+        this.paymentNotice.set('The PayMongo payment was cancelled. The order is still open and can be paid again.');
+      } else if (paymentError === 'confirm_failed' || paymentError === 'paymongo_failed') {
+        this.paymentNotice.set('The PayMongo payment could not be completed. The order is still open and can be paid again.');
+      } else {
+        this.paymentNotice.set('PayMongo: ' + paymentError);
+      }
+    }
     this.load(id);
   }
 
@@ -257,6 +271,39 @@ export class OrderDetailComponent implements OnInit {
     });
   }
 
+  openRefund(): void {
+    this.refundReason = 'requested_by_customer';
+    this.refundNotes = '';
+    this.showRefund.set(true);
+  }
+
+  closeRefund(): void {
+    this.showRefund.set(false);
+  }
+
+  confirmRefund(): void {
+    const o = this.order();
+    if (!o || this.busy()) return;
+    this.busy.set(true);
+    this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/refund`, {
+      amount: null,
+      reason: this.refundReason,
+      notes: this.refundNotes || null
+    }).subscribe({
+      next: (updated) => {
+        this.order.set(updated);
+        this.showRefund.set(false);
+        this.busy.set(false);
+        this.error.set(null);
+        this.load(updated.id);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || 'Could not refund the order.');
+        this.busy.set(false);
+      }
+    });
+  }
+
   formatDate(iso: string | null): string {
     return iso ? new Date(iso).toLocaleString('en-US', {
       year: 'numeric', month: '2-digit', day: '2-digit',
@@ -269,6 +316,7 @@ export class OrderDetailComponent implements OnInit {
       case 'OPEN': return 'bg-amber-100 text-amber-700';
       case 'PAID': return 'bg-emerald-100 text-emerald-700';
       case 'CANCELLED': return 'bg-rose-100 text-rose-700';
+      case 'REFUNDED': return 'bg-violet-100 text-violet-700';
       default: return 'bg-slate-100 text-slate-700';
     }
   }

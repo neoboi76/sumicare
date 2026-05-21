@@ -40,7 +40,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, comput
             @for (page of pages(); track page) {
               <button (click)="onPage(page)"
                       [class.z-10]="currentPage === page"
-                      [class.bg-\[var\(--sumi-primary\)\]]="currentPage === page"
+                      [style.backgroundColor]="currentPage === page ? 'var(--sumi-primary)' : null"
                       [class.text-white]="currentPage === page"
                       [class.text-slate-900]="currentPage !== page"
                       [class.hover:bg-slate-50]="currentPage !== page"

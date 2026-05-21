@@ -2,9 +2,11 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
+import { PaymentDetailsModalComponent } from '../../../shared/components/payment-details/payment-details-modal.component';
+import { PaymentDetails, PaymentDetailsService } from '../../../shared/components/payment-details/payment-details.service';
 
 interface ClientLite {
   id: string;
@@ -69,6 +71,7 @@ interface AddedPayment {
   paymentMethod: string;
   amount: number;
   referenceNumber?: string;
+  paymentDetails?: PaymentDetails;
 }
 
 interface DiscountConfig {
@@ -104,7 +107,7 @@ type RoomType = 'COMMON' | 'PRIVATE' | 'VIP';
 @Component({
   selector: 'sumi-cashier',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, RouterLink],
+  imports: [FormsModule, DecimalPipe, RouterLink, PaymentDetailsModalComponent],
   templateUrl: './cashier.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -113,6 +116,7 @@ export class CashierComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private confirmService = inject(ConfirmService);
+  private paymentDetailsService = inject(PaymentDetailsService);
 
   searchTerm = '';
   searchResults = signal<ClientLite[]>([]);
@@ -182,11 +186,49 @@ export class CashierComponent implements OnInit {
   due = computed(() => Math.max(0, this.total() - this.paid()));
 
   ngOnInit(): void {
+    const params = this.route.snapshot.queryParamMap;
+    if (params.get('paymongoReturn')) {
+      this.handlePayMongoReturn(params);
+      return;
+    }
     this.loadRoomAvailability();
     this.searchClients();
     this.loadDiscountTemplates();
-    const orderId = this.route.snapshot.queryParamMap.get('orderId');
+    const orderId = params.get('orderId');
     this.loadPackages(orderId);
+  }
+
+  private handlePayMongoReturn(params: ParamMap): void {
+    const orderId = params.get('orderId');
+    const intent = params.get('intent');
+    const status = params.get('status');
+    const paymentMethod = params.get('paymentMethod');
+    const amount = params.get('amount');
+    if (!orderId || !intent) {
+      this.router.navigate(['/app/cashier']);
+      return;
+    }
+    if (status === 'cancelled' || status === 'failed') {
+      this.router.navigate(['/app/orders', orderId], { queryParams: { paymentError: 'cancelled' } });
+      return;
+    }
+    this.submitting.set(true);
+    this.http.post(`${environment.apiBaseUrl}/api/cashier/orders/${orderId}/paymongo/confirm`, {
+      intentId: intent,
+      amount: amount ? Number(amount) : null,
+      paymentMethod: paymentMethod || null
+    }).subscribe({
+      next: () => {
+        this.submitting.set(false);
+        this.router.navigate(['/app/orders', orderId]);
+      },
+      error: (e) => {
+        this.submitting.set(false);
+        this.router.navigate(['/app/orders', orderId], {
+          queryParams: { paymentError: e?.error?.message || 'confirm_failed' }
+        });
+      }
+    });
   }
 
   loadPackages(orderIdToEdit?: string | null): void {
@@ -563,18 +605,35 @@ export class CashierComponent implements OnInit {
     this.paymentMethod.set(method);
   }
 
-  addPayment(): void {
+  async addPayment(): Promise<void> {
+    if (this.total() === 0) {
+      this.error.set('No payment is required for a zero-total order.');
+      return;
+    }
     const amt = Number(this.paymentAmount || 0);
-    if (amt < 0) return;
+    if (amt <= 0) {
+      this.error.set('Enter a payment amount greater than zero.');
+      return;
+    }
     if (this.paid() + amt > this.total()) {
       this.error.set('Payment would exceed the total amount due. Maximum: ' + (this.total() - this.paid()).toFixed(2));
       return;
     }
+
+    const method = this.paymentMethod();
+    let paymentDetails: PaymentDetails | undefined;
+    if (method !== 'CASH') {
+      const captured = await this.paymentDetailsService.open(method, amt);
+      if (!captured) return;
+      paymentDetails = captured;
+    }
+
     this.error.set(null);
     this.payments.update(p => [...p, {
-      paymentMethod: this.paymentMethod(),
+      paymentMethod: method,
       amount: amt,
-      referenceNumber: this.paymentRef || undefined
+      referenceNumber: this.paymentRef || undefined,
+      paymentDetails
     }]);
     this.paymentAmount = 0;
     this.paymentRef = '';
@@ -617,9 +676,7 @@ export class CashierComponent implements OnInit {
     const isEdit = !!this.editingOrderId();
     const firstPayment = isEdit
       ? null
-      : (payments.length > 0
-        ? payments[0]
-        : (this.total() === 0 ? { paymentMethod: 'CASH', amount: 0, referenceNumber: undefined } : null));
+      : (payments.length > 0 ? payments[0] : null);
     return {
       clientId: this.selectedClient()?.id || null,
       clientNickname: this.transactorName,
@@ -659,7 +716,8 @@ export class CashierComponent implements OnInit {
       initialPayment: firstPayment ? {
         paymentMethod: firstPayment.paymentMethod,
         amount: firstPayment.amount,
-        referenceNumber: firstPayment.referenceNumber || null
+        referenceNumber: firstPayment.referenceNumber || null,
+        paymentDetails: firstPayment.paymentDetails || null
       } : null
     };
   }
@@ -679,9 +737,26 @@ export class CashierComponent implements OnInit {
     });
     if (!confirmed) return;
 
+    const queuedPayments = this.payments();
+    const redirectPayment = !editId && queuedPayments.length === 1 && queuedPayments[0].paymentMethod !== 'CASH'
+      ? queuedPayments[0]
+      : null;
+
     this.submitting.set(true);
     this.error.set(null);
     const payload = this.buildPayload();
+
+    if (redirectPayment) {
+      const orderPayload = { ...payload, initialPayment: null };
+      this.http.post<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders`, orderPayload).subscribe({
+        next: (order) => this.startPayMongo(order.id, redirectPayment),
+        error: (err) => {
+          this.submitting.set(false);
+          this.error.set(err?.error?.message || 'Could not create order.');
+        }
+      });
+      return;
+    }
 
     if (editId) {
       this.http.put<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders/${editId}`, payload).subscribe({
@@ -731,12 +806,56 @@ export class CashierComponent implements OnInit {
     this.http.post(`${environment.apiBaseUrl}/api/cashier/orders/${orderId}/payments`, {
       paymentMethod: p.paymentMethod,
       amount: p.amount,
-      referenceNumber: p.referenceNumber || null
+      referenceNumber: p.referenceNumber || null,
+      paymentDetails: p.paymentDetails || null
     }).subscribe({
       next: () => this.recordExtraPayments(orderId, list, idx + 1),
       error: () => {
         this.submitting.set(false);
         this.router.navigate(['/app/orders', orderId]);
+      }
+    });
+  }
+
+  private startPayMongo(orderId: string, payment: AddedPayment): void {
+    this.http.post<{ status: string; intentId: string; redirectUrl: string | null }>(
+      `${environment.apiBaseUrl}/api/cashier/orders/${orderId}/paymongo/initiate`,
+      {
+        paymentMethod: payment.paymentMethod,
+        amount: payment.amount,
+        referenceNumber: payment.referenceNumber || null,
+        paymentDetails: payment.paymentDetails || null
+      }
+    ).subscribe({
+      next: (res) => {
+        if (res.status === 'succeeded') {
+          this.submitting.set(false);
+          this.router.navigate(['/app/orders', orderId]);
+          return;
+        }
+        const origin = window.location.origin;
+        const returnUrl = `${origin}/app/cashier?paymongoReturn=1&orderId=${orderId}`
+          + `&intent=${encodeURIComponent(res.intentId)}`
+          + `&paymentMethod=${encodeURIComponent(payment.paymentMethod)}`
+          + `&amount=${payment.amount}`;
+        if (res.intentId.startsWith('mock_')) {
+          window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
+            + `&amount=${payment.amount}`
+            + `&method=${encodeURIComponent(payment.paymentMethod)}`
+            + `&return=${encodeURIComponent(returnUrl)}`;
+        } else if (res.redirectUrl) {
+          window.location.href = res.redirectUrl;
+        } else {
+          this.submitting.set(false);
+          this.router.navigate(['/app/orders', orderId]);
+        }
+      },
+      error: (err) => {
+        this.submitting.set(false);
+        this.error.set(err?.error?.message || 'Could not start the PayMongo payment.');
+        this.router.navigate(['/app/orders', orderId], {
+          queryParams: { paymentError: err?.error?.message || 'paymongo_failed' }
+        });
       }
     });
   }

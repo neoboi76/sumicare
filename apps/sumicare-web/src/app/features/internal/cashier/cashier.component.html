@@ -20,7 +20,7 @@
   <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{{ e }}</div>
   }
 
-  <div class="grid grid-cols-1 md:grid-cols-[3fr_2fr] lg:grid-cols-[2fr_1fr] gap-4">
+  <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
     <div class="space-y-4">
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Transactor</h2>
@@ -215,7 +215,7 @@
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
             <span class="text-[11px] text-slate-400">Editable. Generated automatically if left blank.</span>
           </label>
-          <label class="flex items-center gap-2 mt-5"
+          <label class="flex items-center gap-2 sm:self-end sm:pb-2"
             [class.opacity-50]="totalAttendees() < 2">
             <input type="checkbox" [checked]="groupBooking()" [disabled]="totalAttendees() < 2"
               (change)="groupBooking.set(!groupBooking())"
@@ -245,7 +245,8 @@
         <div class="flex flex-wrap gap-2">
           @for (m of ['CASH', 'GCASH', 'CREDIT', 'DEBIT']; track m) {
           <button (click)="setPaymentMethod($any(m))" class="px-3 py-1.5 text-xs rounded border"
-            [class.bg-\[var\(--sumi-primary\)\]]="paymentMethod() === m" [class.text-white]="paymentMethod() === m"
+            [style.backgroundColor]="paymentMethod() === m ? 'var(--sumi-primary)' : null"
+            [class.text-white]="paymentMethod() === m"
             [class.border-slate-300]="paymentMethod() !== m" [class.text-slate-700]="paymentMethod() !== m">
             {{ m }}
           </button>
@@ -263,9 +264,13 @@
             <input [(ngModel)]="paymentRef" name="payRef" maxlength="100"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
           </label>
-          <button (click)="addPayment()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2">Add
+          <button (click)="addPayment()" [disabled]="total() === 0"
+            class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2 disabled:opacity-50">Add
             payment</button>
         </div>
+        @if (total() === 0) {
+        <p class="text-[11px] text-slate-400">No payment is required for a zero-total order.</p>
+        }
 
         @if (payments().length > 0) {
         <ul class="text-sm divide-y divide-slate-100 border border-slate-200 rounded">
@@ -327,7 +332,8 @@
     </aside>
   </div>
 
-  <!-- Register Client Modal -->
+  <sumi-payment-details-modal />
+
   @if (showRegister()) {
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="closeRegister()">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
@@ -369,7 +375,6 @@
   </div>
   }
 
-  <!-- Discount / Adjustment Modal -->
   @if (showDiscountModal()) {
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" (click)="closeDiscountModal()">
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
@@ -384,7 +389,7 @@
             @for (tmpl of discountTemplates(); track tmpl.id || tmpl.label) {
             <div class="inline-flex items-center gap-1">
               <button (click)="applyTemplate(tmpl)" class="px-3 py-1.5 text-xs rounded border"
-                [class.bg-\[var\(--sumi-primary\)\]]="activeTemplate() === (tmpl.name || tmpl.label)"
+                [style.backgroundColor]="activeTemplate() === (tmpl.name || tmpl.label) ? 'var(--sumi-primary)' : null"
                 [class.text-white]="activeTemplate() === (tmpl.name || tmpl.label)"
                 [class.border-slate-300]="activeTemplate() !== (tmpl.name || tmpl.label)">
                 {{ tmpl.name || tmpl.label }}
@@ -405,12 +410,12 @@
               <div class="flex gap-1">
                 <button (click)="discountConfig.update(c => ({...c, type: 'DISCOUNT'}))"
                   class="px-3 py-1.5 text-xs rounded border"
-                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().type === 'DISCOUNT'"
+                  [style.backgroundColor]="discountConfig().type === 'DISCOUNT' ? 'var(--sumi-primary)' : null"
                   [class.text-white]="discountConfig().type === 'DISCOUNT'"
                   [class.border-slate-300]="discountConfig().type !== 'DISCOUNT'">DISCOUNT</button>
                 <button (click)="discountConfig.update(c => ({...c, type: 'PRICE_INCREASE'}))"
                   class="px-3 py-1.5 text-xs rounded border"
-                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().type === 'PRICE_INCREASE'"
+                  [style.backgroundColor]="discountConfig().type === 'PRICE_INCREASE' ? 'var(--sumi-primary)' : null"
                   [class.text-white]="discountConfig().type === 'PRICE_INCREASE'"
                   [class.border-slate-300]="discountConfig().type !== 'PRICE_INCREASE'">PRICE INCREASE</button>
               </div>
@@ -420,12 +425,12 @@
               <div class="flex gap-1">
                 <button (click)="discountConfig.update(c => ({...c, amountType: 'PERCENT'}))"
                   class="px-3 py-1.5 text-xs rounded border"
-                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().amountType === 'PERCENT'"
+                  [style.backgroundColor]="discountConfig().amountType === 'PERCENT' ? 'var(--sumi-primary)' : null"
                   [class.text-white]="discountConfig().amountType === 'PERCENT'"
                   [class.border-slate-300]="discountConfig().amountType !== 'PERCENT'">PERCENT</button>
                 <button (click)="discountConfig.update(c => ({...c, amountType: 'FIXED'}))"
                   class="px-3 py-1.5 text-xs rounded border"
-                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().amountType === 'FIXED'"
+                  [style.backgroundColor]="discountConfig().amountType === 'FIXED' ? 'var(--sumi-primary)' : null"
                   [class.text-white]="discountConfig().amountType === 'FIXED'"
                   [class.border-slate-300]="discountConfig().amountType !== 'FIXED'">FIXED AMOUNT</button>
               </div>

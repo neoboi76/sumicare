@@ -1,9 +1,12 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { QRCodeComponent } from 'angularx-qrcode';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import { PaymentDetailsModalComponent } from '../../shared/components/payment-details/payment-details-modal.component';
+import { PaymentDetails, PaymentDetailsService } from '../../shared/components/payment-details/payment-details.service';
 
 interface ServiceItem {
   id: number;
@@ -40,6 +43,16 @@ interface BookingCreated {
   reservationType: string;
   scheduledAt: string;
   serviceId: number;
+  orderId: string | null;
+}
+
+type PayMethod = 'GCASH' | 'CREDIT' | 'DEBIT';
+
+interface PublicPaymentResult {
+  status: string;
+  intentId: string | null;
+  redirectUrl: string | null;
+  orNumber: string | null;
 }
 
 interface AttendeeForm {
@@ -53,13 +66,15 @@ type RoomType = 'COMMON' | 'PRIVATE' | 'VIP';
 @Component({
   selector: 'sumi-book',
   standalone: true,
-  imports: [FormsModule, QRCodeComponent],
+  imports: [FormsModule, DecimalPipe, QRCodeComponent, PaymentDetailsModalComponent],
   templateUrl: './book.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BookComponent implements OnInit {
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private paymentDetailsService = inject(PaymentDetailsService);
 
   services = signal<ServiceItem[]>([]);
   packages = signal<PublicPackage[]>([]);
@@ -75,12 +90,14 @@ export class BookComponent implements OnInit {
   }
   confirmation = signal<BookingCreated | null>(null);
   bookingRef = signal<string | null>(null);
+  orNumber = signal<string | null>(null);
 
   clientNickname = '';
   clientEmail = '';
   nationality = '';
   packageId = signal<number | null>(null);
   reservationType = 'SOFT';
+  paymentMethod = signal<PayMethod>('GCASH');
   scheduledDate = '';
   scheduledTime = '';
   consent = false;
@@ -108,7 +125,28 @@ export class BookComponent implements OnInit {
     return this.services().find(s => s.id === id)?.name ?? '';
   });
 
+  estimatedTotal = computed(() => {
+    const tiers = this.packageTiers();
+    const atts = this.attendees();
+    let sum = 0;
+    if (this.forcedDoubleGuests()) {
+      const t = tiers.find(x => x.id === Number(atts[0]?.packageTierId));
+      sum = t ? t.weekdayPrice : 0;
+    } else {
+      for (const a of atts) {
+        const t = tiers.find(x => x.id === Number(a.packageTierId));
+        sum += t ? t.weekdayPrice : 0;
+      }
+    }
+    const room = !this.forcedVipRoom() && this.roomType() === 'PRIVATE' ? 500 : 0;
+    return sum + room;
+  });
+
   ngOnInit(): void {
+    const params = this.route.snapshot.queryParamMap;
+    if (params.get('paymongoReturn')) {
+      this.handlePaymentReturn(params.get('orderId'), params.get('intent'), params.get('paymentMethod'), params.get('status'));
+    }
     this.http
       .get<ServiceItem[]>(`${environment.apiBaseUrl}/api/public/services/${environment.defaultOrganizationSlug}`)
       .subscribe({
@@ -247,6 +285,7 @@ export class BookComponent implements OnInit {
       lockerNumber: null,
       pax: atts.length,
       roomType: this.forcedVipRoom() ? 'VIP' : this.roomType(),
+      paymentMethod: this.reservationType === 'HARD' ? this.paymentMethod() : null,
       attendees: atts.map(a => ({
         packageTierId: a.packageTierId,
         lockerNumber: null,
@@ -261,6 +300,10 @@ export class BookComponent implements OnInit {
       )
       .subscribe({
         next: (booking) => {
+          if (this.reservationType === 'HARD' && booking.orderId) {
+            this.startPublicPayment(booking);
+            return;
+          }
           this.submitting.set(false);
           const ref = booking.id.slice(0, 8).toUpperCase();
           this.bookingRef.set(ref);
@@ -273,9 +316,83 @@ export class BookComponent implements OnInit {
       });
   }
 
+  private async startPublicPayment(booking: BookingCreated): Promise<void> {
+    const method = this.paymentMethod();
+    const details = await this.paymentDetailsService.open(method, this.estimatedTotal());
+    if (!details) {
+      this.submitting.set(false);
+      return;
+    }
+    this.http
+      .post<PublicPaymentResult>(
+        `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/initiate`,
+        { orderId: booking.orderId, paymentMethod: method, paymentDetails: details }
+      )
+      .subscribe({
+        next: (res) => this.onPaymentInitiated(booking, res, method, details),
+        error: (err) => {
+          this.submitting.set(false);
+          this.error.set(this.extractErrorMessage(err));
+        }
+      });
+  }
+
+  private onPaymentInitiated(booking: BookingCreated, res: PublicPaymentResult, method: PayMethod, details: PaymentDetails): void {
+    if (res.status === 'succeeded') {
+      this.submitting.set(false);
+      this.bookingRef.set(booking.id.slice(0, 8).toUpperCase());
+      this.orNumber.set(res.orNumber);
+      this.confirmation.set(booking);
+      return;
+    }
+    const origin = window.location.origin;
+    const returnUrl = `${origin}/book?paymongoReturn=1&orderId=${booking.orderId}`
+      + `&intent=${encodeURIComponent(res.intentId ?? '')}`
+      + `&paymentMethod=${encodeURIComponent(method)}`;
+    if (res.intentId && res.intentId.startsWith('mock_')) {
+      window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
+        + `&amount=${this.estimatedTotal()}`
+        + `&method=${encodeURIComponent(method)}`
+        + `&return=${encodeURIComponent(returnUrl)}`;
+    } else if (res.redirectUrl) {
+      window.location.href = res.redirectUrl;
+    } else {
+      this.submitting.set(false);
+      this.error.set('Could not start the payment. Please try again.');
+    }
+  }
+
+  private handlePaymentReturn(orderId: string | null, intentId: string | null, method: string | null, status: string | null): void {
+    if (!orderId || !intentId) return;
+    if (status === 'cancelled' || status === 'failed') {
+      this.error.set('The payment was cancelled. Your slot is not yet reserved. Please try again.');
+      this.router.navigate(['/book']);
+      return;
+    }
+    this.submitting.set(true);
+    this.http
+      .post<PublicPaymentResult>(
+        `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/confirm`,
+        { orderId, intentId, paymentMethod: method }
+      )
+      .subscribe({
+        next: (res) => {
+          this.submitting.set(false);
+          this.bookingRef.set(orderId.slice(0, 8).toUpperCase());
+          this.orNumber.set(res.orNumber);
+          this.confirmation.set({ id: orderId, clientNickname: '', reservationType: 'HARD', scheduledAt: '', serviceId: 0, orderId });
+        },
+        error: () => {
+          this.submitting.set(false);
+          this.error.set('We could not confirm your payment. If you were charged, please contact the front desk with your reference.');
+        }
+      });
+  }
+
   bookAnother(): void {
     this.confirmation.set(null);
     this.bookingRef.set(null);
+    this.orNumber.set(null);
     this.error.set(null);
     this.clientNickname = '';
     this.clientEmail = '';

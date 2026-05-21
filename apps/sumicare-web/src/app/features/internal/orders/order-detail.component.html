@@ -21,6 +21,10 @@
   <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">{{ e }}</div>
   }
 
+  @if (paymentNotice(); as n) {
+  <div class="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800 mt-3">{{ n }}</div>
+  }
+
   @if (loading()) {
   <div class="flex justify-center py-12">
     <div class="sumi-spinner"></div>
@@ -150,7 +154,7 @@
     <div class="flex flex-wrap gap-2">
       @for (m of ['CASH', 'GCASH', 'CREDIT', 'DEBIT']; track m) {
       <button (click)="newPaymentMethod = $any(m)" class="px-3 py-1.5 text-xs rounded border"
-        [class.bg-\[var\(--sumi-primary\)\]]="newPaymentMethod === m" [class.text-white]="newPaymentMethod === m"
+        [style.backgroundColor]="newPaymentMethod === m ? 'var(--sumi-primary)' : null" [class.text-white]="newPaymentMethod === m"
         [class.border-slate-300]="newPaymentMethod !== m" [class.text-slate-700]="newPaymentMethod !== m">{{ m
         }}</button>
       }
@@ -181,6 +185,10 @@
       @if (!o.sessionCompleted) {
       <button (click)="openCancel()" [disabled]="busy() || o.status === 'PAID'"
         class="rounded border border-rose-300 text-rose-700 text-sm px-4 py-2">Cancel order</button>
+      }
+      @if (o.status === 'PAID') {
+      <button (click)="openRefund()" [disabled]="busy()"
+        class="rounded border border-violet-300 text-violet-700 text-sm px-4 py-2">Refund (PayMongo)</button>
       }
     </div>
     }
@@ -219,6 +227,39 @@
           class="px-3 py-1.5 text-sm text-slate-600 border border-slate-300 rounded">Cancel</button>
         <button (click)="confirmCancel()" class="px-3 py-1.5 text-sm bg-rose-600 text-white rounded">Confirm
           cancel</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  @if (showRefund()) {
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="closeRefund()">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
+      <h3 class="text-lg font-semibold mb-1">Refund order</h3>
+      <p class="text-sm text-slate-500 mb-3">
+        Refunds the card or GCash payment on this order through PayMongo and records a reversing ledger entry.
+      </p>
+      <label class="block text-sm">
+        Reason
+        <select [(ngModel)]="refundReason" name="refundReason"
+          class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+          <option value="requested_by_customer">Requested by customer</option>
+          <option value="duplicate">Duplicate</option>
+          <option value="fraudulent">Fraudulent</option>
+          <option value="others">Others</option>
+        </select>
+      </label>
+      <label class="block text-sm mt-3">
+        Notes (optional)
+        <textarea [(ngModel)]="refundNotes" name="refundNotes" rows="3" maxlength="255"
+          class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"></textarea>
+      </label>
+      <div class="flex justify-end gap-2 mt-4">
+        <button (click)="closeRefund()"
+          class="px-3 py-1.5 text-sm text-slate-600 border border-slate-300 rounded">Cancel</button>
+        <button (click)="confirmRefund()" [disabled]="busy()"
+          class="px-3 py-1.5 text-sm text-white rounded disabled:opacity-50"
+          [style.backgroundColor]="'#7c3aed'">Confirm refund</button>
       </div>
     </div>
   </div>

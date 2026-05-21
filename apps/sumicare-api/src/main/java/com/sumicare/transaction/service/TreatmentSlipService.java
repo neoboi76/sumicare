@@ -88,11 +88,21 @@ public class TreatmentSlipService {
             slip.setWaiverAcceptedAt(OffsetDateTime.now());
         }
         
+        com.sumicare.cashier.domain.OrderItemAttendee attendee = session.getAttendeeId() != null
+                ? attendeeRepository.findById(session.getAttendeeId()).orElse(null)
+                : null;
+        if (attendee != null) {
+            slip.setAttendeeId(attendee.getId());
+        }
+
         Booking booking = session.getBookingId() != null ? bookingRepository.findById(session.getBookingId()).orElse(null) : null;
         if (booking != null) {
             slip.setBookingId(booking.getId());
             slip.setClientNickname(booking.getClientNickname());
-            slip.setLockerNumber(booking.getLockerNumber());
+            String locker = attendee != null && attendee.getLockerNumber() != null && !attendee.getLockerNumber().isBlank()
+                    ? attendee.getLockerNumber()
+                    : booking.getLockerNumber();
+            slip.setLockerNumber(locker);
             slip.setPax(booking.getPax());
             if (booking.getClientId() != null) {
                 clientRepository.findById(booking.getClientId())
@@ -145,15 +155,11 @@ public class TreatmentSlipService {
             });
         }
 
-        if (slip.getPackageName() == null && session.getAttendeeId() != null) {
-            attendeeRepository.findById(session.getAttendeeId()).ifPresent(att -> {
-                if (att.getOrderItemId() != null) {
-                    orderItemRepository.findById(att.getOrderItemId()).ifPresent(item -> {
-                        if (item.getPackageId() != null) {
-                            packageRepository.findById(item.getPackageId())
-                                    .ifPresent(pkg -> slip.setPackageName(pkg.getName()));
-                        }
-                    });
+        if (slip.getPackageName() == null && attendee != null && attendee.getOrderItemId() != null) {
+            orderItemRepository.findById(attendee.getOrderItemId()).ifPresent(item -> {
+                if (item.getPackageId() != null) {
+                    packageRepository.findById(item.getPackageId())
+                            .ifPresent(pkg -> slip.setPackageName(pkg.getName()));
                 }
             });
         }

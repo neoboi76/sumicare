@@ -35,6 +35,10 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./features/auth/invite.component').then(m => m.InviteComponent)
   },
   {
+    path: 'pay/authorize',
+    loadComponent: () => import('./features/public/paymongo-authorize.component').then(m => m.PaymongoAuthorizeComponent)
+  },
+  {
     path: 'app',
     canActivate: [authGuard],
     loadComponent: () => import('./features/internal/internal-shell.component').then(m => m.InternalShellComponent),

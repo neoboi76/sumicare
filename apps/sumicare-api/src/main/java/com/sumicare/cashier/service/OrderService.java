@@ -113,7 +113,14 @@ public class OrderService {
         if (commissionRepository.existsBySessionIdAndTherapistId(session.getId(), session.getPrimaryTherapistId())) return;
         Booking booking = bookingRepository.findById(session.getBookingId()).orElse(null);
         if (booking == null) return;
-        var service = serviceRepository.findById(booking.getServiceId()).orElse(null);
+        Long serviceIdToResolve = booking.getServiceId();
+        if (session.getAttendeeId() != null) {
+            OrderItemAttendee attendee = attendeeRepository.findById(session.getAttendeeId()).orElse(null);
+            if (attendee != null && attendee.getServiceId() != null) {
+                serviceIdToResolve = attendee.getServiceId();
+            }
+        }
+        var service = serviceIdToResolve == null ? null : serviceRepository.findById(serviceIdToResolve).orElse(null);
         BigDecimal base = service == null ? BigDecimal.ZERO : service.getCommissionAmount();
         boolean tandem = service != null && service.isRequiresTwoTherapists();
         Long svcId = service == null ? null : service.getId();
@@ -279,6 +286,8 @@ public class OrderService {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
@@ -362,13 +371,23 @@ public class OrderService {
             }
         }
 
-        if (request.initialPayment() != null) {
+        if (request.initialPayment() != null && total.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal payAmount = request.initialPayment().amount();
-            if (payAmount.compareTo(BigDecimal.ZERO) > 0 && payAmount.compareTo(total) > 0) {
+            if (payAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Payment amount must be greater than zero");
+            }
+            if (payAmount.compareTo(total) > 0) {
                 throw new IllegalArgumentException("Payment amount exceeds order total");
             }
+            String initialReference = request.initialPayment().referenceNumber();
+            if (com.sumicare.pos.service.PayMongoService.supports(request.initialPayment().paymentMethod())) {
+                com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
+                        order, payAmount, request.initialPayment().paymentMethod(),
+                        initialReference, request.initialPayment().paymentDetails());
+                initialReference = result.intentId();
+            }
             recordPaymentInternal(order, null, cashierUserId, request.initialPayment().paymentMethod(),
-                    payAmount, request.initialPayment().referenceNumber());
+                    payAmount, initialReference);
             if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
                 order.setStatus("PAID");
                 order.setFinishedAt(OffsetDateTime.now());
@@ -568,14 +587,24 @@ public class OrderService {
             bookingRepository.save(booking);
         }
 
-        if (request.initialPayment() != null) {
+        if (request.initialPayment() != null && total.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal payAmount = request.initialPayment().amount();
-            if (payAmount.compareTo(BigDecimal.ZERO) > 0 && payAmount.compareTo(total) > 0) {
+            if (payAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Payment amount must be greater than zero");
+            }
+            if (payAmount.compareTo(total) > 0) {
                 throw new IllegalArgumentException("Payment amount exceeds order total");
             }
             UUID paymentActor = actorUserId != null ? actorUserId : order.getCashierUserId();
+            String initialReference = request.initialPayment().referenceNumber();
+            if (com.sumicare.pos.service.PayMongoService.supports(request.initialPayment().paymentMethod())) {
+                com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
+                        order, payAmount, request.initialPayment().paymentMethod(),
+                        initialReference, request.initialPayment().paymentDetails());
+                initialReference = result.intentId();
+            }
             recordPaymentInternal(order, null, paymentActor, request.initialPayment().paymentMethod(),
-                    payAmount, request.initialPayment().referenceNumber());
+                    payAmount, initialReference);
             if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
                 order.setStatus("PAID");
                 order.setFinishedAt(OffsetDateTime.now());
@@ -597,6 +626,12 @@ public class OrderService {
         if ("PAID".equals(order.getStatus())) {
             throw new IllegalStateException("Order is already fully paid");
         }
+        if (order.getTotal().compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException("Cannot record a payment on an order with a zero total");
+        }
+        if (request.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Payment amount must be greater than zero");
+        }
         BigDecimal remaining = order.getTotal().subtract(order.getAmountPaid());
         if (request.amount().compareTo(remaining) > 0) {
             throw new IllegalArgumentException("Payment amount exceeds remaining balance of " + remaining.toPlainString());
@@ -607,7 +642,7 @@ public class OrderService {
         String referenceNumber = request.referenceNumber();
         if (com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod())) {
             com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
-                    order, request.amount(), request.paymentMethod(), referenceNumber);
+                    order, request.amount(), request.paymentMethod(), referenceNumber, request.paymentDetails());
             referenceNumber = result.intentId();
         }
 
@@ -621,6 +656,177 @@ public class OrderService {
             order.setFinishedAt(OffsetDateTime.now());
             materialiseAttendeeSessions(order);
         }
+        orderRepository.save(order);
+
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        return toResponse(order, booking);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
+    public com.sumicare.cashier.dto.PayMongoInitiateResponse initiatePayMongo(
+            UUID organizationId, UUID orderId, UUID actorUserId, RecordPaymentRequest request) {
+        Order order = requireOrder(organizationId, orderId);
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot add payment to a cancelled order");
+        }
+        if ("PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Order is already fully paid");
+        }
+        if (order.getTotal().compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException("Cannot record a payment on an order with a zero total");
+        }
+        if (!com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod())) {
+            throw new IllegalArgumentException("PayMongo does not support payment method: " + request.paymentMethod());
+        }
+        BigDecimal amount = request.amount();
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Payment amount must be greater than zero");
+        }
+        BigDecimal remaining = order.getTotal().subtract(order.getAmountPaid());
+        if (amount.compareTo(remaining) > 0) {
+            throw new IllegalArgumentException("Payment amount exceeds remaining balance of " + remaining.toPlainString());
+        }
+
+        com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.initiate(
+                order, amount, request.paymentMethod(), request.referenceNumber(), request.paymentDetails(), "/app/cashier");
+
+        if ("succeeded".equalsIgnoreCase(result.status())) {
+            UUID sessionId = resolveSessionId(order);
+            recordPaymentInternal(order, sessionId, actorUserId, request.paymentMethod(), amount, result.intentId());
+            if (actorUserId != null) order.setLastEditedByUserId(actorUserId);
+            if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
+                order.setStatus("PAID");
+                order.setFinishedAt(OffsetDateTime.now());
+                materialiseAttendeeSessions(order);
+            }
+            orderRepository.save(order);
+            return new com.sumicare.cashier.dto.PayMongoInitiateResponse("succeeded", result.intentId(), null);
+        }
+
+        return new com.sumicare.cashier.dto.PayMongoInitiateResponse(
+                result.status(), result.intentId(), result.nextActionUrl());
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
+    public OrderResponse confirmPayMongo(UUID organizationId, UUID orderId, UUID actorUserId,
+                                         com.sumicare.cashier.dto.PayMongoConfirmRequest request) {
+        Order order = requireOrder(organizationId, orderId);
+        Booking paidBooking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        if ("PAID".equals(order.getStatus())) {
+            return toResponse(order, paidBooking);
+        }
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot confirm a payment on a cancelled order");
+        }
+
+        String status = payMongoService.confirm(request.intentId());
+        if (!"succeeded".equalsIgnoreCase(status) && !"processing".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("PayMongo payment was not authorized (status: " + status + ")");
+        }
+
+        settleGatewayPayment(order, actorUserId, request.intentId(), request.paymentMethod(), request.amount());
+
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        return toResponse(order, booking);
+    }
+
+    @Transactional
+    public boolean settleGatewayPayment(Order order, UUID actorUserId, String intentId,
+                                        String paymentMethod, BigDecimal amount) {
+        if ("PAID".equals(order.getStatus()) || "CANCELLED".equals(order.getStatus())) {
+            return false;
+        }
+        BigDecimal remaining = order.getTotal().subtract(order.getAmountPaid());
+        if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        BigDecimal amt = amount != null && amount.compareTo(BigDecimal.ZERO) > 0
+                ? amount.min(remaining)
+                : remaining;
+        String method = paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "GCASH";
+
+        UUID sessionId = resolveSessionId(order);
+        recordPaymentInternal(order, sessionId, actorUserId, method, amt, intentId);
+        if (actorUserId != null) order.setLastEditedByUserId(actorUserId);
+        if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
+            order.setStatus("PAID");
+            order.setFinishedAt(OffsetDateTime.now());
+            materialiseAttendeeSessions(order);
+        }
+        orderRepository.save(order);
+        return true;
+    }
+
+    private UUID resolveSessionId(Order order) {
+        return order.getBookingId() == null ? null
+                : sessionRepository.findFirstByBookingId(order.getBookingId()).map(Session::getId).orElse(null);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    @Transactional
+    public OrderResponse refundOrder(UUID organizationId, UUID orderId, UUID actorUserId,
+                                     com.sumicare.cashier.dto.RefundRequest request) {
+        Order order = requireOrder(organizationId, orderId);
+        if (!"PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Only a paid order can be refunded");
+        }
+
+        List<PosTransaction> gatewayTransactions = transactionRepository.findAllByOrderId(order.getId()).stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .filter(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()))
+                .toList();
+        if (gatewayTransactions.isEmpty()) {
+            throw new IllegalStateException("This order has no PayMongo (card or GCash) payment to refund");
+        }
+
+        BigDecimal gatewayTotal = gatewayTransactions.stream()
+                .map(PosTransaction::getTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal refundAmount = request.amount() != null && request.amount().compareTo(BigDecimal.ZERO) > 0
+                ? request.amount()
+                : gatewayTotal;
+        if (refundAmount.compareTo(gatewayTotal) > 0) {
+            throw new IllegalArgumentException("Refund amount exceeds the gateway-paid total of " + gatewayTotal.toPlainString());
+        }
+
+        BigDecimal remaining = refundAmount;
+        for (PosTransaction tx : gatewayTransactions) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+            if (tx.getReferenceNumber() == null || tx.getReferenceNumber().isBlank()) {
+                throw new IllegalStateException("Payment " + tx.getReceiptNumber() + " has no gateway reference and cannot be refunded");
+            }
+            BigDecimal portion = remaining.min(tx.getTotal());
+            com.sumicare.pos.service.PayMongoService.RefundResult result = payMongoService.refund(
+                    tx.getReferenceNumber(), portion, request.reason(), request.notes(), order.getId().toString());
+
+            TransactionLedgerEntry entry = new TransactionLedgerEntry();
+            entry.setOrganizationId(order.getOrganizationId());
+            entry.setTransactionId(tx.getId());
+            entry.setEntryType("PAYMENT_REFUNDED");
+            entry.setAmount(portion.negate());
+            entry.setPaymentMethod(tx.getPaymentMethod());
+            entry.setStatus("REFUND");
+            entry.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"refundId\":\"" + result.refundId()
+                    + "\",\"ref\":\"" + tx.getReferenceNumber() + "\"}");
+            ledgerRepository.save(entry);
+
+            tx.setStatus("REFUNDED");
+            transactionRepository.save(tx);
+            remaining = remaining.subtract(portion);
+        }
+
+        boolean anyGatewayRemaining = transactionRepository.findAllByOrderId(order.getId()).stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .anyMatch(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()));
+        if (!anyGatewayRemaining) {
+            order.setStatus("REFUNDED");
+        }
+        if (actorUserId != null) order.setLastEditedByUserId(actorUserId);
         orderRepository.save(order);
 
         Booking booking = order.getBookingId() == null ? null
@@ -696,7 +902,8 @@ public class OrderService {
         }
         List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
         for (PosTransaction tx : transactions) {
-            if ("REVERSED".equals(tx.getStatus())) continue;
+            if ("REVERSED".equals(tx.getStatus()) || "REFUNDED".equals(tx.getStatus())) continue;
+            String refundId = refundGatewayTransaction(tx, "requested_by_customer", order.getId());
             tx.setStatus("REVERSED");
             transactionRepository.save(tx);
 
@@ -707,7 +914,8 @@ public class OrderService {
             reversal.setAmount(tx.getTotal().negate());
             reversal.setPaymentMethod(tx.getPaymentMethod());
             reversal.setStatus("REFUND");
-            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber() + "\",\"reason\":\"payment_cancelled\"}");
+            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber()
+                    + "\",\"refundId\":\"" + (refundId == null ? "" : refundId) + "\",\"reason\":\"payment_cancelled\"}");
             ledgerRepository.save(reversal);
         }
         unmaterialiseAttendeeSessions(order);
@@ -750,7 +958,8 @@ public class OrderService {
 
         List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
         for (PosTransaction tx : transactions) {
-            if ("REVERSED".equals(tx.getStatus())) continue;
+            if ("REVERSED".equals(tx.getStatus()) || "REFUNDED".equals(tx.getStatus())) continue;
+            String refundId = refundGatewayTransaction(tx, "requested_by_customer", order.getId());
             tx.setStatus("REVERSED");
             transactionRepository.save(tx);
 
@@ -761,12 +970,65 @@ public class OrderService {
             reversal.setAmount(tx.getTotal().negate());
             reversal.setPaymentMethod(tx.getPaymentMethod());
             reversal.setStatus("REFUND");
-            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber() + "\",\"reason\":\"order_cancelled\"}");
+            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber()
+                    + "\",\"refundId\":\"" + (refundId == null ? "" : refundId) + "\",\"reason\":\"order_cancelled\"}");
             ledgerRepository.save(reversal);
         }
         order.setAmountPaid(BigDecimal.ZERO);
 
         return toResponse(order, booking);
+    }
+
+    @Transactional
+    public boolean reconcileRefund(Order order, BigDecimal amount, String refundId) {
+        List<PosTransaction> gatewayTransactions = transactionRepository.findAllByOrderId(order.getId()).stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .filter(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()))
+                .toList();
+        if (gatewayTransactions.isEmpty()) {
+            return false;
+        }
+        BigDecimal gatewayTotal = gatewayTransactions.stream()
+                .map(PosTransaction::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal remaining = amount != null && amount.compareTo(BigDecimal.ZERO) > 0
+                ? amount.min(gatewayTotal) : gatewayTotal;
+        for (PosTransaction tx : gatewayTransactions) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+            BigDecimal portion = remaining.min(tx.getTotal());
+            TransactionLedgerEntry entry = new TransactionLedgerEntry();
+            entry.setOrganizationId(order.getOrganizationId());
+            entry.setTransactionId(tx.getId());
+            entry.setEntryType("PAYMENT_REFUNDED");
+            entry.setAmount(portion.negate());
+            entry.setPaymentMethod(tx.getPaymentMethod());
+            entry.setStatus("REFUND");
+            entry.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"refundId\":\"" + (refundId == null ? "" : refundId)
+                    + "\",\"ref\":\"" + tx.getReferenceNumber() + "\",\"source\":\"webhook\"}");
+            ledgerRepository.save(entry);
+            tx.setStatus("REFUNDED");
+            transactionRepository.save(tx);
+            remaining = remaining.subtract(portion);
+        }
+        boolean anyGatewayRemaining = transactionRepository.findAllByOrderId(order.getId()).stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .anyMatch(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()));
+        if (!anyGatewayRemaining) {
+            order.setStatus("REFUNDED");
+        }
+        orderRepository.save(order);
+        return true;
+    }
+
+    private String refundGatewayTransaction(PosTransaction tx, String reason, UUID orderId) {
+        if (!com.sumicare.pos.service.PayMongoService.supports(tx.getPaymentMethod())) {
+            return null;
+        }
+        if (tx.getReferenceNumber() == null || tx.getReferenceNumber().isBlank()) {
+            return null;
+        }
+        com.sumicare.pos.service.PayMongoService.RefundResult result = payMongoService.refund(
+                tx.getReferenceNumber(), tx.getTotal(), reason, null, orderId.toString());
+        return result.refundId();
     }
 
     public List<OrderResponse> list(UUID organizationId, Collection<String> statuses) {
@@ -823,9 +1085,25 @@ public class OrderService {
                 });
             }
 
-            Session session = sessionRepository.findFirstByBookingId(bookingId).orElse(null);
-            if (session != null) {
-                recordCommissionsForSession(order.getOrganizationId(), session);
+            List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
+            boolean handledAny = false;
+            for (OrderItemAttendee attendee : attendees) {
+                if (attendee.getSessionId() == null) continue;
+                handledAny = true;
+                sessionRepository.findById(attendee.getSessionId()).ifPresent(session ->
+                        recordCommissionsForSession(order.getOrganizationId(), session));
+                if (attendee.getTreatmentSlipId() != null) {
+                    slipRepository.findById(attendee.getTreatmentSlipId()).ifPresent(slip -> {
+                        slip.setStatus("FINALIZED");
+                        slip.setSignedAt(OffsetDateTime.now());
+                        slipRepository.save(slip);
+                    });
+                }
+            }
+
+            if (!handledAny) {
+                sessionRepository.findFirstByBookingId(bookingId).ifPresent(session ->
+                        recordCommissionsForSession(order.getOrganizationId(), session));
             }
         });
     }
@@ -986,6 +1264,7 @@ public class OrderService {
         tx.setOrderId(order.getId());
         tx.setSessionId(sessionId);
         tx.setReceiptNumber(generateReceiptNumber());
+        tx.setReferenceNumber(referenceNumber);
         tx.setSubtotal(amount);
         tx.setDiscount(BigDecimal.ZERO);
         tx.setTotal(amount);

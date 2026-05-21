@@ -1,6 +1,7 @@
 package com.sumicare.pos.service;
 
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.dto.PaymentDetailsRequest;
 import com.sumicare.common.config.AppProperties;
 import com.sumicare.pos.gateway.PayMongoGateway;
 import com.sumicare.pos.gateway.PaymentGateway;
@@ -9,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -21,6 +24,10 @@ public class PayMongoService {
 
     private static final Set<String> SUPPORTED_METHODS = Set.of("CREDIT", "DEBIT", "GCASH");
     private static final Set<String> SUCCESS_STATUSES = Set.of("succeeded", "awaiting_next_action", "processing");
+    private static final String MOCK_PREFIX = "mock_pi_";
+
+    private static final Set<String> TEST_CARD_DECLINES = Set.of(
+            "4571736000000075", "5100000000000511", "4200000000000018");
 
     private final PayMongoGateway gateway;
     private final AppProperties appProperties;
@@ -36,19 +43,69 @@ public class PayMongoService {
     }
 
     public ChargeResult charge(Order order, BigDecimal amount, String paymentMethod, String referenceNumber) {
+        return charge(order, amount, paymentMethod, referenceNumber, null);
+    }
+
+    public ChargeResult charge(Order order, BigDecimal amount, String paymentMethod,
+                               String referenceNumber, PaymentDetailsRequest details) {
+        return runCharge(order, amount, paymentMethod, referenceNumber, details, false, "/app/cashier");
+    }
+
+    public ChargeResult initiate(Order order, BigDecimal amount, String paymentMethod,
+                                 String referenceNumber, PaymentDetailsRequest details, String returnPath) {
+        return runCharge(order, amount, paymentMethod, referenceNumber, details, true, returnPath);
+    }
+
+    public String confirm(String intentId) {
+        if (intentId == null) {
+            throw new IllegalArgumentException("Missing payment intent id");
+        }
+        if (appProperties.payment().paymongo().mockMode() || intentId.startsWith(MOCK_PREFIX)) {
+            return "succeeded";
+        }
+        PaymentGateway.IntentResult intent = gateway.retrieveIntent(intentId);
+        return intent.status() == null ? "pending" : intent.status();
+    }
+
+    public RefundResult refund(String intentId, BigDecimal amount, String reason, String notes, String orderId) {
+        if (intentId == null || intentId.isBlank()) {
+            throw new IllegalArgumentException("Missing payment reference for refund");
+        }
+        String normalisedReason = normaliseReason(reason);
+        if (appProperties.payment().paymongo().mockMode() || intentId.startsWith(MOCK_PREFIX)) {
+            String refundId = "mock_rf_" + UUID.randomUUID();
+            log.info("PayMongo mock refund: intent={}, amount={}, reason={}, refundId={}",
+                    intentId, amount, normalisedReason, refundId);
+            sleepBriefly();
+            return new RefundResult(refundId, "succeeded", amount);
+        }
+        String paymentId = gateway.retrievePaymentId(intentId);
+        if (paymentId == null) {
+            throw new IllegalStateException("No PayMongo payment found for intent " + intentId);
+        }
+        Map<String, String> metadata = new HashMap<>();
+        if (orderId != null && !orderId.isBlank()) metadata.put("orderId", orderId);
+        PaymentGateway.RefundResult result = gateway.refund(paymentId, amount, normalisedReason, notes, metadata);
+        return new RefundResult(result.refundId(), result.status(), result.amount());
+    }
+
+    private String normaliseReason(String reason) {
+        if (reason == null) return "requested_by_customer";
+        return switch (reason.toLowerCase()) {
+            case "duplicate", "fraudulent", "requested_by_customer", "others" -> reason.toLowerCase();
+            default -> "others";
+        };
+    }
+
+    private ChargeResult runCharge(Order order, BigDecimal amount, String paymentMethod,
+                                   String referenceNumber, PaymentDetailsRequest details, boolean redirect, String returnPath) {
         if (!supports(paymentMethod)) {
             throw new IllegalArgumentException("Unsupported PayMongo payment method: " + paymentMethod);
         }
+        boolean card = !"GCASH".equalsIgnoreCase(paymentMethod);
+
         if (appProperties.payment().paymongo().mockMode()) {
-            String intentId = "mock_pm_" + UUID.randomUUID();
-            log.info("PayMongo mock charge: order={}, amount={}, method={}, intentId={}",
-                    order.getId(), amount, paymentMethod, intentId);
-            try {
-                Thread.sleep(250L);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-            return new ChargeResult(intentId, "succeeded", null);
+            return mockCharge(order, amount, paymentMethod, card, details, redirect);
         }
 
         Map<String, String> metadata = new HashMap<>();
@@ -59,13 +116,115 @@ public class PayMongoService {
         }
         metadata.put("description", "Order " + order.getOrNumber() + " bookingId:" + order.getBookingId());
 
-        PaymentGateway.IntentResult result = gateway.createIntent(amount, "PHP", paymentMethod, metadata);
-        String status = result.status() == null ? "pending" : result.status();
-        if (!SUCCESS_STATUSES.contains(status)) {
-            throw new IllegalStateException("PayMongo intent created with non-success status: " + status);
+        if (!card) {
+            if (details == null || details.gcashPhone() == null || details.gcashPhone().isBlank()) {
+                throw new IllegalArgumentException("A GCash mobile number is required");
+            }
+            if (details.gcashEmail() == null || details.gcashEmail().isBlank()) {
+                throw new IllegalArgumentException("A GCash email is required");
+            }
         }
-        return new ChargeResult(result.intentId(), status, result.nextActionUrl());
+        PaymentGateway.IntentResult intent = gateway.createIntent(amount, "PHP", paymentMethod, metadata);
+        PaymentGateway.CardDetails cardDetails = card ? toCardDetails(details) : null;
+        PaymentGateway.Billing billing = toBilling(card, details);
+        String paymentMethodId = gateway.createPaymentMethod(paymentMethod, cardDetails, billing);
+        String returnUrl = buildReturnUrl(order, intent.intentId(), paymentMethod, amount, returnPath);
+        PaymentGateway.IntentResult attached = gateway.attachIntent(
+                intent.intentId(), paymentMethodId, intent.clientKey(), returnUrl);
+
+        String status = attached.status() == null ? "pending" : attached.status();
+        if (!SUCCESS_STATUSES.contains(status)) {
+            throw new IllegalStateException("PayMongo charge did not succeed: " + status);
+        }
+        return new ChargeResult(attached.intentId(), status, attached.nextActionUrl());
+    }
+
+    private ChargeResult mockCharge(Order order, BigDecimal amount, String paymentMethod,
+                                    boolean card, PaymentDetailsRequest details, boolean redirect) {
+        String intentId = MOCK_PREFIX + UUID.randomUUID();
+        if (card) {
+            String number = details == null || details.cardNumber() == null
+                    ? "" : details.cardNumber().replaceAll("\\s+", "");
+            if (number.isBlank()) {
+                throw new IllegalArgumentException("Card details are required for card payments");
+            }
+            if (TEST_CARD_DECLINES.contains(number)) {
+                throw new IllegalStateException("PayMongo declined the card (test decline number)");
+            }
+            log.info("PayMongo mock card charge: order={}, amount={}, method={}, intentId={}, redirect={}",
+                    order.getId(), amount, paymentMethod, intentId, redirect);
+            sleepBriefly();
+            if (redirect) {
+                return new ChargeResult(intentId, "awaiting_next_action", null);
+            }
+            return new ChargeResult(intentId, "succeeded", null);
+        }
+        if (details == null || details.gcashPhone() == null || details.gcashPhone().isBlank()) {
+            throw new IllegalArgumentException("A GCash mobile number is required");
+        }
+        log.info("PayMongo mock GCash charge: order={}, amount={}, intentId={}, redirect={}",
+                order.getId(), amount, intentId, redirect);
+        sleepBriefly();
+        return new ChargeResult(intentId, "awaiting_next_action", null);
+    }
+
+    private String buildReturnUrl(Order order, String intentId, String paymentMethod, BigDecimal amount, String returnPath) {
+        String base = originOf(appProperties.app().publicBaseUrl());
+        String path = returnPath == null || returnPath.isBlank() ? "/app/cashier" : returnPath;
+        return base + path + "?paymongoReturn=1"
+                + "&orderId=" + order.getId()
+                + "&intent=" + enc(intentId)
+                + "&paymentMethod=" + enc(paymentMethod)
+                + "&amount=" + amount.toPlainString();
+    }
+
+    private String originOf(String url) {
+        if (url == null || url.isBlank()) return "";
+        try {
+            java.net.URI uri = java.net.URI.create(url.trim());
+            if (uri.getScheme() != null && uri.getHost() != null) {
+                String origin = uri.getScheme() + "://" + uri.getHost();
+                if (uri.getPort() != -1) origin += ":" + uri.getPort();
+                return origin;
+            }
+        } catch (Exception ignored) {
+        }
+        return url.replaceAll("/+$", "");
+    }
+
+    private String enc(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private PaymentGateway.Billing toBilling(boolean card, PaymentDetailsRequest details) {
+        if (details == null) return null;
+        if (card) {
+            if (details.cardEmail() == null || details.cardEmail().isBlank()) {
+                return null;
+            }
+            return new PaymentGateway.Billing(details.cardHolder(), details.cardEmail(), null);
+        }
+        return new PaymentGateway.Billing(details.gcashName(), details.gcashEmail(), details.gcashPhone());
+    }
+
+    private PaymentGateway.CardDetails toCardDetails(PaymentDetailsRequest details) {
+        if (details == null || details.cardNumber() == null || details.cardNumber().isBlank()) {
+            throw new IllegalArgumentException("Card details are required for card payments");
+        }
+        return new PaymentGateway.CardDetails(
+                details.cardNumber().replaceAll("\\s+", ""),
+                details.expMonth(), details.expYear(), details.cvc());
+    }
+
+    private void sleepBriefly() {
+        try {
+            Thread.sleep(250L);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public record ChargeResult(String intentId, String status, String nextActionUrl) {}
+
+    public record RefundResult(String refundId, String status, BigDecimal amount) {}
 }

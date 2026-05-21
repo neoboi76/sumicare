@@ -21,5 +21,7 @@ public record CreateBookingRequest(
         Long packageTierId,
         String nationality,
         String roomType,
+        String paymentMethod,
+        com.sumicare.cashier.dto.PaymentDetailsRequest paymentDetails,
         List<PublicAttendeeRequest> attendees
 ) {}

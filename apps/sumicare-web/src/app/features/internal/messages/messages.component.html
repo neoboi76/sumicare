@@ -16,7 +16,7 @@
   <div class="flex gap-2 text-xs">
     @for (f of [{ k: 'unread', label: 'Unread' }, { k: 'all', label: 'All' }]; track f.k) {
     <button (click)="setFilter($any(f.k))" class="px-3 py-1.5 rounded border"
-      [class.bg-\[var\(--sumi-primary\)\]]="filter() === f.k" [class.text-white]="filter() === f.k"
+      [style.backgroundColor]="filter() === f.k ? 'var(--sumi-primary)' : null" [class.text-white]="filter() === f.k"
       [class.border-slate-300]="filter() !== f.k" [class.text-slate-700]="filter() !== f.k">{{ f.label }}</button>
     }
   </div>

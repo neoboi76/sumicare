@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.repository.BookingRepository;
+import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.repository.OrderRepository;
+import com.sumicare.cashier.service.OrderService;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.gateway.PayMongoGateway;
 import com.sumicare.pos.repository.TransactionLedgerRepository;
@@ -22,15 +25,21 @@ public class WebhookController {
     private final PayMongoGateway payMongoGateway;
     private final TransactionLedgerRepository ledgerRepository;
     private final BookingRepository bookingRepository;
+    private final OrderRepository orderRepository;
+    private final OrderService orderService;
     private final ObjectMapper objectMapper;
 
     public WebhookController(PayMongoGateway payMongoGateway,
                              TransactionLedgerRepository ledgerRepository,
                              BookingRepository bookingRepository,
+                             OrderRepository orderRepository,
+                             OrderService orderService,
                              ObjectMapper objectMapper) {
         this.payMongoGateway = payMongoGateway;
         this.ledgerRepository = ledgerRepository;
         this.bookingRepository = bookingRepository;
+        this.orderRepository = orderRepository;
+        this.orderService = orderService;
         this.objectMapper = objectMapper;
     }
 
@@ -49,10 +58,23 @@ public class WebhookController {
             if ("payment.paid".equals(type) || "source.chargeable".equals(type)) {
                 JsonNode data = event.at("/data/attributes/data");
                 BigDecimal amount = BigDecimal.valueOf(data.at("/attributes/amount").asLong(), 2);
-                String sourceId = data.get("id").asText();
-                String description = data.at("/attributes/description").asText("");
-                String bookingId = extractBookingId(description);
-                recordPayment(bookingId, amount, "GCASH", sourceId);
+                String gatewayId = data.path("id").asText("");
+                JsonNode attributes = data.at("/attributes");
+                String method = resolveMethod(attributes);
+                String orderId = attributes.at("/metadata/orderId").asText("");
+                String description = attributes.path("description").asText("");
+                String bookingId = orderId.isBlank() ? extractBookingId(description) : null;
+                reconcile(orderId, bookingId, amount, method, gatewayId);
+            } else if ("refund.updated".equals(type) || "payment.refunded".equals(type)) {
+                JsonNode data = event.at("/data/attributes/data");
+                JsonNode attributes = data.at("/attributes");
+                String status = attributes.path("status").asText("");
+                if (status.isBlank() || "succeeded".equalsIgnoreCase(status)) {
+                    BigDecimal amount = BigDecimal.valueOf(attributes.path("amount").asLong(), 2);
+                    String refundId = data.path("id").asText("");
+                    String orderId = attributes.at("/metadata/orderId").asText("");
+                    reconcileRefund(orderId, amount, refundId);
+                }
             }
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Processing error");
@@ -61,30 +83,75 @@ public class WebhookController {
         return ResponseEntity.ok("ok");
     }
 
-    private void recordPayment(String bookingId, BigDecimal amount, String method, String gatewayId) {
-        if (bookingId == null || bookingId.isBlank()) return;
-
-        try {
-            UUID bid = UUID.fromString(bookingId);
-            Optional<Booking> booking = bookingRepository.findById(bid);
-            UUID orgId = booking.map(Booking::getOrganizationId).orElse(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-
-            booking.ifPresent(b -> {
-                b.setPaymentStatus("PAID");
-                b.setGatewayPaymentId(gatewayId);
-                bookingRepository.save(b);
-            });
-
-            TransactionLedgerEntry entry = new TransactionLedgerEntry();
-            entry.setOrganizationId(orgId);
-            entry.setTransactionId(UUID.randomUUID());
-            entry.setEntryType("PAYMENT_RECEIVED");
-            entry.setAmount(amount);
-            entry.setRecordedAt(OffsetDateTime.now());
-            entry.setMetadata("{\"method\":\"" + method + "\",\"gatewayId\":\"" + gatewayId + "\",\"bookingId\":\"" + bookingId + "\"}");
-            ledgerRepository.save(entry);
-        } catch (Exception ignored) {
+    private void reconcile(String orderId, String bookingId, BigDecimal amount, String method, String gatewayId) {
+        Order order = null;
+        if (orderId != null && !orderId.isBlank()) {
+            try {
+                order = orderRepository.findById(UUID.fromString(orderId)).orElse(null);
+            } catch (IllegalArgumentException ignored) {
+            }
         }
+        Booking booking = null;
+        if (order == null && bookingId != null && !bookingId.isBlank()) {
+            try {
+                UUID bid = UUID.fromString(bookingId);
+                booking = bookingRepository.findById(bid).orElse(null);
+                if (booking != null) {
+                    order = orderRepository.findByBookingId(bid).orElse(null);
+                }
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        if (order != null && order.getBookingId() != null) {
+            booking = bookingRepository.findById(order.getBookingId()).orElse(booking);
+        }
+
+        if (booking != null) {
+            booking.setPaymentStatus("PAID");
+            booking.setGatewayPaymentId(gatewayId);
+            bookingRepository.save(booking);
+        }
+
+        if (order != null) {
+            orderService.settleGatewayPayment(order, null, gatewayId, method, amount);
+            return;
+        }
+
+        UUID orgId = booking != null ? booking.getOrganizationId()
+                : UUID.fromString("00000000-0000-0000-0000-000000000000");
+        TransactionLedgerEntry entry = new TransactionLedgerEntry();
+        entry.setOrganizationId(orgId);
+        entry.setTransactionId(UUID.randomUUID());
+        entry.setEntryType("PAYMENT_RECEIVED");
+        entry.setAmount(amount);
+        entry.setPaymentMethod(method);
+        entry.setRecordedAt(OffsetDateTime.now());
+        entry.setMetadata("{\"method\":\"" + method + "\",\"gatewayId\":\"" + gatewayId + "\"}");
+        ledgerRepository.save(entry);
+    }
+
+    private void reconcileRefund(String orderId, BigDecimal amount, String refundId) {
+        if (orderId == null || orderId.isBlank()) return;
+        Order order;
+        try {
+            order = orderRepository.findById(UUID.fromString(orderId)).orElse(null);
+        } catch (IllegalArgumentException ex) {
+            return;
+        }
+        if (order == null) return;
+        orderService.reconcileRefund(order, amount, refundId);
+    }
+
+    private String resolveMethod(JsonNode attributes) {
+        String source = attributes.at("/source/type").asText("");
+        if (source.isBlank()) {
+            source = attributes.at("/payment_method/type").asText("");
+        }
+        return switch (source.toLowerCase()) {
+            case "card" -> "CREDIT";
+            case "gcash" -> "GCASH";
+            default -> source.isBlank() ? "GCASH" : source.toUpperCase();
+        };
     }
 
     private String extractBookingId(String description) {

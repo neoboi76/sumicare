@@ -21,6 +21,6 @@ public record AppProperties(
     public record RateLimit(int loginPerMinute) {}
     public record App(String publicBaseUrl, String emailFrom) {}
     public record Payment(Paymongo paymongo) {
-        public record Paymongo(String secretKey, String webhookSecret, boolean mockMode) {}
+        public record Paymongo(String secretKey, String publicKey, String webhookSecret, boolean mockMode) {}
     }
 }
