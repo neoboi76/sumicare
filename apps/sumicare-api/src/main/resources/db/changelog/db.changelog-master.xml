@@ -36,4 +36,5 @@
     <include file="changes/0030-service-prices.xml" relativeToChangelogFile="true"/>
     <include file="changes/0031-order-item-room-type.xml" relativeToChangelogFile="true"/>
     <include file="changes/0032-seed-more-therapists.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0033-order-completion-email.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

@@ -120,7 +120,7 @@ public class WalkInService {
             for (UUID bedId : bedIds) {
                 occupancyService.occupy(organizationId, request.roomId(), bedId,
                         request.clientNickname(), request.lockerNumber(), therapistNickname,
-                        request.clientGender());
+                        request.clientGender(), null);
                 notificationService.broadcastRoomUpdate(organizationId, request.roomId(), bedId,
                         Map.of("event", "SESSION_STARTED", "sessionId", session.getId()));
             }

@@ -122,6 +122,7 @@ export class CashierComponent implements OnInit {
   searchTerm = '';
   searchResults = signal<ClientLite[]>([]);
   selectedClient = signal<ClientLite | null>(null);
+  clientLocked = signal(false);
 
   transactorName = '';
   packages = signal<PackageDef[]>([]);
@@ -268,6 +269,13 @@ export class CashierComponent implements OnInit {
         }
         this.editingOrderId.set(o.id);
         this.transactorName = o.transactorName || o.clientNickname || '';
+        if (o.clientId) {
+          this.selectedClient.set({ id: o.clientId, nickname: o.clientNickname || this.transactorName });
+          this.clientLocked.set(true);
+        } else {
+          this.selectedClient.set(null);
+          this.clientLocked.set(false);
+        }
         this.referenceNumber = o.referenceNumber || '';
         this.orNumber = o.orNumber || '';
         this.notes = o.notes || '';
@@ -344,6 +352,7 @@ export class CashierComponent implements OnInit {
   }
 
   clearClient(): void {
+    if (this.clientLocked()) return;
     this.selectedClient.set(null);
   }
 

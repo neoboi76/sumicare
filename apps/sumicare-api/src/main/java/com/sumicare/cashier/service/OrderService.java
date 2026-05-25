@@ -255,6 +255,7 @@ public class OrderService {
                 null,
                 null,
                 null,
+                null,
                 null
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);

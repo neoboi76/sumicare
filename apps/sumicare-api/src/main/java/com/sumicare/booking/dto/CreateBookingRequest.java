@@ -23,5 +23,6 @@ public record CreateBookingRequest(
         String roomType,
         String paymentMethod,
         com.sumicare.cashier.dto.PaymentDetailsRequest paymentDetails,
-        List<PublicAttendeeRequest> attendees
+        List<PublicAttendeeRequest> attendees,
+        List<CreateBookingItemRequest> items
 ) {}

@@ -70,10 +70,18 @@ public class TreatmentSlipService {
     public TreatmentSlip generateForSession(UUID organizationId, UUID sessionId) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
 
-        Optional<TreatmentSlip> existing = slipRepository.findBySessionId(sessionId);
+        com.sumicare.cashier.domain.OrderItemAttendee attendee = session.getAttendeeId() != null
+                ? attendeeRepository.findById(session.getAttendeeId()).orElse(null)
+                : null;
+
+        Optional<TreatmentSlip> existing = slipRepository.findBySessionId(sessionId)
+                .or(() -> attendee != null && attendee.getTreatmentSlipId() != null
+                        ? slipRepository.findById(attendee.getTreatmentSlipId())
+                        : Optional.empty());
         TreatmentSlip slip;
         if (existing.isPresent()) {
             slip = existing.get();
+            slip.setSessionId(session.getId());
             if (!slip.isWaiverAccepted()) {
                 slip.setWaiverAccepted(true);
                 slip.setWaiverAcceptedAt(OffsetDateTime.now());
@@ -87,10 +95,7 @@ public class TreatmentSlipService {
             slip.setWaiverAccepted(true);
             slip.setWaiverAcceptedAt(OffsetDateTime.now());
         }
-        
-        com.sumicare.cashier.domain.OrderItemAttendee attendee = session.getAttendeeId() != null
-                ? attendeeRepository.findById(session.getAttendeeId()).orElse(null)
-                : null;
+
         if (attendee != null) {
             slip.setAttendeeId(attendee.getId());
         }

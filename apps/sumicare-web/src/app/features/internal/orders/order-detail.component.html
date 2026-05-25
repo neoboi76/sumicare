@@ -35,7 +35,7 @@
       <div>
         <div class="text-xs uppercase tracking-wide text-slate-500">Order</div>
         <div class="text-xl font-semibold">{{ o.transactorName || o.clientNickname || 'Walk-in' }}</div>
-        <div class="text-xs text-slate-500">OR# {{ o.orNumber || '\u2014' }} &middot; Created {{ formatDate(o.createdAt)
+        <div class="text-xs text-slate-500">OR# {{ o.orNumber || '—' }} &middot; Created {{ formatDate(o.createdAt)
           }}</div>
         @if (o.lastEditedByDisplayName || o.cashierDisplayName) {
         <div class="text-xs text-slate-500">Transacted by: {{ o.lastEditedByDisplayName || o.cashierDisplayName }}</div>
@@ -76,13 +76,13 @@
                 @for (a of it.attendees; track a.id) {
                   <tr class="border-t border-slate-100">
                     <td class="py-1">{{ a.position + 1 }}</td>
-                    <td class="py-1">{{ a.serviceName || '\u2014' }}</td>
-                    <td class="py-1">{{ a.lockerNumber || '\u2014' }}</td>
-                    <td class="py-1">{{ a.clientGender || '\u2014' }}</td>
+                    <td class="py-1">{{ a.serviceName || '—' }}</td>
+                    <td class="py-1">{{ a.lockerNumber || '—' }}</td>
+                    <td class="py-1">{{ a.clientGender || '—' }}</td>
                     <td class="py-1">
                       @if (a.treatmentSlipId) {
                         <a [routerLink]="['/app/treatment-slips', a.treatmentSlipId]" class="text-[var(--sumi-primary)] hover:underline">View</a>
-                      } @else { \u2014 }
+                      } @else { — }
                     </td>
                   </tr>
                 }

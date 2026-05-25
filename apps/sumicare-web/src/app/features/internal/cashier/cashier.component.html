@@ -28,9 +28,9 @@
           package line by locker + sex. The first guest's sex follows the selected client profile.</p>
         <label class="block text-sm">
           Transactor name <span class="text-red-500">*</span>
-          <input [(ngModel)]="transactorName" name="transactorName" maxlength="120"
+          <input [(ngModel)]="transactorName" name="transactorName" maxlength="120" [disabled]="clientLocked()"
             placeholder="e.g. Frias, Jeffrey / Company name"
-            class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+            class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)] disabled:bg-slate-100 disabled:text-slate-500" />
         </label>
 
         @if (selectedClient(); as c) {
@@ -41,7 +41,11 @@
               {{ c.gender || 'Sex —' }} · {{ c.email || 'no email' }} · {{ c.nationality || 'Nationality —' }}
             </div>
           </div>
+          @if (clientLocked()) {
+          <span class="text-xs text-slate-400">Linked client</span>
+          } @else {
           <button (click)="clearClient()" class="text-slate-500 hover:text-red-600 text-sm">Change</button>
+          }
         </div>
         } @else {
         <div class="space-y-2">

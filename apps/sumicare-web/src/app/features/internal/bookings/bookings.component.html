@@ -60,9 +60,14 @@
           <td class="p-3">{{ b.lockerNumber || '-' }}</td>
           <td class="p-3">{{ serviceName(b.serviceId) }}</td>
           <td class="p-3">
-            <span
-              [class]="'rounded-full px-2 py-0.5 text-xs ' + (b.reservationType === 'HARD' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')">{{
-              b.reservationType }}</span>
+            <div class="flex flex-wrap items-center gap-1">
+              <span
+                [class]="'rounded-full px-2 py-0.5 text-xs ' + (sourceLabel(b) === 'Online' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700')">{{
+                sourceLabel(b) }}</span>
+              <span
+                [class]="'rounded-full px-2 py-0.5 text-xs ' + (b.reservationType === 'HARD' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')">{{
+                b.reservationType }}</span>
+            </div>
           </td>
           <td class="p-3">{{ b.status }}</td>
           <td class="p-3">
@@ -121,7 +126,6 @@
               @if (!isVipBooking(b) && !isFixedBooking(b)) {
                 <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+1 hr</button>
               }
-              <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
               }
             }
           </td>
@@ -172,8 +176,6 @@
                         <button (click)="extendAttendeeSession(a)"
                           class="text-amber-700 hover:underline">+1 hr</button>
                       }
-                      <button (click)="generateSlipForSession(a.sessionId!)"
-                        class="text-blue-700 hover:underline">Slip</button>
                       } @else if (a.sessionStatus !== 'COMPLETED' && a.sessionStatus !== 'CANCELLED') {
                       <button (click)="openStartForAttendee(b, a)"
                         class="text-[var(--sumi-primary)] hover:underline font-medium">Start session</button>

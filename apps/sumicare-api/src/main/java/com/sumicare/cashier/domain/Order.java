@@ -96,6 +96,9 @@ public class Order {
     @Column(name = "voucher_id", columnDefinition = "uuid")
     private UUID voucherId;
 
+    @Column(name = "completion_email_sent_at")
+    private OffsetDateTime completionEmailSentAt;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -152,4 +155,6 @@ public class Order {
     public void setWeekend(boolean weekend) { this.weekend = weekend; }
     public UUID getVoucherId() { return voucherId; }
     public void setVoucherId(UUID voucherId) { this.voucherId = voucherId; }
+    public OffsetDateTime getCompletionEmailSentAt() { return completionEmailSentAt; }
+    public void setCompletionEmailSentAt(OffsetDateTime completionEmailSentAt) { this.completionEmailSentAt = completionEmailSentAt; }
 }

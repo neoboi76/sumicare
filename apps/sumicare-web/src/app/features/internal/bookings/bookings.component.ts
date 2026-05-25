@@ -232,11 +232,13 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startBedId() !== null
   );
 
-  isCouplePackage = computed(() => {
+  startItemId = computed(() => {
+    const attId = this.startAttendeeId();
     const booking = this.startBooking();
-    if (!booking) return false;
-    const ord = this.ordersByBooking().get(booking.id);
-    return ord?.couplePackage ?? false;
+    if (!attId || !booking) return null;
+    const order = this.ordersByBooking().get(booking.id);
+    const item = order?.items?.find(it => it.attendees.some(a => a.id === attId));
+    return item?.id ?? null;
   });
 
   filteredStartRooms = computed(() => {
@@ -375,6 +377,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.services().find(s => s.id === id)?.name ?? '-';
   }
 
+  sourceLabel(b: BookingResponse): string {
+    return b.reservationType === 'WALK_IN' ? 'Walk-in' : 'Online';
+  }
+
   activeStartGender(): string | null {
     return this.startAttendeeGender() ?? this.startBooking()?.clientGender ?? null;
   }
@@ -389,11 +395,12 @@ export class BookingsComponent implements OnInit, OnDestroy {
   isRoomSelectableForGender(room: RoomItem, clientGender: string | null | undefined): boolean {
     if ((room.roomType || '').toUpperCase() !== 'COMMON') return true;
     if (!clientGender) return true;
-    if (this.isCouplePackage()) return true;
+    const myItem = this.startItemId();
     return !room.beds.some(b =>
       b.occupancy['status'] === 'OCCUPIED' &&
       b.occupancy['genderLock'] &&
-      b.occupancy['genderLock'] !== clientGender
+      b.occupancy['genderLock'] !== clientGender &&
+      b.occupancy['ownerItemId'] !== myItem
     );
   }
 
@@ -582,34 +589,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
         next: () => this.reload(),
         error: (err) => this.extendError.set(err?.error?.message || 'Could not extend the session.')
       });
-    });
-  }
-
-
-  async generateSlip(b: BookingResponse): Promise<void> {
-    const confirmed = await this.confirmService.confirm({
-      title: 'Generate Treatment Slip',
-      message: 'Generate a treatment slip for this session?',
-      confirmText: 'Generate'
-    });
-    if (!confirmed) return;
-    this.lookupSession(b.id).subscribe(session => {
-      if (!session) return;
-      this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${session.id}`, {}).subscribe({
-        next: (slip) => this.router.navigate(['/app/treatment-slips', slip.id])
-      });
-    });
-  }
-
-  async generateSlipForSession(sessionId: string): Promise<void> {
-    const confirmed = await this.confirmService.confirm({
-      title: 'Generate Treatment Slip',
-      message: 'Generate a treatment slip for this sub-session?',
-      confirmText: 'Generate'
-    });
-    if (!confirmed) return;
-    this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${sessionId}`, {}).subscribe({
-      next: (slip) => this.router.navigate(['/app/treatment-slips', slip.id])
     });
   }
 
