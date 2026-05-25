@@ -14,7 +14,7 @@
         <div class="flex-1">
           <h3 class="font-semibold text-emerald-900 text-lg">Reservation received</h3>
           <p class="text-sm text-emerald-800 mt-1">
-            Thank you, {{ booking.clientNickname }}. Your reservation has been recorded and the
+            Thank you{{ confirmNickname() ? ', ' + confirmNickname() : '' }}. Your reservation has been recorded and the
             front desk will reach out to confirm shortly. A copy has been emailed to you.
           </p>
         </div>
@@ -33,15 +33,21 @@
         }
         <div>
           <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Type</dt>
-          <dd class="text-emerald-900">{{ booking.reservationType === 'HARD' ? 'Hard reservation' : 'Soft reservation' }}</dd>
+          <dd class="text-emerald-900">{{ confirmReservationType() === 'HARD' ? 'Hard reservation' : 'Soft reservation' }}</dd>
         </div>
+        @if (confirmPackageName()) {
         <div>
-          <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Service</dt>
-          <dd class="text-emerald-900">{{ serviceLabel() }}</dd>
+          <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Package</dt>
+          <dd class="text-emerald-900">{{ confirmPackageName() }}</dd>
+        </div>
+        }
+        <div>
+          <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Massage</dt>
+          <dd class="text-emerald-900">{{ confirmServiceName() || '-' }}</dd>
         </div>
         <div>
           <dt class="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">Scheduled</dt>
-          <dd class="text-emerald-900">{{ formatDateTime(booking.scheduledAt) }}</dd>
+          <dd class="text-emerald-900">{{ formatDateTime(confirmScheduled()) }}</dd>
         </div>
       </dl>
 

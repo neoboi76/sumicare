@@ -33,7 +33,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 user.isActive(),
                 true,
                 true,
-                true,
+                !user.isAccountLocked(),
                 Collections.singleton(new SimpleGrantedAuthority("ROLE_" + roleCode))
         );
     }

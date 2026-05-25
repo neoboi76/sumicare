@@ -11,5 +11,6 @@ public record UserResponse(
         String role,
         String displayName,
         boolean active,
+        boolean accountLocked,
         OffsetDateTime createdAt
 ) {}

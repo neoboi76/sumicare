@@ -66,6 +66,13 @@ public class UserController {
         return userService.reactivateUser(UUID.fromString(principal.userId()), principal.role(), userId);
     }
 
+    @PostMapping("/{userId}/unlock")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    public UserResponse unlock(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                               @PathVariable UUID userId) {
+        return userService.unlockUser(principal.role(), userId);
+    }
+
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return userService.getById(UUID.fromString(principal.userId()));

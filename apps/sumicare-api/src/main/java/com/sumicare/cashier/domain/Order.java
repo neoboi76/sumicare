@@ -66,6 +66,12 @@ public class Order {
     @Column(name = "total", nullable = false)
     private BigDecimal total = BigDecimal.ZERO;
 
+    @Column(name = "extension_amount", nullable = false)
+    private BigDecimal extensionAmount = BigDecimal.ZERO;
+
+    @Column(name = "extension_minutes", nullable = false)
+    private int extensionMinutes = 0;
+
     @Column(name = "amount_paid", nullable = false)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
@@ -116,6 +122,10 @@ public class Order {
     public void setTax(BigDecimal tax) { this.tax = tax; }
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
+    public BigDecimal getExtensionAmount() { return extensionAmount; }
+    public void setExtensionAmount(BigDecimal extensionAmount) { this.extensionAmount = extensionAmount; }
+    public int getExtensionMinutes() { return extensionMinutes; }
+    public void setExtensionMinutes(int extensionMinutes) { this.extensionMinutes = extensionMinutes; }
     public BigDecimal getAmountPaid() { return amountPaid; }
     public void setAmountPaid(BigDecimal amountPaid) { this.amountPaid = amountPaid; }
     public String getStatus() { return status; }

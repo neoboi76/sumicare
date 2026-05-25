@@ -8,6 +8,7 @@ public record CreateOrderItemRequest(
         Integer quantity,
         BigDecimal unitPrice,
         BigDecimal lineTotal,
+        String roomType,
         Integer position,
         List<CreateOrderItemAttendeeRequest> attendees
 ) {}

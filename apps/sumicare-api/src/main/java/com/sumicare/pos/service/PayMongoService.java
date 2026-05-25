@@ -25,6 +25,7 @@ public class PayMongoService {
     private static final Set<String> SUPPORTED_METHODS = Set.of("CREDIT", "DEBIT", "GCASH");
     private static final Set<String> SUCCESS_STATUSES = Set.of("succeeded", "awaiting_next_action", "processing");
     private static final String MOCK_PREFIX = "mock_pi_";
+    private static final String CHECKOUT_PREFIX = "cs_";
 
     private static final Set<String> TEST_CARD_DECLINES = Set.of(
             "4571736000000075", "5100000000000511", "4200000000000018");
@@ -58,10 +59,14 @@ public class PayMongoService {
 
     public String confirm(String intentId) {
         if (intentId == null) {
-            throw new IllegalArgumentException("Missing payment intent id");
+            throw new IllegalArgumentException("Missing payment reference");
         }
         if (appProperties.payment().paymongo().mockMode() || intentId.startsWith(MOCK_PREFIX)) {
             return "succeeded";
+        }
+        if (intentId.startsWith(CHECKOUT_PREFIX)) {
+            PaymentGateway.CheckoutResult session = gateway.retrieveCheckoutSession(intentId);
+            return "paid".equalsIgnoreCase(session.status()) ? "succeeded" : session.status();
         }
         PaymentGateway.IntentResult intent = gateway.retrieveIntent(intentId);
         return intent.status() == null ? "pending" : intent.status();
@@ -108,6 +113,10 @@ public class PayMongoService {
             return mockCharge(order, amount, paymentMethod, card, details, redirect);
         }
 
+        if (card) {
+            return cardCheckout(order, amount, paymentMethod, returnPath);
+        }
+
         Map<String, String> metadata = new HashMap<>();
         metadata.put("orderId", order.getId().toString());
         metadata.put("paymentMethod", paymentMethod);
@@ -139,16 +148,28 @@ public class PayMongoService {
         return new ChargeResult(attached.intentId(), status, attached.nextActionUrl());
     }
 
+    private ChargeResult cardCheckout(Order order, BigDecimal amount, String paymentMethod, String returnPath) {
+        String successUrl = buildReturnUrl(order, null, paymentMethod, amount, returnPath);
+        String cancelUrl = successUrl + "&status=cancelled";
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("orderId", order.getId().toString());
+        metadata.put("paymentMethod", paymentMethod);
+        String description = "Order " + order.getOrNumber() + " bookingId:" + order.getBookingId();
+        PaymentGateway.CheckoutResult session = gateway.createCheckoutSession(
+                amount, "PHP", java.util.List.of("card"), description, successUrl, cancelUrl, metadata);
+        if (session.checkoutUrl() == null || session.checkoutUrl().isBlank()) {
+            throw new IllegalStateException("PayMongo did not return a checkout URL");
+        }
+        return new ChargeResult(session.sessionId(), "awaiting_next_action", session.checkoutUrl());
+    }
+
     private ChargeResult mockCharge(Order order, BigDecimal amount, String paymentMethod,
                                     boolean card, PaymentDetailsRequest details, boolean redirect) {
         String intentId = MOCK_PREFIX + UUID.randomUUID();
         if (card) {
             String number = details == null || details.cardNumber() == null
                     ? "" : details.cardNumber().replaceAll("\\s+", "");
-            if (number.isBlank()) {
-                throw new IllegalArgumentException("Card details are required for card payments");
-            }
-            if (TEST_CARD_DECLINES.contains(number)) {
+            if (!number.isBlank() && TEST_CARD_DECLINES.contains(number)) {
                 throw new IllegalStateException("PayMongo declined the card (test decline number)");
             }
             log.info("PayMongo mock card charge: order={}, amount={}, method={}, intentId={}, redirect={}",
@@ -171,11 +192,15 @@ public class PayMongoService {
     private String buildReturnUrl(Order order, String intentId, String paymentMethod, BigDecimal amount, String returnPath) {
         String base = originOf(appProperties.app().publicBaseUrl());
         String path = returnPath == null || returnPath.isBlank() ? "/app/cashier" : returnPath;
-        return base + path + "?paymongoReturn=1"
-                + "&orderId=" + order.getId()
-                + "&intent=" + enc(intentId)
-                + "&paymentMethod=" + enc(paymentMethod)
-                + "&amount=" + amount.toPlainString();
+        StringBuilder url = new StringBuilder(base).append(path)
+                .append("?paymongoReturn=1")
+                .append("&orderId=").append(order.getId());
+        if (intentId != null && !intentId.isBlank()) {
+            url.append("&intent=").append(enc(intentId));
+        }
+        url.append("&paymentMethod=").append(enc(paymentMethod))
+                .append("&amount=").append(amount.toPlainString());
+        return url.toString();
     }
 
     private String originOf(String url) {

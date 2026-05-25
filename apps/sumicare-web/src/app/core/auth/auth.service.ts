@@ -16,6 +16,13 @@ interface TokenResponse {
   role: string;
 }
 
+export interface LoginResponse {
+  mfaRequired: boolean;
+  challengeId: string | null;
+  email: string | null;
+  token: TokenResponse | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private http = inject(HttpClient);
@@ -33,10 +40,25 @@ export class AuthService {
     ).then(() => undefined);
   }
 
-  login(username: string, password: string): Observable<TokenResponse> {
+  login(username: string, password: string): Observable<LoginResponse> {
     return this.http
-      .post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/login`, { username, password }, { withCredentials: true })
+      .post<LoginResponse>(`${environment.apiBaseUrl}/api/auth/login`, { username, password }, { withCredentials: true })
+      .pipe(tap((response) => {
+        if (response.token) {
+          this.applyToken(response.token);
+        }
+      }));
+  }
+
+  verifyMfa(challengeId: string, code: string): Observable<TokenResponse> {
+    return this.http
+      .post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/mfa/verify`, { challengeId, code }, { withCredentials: true })
       .pipe(tap((response) => this.applyToken(response)));
+  }
+
+  resendMfa(challengeId: string): Observable<void> {
+    return this.http
+      .post<void>(`${environment.apiBaseUrl}/api/auth/mfa/resend`, { challengeId }, { withCredentials: true });
   }
 
   refresh(): Observable<TokenResponse> {

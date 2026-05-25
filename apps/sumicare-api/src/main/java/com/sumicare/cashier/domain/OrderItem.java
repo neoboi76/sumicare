@@ -33,6 +33,12 @@ public class OrderItem {
     @Column(name = "line_total", nullable = false)
     private BigDecimal lineTotal;
 
+    @Column(name = "room_type", nullable = false, length = 20)
+    private String roomType = "COMMON";
+
+    @Column(name = "room_type_charge", nullable = false)
+    private BigDecimal roomTypeCharge = BigDecimal.ZERO;
+
     @Column(name = "position", nullable = false)
     private int position = 0;
 
@@ -53,6 +59,10 @@ public class OrderItem {
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
     public BigDecimal getLineTotal() { return lineTotal; }
     public void setLineTotal(BigDecimal lineTotal) { this.lineTotal = lineTotal; }
+    public String getRoomType() { return roomType; }
+    public void setRoomType(String roomType) { this.roomType = roomType; }
+    public BigDecimal getRoomTypeCharge() { return roomTypeCharge; }
+    public void setRoomTypeCharge(BigDecimal roomTypeCharge) { this.roomTypeCharge = roomTypeCharge; }
     public int getPosition() { return position; }
     public void setPosition(int position) { this.position = position; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

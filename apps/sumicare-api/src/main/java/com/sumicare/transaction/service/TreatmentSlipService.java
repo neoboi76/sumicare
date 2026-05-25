@@ -133,15 +133,36 @@ public class TreatmentSlipService {
                     .ifPresent(t -> slip.setRequestedTherapistNickname(t.getNickname()));
         }
 
-        if (slip.getServiceName() == null && booking != null) {
-            var service = serviceRepository.findById(booking.getServiceId()).orElse(null);
-            if (service != null) {
-                slip.setServiceName(service.getName());
-                slip.setVip(service.isVip());
-                if (!service.isVip()) {
-                    slip.setTreatmentMinutes(service.getDurationMinutes());
+        boolean packageVip = false;
+        if (attendee != null && attendee.getOrderItemId() != null) {
+            var item = orderItemRepository.findById(attendee.getOrderItemId()).orElse(null);
+            if (item != null && item.getPackageId() != null) {
+                var pkg = packageRepository.findById(item.getPackageId()).orElse(null);
+                if (pkg != null) {
+                    packageVip = pkg.isRequiresVipRoom();
+                    if (slip.getPackageName() == null) {
+                        slip.setPackageName(pkg.getName());
+                    }
                 }
             }
+        }
+
+        Long resolvedServiceId = attendee != null && attendee.getServiceId() != null
+                ? attendee.getServiceId()
+                : (booking != null ? booking.getServiceId() : null);
+        if (slip.getServiceName() == null && resolvedServiceId != null) {
+            var service = serviceRepository.findById(resolvedServiceId).orElse(null);
+            if (service != null) {
+                slip.setServiceName(service.getName());
+                slip.setTreatmentMinutes(service.getDurationMinutes());
+            }
+        }
+
+        slip.setVip(packageVip);
+        if (packageVip) {
+            if (slip.getJacuzziMinutes() == null) slip.setJacuzziMinutes(60);
+            if (slip.getMassageMinutes() == null) slip.setMassageMinutes(60);
+            if (slip.getWineIncluded() == null) slip.setWineIncluded(true);
         }
 
         if (booking != null) {
@@ -155,13 +176,9 @@ public class TreatmentSlipService {
             });
         }
 
-        if (slip.getPackageName() == null && attendee != null && attendee.getOrderItemId() != null) {
-            orderItemRepository.findById(attendee.getOrderItemId()).ifPresent(item -> {
-                if (item.getPackageId() != null) {
-                    packageRepository.findById(item.getPackageId())
-                            .ifPresent(pkg -> slip.setPackageName(pkg.getName()));
-                }
-            });
+        if (session.isExtension() && (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank())) {
+            int minutes = session.getExtensionMinutes() > 0 ? session.getExtensionMinutes() : 60;
+            slip.setOthersAddOn("Massage extension: +" + minutes + " min");
         }
 
         return slipRepository.save(slip);

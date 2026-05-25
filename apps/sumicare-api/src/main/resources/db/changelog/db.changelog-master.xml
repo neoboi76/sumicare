@@ -30,4 +30,10 @@
     <include file="changes/0024-batch-fixes-7.xml" relativeToChangelogFile="true"/>
     <include file="changes/0025-batch-fixes-8.xml" relativeToChangelogFile="true"/>
     <include file="changes/0026-batch-fixes-8-refunds.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0027-account-lockout.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0028-order-extension-charge.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0029-couple-package-prices.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0030-service-prices.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0031-order-item-room-type.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0032-seed-more-therapists.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

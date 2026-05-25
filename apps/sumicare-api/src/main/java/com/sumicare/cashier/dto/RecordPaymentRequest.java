@@ -11,5 +11,6 @@ public record RecordPaymentRequest(
         @NotBlank String paymentMethod,
         @DecimalMin("0.00") @NotNull BigDecimal amount,
         @Size(max = 100) String referenceNumber,
-        PaymentDetailsRequest paymentDetails
+        PaymentDetailsRequest paymentDetails,
+        @Size(max = 200) String returnPath
 ) {}

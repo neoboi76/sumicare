@@ -21,6 +21,8 @@ public record OrderResponse(
         BigDecimal discount,
         BigDecimal tax,
         BigDecimal total,
+        BigDecimal extensionAmount,
+        int extensionMinutes,
         BigDecimal amountPaid,
         BigDecimal balance,
         String status,

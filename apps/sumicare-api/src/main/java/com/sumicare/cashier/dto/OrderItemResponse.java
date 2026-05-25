@@ -11,6 +11,8 @@ public record OrderItemResponse(
         int quantity,
         BigDecimal unitPrice,
         BigDecimal lineTotal,
+        String roomType,
+        BigDecimal roomTypeCharge,
         int position,
         List<OrderItemAttendeeResponse> attendees
 ) {}

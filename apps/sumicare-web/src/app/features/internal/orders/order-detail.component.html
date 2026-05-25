@@ -43,13 +43,6 @@
         @if (o.groupBooking) {
           <div class="mt-1 inline-block rounded bg-sky-100 text-sky-700 text-[10px] uppercase tracking-wide px-1.5 py-0.5">Group booking</div>
         }
-        @if (o.roomType) {
-          <div class="mt-1 text-xs text-slate-500">
-            Room type: <span class="font-medium text-slate-700">{{ o.roomType }}</span>
-            @if (o.roomTypeCharge > 0) { (+ &#8369;{{ o.roomTypeCharge | number:'1.2-2' }}) }
-            @else if (o.roomType === 'PRIVATE') { (bundled) }
-          </div>
-        }
       </div>
       <span class="inline-block rounded px-2 py-0.5 text-xs font-semibold" [class]="statusClass(o.status)">{{ o.status
         }}</span>
@@ -66,6 +59,13 @@
                 <div class="text-xs text-slate-500">{{ it.quantity }} &times; &#8369;{{ it.unitPrice | number:'1.2-2' }}</div>
                 <div class="font-semibold">&#8369;{{ it.lineTotal | number:'1.2-2' }}</div>
               </div>
+            </div>
+            <div class="mt-1 text-xs text-slate-500">
+              @switch (it.roomType) {
+                @case ('VIP') { Room: <span class="font-medium text-slate-700">VIP</span> (included) }
+                @case ('PRIVATE') { Room: <span class="font-medium text-slate-700">Private</span> (+ &#8369;{{ it.roomTypeCharge | number:'1.2-2' }}) }
+                @default { Room: <span class="font-medium text-slate-700">Common</span> }
+              }
             </div>
             @if (it.attendees && it.attendees.length > 0) {
               <table class="w-full mt-2 text-xs">
@@ -112,6 +112,12 @@
         <div>
           <div class="text-xs uppercase tracking-wide text-slate-500">Tax</div>
           <div>&#8369; {{ o.tax | number:'1.2-2' }}</div>
+        </div>
+      }
+      @if (o.extensionMinutes > 0) {
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Extension (+{{ o.extensionMinutes }} min)</div>
+          <div>&#8369; {{ o.extensionAmount | number:'1.2-2' }}</div>
         </div>
       }
       <div>
@@ -178,7 +184,7 @@
         class="rounded bg-emerald-600 text-white text-sm px-4 py-2 disabled:opacity-50">Mark as paid</button>
       <button (click)="markOpen()" [disabled]="busy() || o.status === 'OPEN'"
         class="rounded border border-amber-400 text-amber-700 text-sm px-4 py-2 disabled:opacity-50">Make Open</button>
-      @if (o.status === 'OPEN' && o.amountPaid > 0) {
+      @if (o.status === 'OPEN' && o.amountPaid > 0 && !o.sessionCompleted) {
       <button (click)="cancelPayment()" [disabled]="busy()"
         class="rounded border border-orange-300 text-orange-700 text-sm px-4 py-2">Cancel Payment</button>
       }
@@ -264,4 +270,6 @@
     </div>
   </div>
   }
+
+  <sumi-payment-details-modal />
 </section>

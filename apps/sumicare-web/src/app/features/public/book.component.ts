@@ -53,6 +53,11 @@ interface PublicPaymentResult {
   intentId: string | null;
   redirectUrl: string | null;
   orNumber: string | null;
+  clientNickname: string | null;
+  packageName: string | null;
+  serviceName: string | null;
+  scheduledAt: string | null;
+  reservationType: string | null;
 }
 
 interface AttendeeForm {
@@ -91,6 +96,11 @@ export class BookComponent implements OnInit {
   confirmation = signal<BookingCreated | null>(null);
   bookingRef = signal<string | null>(null);
   orNumber = signal<string | null>(null);
+  confirmNickname = signal<string | null>(null);
+  confirmReservationType = signal<string | null>(null);
+  confirmScheduled = signal<string | null>(null);
+  confirmPackageName = signal<string | null>(null);
+  confirmServiceName = signal<string | null>(null);
 
   clientNickname = '';
   clientEmail = '';
@@ -118,12 +128,6 @@ export class BookComponent implements OnInit {
   });
 
   forcedVipRoom = computed(() => this.selectedPackage()?.requiresVipRoom ?? false);
-
-  serviceLabel = computed(() => {
-    const id = this.confirmation()?.serviceId;
-    if (id == null) return '';
-    return this.services().find(s => s.id === id)?.name ?? '';
-  });
 
   estimatedTotal = computed(() => {
     const tiers = this.packageTiers();
@@ -307,6 +311,7 @@ export class BookComponent implements OnInit {
           this.submitting.set(false);
           const ref = booking.id.slice(0, 8).toUpperCase();
           this.bookingRef.set(ref);
+          this.setConfirmationFromForm(booking);
           this.confirmation.set(booking);
         },
         error: (err) => {
@@ -316,12 +321,31 @@ export class BookComponent implements OnInit {
       });
   }
 
+  private setConfirmationFromForm(booking: BookingCreated): void {
+    this.confirmNickname.set(booking.clientNickname || this.clientNickname.trim() || null);
+    this.confirmReservationType.set(booking.reservationType);
+    this.confirmScheduled.set(booking.scheduledAt);
+    this.confirmPackageName.set(this.selectedPackage()?.name ?? null);
+    this.confirmServiceName.set(this.services().find(s => s.id === booking.serviceId)?.name ?? null);
+  }
+
+  private setConfirmationFromResponse(res: PublicPaymentResult): void {
+    this.confirmNickname.set(res.clientNickname);
+    this.confirmReservationType.set(res.reservationType ?? 'HARD');
+    this.confirmScheduled.set(res.scheduledAt);
+    this.confirmPackageName.set(res.packageName);
+    this.confirmServiceName.set(res.serviceName);
+  }
+
   private async startPublicPayment(booking: BookingCreated): Promise<void> {
     const method = this.paymentMethod();
-    const details = await this.paymentDetailsService.open(method, this.estimatedTotal());
-    if (!details) {
-      this.submitting.set(false);
-      return;
+    let details: PaymentDetails | null = null;
+    if (method === 'GCASH') {
+      details = await this.paymentDetailsService.open(method, this.estimatedTotal());
+      if (!details) {
+        this.submitting.set(false);
+        return;
+      }
     }
     this.http
       .post<PublicPaymentResult>(
@@ -329,7 +353,7 @@ export class BookComponent implements OnInit {
         { orderId: booking.orderId, paymentMethod: method, paymentDetails: details }
       )
       .subscribe({
-        next: (res) => this.onPaymentInitiated(booking, res, method, details),
+        next: (res) => this.onPaymentInitiated(booking, res, method),
         error: (err) => {
           this.submitting.set(false);
           this.error.set(this.extractErrorMessage(err));
@@ -337,11 +361,12 @@ export class BookComponent implements OnInit {
       });
   }
 
-  private onPaymentInitiated(booking: BookingCreated, res: PublicPaymentResult, method: PayMethod, details: PaymentDetails): void {
+  private onPaymentInitiated(booking: BookingCreated, res: PublicPaymentResult, method: PayMethod): void {
     if (res.status === 'succeeded') {
       this.submitting.set(false);
       this.bookingRef.set(booking.id.slice(0, 8).toUpperCase());
       this.orNumber.set(res.orNumber);
+      this.setConfirmationFromResponse(res);
       this.confirmation.set(booking);
       return;
     }
@@ -349,6 +374,9 @@ export class BookComponent implements OnInit {
     const returnUrl = `${origin}/book?paymongoReturn=1&orderId=${booking.orderId}`
       + `&intent=${encodeURIComponent(res.intentId ?? '')}`
       + `&paymentMethod=${encodeURIComponent(method)}`;
+    if (booking.orderId && res.intentId) {
+      sessionStorage.setItem('paymongoIntent:' + booking.orderId, res.intentId);
+    }
     if (res.intentId && res.intentId.startsWith('mock_')) {
       window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
         + `&amount=${this.estimatedTotal()}`
@@ -363,9 +391,16 @@ export class BookComponent implements OnInit {
   }
 
   private handlePaymentReturn(orderId: string | null, intentId: string | null, method: string | null, status: string | null): void {
-    if (!orderId || !intentId) return;
+    if (!orderId) return;
+    const resolvedIntent = intentId ?? sessionStorage.getItem('paymongoIntent:' + orderId);
+    sessionStorage.removeItem('paymongoIntent:' + orderId);
     if (status === 'cancelled' || status === 'failed') {
       this.error.set('The payment was cancelled. Your slot is not yet reserved. Please try again.');
+      this.router.navigate(['/book']);
+      return;
+    }
+    if (!resolvedIntent) {
+      this.error.set('We could not confirm your payment. If you were charged, please contact the front desk with your reference.');
       this.router.navigate(['/book']);
       return;
     }
@@ -373,14 +408,22 @@ export class BookComponent implements OnInit {
     this.http
       .post<PublicPaymentResult>(
         `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/confirm`,
-        { orderId, intentId, paymentMethod: method }
+        { orderId, intentId: resolvedIntent, paymentMethod: method }
       )
       .subscribe({
         next: (res) => {
           this.submitting.set(false);
           this.bookingRef.set(orderId.slice(0, 8).toUpperCase());
           this.orNumber.set(res.orNumber);
-          this.confirmation.set({ id: orderId, clientNickname: '', reservationType: 'HARD', scheduledAt: '', serviceId: 0, orderId });
+          this.setConfirmationFromResponse(res);
+          this.confirmation.set({
+            id: orderId,
+            clientNickname: res.clientNickname ?? '',
+            reservationType: res.reservationType ?? 'HARD',
+            scheduledAt: res.scheduledAt ?? '',
+            serviceId: 0,
+            orderId
+          });
         },
         error: () => {
           this.submitting.set(false);
@@ -393,6 +436,11 @@ export class BookComponent implements OnInit {
     this.confirmation.set(null);
     this.bookingRef.set(null);
     this.orNumber.set(null);
+    this.confirmNickname.set(null);
+    this.confirmReservationType.set(null);
+    this.confirmScheduled.set(null);
+    this.confirmPackageName.set(null);
+    this.confirmServiceName.set(null);
     this.error.set(null);
     this.clientNickname = '';
     this.clientEmail = '';

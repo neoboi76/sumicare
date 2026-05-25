@@ -92,7 +92,7 @@
           (e.g. couple package) adds one guest row per person.</p>
         } @else {
         <div class="space-y-2">
-          @for (it of cart(); track $index) {
+          @for (it of cart(); track $index; let itemIdx = $index) {
           <div class="border border-slate-200 rounded-lg p-3 space-y-2">
             <div class="flex items-center justify-between">
               <div class="font-medium text-sm">{{ $index + 1 }}. {{ it.packageName }}
@@ -110,6 +110,19 @@
                 }
               </div>
             }
+            <label class="block text-sm border-t border-slate-100 pt-2">
+              <span class="text-xs text-slate-500">Room</span>
+              @if (it.requiresVipRoom) {
+                <input value="VIP — included with package" disabled
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500" />
+              } @else {
+                <select [ngModel]="it.roomType" name="room{{itemIdx}}" (ngModelChange)="setItemRoom(itemIdx, $event)"
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+                  <option value="COMMON">Common &mdash; +&#8369;0</option>
+                  <option value="PRIVATE">Private &mdash; +&#8369;500</option>
+                </select>
+              }
+            </label>
             @for (att of it.attendees; track $index; let attIdx = $index) {
             <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-sm border-t border-slate-100 pt-2">
               <label class="block sm:col-span-2">
@@ -117,8 +130,8 @@
                 @if ((it.couple || it.requiresVipRoom) && attIdx > 0) {
                   <div class="mt-1 px-2 py-1.5 bg-slate-100 rounded text-slate-500 text-sm">Shared</div>
                 } @else {
-                  <select [ngModel]="att.packageTierId" name="tier{{$index}}_{{attIdx}}"
-                    (ngModelChange)="onAttendeeMassageChange($index, attIdx, $event)"
+                  <select [ngModel]="att.packageTierId" name="tier{{itemIdx}}_{{attIdx}}"
+                    (ngModelChange)="onAttendeeMassageChange(itemIdx, attIdx, $event)"
                     class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
                     <option [ngValue]="null" disabled>Choose massage</option>
                     @for (t of it.tiers; track t.id) {
@@ -129,12 +142,12 @@
               </label>
               <label class="block">
                 <span class="text-xs text-slate-500">Locker #</span>
-                <input [(ngModel)]="att.lockerNumber" name="locker{{$index}}_{{attIdx}}" maxlength="16"
+                <input [(ngModel)]="att.lockerNumber" name="locker{{itemIdx}}_{{attIdx}}" maxlength="16"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
               </label>
               <label class="block">
                 <span class="text-xs text-slate-500">Sex</span>
-                <select [(ngModel)]="att.clientGender" name="gender{{$index}}_{{attIdx}}"
+                <select [(ngModel)]="att.clientGender" name="gender{{itemIdx}}_{{attIdx}}"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
                   <option value="F">Female</option>
                   <option value="M">Male</option>
@@ -143,7 +156,7 @@
               <label class="block">
                 <span class="text-xs text-slate-500">Discount (this guest)</span>
                 <input type="number" min="0" step="0.01"
-                  [(ngModel)]="att.discount" name="discount{{$index}}_{{attIdx}}"
+                  [(ngModel)]="att.discount" name="discount{{itemIdx}}_{{attIdx}}"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
               </label>
             </div>
@@ -179,25 +192,8 @@
       </div>
 
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Room &amp; miscellaneous</h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Miscellaneous</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <label class="block">
-            Room type
-            @if (anyVip()) {
-            <input value="VIP — included with VIP package" disabled
-              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500" />
-            } @else {
-            <select [ngModel]="roomType()" name="roomType" (ngModelChange)="setRoomType($event)"
-              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
-              <option value="COMMON" [disabled]="roomAvailability().COMMON === 0">
-                Common ({{ roomAvailability().COMMON }} available) — +&#8369;0
-              </option>
-              <option value="PRIVATE" [disabled]="roomAvailability().PRIVATE === 0">
-                Private ({{ roomAvailability().PRIVATE }} available) — +&#8369;500
-              </option>
-            </select>
-            }
-          </label>
           <label class="block">
             Reference number
             <input [(ngModel)]="referenceNumber" name="referenceNumber" maxlength="100"
@@ -297,11 +293,8 @@
         <div class="flex justify-between text-sm"><span>Items subtotal</span><span>&#8369; {{ itemsSubtotal() |
             number:'1.2-2' }}</span></div>
         <div class="flex justify-between text-sm">
-          <span>Room ({{ effectiveRoomType() }})</span>
-          <span>
-            @if (effectiveRoomType() === 'VIP') { included }
-            @else { &#8369; {{ roomSurcharge() | number:'1.2-2' }} }
-          </span>
+          <span>Private rooms</span>
+          <span>&#8369; {{ roomSurcharge() | number:'1.2-2' }}</span>
         </div>
         <div class="flex justify-between text-sm"><span>Subtotal</span><span>&#8369; {{ subtotal() | number:'1.2-2'
             }}</span></div>

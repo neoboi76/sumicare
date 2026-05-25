@@ -43,6 +43,7 @@ interface ServiceItem {
   price: number;
   requiresTwoTherapists: boolean;
   vip: boolean;
+  fixedRate: boolean;
 }
 
 interface LineupTherapist {
@@ -95,6 +96,7 @@ interface OrderItemLite {
   packageId: number | null;
   packageName: string;
   unitPrice: number;
+  roomType: string | null;
   attendees: OrderAttendee[];
 }
 
@@ -140,7 +142,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   startRoomId = signal<string | null>(null);
   startBedId = signal<string | null>(null);
   startSpecificallyRequested = signal(false);
-  startOrderRoomType = signal<string | null>(null);
+  startRoomType = signal<string | null>(null);
 
   editBooking = signal<BookingResponse | null>(null);
   editServiceId = signal<number>(0);
@@ -187,6 +189,19 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.isVipBooking(b);
   }
 
+  private isFixedService(serviceId: number | null): boolean {
+    if (serviceId == null) return false;
+    return this.services().find(s => s.id === serviceId)?.fixedRate ?? false;
+  }
+
+  isFixedBooking(b: BookingResponse): boolean {
+    return this.isFixedService(b.serviceId);
+  }
+
+  isFixedAttendee(a: OrderAttendee, b: BookingResponse): boolean {
+    return this.isFixedService(a.serviceId ?? b.serviceId);
+  }
+
   selectedStartService = computed(() => {
     const attendeeServiceId = this.startAttendeeServiceId();
     if (attendeeServiceId != null) {
@@ -225,7 +240,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   });
 
   filteredStartRooms = computed(() => {
-    const rt = this.startOrderRoomType();
+    const rt = this.startRoomType();
     const all = this.rooms();
     if (!rt) return all;
     const want = rt.toUpperCase();
@@ -414,32 +429,41 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startBedId.set(bed.id);
   }
 
-  private resetStartForm(b: BookingResponse): void {
+  private roomTypeForAttendee(order: OrderLite | null | undefined, attendeeId: string | null): string | null {
+    if (!order) return null;
+    if (attendeeId) {
+      const item = order.items?.find(it => it.attendees.some(a => a.id === attendeeId));
+      if (item) return item.roomType ?? null;
+    }
+    return order.roomType ?? null;
+  }
+
+  private resetStartForm(b: BookingResponse, attendeeId: string | null): void {
     this.startBooking.set(b);
     this.startPrimaryTherapistId.set(null);
     this.startSecondaryTherapistId.set(null);
     this.startRoomId.set(null);
     this.startBedId.set(null);
     this.startSpecificallyRequested.set(false);
-    const order = this.ordersByBooking().get(b.id);
-    this.startOrderRoomType.set(order ? (order.roomType ?? null) : null);
+    const cached = this.ordersByBooking().get(b.id);
+    this.startRoomType.set(this.roomTypeForAttendee(cached, attendeeId));
     this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/by-booking/${b.id}`).subscribe({
-      next: (o) => this.startOrderRoomType.set(o.roomType ?? null),
-      error: () => { /* no order yet — show all rooms */ }
+      next: (o) => this.startRoomType.set(this.roomTypeForAttendee(o, attendeeId)),
+      error: () => { }
     });
     this.refreshLineup();
   }
 
   openStart(b: BookingResponse): void {
-    this.resetStartForm(b);
     const order = this.ordersByBooking().get(b.id);
     const attendees = order?.items?.flatMap(it => it.attendees) ?? [];
-    if (attendees.length === 1) {
-      const a = attendees[0];
-      this.startAttendeeId.set(a.id);
-      this.startAttendeeServiceId.set(a.serviceId ?? null);
-      this.startAttendeeGender.set(a.clientGender ?? b.clientGender ?? null);
-      this.startAttendeeLabel.set(a.serviceName || b.clientNickname);
+    const single = attendees.length === 1 ? attendees[0] : null;
+    this.resetStartForm(b, single?.id ?? null);
+    if (single) {
+      this.startAttendeeId.set(single.id);
+      this.startAttendeeServiceId.set(single.serviceId ?? null);
+      this.startAttendeeGender.set(single.clientGender ?? b.clientGender ?? null);
+      this.startAttendeeLabel.set(single.serviceName || b.clientNickname);
     } else {
       this.startAttendeeId.set(null);
       this.startAttendeeServiceId.set(null);
@@ -449,7 +473,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   openStartForAttendee(b: BookingResponse, attendee: OrderAttendee): void {
-    this.resetStartForm(b);
+    this.resetStartForm(b, attendee.id);
     this.startAttendeeId.set(attendee.id);
     this.startAttendeeServiceId.set(attendee.serviceId ?? null);
     this.startAttendeeGender.set(attendee.clientGender ?? b.clientGender ?? null);

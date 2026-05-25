@@ -275,6 +275,8 @@ public class BookingService {
                         ? lineTotal.divide(BigDecimal.valueOf(resolvedPax), 2, java.math.RoundingMode.HALF_UP)
                         : lineTotal));
             item.setLineTotal(lineTotal);
+            item.setRoomType(resolvedRoomType);
+            item.setRoomTypeCharge(resolvedRoomCharge);
             item.setPosition(0);
             orderItemRepository.save(item);
 
@@ -331,7 +333,7 @@ public class BookingService {
                                                        String paymentMethod, PaymentDetailsRequest details) {
         Order order = requirePublicOrder(organizationId, orderId);
         if ("PAID".equals(order.getStatus())) {
-            return new PublicPaymentResponse("succeeded", null, null, order.getOrNumber());
+            return paymentResponse("succeeded", null, null, order);
         }
         if (order.getTotal() == null || order.getTotal().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("This reservation has no payable total");
@@ -342,10 +344,10 @@ public class BookingService {
         com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.initiate(
                 order, order.getTotal(), paymentMethod, null, details, "/book");
         if ("succeeded".equalsIgnoreCase(result.status())) {
-            String orNumber = settlePublicPayment(order, result.intentId(), paymentMethod);
-            return new PublicPaymentResponse("succeeded", result.intentId(), null, orNumber);
+            settlePublicPayment(order, result.intentId(), paymentMethod);
+            return paymentResponse("succeeded", result.intentId(), null, order);
         }
-        return new PublicPaymentResponse(result.status(), result.intentId(), result.nextActionUrl(), null);
+        return paymentResponse(result.status(), result.intentId(), result.nextActionUrl(), order);
     }
 
     @PreAuthorize("permitAll()")
@@ -354,15 +356,30 @@ public class BookingService {
                                                       String intentId, String paymentMethod) {
         Order order = requirePublicOrder(organizationId, orderId);
         if ("PAID".equals(order.getStatus())) {
-            return new PublicPaymentResponse("succeeded", intentId, null, order.getOrNumber());
+            return paymentResponse("succeeded", intentId, null, order);
         }
         String status = payMongoService.confirm(intentId);
         if (!"succeeded".equalsIgnoreCase(status) && !"processing".equalsIgnoreCase(status)) {
             throw new IllegalStateException("PayMongo payment was not authorized (status: " + status + ")");
         }
         String method = paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "GCASH";
-        String orNumber = settlePublicPayment(order, intentId, method);
-        return new PublicPaymentResponse("succeeded", intentId, null, orNumber);
+        settlePublicPayment(order, intentId, method);
+        return paymentResponse("succeeded", intentId, null, order);
+    }
+
+    private PublicPaymentResponse paymentResponse(String status, String intentId, String redirectUrl, Order order) {
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        String nickname = booking == null ? null : booking.getClientNickname();
+        String reservationType = booking == null ? null : booking.getReservationType();
+        String scheduledAt = booking == null || booking.getScheduledAt() == null
+                ? null : booking.getScheduledAt().toString();
+        String serviceName = booking == null || booking.getServiceId() == null ? null
+                : serviceRepository.findById(booking.getServiceId()).map(Service::getName).orElse(null);
+        Package pkg = resolveOrderPackage(order);
+        String packageName = pkg == null ? null : pkg.getName();
+        return new PublicPaymentResponse(status, intentId, redirectUrl, order.getOrNumber(),
+                nickname, packageName, serviceName, scheduledAt, reservationType);
     }
 
     private Order requirePublicOrder(UUID organizationId, UUID orderId) {
@@ -468,12 +485,15 @@ public class BookingService {
             throw new IllegalStateException("This session has already ended.");
         }
 
+        String itemRoomType = orderItemRepository.findById(attendee.getOrderItemId())
+                .map(com.sumicare.cashier.domain.OrderItem::getRoomType)
+                .orElse(order.getRoomType());
         if (request.roomId() != null) {
             Room room = roomRepository.findById(request.roomId()).orElseThrow(() ->
                     new IllegalArgumentException("Unknown room"));
-            boolean vipAllowed = "VIP".equalsIgnoreCase(order.getRoomType()) || (service != null && service.isVip());
+            boolean vipAllowed = "VIP".equalsIgnoreCase(itemRoomType) || (service != null && service.isVip());
             if ("VIP".equalsIgnoreCase(room.getRoomType()) && !vipAllowed) {
-                throw new IllegalStateException("VIP room can only be selected for VIP-package orders");
+                throw new IllegalStateException("VIP room can only be selected for VIP packages");
             }
         boolean isPrivateOrVip = "PRIVATE".equalsIgnoreCase(room.getRoomType())
                 || "VIP".equalsIgnoreCase(room.getRoomType());
@@ -727,6 +747,9 @@ public class BookingService {
         if (session.isExtension()) {
             throw new IllegalStateException("This session has already been extended once. No further extensions are allowed.");
         }
+        if (isFixedRateSession(session)) {
+            throw new IllegalStateException("This service has a fixed duration and cannot be extended.");
+        }
         Order parentOrder = session.getBookingId() == null ? null
                 : orderRepository.findByBookingId(session.getBookingId()).orElse(null);
         if (parentOrder != null) {
@@ -747,13 +770,17 @@ public class BookingService {
 
         BigDecimal rate = (parentOrder != null && parentOrder.isWeekend())
                 ? new BigDecimal("900") : new BigDecimal("800");
-        BigDecimal commissionAmount = new BigDecimal("120");
+        int halfHours = (int) Math.ceil(additionalMinutes / 30.0);
+        BigDecimal commissionAmount = BigDecimal.valueOf(60L * halfHours);
 
         if (parentOrder != null) {
             BigDecimal newSubtotal = (parentOrder.getSubtotal() == null ? BigDecimal.ZERO : parentOrder.getSubtotal()).add(rate);
             BigDecimal newTotal = (parentOrder.getTotal() == null ? BigDecimal.ZERO : parentOrder.getTotal()).add(rate);
+            BigDecimal newExtension = (parentOrder.getExtensionAmount() == null ? BigDecimal.ZERO : parentOrder.getExtensionAmount()).add(rate);
             parentOrder.setSubtotal(newSubtotal);
             parentOrder.setTotal(newTotal);
+            parentOrder.setExtensionAmount(newExtension);
+            parentOrder.setExtensionMinutes(parentOrder.getExtensionMinutes() + additionalMinutes);
             orderRepository.save(parentOrder);
         }
 
@@ -816,6 +843,24 @@ public class BookingService {
     private Service requireService(Long serviceId) {
         return serviceRepository.findById(serviceId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown service: " + serviceId));
+    }
+
+    private boolean isFixedRateSession(Session session) {
+        Long serviceId = null;
+        if (session.getAttendeeId() != null) {
+            serviceId = attendeeRepository.findById(session.getAttendeeId())
+                    .map(com.sumicare.cashier.domain.OrderItemAttendee::getServiceId)
+                    .orElse(null);
+        }
+        if (serviceId == null && session.getBookingId() != null) {
+            serviceId = bookingRepository.findById(session.getBookingId())
+                    .map(Booking::getServiceId)
+                    .orElse(null);
+        }
+        if (serviceId == null) {
+            return false;
+        }
+        return serviceRepository.findById(serviceId).map(Service::isFixedRate).orElse(false);
     }
 
     private BookingResponse toBookingResponse(Booking b, Service s) {

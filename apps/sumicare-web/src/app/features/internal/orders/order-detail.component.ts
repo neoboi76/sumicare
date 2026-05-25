@@ -5,6 +5,8 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
+import { PaymentDetailsModalComponent } from '../../../shared/components/payment-details/payment-details-modal.component';
+import { PaymentDetails, PaymentDetailsService } from '../../../shared/components/payment-details/payment-details.service';
 
 interface OrderItemAttendee {
   id: string;
@@ -25,6 +27,8 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  roomType: string | null;
+  roomTypeCharge: number;
   position: number;
   attendees: OrderItemAttendee[];
 }
@@ -46,6 +50,8 @@ interface Order {
   discount: number;
   tax: number;
   total: number;
+  extensionAmount: number;
+  extensionMinutes: number;
   amountPaid: number;
   balance: number;
   status: string;
@@ -74,7 +80,7 @@ interface AuditEntry {
 @Component({
   selector: 'sumi-order-detail',
   standalone: true,
-  imports: [DecimalPipe, FormsModule, RouterLink],
+  imports: [DecimalPipe, FormsModule, RouterLink, PaymentDetailsModalComponent],
   templateUrl: './order-detail.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -83,6 +89,7 @@ export class OrderDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private confirmService = inject(ConfirmService);
+  private paymentDetailsService = inject(PaymentDetailsService);
 
   order = signal<Order | null>(null);
   audits = signal<AuditEntry[]>([]);
@@ -103,7 +110,12 @@ export class OrderDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) return;
-    const paymentError = this.route.snapshot.queryParamMap.get('paymentError');
+    const params = this.route.snapshot.queryParamMap;
+    if (params.get('paymongoReturn')) {
+      this.handlePayMongoReturn(id, params.get('intent'), params.get('paymentMethod'), params.get('amount'), params.get('status'));
+      return;
+    }
+    const paymentError = params.get('paymentError');
     if (paymentError) {
       if (paymentError === 'cancelled') {
         this.paymentNotice.set('The PayMongo payment was cancelled. The order is still open and can be paid again.');
@@ -134,10 +146,10 @@ export class OrderDetailComponent implements OnInit {
     });
   }
 
-  recordPayment(): void {
+  async recordPayment(): Promise<void> {
     const o = this.order();
     if (!o || this.busy()) return;
-    if (!this.newPaymentAmount || this.newPaymentAmount < 0) {
+    if (!this.newPaymentAmount || this.newPaymentAmount <= 0) {
       this.error.set('Enter a valid payment amount.');
       return;
     }
@@ -145,23 +157,110 @@ export class OrderDetailComponent implements OnInit {
       this.error.set('Payment amount exceeds remaining balance of ' + o.balance.toFixed(2));
       return;
     }
+    if (this.newPaymentMethod === 'CASH') {
+      this.busy.set(true);
+      this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/payments`, {
+        paymentMethod: this.newPaymentMethod,
+        amount: this.newPaymentAmount,
+        referenceNumber: this.newPaymentRef || null
+      }).subscribe({
+        next: (updated) => {
+          this.order.set(updated);
+          this.newPaymentAmount = 0;
+          this.newPaymentRef = '';
+          this.error.set(null);
+          this.busy.set(false);
+          this.load(updated.id);
+        },
+        error: (err) => {
+          this.error.set(err?.error?.message || 'Could not record payment.');
+          this.busy.set(false);
+        }
+      });
+      return;
+    }
+
+    let details: PaymentDetails | null = null;
+    if (this.newPaymentMethod === 'GCASH') {
+      details = await this.paymentDetailsService.open(this.newPaymentMethod, this.newPaymentAmount);
+      if (!details) return;
+    }
+    this.startPayMongo(o.id, this.newPaymentMethod, this.newPaymentAmount, this.newPaymentRef, details);
+  }
+
+  private startPayMongo(orderId: string, method: string, amount: number, reference: string, details: PaymentDetails | null): void {
     this.busy.set(true);
-    this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/payments`, {
-      paymentMethod: this.newPaymentMethod,
-      amount: this.newPaymentAmount,
-      referenceNumber: this.newPaymentRef || null
+    this.error.set(null);
+    this.http.post<{ status: string; intentId: string; redirectUrl: string | null }>(
+      `${environment.apiBaseUrl}/api/cashier/orders/${orderId}/paymongo/initiate`,
+      {
+        paymentMethod: method,
+        amount,
+        referenceNumber: reference || null,
+        paymentDetails: details,
+        returnPath: `/app/orders/${orderId}`
+      }
+    ).subscribe({
+      next: (res) => {
+        if (res.status === 'succeeded') {
+          this.busy.set(false);
+          this.load(orderId);
+          return;
+        }
+        const origin = window.location.origin;
+        const returnUrl = `${origin}/app/orders/${orderId}?paymongoReturn=1&orderId=${orderId}`
+          + `&intent=${encodeURIComponent(res.intentId)}`
+          + `&paymentMethod=${encodeURIComponent(method)}`
+          + `&amount=${amount}`;
+        sessionStorage.setItem('paymongoIntent:' + orderId, res.intentId);
+        if (res.intentId && res.intentId.startsWith('mock_')) {
+          window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
+            + `&amount=${amount}`
+            + `&method=${encodeURIComponent(method)}`
+            + `&return=${encodeURIComponent(returnUrl)}`;
+        } else if (res.redirectUrl) {
+          window.location.href = res.redirectUrl;
+        } else {
+          this.busy.set(false);
+          this.load(orderId);
+        }
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || 'Could not start the payment.');
+        this.busy.set(false);
+      }
+    });
+  }
+
+  private handlePayMongoReturn(orderId: string, intentId: string | null, method: string | null, amount: string | null, status: string | null): void {
+    const resolvedIntent = intentId ?? sessionStorage.getItem('paymongoIntent:' + orderId);
+    sessionStorage.removeItem('paymongoIntent:' + orderId);
+    if (status === 'cancelled' || status === 'failed') {
+      this.paymentNotice.set('The PayMongo payment was cancelled. The order is still open and can be paid again.');
+      this.load(orderId);
+      return;
+    }
+    if (!resolvedIntent) {
+      this.paymentNotice.set('The payment was not completed. The order is still open and can be paid again.');
+      this.load(orderId);
+      return;
+    }
+    this.busy.set(true);
+    this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${orderId}/paymongo/confirm`, {
+      intentId: resolvedIntent,
+      amount: amount ? Number(amount) : null,
+      paymentMethod: method || null
     }).subscribe({
       next: (updated) => {
         this.order.set(updated);
-        this.newPaymentAmount = 0;
-        this.newPaymentRef = '';
-        this.error.set(null);
         this.busy.set(false);
-        this.load(updated.id);
+        this.paymentNotice.set('Payment recorded.');
+        this.load(orderId);
       },
       error: (err) => {
-        this.error.set(err?.error?.message || 'Could not record payment.');
         this.busy.set(false);
+        this.paymentNotice.set(err?.error?.message || 'We could not confirm the PayMongo payment. The order is still open.');
+        this.load(orderId);
       }
     });
   }

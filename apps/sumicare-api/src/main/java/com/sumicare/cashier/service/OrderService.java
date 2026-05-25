@@ -110,7 +110,7 @@ public class OrderService {
     @Transactional
     public void recordCommissionsForSession(UUID organizationId, Session session) {
         if (session.getPrimaryTherapistId() == null) return;
-        if (commissionRepository.existsBySessionIdAndTherapistId(session.getId(), session.getPrimaryTherapistId())) return;
+        if (commissionRepository.existsBySessionIdAndTherapistIdAndExtensionFalse(session.getId(), session.getPrimaryTherapistId())) return;
         Booking booking = bookingRepository.findById(session.getBookingId()).orElse(null);
         if (booking == null) return;
         Long serviceIdToResolve = booking.getServiceId();
@@ -149,22 +149,6 @@ public class OrderService {
             secondaryComm.setSpecificallyRequested(false);
             commissionRepository.save(secondaryComm);
         }
-
-        if (session.isExtension() && session.getExtensionMinutes() > 0) {
-            BigDecimal halfHour = BigDecimal.valueOf(60);
-            int halves = (int) Math.ceil(session.getExtensionMinutes() / 30.0);
-            BigDecimal extra = halfHour.multiply(BigDecimal.valueOf(halves));
-            com.sumicare.transaction.domain.Commission extComm = new com.sumicare.transaction.domain.Commission();
-            extComm.setOrganizationId(organizationId);
-            extComm.setSessionId(session.getId());
-            extComm.setTherapistId(session.getPrimaryTherapistId());
-            extComm.setAmount(extra);
-            extComm.setExtension(true);
-            extComm.setServiceId(svcId);
-            extComm.setServiceType(svcType);
-            extComm.setSpecificallyRequested(session.isSpecificallyRequested());
-            commissionRepository.save(extComm);
-        }
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -179,6 +163,11 @@ public class OrderService {
         Long firstServiceId = null;
         int totalAttendees = 0;
         BigDecimal itemsSubtotal = BigDecimal.ZERO;
+        BigDecimal roomChargeTotal = BigDecimal.ZERO;
+        boolean anyCoupleOrVip = false;
+        Map<Long, Package> packageCache = new HashMap<>();
+        java.util.List<String> itemRoomTypes = new java.util.ArrayList<>();
+        java.util.List<BigDecimal> itemRoomCharges = new java.util.ArrayList<>();
 
         if (hasItems) {
             for (CreateOrderItemRequest ci : request.items()) {
@@ -199,6 +188,13 @@ public class OrderService {
                         if (a.serviceId() != null) { firstServiceId = a.serviceId(); break; }
                     }
                 }
+                Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                        pid -> packageRepository.findById(pid).orElse(null));
+                if (pkg != null && (pkg.isCouple() || pkg.isRequiresVipRoom())) anyCoupleOrVip = true;
+                ItemRoom room = resolveItemRoom(pkg, ci.roomType());
+                itemRoomTypes.add(room.roomType());
+                itemRoomCharges.add(room.charge());
+                roomChargeTotal = roomChargeTotal.add(room.charge());
             }
         } else {
             firstServiceId = request.serviceIds().get(0);
@@ -217,41 +213,12 @@ public class OrderService {
             firstServiceName = svc.getName();
         }
 
-        String roomType = request.roomType() != null ? request.roomType().toUpperCase() : "COMMON";
-        if (!ROOM_SURCHARGE.containsKey(roomType)) {
-            throw new IllegalArgumentException("Unknown room type: " + roomType);
-        }
-
-        boolean anyVip = false;
-        boolean anyCoupleOrVip = false;
-        Map<Long, Package> packageCache = new HashMap<>();
-        if (hasItems) {
-            for (CreateOrderItemRequest ci : request.items()) {
-                Package pkg = packageCache.computeIfAbsent(ci.packageId(),
-                        pid -> packageRepository.findById(pid).orElse(null));
-                if (pkg == null) continue;
-                if (pkg.isRequiresVipRoom()) anyVip = true;
-                if (pkg.isCouple() || pkg.isRequiresVipRoom()) anyCoupleOrVip = true;
-            }
-        }
-
-        BigDecimal roomCharge;
-        if (anyVip) {
-            roomType = "VIP";
-            roomCharge = BigDecimal.ZERO;
-        } else if ("VIP".equals(roomType)) {
-            roomType = "COMMON";
-            roomCharge = BigDecimal.ZERO;
-        } else if ("PRIVATE".equals(roomType)) {
-            roomCharge = ROOM_SURCHARGE.get("PRIVATE");
-        } else {
-            roomType = "COMMON";
-            roomCharge = BigDecimal.ZERO;
-        }
+        String roomType = representativeRoomType(itemRoomTypes);
+        BigDecimal roomCharge = roomChargeTotal;
 
         BigDecimal subtotalFromRequest = request.subtotal() != null
                 ? request.subtotal()
-                : itemsSubtotal.add(roomCharge);
+                : itemsSubtotal.add(roomChargeTotal);
         BigDecimal attendeeDiscountTotal = BigDecimal.ZERO;
         if (hasItems) {
             for (CreateOrderItemRequest ci : request.items()) {
@@ -328,6 +295,7 @@ public class OrderService {
 
         if (hasItems) {
             AtomicInteger itemPos = new AtomicInteger(0);
+            int roomIdx = 0;
             for (CreateOrderItemRequest ci : request.items()) {
                 Package pkg = packageCache.computeIfAbsent(ci.packageId(),
                         pid -> packageRepository.findById(pid).orElse(null));
@@ -342,6 +310,9 @@ public class OrderService {
                 BigDecimal lt = ci.lineTotal() != null ? ci.lineTotal()
                         : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
                 item.setLineTotal(lt);
+                item.setRoomType(itemRoomTypes.get(roomIdx));
+                item.setRoomTypeCharge(itemRoomCharges.get(roomIdx));
+                roomIdx++;
                 item.setPosition(ci.position() != null ? ci.position() : itemPos.getAndIncrement());
                 orderItemRepository.save(item);
 
@@ -438,6 +409,11 @@ public class OrderService {
         Long firstServiceId = null;
         int totalAttendees = 0;
         BigDecimal itemsSubtotal = BigDecimal.ZERO;
+        BigDecimal roomChargeTotal = BigDecimal.ZERO;
+        boolean anyCoupleOrVip = false;
+        Map<Long, Package> packageCache = new HashMap<>();
+        java.util.List<String> itemRoomTypes = new java.util.ArrayList<>();
+        java.util.List<BigDecimal> itemRoomCharges = new java.util.ArrayList<>();
         for (CreateOrderItemRequest ci : request.items()) {
             if (ci.packageId() == null) {
                 throw new IllegalArgumentException("Each order item must reference a package");
@@ -456,36 +432,21 @@ public class OrderService {
                     if (a.serviceId() != null) { firstServiceId = a.serviceId(); break; }
                 }
             }
-        }
-
-        String roomType = request.roomType() != null ? request.roomType().toUpperCase() : "COMMON";
-        if (!ROOM_SURCHARGE.containsKey(roomType)) {
-            throw new IllegalArgumentException("Unknown room type: " + roomType);
-        }
-        boolean anyVip = false;
-        boolean anyCoupleOrVip = false;
-        Map<Long, Package> packageCache = new HashMap<>();
-        for (CreateOrderItemRequest ci : request.items()) {
             Package pkg = packageCache.computeIfAbsent(ci.packageId(),
                     pid -> packageRepository.findById(pid).orElse(null));
-            if (pkg == null) continue;
-            if (pkg.isRequiresVipRoom()) anyVip = true;
-            if (pkg.isCouple() || pkg.isRequiresVipRoom()) anyCoupleOrVip = true;
+            if (pkg != null && (pkg.isCouple() || pkg.isRequiresVipRoom())) anyCoupleOrVip = true;
+            ItemRoom room = resolveItemRoom(pkg, ci.roomType());
+            itemRoomTypes.add(room.roomType());
+            itemRoomCharges.add(room.charge());
+            roomChargeTotal = roomChargeTotal.add(room.charge());
         }
-        BigDecimal roomCharge;
-        if (anyVip) {
-            roomType = "VIP";
-            roomCharge = BigDecimal.ZERO;
-        } else if ("PRIVATE".equals(roomType)) {
-            roomCharge = ROOM_SURCHARGE.get("PRIVATE");
-        } else {
-            roomType = "COMMON";
-            roomCharge = BigDecimal.ZERO;
-        }
+
+        String roomType = representativeRoomType(itemRoomTypes);
+        BigDecimal roomCharge = roomChargeTotal;
 
         BigDecimal subtotalFromRequest = request.subtotal() != null
                 ? request.subtotal()
-                : itemsSubtotal.add(roomCharge);
+                : itemsSubtotal.add(roomChargeTotal);
         BigDecimal attendeeDiscountTotal = BigDecimal.ZERO;
         for (CreateOrderItemRequest ci : request.items()) {
             for (CreateOrderItemAttendeeRequest ar : ci.attendees()) {
@@ -532,6 +493,7 @@ public class OrderService {
         }
 
         AtomicInteger itemPos = new AtomicInteger(0);
+        int roomIdx = 0;
         for (CreateOrderItemRequest ci : request.items()) {
             Package pkg = packageCache.computeIfAbsent(ci.packageId(),
                     pid -> packageRepository.findById(pid).orElse(null));
@@ -546,6 +508,9 @@ public class OrderService {
             BigDecimal lt = ci.lineTotal() != null ? ci.lineTotal()
                     : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
             item.setLineTotal(lt);
+            item.setRoomType(itemRoomTypes.get(roomIdx));
+            item.setRoomTypeCharge(itemRoomCharges.get(roomIdx));
+            roomIdx++;
             item.setPosition(ci.position() != null ? ci.position() : itemPos.getAndIncrement());
             orderItemRepository.save(item);
 
@@ -689,8 +654,10 @@ public class OrderService {
             throw new IllegalArgumentException("Payment amount exceeds remaining balance of " + remaining.toPlainString());
         }
 
+        String returnPath = request.returnPath() == null || request.returnPath().isBlank()
+                ? "/app/cashier" : request.returnPath();
         com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.initiate(
-                order, amount, request.paymentMethod(), request.referenceNumber(), request.paymentDetails(), "/app/cashier");
+                order, amount, request.paymentMethod(), request.referenceNumber(), request.paymentDetails(), returnPath);
 
         if ("succeeded".equalsIgnoreCase(result.status())) {
             UUID sessionId = resolveSessionId(order);
@@ -900,6 +867,9 @@ public class OrderService {
         if (!"OPEN".equals(order.getStatus())) {
             throw new IllegalStateException("Can only cancel payment on an OPEN order");
         }
+        if (hasCompletedSession(order)) {
+            throw new IllegalStateException("Cannot cancel payment once a session has been completed");
+        }
         List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
         for (PosTransaction tx : transactions) {
             if ("REVERSED".equals(tx.getStatus()) || "REFUNDED".equals(tx.getStatus())) continue;
@@ -931,8 +901,15 @@ public class OrderService {
         Order order = requireOrder(organizationId, orderId);
         Session session = order.getBookingId() == null ? null
                 : sessionRepository.findFirstByBookingId(order.getBookingId()).orElse(null);
-        if (session != null && "COMPLETED".equals(session.getStatus())) {
-            throw new IllegalStateException("Cannot cancel an order whose session has already ended");
+        if (hasCompletedSession(order)) {
+            throw new IllegalStateException("Cannot cancel an order whose session has already been completed");
+        }
+        if (order.getBookingId() != null) {
+            boolean bookingCompleted = bookingRepository.findById(order.getBookingId())
+                    .map(b -> "COMPLETED".equals(b.getStatus())).orElse(false);
+            if (bookingCompleted) {
+                throw new IllegalStateException("Cannot cancel an order whose booking has already been completed");
+            }
         }
         if ("PAID".equals(order.getStatus())) {
             throw new IllegalStateException("Cannot cancel a paid order. Open it first or cancel the payment.");
@@ -1057,6 +1034,29 @@ public class OrderService {
             throw new IllegalArgumentException("Order not in organization");
         }
         return order;
+    }
+
+    private record ItemRoom(String roomType, BigDecimal charge) {}
+
+    private ItemRoom resolveItemRoom(Package pkg, String requested) {
+        if (pkg != null && pkg.isRequiresVipRoom()) {
+            return new ItemRoom("VIP", BigDecimal.ZERO);
+        }
+        String rt = requested != null ? requested.toUpperCase() : "COMMON";
+        if (!ROOM_SURCHARGE.containsKey(rt) || "VIP".equals(rt)) {
+            rt = "COMMON";
+        }
+        if ("PRIVATE".equals(rt)) {
+            return new ItemRoom("PRIVATE", ROOM_SURCHARGE.get("PRIVATE"));
+        }
+        return new ItemRoom("COMMON", BigDecimal.ZERO);
+    }
+
+    private String representativeRoomType(java.util.List<String> roomTypes) {
+        if (roomTypes.isEmpty()) return "COMMON";
+        java.util.Set<String> distinct = new java.util.HashSet<>(roomTypes);
+        if (distinct.size() == 1) return roomTypes.get(0);
+        return "MIXED";
     }
 
     private boolean hasCompletedSession(Order order) {
@@ -1376,7 +1376,8 @@ public class OrderService {
             }
             itemResponses.add(new OrderItemResponse(
                     it.getId(), it.getPackageId(), pkgName,
-                    it.getQuantity(), it.getUnitPrice(), it.getLineTotal(), it.getPosition(),
+                    it.getQuantity(), it.getUnitPrice(), it.getLineTotal(),
+                    it.getRoomType(), it.getRoomTypeCharge(), it.getPosition(),
                     attRes
             ));
         }
@@ -1397,6 +1398,8 @@ public class OrderService {
                 order.getDiscount(),
                 order.getTax(),
                 order.getTotal(),
+                order.getExtensionAmount(),
+                order.getExtensionMinutes(),
                 order.getAmountPaid(),
                 balance,
                 order.getStatus(),

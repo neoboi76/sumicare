@@ -16,6 +16,7 @@ interface UserRow {
   role: string;
   displayName: string | null;
   active: boolean;
+  accountLocked: boolean;
 }
 
 @Component({
@@ -126,6 +127,19 @@ export class UsersComponent implements OnInit {
     this.http.post(`${environment.apiBaseUrl}/api/users/${user.id}/reactivate`, {}).subscribe({
       next: () => this.reload(),
       error: (e) => this.error.set(e.error?.message || 'Could not reactivate user.')
+    });
+  }
+
+  async unlock(user: UserRow): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Unlock account',
+      message: `Unlock ${user.displayName || user.username}? Their failed sign-in count will be reset and they can sign in again.`,
+      confirmText: 'Unlock'
+    });
+    if (!confirmed) return;
+    this.http.post(`${environment.apiBaseUrl}/api/users/${user.id}/unlock`, {}).subscribe({
+      next: () => this.reload(),
+      error: (e) => this.error.set(e.error?.message || 'Could not unlock user.')
     });
   }
 

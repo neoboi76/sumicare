@@ -110,6 +110,16 @@ public class ReceiptPdfService {
                          .append("</td></tr>");
                 }
             }
+            String itemRoomType = it.getRoomType() != null ? it.getRoomType() : "COMMON";
+            BigDecimal itemRoomCharge = it.getRoomTypeCharge() != null ? it.getRoomTypeCharge() : BigDecimal.ZERO;
+            if ("VIP".equalsIgnoreCase(itemRoomType)) {
+                lines.append("<tr class='sub'><td>&#160;&#160;Room (VIP) included</td><td></td><td class='amt'>&#160;</td></tr>");
+            } else if (itemRoomCharge.compareTo(BigDecimal.ZERO) > 0) {
+                lines.append("<tr class='sub'><td>&#160;&#160;Room (").append(esc(itemRoomType)).append(")</td><td></td><td class='amt'>")
+                     .append(fmt(itemRoomCharge)).append("</td></tr>");
+            } else {
+                lines.append("<tr class='sub'><td>&#160;&#160;Room (").append(esc(itemRoomType)).append(")</td><td></td><td class='amt'>&#160;</td></tr>");
+            }
             List<OrderItemAttendee> atts = attendeesByItem.getOrDefault(it.getId(), List.of());
             for (OrderItemAttendee a : atts) {
                 String svcName = "";
@@ -126,11 +136,9 @@ public class ReceiptPdfService {
             }
         }
 
-        if (order.getRoomTypeCharge() != null && order.getRoomTypeCharge().compareTo(BigDecimal.ZERO) > 0) {
-            lines.append("<tr><td>Room (").append(esc(order.getRoomType())).append(")</td><td class='qty'>1</td><td class='amt'>")
-                 .append(fmt(order.getRoomTypeCharge())).append("</td></tr>");
-        } else if (order.getRoomType() != null) {
-            lines.append("<tr class='sub'><td>Room (").append(esc(order.getRoomType())).append(")</td><td></td><td class='amt'>&#160;</td></tr>");
+        if (order.getExtensionMinutes() > 0) {
+            lines.append("<tr><td>Extension (+").append(order.getExtensionMinutes()).append(" min)</td><td class='qty'>1</td><td class='amt'>")
+                 .append(fmt(order.getExtensionAmount())).append("</td></tr>");
         }
 
         BigDecimal total = order.getTotal() != null ? order.getTotal() : BigDecimal.ZERO;

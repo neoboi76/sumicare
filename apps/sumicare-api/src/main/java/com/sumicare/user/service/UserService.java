@@ -176,6 +176,18 @@ public class UserService {
         return toResponse(target);
     }
 
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @Transactional
+    public UserResponse unlockUser(String actorRole, UUID userId) {
+        User target = userRepository.findById(userId).orElseThrow();
+        enforceTierForTarget(actorRole, target);
+        target.setAccountLocked(false);
+        target.setFailedLoginAttempts(0);
+        target.setUpdatedAt(OffsetDateTime.now());
+        userRepository.save(target);
+        return toResponse(target);
+    }
+
     @Transactional
     public UserResponse updateProfile(UUID userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId).orElseThrow();
@@ -284,7 +296,7 @@ public class UserService {
         return new UserResponse(
                 u.getId(), u.getOrganizationId(), u.getUsername(), u.getEmail(),
                 u.getRole() == null ? null : u.getRole().getCode(),
-                u.getDisplayName(), u.isActive(), u.getCreatedAt()
+                u.getDisplayName(), u.isActive(), u.isAccountLocked(), u.getCreatedAt()
         );
     }
 }

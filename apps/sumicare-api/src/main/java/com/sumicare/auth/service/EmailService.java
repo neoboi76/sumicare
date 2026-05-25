@@ -95,6 +95,25 @@ public class EmailService {
     }
 
     @Async
+    public void sendMfaCodeEmail(String to, String displayName, String code) {
+        String subject = "Your New Lasema Spa Jjimjilbang verification code";
+        String body = """
+                <html>
+                <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
+                  <h2 style="color: #0F766E;">Verify your sign-in</h2>
+                  <p>Hello %s,</p>
+                  <p>Use the verification code below to finish signing in to your New Lasema Spa Jjimjilbang account.</p>
+                  <p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #0F766E; margin: 24px 0;">%s</p>
+                  <p>This code expires in 15 minutes. If you did not try to sign in, please change your password and contact an administrator.</p>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+                  <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
+                </body>
+                </html>
+                """.formatted(displayName == null ? "there" : displayName, code);
+        sendHtml(to, subject, body);
+    }
+
+    @Async
     public void sendBookingConfirmationEmail(String to, String displayName, BookingEmailPayload payload) {
         String subject = "Your New Lasema Spa Jjimjilbang booking is confirmed";
         String body = """

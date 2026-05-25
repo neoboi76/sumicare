@@ -1,12 +1,16 @@
 package com.sumicare.pos.gateway;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sumicare.common.config.AppProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -19,9 +23,11 @@ public class PayMongoGateway implements PaymentGateway {
 
     private final AppProperties appProperties;
     private final RestClient restClient;
+    private final ObjectMapper objectMapper;
 
-    public PayMongoGateway(AppProperties appProperties) {
+    public PayMongoGateway(AppProperties appProperties, ObjectMapper objectMapper) {
         this.appProperties = appProperties;
+        this.objectMapper = objectMapper;
         String encoded = Base64.getEncoder().encodeToString(
                 (appProperties.payment().paymongo().secretKey() + ":").getBytes(StandardCharsets.UTF_8));
         this.restClient = RestClient.builder()
@@ -29,6 +35,29 @@ public class PayMongoGateway implements PaymentGateway {
                 .defaultHeader("Authorization", "Basic " + encoded)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
+    }
+
+    private RuntimeException payMongoError(RestClientResponseException e, String action) {
+        String detail = null;
+        try {
+            JsonNode root = objectMapper.readTree(e.getResponseBodyAsString());
+            JsonNode errors = root.get("errors");
+            if (errors != null && errors.isArray() && errors.size() > 0) {
+                List<String> details = new ArrayList<>();
+                for (JsonNode err : errors) {
+                    JsonNode d = err.get("detail");
+                    if (d != null && !d.asText().isBlank()) {
+                        details.add(d.asText());
+                    }
+                }
+                if (!details.isEmpty()) {
+                    detail = String.join("; ", details);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        String message = detail != null ? detail : action + " failed";
+        return new IllegalArgumentException(message);
     }
 
     @Override
@@ -56,6 +85,8 @@ public class PayMongoGateway implements PaymentGateway {
                     .retrieve()
                     .body(Map.class);
             return readIntent(response);
+        } catch (RestClientResponseException e) {
+            throw payMongoError(e, "Payment authorization");
         } catch (Exception e) {
             throw new RuntimeException("PayMongo intent creation failed: " + e.getMessage(), e);
         }
@@ -94,6 +125,8 @@ public class PayMongoGateway implements PaymentGateway {
                     .body(Map.class);
             Map<?, ?> data = (Map<?, ?>) response.get("data");
             return (String) data.get("id");
+        } catch (RestClientResponseException e) {
+            throw payMongoError(e, "Payment details");
         } catch (Exception e) {
             throw new RuntimeException("PayMongo payment method creation failed: " + e.getMessage(), e);
         }
@@ -113,6 +146,8 @@ public class PayMongoGateway implements PaymentGateway {
                     .retrieve()
                     .body(Map.class);
             return readIntent(response);
+        } catch (RestClientResponseException e) {
+            throw payMongoError(e, "Payment authorization");
         } catch (Exception e) {
             throw new RuntimeException("PayMongo intent attach failed: " + e.getMessage(), e);
         }
@@ -132,7 +167,58 @@ public class PayMongoGateway implements PaymentGateway {
     }
 
     @Override
+    public CheckoutResult createCheckoutSession(BigDecimal amount, String currency, List<String> paymentMethods,
+                                                String description, String returnUrl, String cancelUrl, Map<String, String> metadata) {
+        long amountInCentavos = amount.multiply(BigDecimal.valueOf(100)).longValue();
+        Map<String, Object> lineItem = new HashMap<>();
+        lineItem.put("name", description == null || description.isBlank() ? "SumiCare payment" : description);
+        lineItem.put("amount", amountInCentavos);
+        lineItem.put("currency", currency.toUpperCase());
+        lineItem.put("quantity", 1);
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("line_items", List.of(lineItem));
+        attributes.put("payment_method_types", paymentMethods);
+        attributes.put("description", description == null || description.isBlank() ? "SumiCare payment" : description);
+        if (returnUrl != null) attributes.put("success_url", returnUrl);
+        if (cancelUrl != null) attributes.put("cancel_url", cancelUrl);
+        attributes.put("metadata", new HashMap<>(metadata));
+
+        Map<String, Object> body = Map.of("data", Map.of("attributes", attributes));
+        try {
+            Map<?, ?> response = restClient.post()
+                    .uri("/checkout_sessions")
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+            return readCheckout(response);
+        } catch (RestClientResponseException e) {
+            throw payMongoError(e, "Card checkout");
+        } catch (Exception e) {
+            throw new RuntimeException("PayMongo checkout session creation failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public CheckoutResult retrieveCheckoutSession(String sessionId) {
+        try {
+            Map<?, ?> response = restClient.get()
+                    .uri("/checkout_sessions/" + sessionId)
+                    .retrieve()
+                    .body(Map.class);
+            return readCheckout(response);
+        } catch (RestClientResponseException e) {
+            throw payMongoError(e, "Card checkout");
+        } catch (Exception e) {
+            throw new RuntimeException("PayMongo checkout session retrieval failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public String retrievePaymentId(String intentId) {
+        if (intentId != null && intentId.startsWith("cs_")) {
+            CheckoutResult result = retrieveCheckoutSession(intentId);
+            return result.paymentId();
+        }
         try {
             Map<?, ?> response = restClient.get()
                     .uri("/payment_intents/" + intentId)
@@ -146,6 +232,8 @@ public class PayMongoGateway implements PaymentGateway {
                 return id == null ? null : id.toString();
             }
             return null;
+        } catch (RestClientResponseException e) {
+            throw payMongoError(e, "Payment lookup");
         } catch (Exception e) {
             throw new RuntimeException("PayMongo payment lookup failed: " + e.getMessage(), e);
         }
@@ -172,6 +260,8 @@ public class PayMongoGateway implements PaymentGateway {
             String refundId = (String) data.get("id");
             String status = refundAttributes == null ? null : (String) refundAttributes.get("status");
             return new RefundResult(refundId, status == null ? "pending" : status, amount);
+        } catch (RestClientResponseException e) {
+            throw payMongoError(e, "Refund");
         } catch (Exception e) {
             throw new RuntimeException("PayMongo refund failed: " + e.getMessage(), e);
         }
@@ -213,6 +303,33 @@ public class PayMongoGateway implements PaymentGateway {
             }
         }
         return new IntentResult(intentId, status == null ? "pending" : status, clientKey, nextActionUrl);
+    }
+
+    private CheckoutResult readCheckout(Map<?, ?> response) {
+        Map<?, ?> data = (Map<?, ?>) response.get("data");
+        Map<?, ?> attributes = (Map<?, ?>) data.get("attributes");
+        String sessionId = (String) data.get("id");
+        String checkoutUrl = attributes == null ? null : (String) attributes.get("checkout_url");
+        String paymentId = null;
+        String status = "awaiting_payment_method";
+        if (attributes != null) {
+            Object payments = attributes.get("payments");
+            if (payments instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Map<?, ?> first) {
+                Object id = first.get("id");
+                paymentId = id == null ? null : id.toString();
+                Map<?, ?> payAttributes = (Map<?, ?>) first.get("attributes");
+                if (payAttributes != null && payAttributes.get("status") != null) {
+                    status = payAttributes.get("status").toString();
+                }
+            } else {
+                Map<?, ?> intent = (Map<?, ?>) attributes.get("payment_intent");
+                Map<?, ?> intentAttributes = intent == null ? null : (Map<?, ?>) intent.get("attributes");
+                if (intentAttributes != null && intentAttributes.get("status") != null) {
+                    status = intentAttributes.get("status").toString();
+                }
+            }
+        }
+        return new CheckoutResult(sessionId, status, checkoutUrl, paymentId);
     }
 
     private int normaliseExpYear(String expYear) {

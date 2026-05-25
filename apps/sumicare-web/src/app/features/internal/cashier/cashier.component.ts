@@ -62,6 +62,7 @@ interface CartItem {
   defaultPax: number;
   tiers: PackageTier[];
   inclusions: string[];
+  roomType: RoomType;
   unitPrice: number;
   lineTotal: number;
   attendees: CartAttendee[];
@@ -129,7 +130,6 @@ export class CashierComponent implements OnInit {
 
   weekend = signal(false);
   groupBooking = signal(false);
-  roomType = signal<RoomType>('COMMON');
   roomAvailability = signal<{ COMMON: number; PRIVATE: number; VIP: number }>({ COMMON: 0, PRIVATE: 0, VIP: 0 });
 
   referenceNumber = '';
@@ -158,7 +158,7 @@ export class CashierComponent implements OnInit {
   });
   builtinTemplates: DiscountTemplate[] = [
     { label: 'Custom', percent: 0, name: '' },
-    { label: 'SENIOR/PWD', percent: 20, name: 'Senior/PWD Discount' }
+    { label: 'SENIOR/PWD', percent: 28.5714, name: 'Senior/PWD Discount' }
   ];
   savedTemplates = signal<DiscountTemplate[]>([]);
   discountTemplates = computed<DiscountTemplate[]>(() => [...this.builtinTemplates, ...this.savedTemplates()]);
@@ -169,9 +169,8 @@ export class CashierComponent implements OnInit {
   error = signal<string | null>(null);
   tax = signal(0);
 
-  anyVip = computed(() => this.cart().some(c => c.requiresVipRoom));
-  effectiveRoomType = computed<RoomType>(() => this.anyVip() ? 'VIP' : this.roomType());
-  roomSurcharge = computed(() => this.effectiveRoomType() === 'PRIVATE' ? 500 : 0);
+  roomSurcharge = computed(() =>
+    this.cart().reduce((sum, c) => sum + (!c.requiresVipRoom && c.roomType === 'PRIVATE' ? 500 : 0), 0));
 
   totalAttendees = computed(() => this.cart().reduce((sum, c) => sum + c.attendees.length, 0));
   itemsSubtotal = computed(() => this.cart().reduce((sum, c) => sum + Number(c.lineTotal || 0), 0));
@@ -200,16 +199,21 @@ export class CashierComponent implements OnInit {
 
   private handlePayMongoReturn(params: ParamMap): void {
     const orderId = params.get('orderId');
-    const intent = params.get('intent');
     const status = params.get('status');
     const paymentMethod = params.get('paymentMethod');
     const amount = params.get('amount');
-    if (!orderId || !intent) {
+    if (!orderId) {
       this.router.navigate(['/app/cashier']);
       return;
     }
+    const intent = params.get('intent') ?? sessionStorage.getItem('paymongoIntent:' + orderId);
+    sessionStorage.removeItem('paymongoIntent:' + orderId);
     if (status === 'cancelled' || status === 'failed') {
       this.router.navigate(['/app/orders', orderId], { queryParams: { paymentError: 'cancelled' } });
+      return;
+    }
+    if (!intent) {
+      this.router.navigate(['/app/orders', orderId], { queryParams: { paymentError: 'confirm_failed' } });
       return;
     }
     this.submitting.set(true);
@@ -269,7 +273,6 @@ export class CashierComponent implements OnInit {
         this.notes = o.notes || '';
         this.weekend.set(!!o.weekend);
         this.groupBooking.set(!!o.groupBooking);
-        if (o.roomType === 'PRIVATE' || o.roomType === 'COMMON') this.roomType.set(o.roomType);
         if (o.discount && o.discount > 0) {
           this.discountSummary.set([{ name: 'Existing discount', amount: Number(o.discount) }]);
         }
@@ -292,6 +295,7 @@ export class CashierComponent implements OnInit {
             defaultPax: pkg?.defaultPax ?? 1,
             tiers: pkg?.tiers || [],
             inclusions: pkg?.inclusions || [],
+            roomType: (pkg?.requiresVipRoom ? 'VIP' : (it.roomType === 'PRIVATE' ? 'PRIVATE' : 'COMMON')) as RoomType,
             unitPrice: Number(it.unitPrice || 0),
             lineTotal: Number(it.lineTotal || 0),
             attendees: attendees.length > 0 ? attendees : [this.blankAttendee()]
@@ -390,13 +394,14 @@ export class CashierComponent implements OnInit {
       defaultPax: pax,
       tiers: pkg.tiers,
       inclusions: pkg.inclusions || [],
+      roomType: pkg.requiresVipRoom ? 'VIP' : 'COMMON',
       unitPrice: 0,
       lineTotal: 0,
       attendees
     };
     if (pkg.tiers.length > 0) {
       const tier = pkg.tiers[0];
-      const price = this.weekend() ? tier.weekdayPrice : tier.weekendPrice;
+      const price = this.weekend() ? tier.weekendPrice : tier.weekdayPrice;
       for (const a of item.attendees) {
         a.packageTierId = tier.id;
         a.serviceId = tier.serviceId;
@@ -460,9 +465,11 @@ export class CashierComponent implements OnInit {
     }));
   }
 
-  setRoomType(rt: RoomType): void {
-    if (this.anyVip()) return;
-    this.roomType.set(rt);
+  setItemRoom(idx: number, rt: RoomType): void {
+    this.cart.update(items => items.map((it, i) => {
+      if (i !== idx || it.requiresVipRoom) return it;
+      return { ...it, roomType: rt };
+    }));
   }
 
   applyVoucher(): void {
@@ -622,7 +629,7 @@ export class CashierComponent implements OnInit {
 
     const method = this.paymentMethod();
     let paymentDetails: PaymentDetails | undefined;
-    if (method !== 'CASH') {
+    if (method === 'GCASH') {
       const captured = await this.paymentDetailsService.open(method, amt);
       if (!captured) return;
       paymentDetails = captured;
@@ -664,9 +671,6 @@ export class CashierComponent implements OnInit {
         if (!a.clientGender) return `Item ${i + 1} (${it.packageName}), guest ${j + 1}: choose a sex.`;
       }
     }
-    if (this.effectiveRoomType() === 'VIP' && !this.anyVip()) {
-      return 'VIP room requires a VIP package.';
-    }
     return null;
   }
 
@@ -684,8 +688,6 @@ export class CashierComponent implements OnInit {
       transactorName: this.transactorName,
       groupBooking: this.totalAttendees() > 1 || this.groupBooking(),
       weekend: this.weekend(),
-      roomType: this.effectiveRoomType(),
-      roomTypeCharge: this.roomSurcharge(),
       pax: this.totalAttendees(),
       lockerNumber: first.attendees[0].lockerNumber || null,
       referenceNumber: this.referenceNumber || null,
@@ -702,6 +704,7 @@ export class CashierComponent implements OnInit {
         quantity: 1,
         unitPrice: c.unitPrice,
         lineTotal: c.lineTotal,
+        roomType: c.roomType,
         position: i,
         attendees: c.attendees.map((a, j) => ({
           serviceId: a.serviceId,
@@ -838,6 +841,7 @@ export class CashierComponent implements OnInit {
           + `&intent=${encodeURIComponent(res.intentId)}`
           + `&paymentMethod=${encodeURIComponent(payment.paymentMethod)}`
           + `&amount=${payment.amount}`;
+        sessionStorage.setItem('paymongoIntent:' + orderId, res.intentId);
         if (res.intentId.startsWith('mock_')) {
           window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
             + `&amount=${payment.amount}`
