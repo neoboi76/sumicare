@@ -1,8 +1,9 @@
 {
-  "$schema": "https://railway.app/railway.schema.json",
-  "build": {
-    "builder": "RAILPACK",
-    "buildCommand": "npm install --legacy-peer-deps && npm run build"
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install": {
+      "commands": ["npm install --legacy-peer-deps"]
+    }
   },
   "deploy": {
     "startCommand": "npm run start"
