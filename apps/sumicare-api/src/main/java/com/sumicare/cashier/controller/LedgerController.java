@@ -1,7 +1,9 @@
 package com.sumicare.cashier.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
+import com.sumicare.cashier.domain.LedgerAccount;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.repository.LedgerAccountRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.pos.domain.PosTransaction;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
@@ -32,16 +34,56 @@ public class LedgerController {
 
     private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
+    private static final List<String> LEDGER_TYPES = List.of("CASH_BOOK", "DEBT", "REFERRAL");
+
     private final TransactionLedgerRepository ledgerRepository;
     private final PosTransactionRepository transactionRepository;
     private final OrderRepository orderRepository;
+    private final LedgerAccountRepository ledgerAccountRepository;
 
     public LedgerController(TransactionLedgerRepository ledgerRepository,
                             PosTransactionRepository transactionRepository,
-                            OrderRepository orderRepository) {
+                            OrderRepository orderRepository,
+                            LedgerAccountRepository ledgerAccountRepository) {
         this.ledgerRepository = ledgerRepository;
         this.transactionRepository = transactionRepository;
         this.orderRepository = orderRepository;
+        this.ledgerAccountRepository = ledgerAccountRepository;
+    }
+
+    public record LedgerAccountResponse(UUID id, String name, String shortName, String type, OffsetDateTime createdAt) {}
+
+    public record CreateLedgerAccountRequest(String name, String shortName, String type) {}
+
+    @GetMapping("/accounts")
+    public List<LedgerAccountResponse> listAccounts(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return ledgerAccountRepository.findAllByOrganizationIdOrderByCreatedAtDesc(
+                        UUID.fromString(principal.organizationId())).stream()
+                .map(a -> new LedgerAccountResponse(a.getId(), a.getName(), a.getShortName(), a.getType(), a.getCreatedAt()))
+                .collect(Collectors.toList());
+    }
+
+    @PostMapping("/accounts")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public LedgerAccountResponse createAccount(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                               @RequestBody CreateLedgerAccountRequest request) {
+        if (request.name() == null || request.name().isBlank()) {
+            throw new IllegalArgumentException("Ledger name is required");
+        }
+        if (request.shortName() == null || request.shortName().isBlank()) {
+            throw new IllegalArgumentException("Short name is required");
+        }
+        String type = request.type() == null ? "" : request.type().toUpperCase();
+        if (!LEDGER_TYPES.contains(type)) {
+            throw new IllegalArgumentException("Unsupported ledger type: " + request.type());
+        }
+        LedgerAccount account = new LedgerAccount();
+        account.setOrganizationId(UUID.fromString(principal.organizationId()));
+        account.setName(request.name().trim());
+        account.setShortName(request.shortName().trim());
+        account.setType(type);
+        LedgerAccount saved = ledgerAccountRepository.save(account);
+        return new LedgerAccountResponse(saved.getId(), saved.getName(), saved.getShortName(), saved.getType(), saved.getCreatedAt());
     }
 
     public record LedgerEntryResponse(

@@ -1,0 +1,50 @@
+<div>
+  <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Registered Clients</h1>
+      <p class="text-slate-500">Clients who registered through the booking site or were linked at the cashier.</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <input [(ngModel)]="searchTerm" (keyup.enter)="load()" name="searchTerm" placeholder="Search by nickname"
+        class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
+      <button (click)="load()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm">Search</button>
+    </div>
+  </header>
+
+  <section class="mt-4 bg-white rounded-xl shadow overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[640px]">
+        <thead class="bg-slate-100">
+          <tr>
+            <th class="text-left p-3">Nickname</th>
+            <th class="text-left p-3">Email</th>
+            <th class="text-left p-3">Sex</th>
+            <th class="text-left p-3">Nationality</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of paginatedClients(); track c.id) {
+          <tr class="border-t hover:bg-slate-50">
+            <td class="p-3 font-medium">{{ c.nickname }}</td>
+            <td class="p-3">{{ c.email || '-' }}</td>
+            <td class="p-3">{{ genderLabel(c.gender) }}</td>
+            <td class="p-3">{{ c.nationality || '-' }}</td>
+          </tr>
+          } @empty {
+          <tr>
+            <td colspan="4" class="p-6 text-center text-slate-500">No registered clients found.</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (clients().length > pageSize()) {
+    <sumi-paginator
+      [totalElements]="clients().length"
+      [pageSize]="pageSize()"
+      [currentPage]="currentPage()"
+      (pageChange)="currentPage.set($event)">
+    </sumi-paginator>
+    }
+  </section>
+</div>

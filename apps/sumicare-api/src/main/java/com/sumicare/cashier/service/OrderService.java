@@ -25,7 +25,6 @@ import com.sumicare.pos.domain.PosTransaction;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.repository.PosTransactionRepository;
 import com.sumicare.pos.repository.TransactionLedgerRepository;
-import com.sumicare.pos.service.PosService;
 import com.sumicare.room.service.RoomOccupancyService;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
@@ -63,13 +62,14 @@ public class OrderService {
     private final TreatmentSlipRepository slipRepository;
     private final PosTransactionRepository transactionRepository;
     private final TransactionLedgerRepository ledgerRepository;
-    private final PosService posService;
     private final RoomOccupancyService occupancyService;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderItemAttendeeRepository attendeeRepository;
     private final PackageRepository packageRepository;
     private final com.sumicare.voucher.service.VoucherService voucherService;
+    private final com.sumicare.transaction.repository.CommissionRepository commissionRepository;
+    private final com.sumicare.pos.service.PayMongoService payMongoService;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -80,13 +80,14 @@ public class OrderService {
                         TreatmentSlipRepository slipRepository,
                         PosTransactionRepository transactionRepository,
                         TransactionLedgerRepository ledgerRepository,
-                        PosService posService,
                         RoomOccupancyService occupancyService,
                         UserRepository userRepository,
                         OrderItemRepository orderItemRepository,
                         OrderItemAttendeeRepository attendeeRepository,
                         PackageRepository packageRepository,
-                        com.sumicare.voucher.service.VoucherService voucherService) {
+                        com.sumicare.voucher.service.VoucherService voucherService,
+                        com.sumicare.transaction.repository.CommissionRepository commissionRepository,
+                        com.sumicare.pos.service.PayMongoService payMongoService) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -96,13 +97,58 @@ public class OrderService {
         this.slipRepository = slipRepository;
         this.transactionRepository = transactionRepository;
         this.ledgerRepository = ledgerRepository;
-        this.posService = posService;
         this.occupancyService = occupancyService;
         this.userRepository = userRepository;
         this.orderItemRepository = orderItemRepository;
         this.attendeeRepository = attendeeRepository;
         this.packageRepository = packageRepository;
         this.voucherService = voucherService;
+        this.commissionRepository = commissionRepository;
+        this.payMongoService = payMongoService;
+    }
+
+    @Transactional
+    public void recordCommissionsForSession(UUID organizationId, Session session) {
+        if (session.getPrimaryTherapistId() == null) return;
+        if (commissionRepository.existsBySessionIdAndTherapistIdAndExtensionFalse(session.getId(), session.getPrimaryTherapistId())) return;
+        Booking booking = bookingRepository.findById(session.getBookingId()).orElse(null);
+        if (booking == null) return;
+        Long serviceIdToResolve = booking.getServiceId();
+        if (session.getAttendeeId() != null) {
+            OrderItemAttendee attendee = attendeeRepository.findById(session.getAttendeeId()).orElse(null);
+            if (attendee != null && attendee.getServiceId() != null) {
+                serviceIdToResolve = attendee.getServiceId();
+            }
+        }
+        var service = serviceIdToResolve == null ? null : serviceRepository.findById(serviceIdToResolve).orElse(null);
+        BigDecimal base = service == null ? BigDecimal.ZERO : service.getCommissionAmount();
+        boolean tandem = service != null && service.isRequiresTwoTherapists();
+        Long svcId = service == null ? null : service.getId();
+        String svcType = service == null ? null : service.getCategory();
+        BigDecimal primaryShare = tandem
+                ? base.divide(BigDecimal.valueOf(2), 2, java.math.RoundingMode.HALF_UP)
+                : base;
+        com.sumicare.transaction.domain.Commission primaryComm = new com.sumicare.transaction.domain.Commission();
+        primaryComm.setOrganizationId(organizationId);
+        primaryComm.setSessionId(session.getId());
+        primaryComm.setTherapistId(session.getPrimaryTherapistId());
+        primaryComm.setAmount(primaryShare);
+        primaryComm.setServiceId(svcId);
+        primaryComm.setServiceType(svcType);
+        primaryComm.setSpecificallyRequested(session.isSpecificallyRequested());
+        commissionRepository.save(primaryComm);
+
+        if (session.getSecondaryTherapistId() != null && tandem) {
+            com.sumicare.transaction.domain.Commission secondaryComm = new com.sumicare.transaction.domain.Commission();
+            secondaryComm.setOrganizationId(organizationId);
+            secondaryComm.setSessionId(session.getId());
+            secondaryComm.setTherapistId(session.getSecondaryTherapistId());
+            secondaryComm.setAmount(primaryShare);
+            secondaryComm.setServiceId(svcId);
+            secondaryComm.setServiceType(svcType);
+            secondaryComm.setSpecificallyRequested(false);
+            commissionRepository.save(secondaryComm);
+        }
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -117,6 +163,11 @@ public class OrderService {
         Long firstServiceId = null;
         int totalAttendees = 0;
         BigDecimal itemsSubtotal = BigDecimal.ZERO;
+        BigDecimal roomChargeTotal = BigDecimal.ZERO;
+        boolean anyCoupleOrVip = false;
+        Map<Long, Package> packageCache = new HashMap<>();
+        java.util.List<String> itemRoomTypes = new java.util.ArrayList<>();
+        java.util.List<BigDecimal> itemRoomCharges = new java.util.ArrayList<>();
 
         if (hasItems) {
             for (CreateOrderItemRequest ci : request.items()) {
@@ -137,6 +188,13 @@ public class OrderService {
                         if (a.serviceId() != null) { firstServiceId = a.serviceId(); break; }
                     }
                 }
+                Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                        pid -> packageRepository.findById(pid).orElse(null));
+                if (pkg != null && (pkg.isCouple() || pkg.isRequiresVipRoom())) anyCoupleOrVip = true;
+                ItemRoom room = resolveItemRoom(pkg, ci.roomType());
+                itemRoomTypes.add(room.roomType());
+                itemRoomCharges.add(room.charge());
+                roomChargeTotal = roomChargeTotal.add(room.charge());
             }
         } else {
             firstServiceId = request.serviceIds().get(0);
@@ -155,39 +213,12 @@ public class OrderService {
             firstServiceName = svc.getName();
         }
 
-        String roomType = request.roomType() != null ? request.roomType().toUpperCase() : "COMMON";
-        if (!ROOM_SURCHARGE.containsKey(roomType)) {
-            throw new IllegalArgumentException("Unknown room type: " + roomType);
-        }
-
-        boolean anyVip = false;
-        if (hasItems) {
-            for (CreateOrderItemRequest ci : request.items()) {
-                Package pkg = packageRepository.findById(ci.packageId()).orElse(null);
-                if (pkg != null && pkg.isRequiresVipRoom()) {
-                    anyVip = true;
-                    break;
-                }
-            }
-        }
-
-        BigDecimal roomCharge;
-        if (anyVip) {
-            roomType = "VIP";
-            roomCharge = BigDecimal.ZERO;
-        } else if ("VIP".equals(roomType)) {
-            roomType = "COMMON";
-            roomCharge = BigDecimal.ZERO;
-        } else if ("PRIVATE".equals(roomType)) {
-            roomCharge = ROOM_SURCHARGE.get("PRIVATE");
-        } else {
-            roomType = "COMMON";
-            roomCharge = BigDecimal.ZERO;
-        }
+        String roomType = representativeRoomType(itemRoomTypes);
+        BigDecimal roomCharge = roomChargeTotal;
 
         BigDecimal subtotalFromRequest = request.subtotal() != null
                 ? request.subtotal()
-                : itemsSubtotal.add(roomCharge);
+                : itemsSubtotal.add(roomChargeTotal);
         BigDecimal attendeeDiscountTotal = BigDecimal.ZERO;
         if (hasItems) {
             for (CreateOrderItemRequest ci : request.items()) {
@@ -222,6 +253,9 @@ public class OrderService {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 null
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
@@ -248,11 +282,12 @@ public class OrderService {
         order.setAmountPaid(BigDecimal.ZERO);
         order.setStatus("OPEN");
         order.setTransactorName(request.transactorName() != null ? request.transactorName() : nickname);
-        order.setGroupBooking(Boolean.TRUE.equals(request.groupBooking()) || totalAttendees > 1);
+        order.setGroupBooking(request.items() != null && request.items().size() > 1);
         order.setWeekend(Boolean.TRUE.equals(request.weekend()));
         order.setRoomType(roomType);
         order.setRoomTypeCharge(roomCharge);
         order.setVoucherId(request.voucherId());
+        order.setLastEditedByUserId(cashierUserId);
         orderRepository.save(order);
 
         if (request.voucherId() != null) {
@@ -261,18 +296,34 @@ public class OrderService {
 
         if (hasItems) {
             AtomicInteger itemPos = new AtomicInteger(0);
+            int roomIdx = 0;
             for (CreateOrderItemRequest ci : request.items()) {
+                Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                        pid -> packageRepository.findById(pid).orElse(null));
+                boolean coupleOrVip = pkg != null && (pkg.isCouple() || pkg.isRequiresVipRoom());
+                int derivedQuantity = coupleOrVip ? 1 : ci.attendees().size();
                 OrderItem item = new OrderItem();
                 item.setOrderId(order.getId());
                 item.setOrganizationId(organizationId);
                 item.setPackageId(ci.packageId());
-                item.setQuantity(ci.quantity() == null ? 1 : ci.quantity());
+                item.setQuantity(derivedQuantity);
                 item.setUnitPrice(ci.unitPrice() != null ? ci.unitPrice() : BigDecimal.ZERO);
                 BigDecimal lt = ci.lineTotal() != null ? ci.lineTotal()
                         : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
                 item.setLineTotal(lt);
+                item.setRoomType(itemRoomTypes.get(roomIdx));
+                item.setRoomTypeCharge(itemRoomCharges.get(roomIdx));
+                roomIdx++;
                 item.setPosition(ci.position() != null ? ci.position() : itemPos.getAndIncrement());
                 orderItemRepository.save(item);
+
+                Long sharedTierId = null;
+                Long sharedServiceId = null;
+                if (coupleOrVip && !ci.attendees().isEmpty()) {
+                    CreateOrderItemAttendeeRequest first = ci.attendees().get(0);
+                    sharedTierId = first.packageTierId();
+                    sharedServiceId = first.serviceId();
+                }
 
                 AtomicInteger attPos = new AtomicInteger(0);
                 for (CreateOrderItemAttendeeRequest ar : ci.attendees()) {
@@ -280,8 +331,10 @@ public class OrderService {
                     att.setOrderItemId(item.getId());
                     att.setOrderId(order.getId());
                     att.setOrganizationId(organizationId);
-                    att.setServiceId(ar.serviceId());
-                    att.setPackageTierId(ar.packageTierId());
+                    Long resolvedServiceId = coupleOrVip ? sharedServiceId : ar.serviceId();
+                    validateVipMassageDuration(pkg, resolvedServiceId);
+                    att.setServiceId(resolvedServiceId);
+                    att.setPackageTierId(coupleOrVip ? sharedTierId : ar.packageTierId());
                     att.setLockerNumber(ar.lockerNumber());
                     att.setClientGender(ar.clientGender());
                     att.setPosition(ar.position() != null ? ar.position() : attPos.getAndIncrement());
@@ -292,13 +345,23 @@ public class OrderService {
             }
         }
 
-        if (request.initialPayment() != null) {
+        if (request.initialPayment() != null && total.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal payAmount = request.initialPayment().amount();
-            if (payAmount.compareTo(BigDecimal.ZERO) > 0 && payAmount.compareTo(total) > 0) {
+            if (payAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Payment amount must be greater than zero");
+            }
+            if (payAmount.compareTo(total) > 0) {
                 throw new IllegalArgumentException("Payment amount exceeds order total");
             }
+            String initialReference = request.initialPayment().referenceNumber();
+            if (com.sumicare.pos.service.PayMongoService.supports(request.initialPayment().paymentMethod())) {
+                com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
+                        order, payAmount, request.initialPayment().paymentMethod(),
+                        initialReference, request.initialPayment().paymentDetails());
+                initialReference = result.intentId();
+            }
             recordPaymentInternal(order, null, cashierUserId, request.initialPayment().paymentMethod(),
-                    payAmount, request.initialPayment().referenceNumber());
+                    payAmount, initialReference);
             if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
                 order.setStatus("PAID");
                 order.setFinishedAt(OffsetDateTime.now());
@@ -336,7 +399,7 @@ public class OrderService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
-    public OrderResponse update(UUID organizationId, UUID orderId, CreateOrderRequest request) {
+    public OrderResponse update(UUID organizationId, UUID orderId, UUID actorUserId, CreateOrderRequest request) {
         Order order = requireOrder(organizationId, orderId);
         if (!"OPEN".equals(order.getStatus())) {
             throw new IllegalStateException("Re-open the order before editing");
@@ -349,6 +412,11 @@ public class OrderService {
         Long firstServiceId = null;
         int totalAttendees = 0;
         BigDecimal itemsSubtotal = BigDecimal.ZERO;
+        BigDecimal roomChargeTotal = BigDecimal.ZERO;
+        boolean anyCoupleOrVip = false;
+        Map<Long, Package> packageCache = new HashMap<>();
+        java.util.List<String> itemRoomTypes = new java.util.ArrayList<>();
+        java.util.List<BigDecimal> itemRoomCharges = new java.util.ArrayList<>();
         for (CreateOrderItemRequest ci : request.items()) {
             if (ci.packageId() == null) {
                 throw new IllegalArgumentException("Each order item must reference a package");
@@ -367,31 +435,21 @@ public class OrderService {
                     if (a.serviceId() != null) { firstServiceId = a.serviceId(); break; }
                 }
             }
+            Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                    pid -> packageRepository.findById(pid).orElse(null));
+            if (pkg != null && (pkg.isCouple() || pkg.isRequiresVipRoom())) anyCoupleOrVip = true;
+            ItemRoom room = resolveItemRoom(pkg, ci.roomType());
+            itemRoomTypes.add(room.roomType());
+            itemRoomCharges.add(room.charge());
+            roomChargeTotal = roomChargeTotal.add(room.charge());
         }
 
-        String roomType = request.roomType() != null ? request.roomType().toUpperCase() : "COMMON";
-        if (!ROOM_SURCHARGE.containsKey(roomType)) {
-            throw new IllegalArgumentException("Unknown room type: " + roomType);
-        }
-        boolean anyVip = false;
-        for (CreateOrderItemRequest ci : request.items()) {
-            Package pkg = packageRepository.findById(ci.packageId()).orElse(null);
-            if (pkg != null && pkg.isRequiresVipRoom()) { anyVip = true; break; }
-        }
-        BigDecimal roomCharge;
-        if (anyVip) {
-            roomType = "VIP";
-            roomCharge = BigDecimal.ZERO;
-        } else if ("PRIVATE".equals(roomType)) {
-            roomCharge = ROOM_SURCHARGE.get("PRIVATE");
-        } else {
-            roomType = "COMMON";
-            roomCharge = BigDecimal.ZERO;
-        }
+        String roomType = representativeRoomType(itemRoomTypes);
+        BigDecimal roomCharge = roomChargeTotal;
 
         BigDecimal subtotalFromRequest = request.subtotal() != null
                 ? request.subtotal()
-                : itemsSubtotal.add(roomCharge);
+                : itemsSubtotal.add(roomChargeTotal);
         BigDecimal attendeeDiscountTotal = BigDecimal.ZERO;
         for (CreateOrderItemRequest ci : request.items()) {
             for (CreateOrderItemAttendeeRequest ar : ci.attendees()) {
@@ -423,11 +481,14 @@ public class OrderService {
         order.setTotal(total);
         order.setTransactorName(request.transactorName() != null ? request.transactorName()
                 : order.getTransactorName());
-        order.setGroupBooking(Boolean.TRUE.equals(request.groupBooking()) || totalAttendees > 1);
+        order.setGroupBooking(request.items() != null && request.items().size() > 1);
         order.setWeekend(Boolean.TRUE.equals(request.weekend()));
         order.setRoomType(roomType);
         order.setRoomTypeCharge(roomCharge);
         order.setVoucherId(request.voucherId());
+        if (actorUserId != null) {
+            order.setLastEditedByUserId(actorUserId);
+        }
         orderRepository.save(order);
 
         if (request.voucherId() != null) {
@@ -435,18 +496,34 @@ public class OrderService {
         }
 
         AtomicInteger itemPos = new AtomicInteger(0);
+        int roomIdx = 0;
         for (CreateOrderItemRequest ci : request.items()) {
+            Package pkg = packageCache.computeIfAbsent(ci.packageId(),
+                    pid -> packageRepository.findById(pid).orElse(null));
+            boolean coupleOrVip = pkg != null && (pkg.isCouple() || pkg.isRequiresVipRoom());
+            int derivedQuantity = coupleOrVip ? 1 : ci.attendees().size();
             OrderItem item = new OrderItem();
             item.setOrderId(order.getId());
             item.setOrganizationId(organizationId);
             item.setPackageId(ci.packageId());
-            item.setQuantity(ci.quantity() == null ? 1 : ci.quantity());
+            item.setQuantity(derivedQuantity);
             item.setUnitPrice(ci.unitPrice() != null ? ci.unitPrice() : BigDecimal.ZERO);
             BigDecimal lt = ci.lineTotal() != null ? ci.lineTotal()
                     : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
             item.setLineTotal(lt);
+            item.setRoomType(itemRoomTypes.get(roomIdx));
+            item.setRoomTypeCharge(itemRoomCharges.get(roomIdx));
+            roomIdx++;
             item.setPosition(ci.position() != null ? ci.position() : itemPos.getAndIncrement());
             orderItemRepository.save(item);
+
+            Long sharedTierId = null;
+            Long sharedServiceId = null;
+            if (coupleOrVip && !ci.attendees().isEmpty()) {
+                CreateOrderItemAttendeeRequest first = ci.attendees().get(0);
+                sharedTierId = first.packageTierId();
+                sharedServiceId = first.serviceId();
+            }
 
             AtomicInteger attPos = new AtomicInteger(0);
             for (CreateOrderItemAttendeeRequest ar : ci.attendees()) {
@@ -454,8 +531,10 @@ public class OrderService {
                 att.setOrderItemId(item.getId());
                 att.setOrderId(order.getId());
                 att.setOrganizationId(organizationId);
-                att.setServiceId(ar.serviceId());
-                att.setPackageTierId(ar.packageTierId());
+                Long resolvedServiceId = coupleOrVip ? sharedServiceId : ar.serviceId();
+                validateVipMassageDuration(pkg, resolvedServiceId);
+                att.setServiceId(resolvedServiceId);
+                att.setPackageTierId(coupleOrVip ? sharedTierId : ar.packageTierId());
                 att.setLockerNumber(ar.lockerNumber());
                 att.setClientGender(ar.clientGender());
                 att.setPosition(ar.position() != null ? ar.position() : attPos.getAndIncrement());
@@ -478,14 +557,24 @@ public class OrderService {
             bookingRepository.save(booking);
         }
 
-        if (request.initialPayment() != null) {
+        if (request.initialPayment() != null && total.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal payAmount = request.initialPayment().amount();
-            if (payAmount.compareTo(BigDecimal.ZERO) > 0 && payAmount.compareTo(total) > 0) {
+            if (payAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Payment amount must be greater than zero");
+            }
+            if (payAmount.compareTo(total) > 0) {
                 throw new IllegalArgumentException("Payment amount exceeds order total");
             }
-            UUID actorUserId = order.getCashierUserId();
-            recordPaymentInternal(order, null, actorUserId, request.initialPayment().paymentMethod(),
-                    payAmount, request.initialPayment().referenceNumber());
+            UUID paymentActor = actorUserId != null ? actorUserId : order.getCashierUserId();
+            String initialReference = request.initialPayment().referenceNumber();
+            if (com.sumicare.pos.service.PayMongoService.supports(request.initialPayment().paymentMethod())) {
+                com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
+                        order, payAmount, request.initialPayment().paymentMethod(),
+                        initialReference, request.initialPayment().paymentDetails());
+                initialReference = result.intentId();
+            }
+            recordPaymentInternal(order, null, paymentActor, request.initialPayment().paymentMethod(),
+                    payAmount, initialReference);
             if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
                 order.setStatus("PAID");
                 order.setFinishedAt(OffsetDateTime.now());
@@ -507,19 +596,210 @@ public class OrderService {
         if ("PAID".equals(order.getStatus())) {
             throw new IllegalStateException("Order is already fully paid");
         }
+        if (order.getTotal().compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException("Cannot record a payment on an order with a zero total");
+        }
+        if (request.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Payment amount must be greater than zero");
+        }
         BigDecimal remaining = order.getTotal().subtract(order.getAmountPaid());
         if (request.amount().compareTo(remaining) > 0) {
             throw new IllegalArgumentException("Payment amount exceeds remaining balance of " + remaining.toPlainString());
         }
         UUID sessionId = order.getBookingId() == null ? null : sessionRepository.findFirstByBookingId(order.getBookingId())
                 .map(Session::getId).orElse(null);
-        recordPaymentInternal(order, sessionId, actorUserId, request.paymentMethod(), request.amount(), request.referenceNumber());
 
+        String referenceNumber = request.referenceNumber();
+        if (com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod())) {
+            com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
+                    order, request.amount(), request.paymentMethod(), referenceNumber, request.paymentDetails());
+            referenceNumber = result.intentId();
+        }
+
+        recordPaymentInternal(order, sessionId, actorUserId, request.paymentMethod(), request.amount(), referenceNumber);
+
+        if (actorUserId != null) {
+            order.setLastEditedByUserId(actorUserId);
+        }
         if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
             order.setStatus("PAID");
             order.setFinishedAt(OffsetDateTime.now());
             materialiseAttendeeSessions(order);
         }
+        orderRepository.save(order);
+
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        return toResponse(order, booking);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
+    public com.sumicare.cashier.dto.PayMongoInitiateResponse initiatePayMongo(
+            UUID organizationId, UUID orderId, UUID actorUserId, RecordPaymentRequest request) {
+        Order order = requireOrder(organizationId, orderId);
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot add payment to a cancelled order");
+        }
+        if ("PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Order is already fully paid");
+        }
+        if (order.getTotal().compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException("Cannot record a payment on an order with a zero total");
+        }
+        if (!com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod())) {
+            throw new IllegalArgumentException("PayMongo does not support payment method: " + request.paymentMethod());
+        }
+        BigDecimal amount = request.amount();
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Payment amount must be greater than zero");
+        }
+        BigDecimal remaining = order.getTotal().subtract(order.getAmountPaid());
+        if (amount.compareTo(remaining) > 0) {
+            throw new IllegalArgumentException("Payment amount exceeds remaining balance of " + remaining.toPlainString());
+        }
+
+        String returnPath = request.returnPath() == null || request.returnPath().isBlank()
+                ? "/app/cashier" : request.returnPath();
+        com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.initiate(
+                order, amount, request.paymentMethod(), request.referenceNumber(), request.paymentDetails(), returnPath);
+
+        if ("succeeded".equalsIgnoreCase(result.status())) {
+            UUID sessionId = resolveSessionId(order);
+            recordPaymentInternal(order, sessionId, actorUserId, request.paymentMethod(), amount, result.intentId());
+            if (actorUserId != null) order.setLastEditedByUserId(actorUserId);
+            if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
+                order.setStatus("PAID");
+                order.setFinishedAt(OffsetDateTime.now());
+                materialiseAttendeeSessions(order);
+            }
+            orderRepository.save(order);
+            return new com.sumicare.cashier.dto.PayMongoInitiateResponse("succeeded", result.intentId(), null);
+        }
+
+        return new com.sumicare.cashier.dto.PayMongoInitiateResponse(
+                result.status(), result.intentId(), result.nextActionUrl());
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
+    public OrderResponse confirmPayMongo(UUID organizationId, UUID orderId, UUID actorUserId,
+                                         com.sumicare.cashier.dto.PayMongoConfirmRequest request) {
+        Order order = requireOrder(organizationId, orderId);
+        Booking paidBooking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        if ("PAID".equals(order.getStatus())) {
+            return toResponse(order, paidBooking);
+        }
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot confirm a payment on a cancelled order");
+        }
+
+        String status = payMongoService.confirm(request.intentId());
+        if (!"succeeded".equalsIgnoreCase(status) && !"processing".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("PayMongo payment was not authorized (status: " + status + ")");
+        }
+
+        settleGatewayPayment(order, actorUserId, request.intentId(), request.paymentMethod(), request.amount());
+
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        return toResponse(order, booking);
+    }
+
+    @Transactional
+    public boolean settleGatewayPayment(Order order, UUID actorUserId, String intentId,
+                                        String paymentMethod, BigDecimal amount) {
+        if ("PAID".equals(order.getStatus()) || "CANCELLED".equals(order.getStatus())) {
+            return false;
+        }
+        BigDecimal remaining = order.getTotal().subtract(order.getAmountPaid());
+        if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        BigDecimal amt = amount != null && amount.compareTo(BigDecimal.ZERO) > 0
+                ? amount.min(remaining)
+                : remaining;
+        String method = paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "GCASH";
+
+        UUID sessionId = resolveSessionId(order);
+        recordPaymentInternal(order, sessionId, actorUserId, method, amt, intentId);
+        if (actorUserId != null) order.setLastEditedByUserId(actorUserId);
+        if (order.getAmountPaid().compareTo(order.getTotal()) >= 0) {
+            order.setStatus("PAID");
+            order.setFinishedAt(OffsetDateTime.now());
+            materialiseAttendeeSessions(order);
+        }
+        orderRepository.save(order);
+        return true;
+    }
+
+    private UUID resolveSessionId(Order order) {
+        return order.getBookingId() == null ? null
+                : sessionRepository.findFirstByBookingId(order.getBookingId()).map(Session::getId).orElse(null);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    @Transactional
+    public OrderResponse refundOrder(UUID organizationId, UUID orderId, UUID actorUserId,
+                                     com.sumicare.cashier.dto.RefundRequest request) {
+        Order order = requireOrder(organizationId, orderId);
+        if (!"PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Only a paid order can be refunded");
+        }
+
+        List<PosTransaction> gatewayTransactions = transactionRepository.findAllByOrderId(order.getId()).stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .filter(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()))
+                .toList();
+        if (gatewayTransactions.isEmpty()) {
+            throw new IllegalStateException("This order has no PayMongo (card or GCash) payment to refund");
+        }
+
+        BigDecimal gatewayTotal = gatewayTransactions.stream()
+                .map(PosTransaction::getTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal refundAmount = request.amount() != null && request.amount().compareTo(BigDecimal.ZERO) > 0
+                ? request.amount()
+                : gatewayTotal;
+        if (refundAmount.compareTo(gatewayTotal) > 0) {
+            throw new IllegalArgumentException("Refund amount exceeds the gateway-paid total of " + gatewayTotal.toPlainString());
+        }
+
+        BigDecimal remaining = refundAmount;
+        for (PosTransaction tx : gatewayTransactions) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+            if (tx.getReferenceNumber() == null || tx.getReferenceNumber().isBlank()) {
+                throw new IllegalStateException("Payment " + tx.getReceiptNumber() + " has no gateway reference and cannot be refunded");
+            }
+            BigDecimal portion = remaining.min(tx.getTotal());
+            com.sumicare.pos.service.PayMongoService.RefundResult result = payMongoService.refund(
+                    tx.getReferenceNumber(), portion, request.reason(), request.notes(), order.getId().toString());
+
+            TransactionLedgerEntry entry = new TransactionLedgerEntry();
+            entry.setOrganizationId(order.getOrganizationId());
+            entry.setTransactionId(tx.getId());
+            entry.setEntryType("PAYMENT_REFUNDED");
+            entry.setAmount(portion.negate());
+            entry.setPaymentMethod(tx.getPaymentMethod());
+            entry.setStatus("REFUND");
+            entry.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"refundId\":\"" + result.refundId()
+                    + "\",\"ref\":\"" + tx.getReferenceNumber() + "\"}");
+            ledgerRepository.save(entry);
+
+            tx.setStatus("REFUNDED");
+            transactionRepository.save(tx);
+            remaining = remaining.subtract(portion);
+        }
+
+        boolean anyGatewayRemaining = transactionRepository.findAllByOrderId(order.getId()).stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .anyMatch(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()));
+        if (!anyGatewayRemaining) {
+            order.setStatus("REFUNDED");
+        }
+        if (actorUserId != null) order.setLastEditedByUserId(actorUserId);
+        orderRepository.save(order);
 
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
@@ -592,9 +872,13 @@ public class OrderService {
         if (!"OPEN".equals(order.getStatus())) {
             throw new IllegalStateException("Can only cancel payment on an OPEN order");
         }
+        if (hasCompletedSession(order)) {
+            throw new IllegalStateException("Cannot cancel payment once a session has been completed");
+        }
         List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
         for (PosTransaction tx : transactions) {
-            if ("REVERSED".equals(tx.getStatus())) continue;
+            if ("REVERSED".equals(tx.getStatus()) || "REFUNDED".equals(tx.getStatus())) continue;
+            String refundId = refundGatewayTransaction(tx, "requested_by_customer", order.getId());
             tx.setStatus("REVERSED");
             transactionRepository.save(tx);
 
@@ -605,7 +889,8 @@ public class OrderService {
             reversal.setAmount(tx.getTotal().negate());
             reversal.setPaymentMethod(tx.getPaymentMethod());
             reversal.setStatus("REFUND");
-            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber() + "\",\"reason\":\"payment_cancelled\"}");
+            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber()
+                    + "\",\"refundId\":\"" + (refundId == null ? "" : refundId) + "\",\"reason\":\"payment_cancelled\"}");
             ledgerRepository.save(reversal);
         }
         unmaterialiseAttendeeSessions(order);
@@ -621,8 +906,15 @@ public class OrderService {
         Order order = requireOrder(organizationId, orderId);
         Session session = order.getBookingId() == null ? null
                 : sessionRepository.findFirstByBookingId(order.getBookingId()).orElse(null);
-        if (session != null && "COMPLETED".equals(session.getStatus())) {
-            throw new IllegalStateException("Cannot cancel an order whose session has already ended");
+        if (hasCompletedSession(order)) {
+            throw new IllegalStateException("Cannot cancel an order whose session has already been completed");
+        }
+        if (order.getBookingId() != null) {
+            boolean bookingCompleted = bookingRepository.findById(order.getBookingId())
+                    .map(b -> "COMPLETED".equals(b.getStatus())).orElse(false);
+            if (bookingCompleted) {
+                throw new IllegalStateException("Cannot cancel an order whose booking has already been completed");
+            }
         }
         if ("PAID".equals(order.getStatus())) {
             throw new IllegalStateException("Cannot cancel a paid order. Open it first or cancel the payment.");
@@ -648,7 +940,8 @@ public class OrderService {
 
         List<PosTransaction> transactions = transactionRepository.findAllByOrderId(order.getId());
         for (PosTransaction tx : transactions) {
-            if ("REVERSED".equals(tx.getStatus())) continue;
+            if ("REVERSED".equals(tx.getStatus()) || "REFUNDED".equals(tx.getStatus())) continue;
+            String refundId = refundGatewayTransaction(tx, "requested_by_customer", order.getId());
             tx.setStatus("REVERSED");
             transactionRepository.save(tx);
 
@@ -659,12 +952,65 @@ public class OrderService {
             reversal.setAmount(tx.getTotal().negate());
             reversal.setPaymentMethod(tx.getPaymentMethod());
             reversal.setStatus("REFUND");
-            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber() + "\",\"reason\":\"order_cancelled\"}");
+            reversal.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"ref\":\"" + tx.getReceiptNumber()
+                    + "\",\"refundId\":\"" + (refundId == null ? "" : refundId) + "\",\"reason\":\"order_cancelled\"}");
             ledgerRepository.save(reversal);
         }
         order.setAmountPaid(BigDecimal.ZERO);
 
         return toResponse(order, booking);
+    }
+
+    @Transactional
+    public boolean reconcileRefund(Order order, BigDecimal amount, String refundId) {
+        List<PosTransaction> gatewayTransactions = transactionRepository.findAllByOrderId(order.getId()).stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .filter(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()))
+                .toList();
+        if (gatewayTransactions.isEmpty()) {
+            return false;
+        }
+        BigDecimal gatewayTotal = gatewayTransactions.stream()
+                .map(PosTransaction::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal remaining = amount != null && amount.compareTo(BigDecimal.ZERO) > 0
+                ? amount.min(gatewayTotal) : gatewayTotal;
+        for (PosTransaction tx : gatewayTransactions) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+            BigDecimal portion = remaining.min(tx.getTotal());
+            TransactionLedgerEntry entry = new TransactionLedgerEntry();
+            entry.setOrganizationId(order.getOrganizationId());
+            entry.setTransactionId(tx.getId());
+            entry.setEntryType("PAYMENT_REFUNDED");
+            entry.setAmount(portion.negate());
+            entry.setPaymentMethod(tx.getPaymentMethod());
+            entry.setStatus("REFUND");
+            entry.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"refundId\":\"" + (refundId == null ? "" : refundId)
+                    + "\",\"ref\":\"" + tx.getReferenceNumber() + "\",\"source\":\"webhook\"}");
+            ledgerRepository.save(entry);
+            tx.setStatus("REFUNDED");
+            transactionRepository.save(tx);
+            remaining = remaining.subtract(portion);
+        }
+        boolean anyGatewayRemaining = transactionRepository.findAllByOrderId(order.getId()).stream()
+                .filter(t -> "COMPLETED".equals(t.getStatus()))
+                .anyMatch(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()));
+        if (!anyGatewayRemaining) {
+            order.setStatus("REFUNDED");
+        }
+        orderRepository.save(order);
+        return true;
+    }
+
+    private String refundGatewayTransaction(PosTransaction tx, String reason, UUID orderId) {
+        if (!com.sumicare.pos.service.PayMongoService.supports(tx.getPaymentMethod())) {
+            return null;
+        }
+        if (tx.getReferenceNumber() == null || tx.getReferenceNumber().isBlank()) {
+            return null;
+        }
+        com.sumicare.pos.service.PayMongoService.RefundResult result = payMongoService.refund(
+                tx.getReferenceNumber(), tx.getTotal(), reason, null, orderId.toString());
+        return result.refundId();
     }
 
     public List<OrderResponse> list(UUID organizationId, Collection<String> statuses) {
@@ -695,6 +1041,29 @@ public class OrderService {
         return order;
     }
 
+    private record ItemRoom(String roomType, BigDecimal charge) {}
+
+    private ItemRoom resolveItemRoom(Package pkg, String requested) {
+        if (pkg != null && pkg.isRequiresVipRoom()) {
+            return new ItemRoom("VIP", BigDecimal.ZERO);
+        }
+        String rt = requested != null ? requested.toUpperCase() : "COMMON";
+        if (!ROOM_SURCHARGE.containsKey(rt) || "VIP".equals(rt)) {
+            rt = "COMMON";
+        }
+        if ("PRIVATE".equals(rt)) {
+            return new ItemRoom("PRIVATE", ROOM_SURCHARGE.get("PRIVATE"));
+        }
+        return new ItemRoom("COMMON", BigDecimal.ZERO);
+    }
+
+    private String representativeRoomType(java.util.List<String> roomTypes) {
+        if (roomTypes.isEmpty()) return "COMMON";
+        java.util.Set<String> distinct = new java.util.HashSet<>(roomTypes);
+        if (distinct.size() == 1) return roomTypes.get(0);
+        return "MIXED";
+    }
+
     private boolean hasCompletedSession(Order order) {
         for (OrderItemAttendee att : attendeeRepository.findAllByOrderIdOrderByPosition(order.getId())) {
             if (att.getSessionId() != null) {
@@ -721,9 +1090,25 @@ public class OrderService {
                 });
             }
 
-            Session session = sessionRepository.findFirstByBookingId(bookingId).orElse(null);
-            if (session != null) {
-                posService.recordCommissionsForSession(order.getOrganizationId(), session);
+            List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
+            boolean handledAny = false;
+            for (OrderItemAttendee attendee : attendees) {
+                if (attendee.getSessionId() == null) continue;
+                handledAny = true;
+                sessionRepository.findById(attendee.getSessionId()).ifPresent(session ->
+                        recordCommissionsForSession(order.getOrganizationId(), session));
+                if (attendee.getTreatmentSlipId() != null) {
+                    slipRepository.findById(attendee.getTreatmentSlipId()).ifPresent(slip -> {
+                        slip.setStatus("FINALIZED");
+                        slip.setSignedAt(OffsetDateTime.now());
+                        slipRepository.save(slip);
+                    });
+                }
+            }
+
+            if (!handledAny) {
+                sessionRepository.findFirstByBookingId(bookingId).ifPresent(session ->
+                        recordCommissionsForSession(order.getOrganizationId(), session));
             }
         });
     }
@@ -759,6 +1144,18 @@ public class OrderService {
         });
     }
 
+    private void validateVipMassageDuration(Package pkg, Long serviceId) {
+        if (pkg == null || !pkg.isRequiresVipRoom() || serviceId == null) {
+            return;
+        }
+        int duration = serviceRepository.findById(serviceId)
+                .map(com.sumicare.service_catalogue.domain.Service::getDurationMinutes)
+                .orElse(0);
+        if (duration > 60) {
+            throw new IllegalArgumentException("VIP packages allow massages up to 60 minutes only");
+        }
+    }
+
     @Transactional
     public void materialiseAttendeeSessions(Order order) {
         Booking booking = order.getBookingId() == null ? null
@@ -767,37 +1164,6 @@ public class OrderService {
 
         List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
         if (attendees.isEmpty()) return;
-
-        List<OrderItem> items = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId());
-        Map<UUID, OrderItem> itemById = new HashMap<>();
-        Map<UUID, List<OrderItemAttendee>> attendeesByItem = new HashMap<>();
-        for (OrderItem item : items) {
-            itemById.put(item.getId(), item);
-        }
-        for (OrderItemAttendee a : attendees) {
-            attendeesByItem.computeIfAbsent(a.getOrderItemId(), k -> new ArrayList<>()).add(a);
-        }
-
-        Map<Long, String> packageNameCache = new HashMap<>();
-        Map<Long, Boolean> packageVipCache = new HashMap<>();
-        Map<UUID, BigDecimal> sharePerAttendee = new HashMap<>();
-        for (OrderItem item : items) {
-            List<OrderItemAttendee> bucket = attendeesByItem.getOrDefault(item.getId(), List.of());
-            int n = bucket.size();
-            if (n == 0) continue;
-            BigDecimal lineTotal = item.getLineTotal() != null ? item.getLineTotal() : BigDecimal.ZERO;
-            BigDecimal even = lineTotal.divide(BigDecimal.valueOf(n), 2, java.math.RoundingMode.HALF_UP);
-            BigDecimal accumulated = even.multiply(BigDecimal.valueOf(n - 1L));
-            BigDecimal remainder = lineTotal.subtract(accumulated);
-            for (int i = 0; i < n; i++) {
-                OrderItemAttendee a = bucket.get(i);
-                BigDecimal share = (i == n - 1) ? remainder : even;
-                if (a.getDiscount() != null && a.getDiscount().compareTo(BigDecimal.ZERO) > 0) {
-                    share = share.subtract(a.getDiscount()).max(BigDecimal.ZERO);
-                }
-                sharePerAttendee.put(a.getId(), share);
-            }
-        }
 
         for (OrderItemAttendee att : attendees) {
             if (att.getSessionId() != null) continue;
@@ -809,62 +1175,78 @@ public class OrderService {
             session.setAttendeeId(att.getId());
             session = sessionRepository.save(session);
             att.setSessionId(session.getId());
-
-            OrderItem parentItem = att.getOrderItemId() != null ? itemById.get(att.getOrderItemId()) : null;
-            String pkgName = null;
-            boolean isVip = false;
-            if (parentItem != null && parentItem.getPackageId() != null) {
-                pkgName = packageNameCache.computeIfAbsent(parentItem.getPackageId(),
-                        pid -> packageRepository.findById(pid).map(Package::getName).orElse(null));
-                isVip = packageVipCache.computeIfAbsent(parentItem.getPackageId(),
-                        pid -> packageRepository.findById(pid).map(Package::isRequiresVipRoom).orElse(false));
-            }
-
-            if (att.getTreatmentSlipId() == null) {
-                TreatmentSlip slip = new TreatmentSlip();
-                slip.setOrganizationId(order.getOrganizationId());
-                slip.setBookingId(booking.getId());
-                slip.setSessionId(session.getId());
-                slip.setAttendeeId(att.getId());
-                slip.setTsn(att.getProvidedTsn() != null && !att.getProvidedTsn().isBlank()
-                        ? att.getProvidedTsn() : generateTsn());
-                slip.setClientNickname(booking.getClientNickname() != null ? booking.getClientNickname() : "Walk-in");
-                slip.setLockerNumber(att.getLockerNumber() != null ? att.getLockerNumber() : booking.getLockerNumber());
-                slip.setOrNumber(order.getOrNumber());
-                slip.setStatus("DRAFT");
-                slip.setPackageName(pkgName);
-                slip.setTotalAmount(order.getTotal());
-                slip.setPax(booking.getPax());
-                slip.setNationality(booking.getNationality());
-
-                if (isVip) {
-                    slip.setVip(true);
-                    slip.setJacuzziMinutes(60);
-                    slip.setMassageMinutes(60);
-                    slip.setWineIncluded(true);
-                }
-
-                String resolvedServiceName = "";
-                Integer resolvedDuration = null;
-                Long serviceIdToResolve = att.getServiceId() != null ? att.getServiceId() : booking.getServiceId();
-                if (serviceIdToResolve != null) {
-                    var svc = serviceRepository.findById(serviceIdToResolve).orElse(null);
-                    if (svc != null) {
-                        resolvedServiceName = svc.getName();
-                        resolvedDuration = svc.getDurationMinutes();
-                    }
-                }
-                slip.setServiceName(resolvedServiceName);
-                if (resolvedDuration != null) {
-                    slip.setTreatmentMinutes(resolvedDuration);
-                }
-
-                TreatmentSlip savedSlip = slipRepository.save(slip);
-                att.setTreatmentSlipId(savedSlip.getId());
-            }
-
             attendeeRepository.save(att);
         }
+    }
+
+    @Transactional
+    public TreatmentSlip ensureSlipForAttendee(Order order, OrderItemAttendee attendee, Session session) {
+        if (attendee.getTreatmentSlipId() != null) {
+            return slipRepository.findById(attendee.getTreatmentSlipId()).orElse(null);
+        }
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        if (booking == null) return null;
+
+        OrderItem parentItem = attendee.getOrderItemId() != null
+                ? orderItemRepository.findById(attendee.getOrderItemId()).orElse(null)
+                : null;
+        String pkgName = null;
+        boolean isVip = false;
+        if (parentItem != null && parentItem.getPackageId() != null) {
+            Package pkg = packageRepository.findById(parentItem.getPackageId()).orElse(null);
+            if (pkg != null) {
+                pkgName = pkg.getName();
+                isVip = pkg.isRequiresVipRoom();
+            }
+        }
+
+        TreatmentSlip slip = new TreatmentSlip();
+        slip.setOrganizationId(order.getOrganizationId());
+        slip.setBookingId(booking.getId());
+        slip.setSessionId(session != null ? session.getId() : attendee.getSessionId());
+        slip.setAttendeeId(attendee.getId());
+        slip.setTsn(attendee.getProvidedTsn() != null && !attendee.getProvidedTsn().isBlank()
+                ? attendee.getProvidedTsn() : generateTsn());
+        slip.setClientNickname(booking.getClientNickname() != null ? booking.getClientNickname() : "Walk-in");
+        slip.setLockerNumber(attendee.getLockerNumber() != null ? attendee.getLockerNumber() : booking.getLockerNumber());
+        slip.setOrNumber(order.getOrNumber());
+        slip.setStatus("DRAFT");
+        slip.setPackageName(pkgName);
+        slip.setTotalAmount(order.getTotal());
+        slip.setPax(booking.getPax());
+        slip.setNationality(booking.getNationality());
+
+        if (isVip) {
+            slip.setVip(true);
+            slip.setJacuzziMinutes(60);
+            slip.setMassageMinutes(60);
+            slip.setWineIncluded(true);
+        }
+
+        String resolvedServiceName = "";
+        Integer resolvedDuration = null;
+        Long serviceIdToResolve = attendee.getServiceId() != null ? attendee.getServiceId() : booking.getServiceId();
+        if (serviceIdToResolve != null) {
+            var svc = serviceRepository.findById(serviceIdToResolve).orElse(null);
+            if (svc != null) {
+                resolvedServiceName = svc.getName();
+                resolvedDuration = svc.getDurationMinutes();
+            }
+        }
+        slip.setServiceName(resolvedServiceName);
+        if (resolvedDuration != null) {
+            slip.setTreatmentMinutes(resolvedDuration);
+        }
+
+        if (session != null && session.getStartedAt() != null) {
+            slip.setStartTime(session.getStartedAt());
+        }
+
+        TreatmentSlip savedSlip = slipRepository.save(slip);
+        attendee.setTreatmentSlipId(savedSlip.getId());
+        attendeeRepository.save(attendee);
+        return savedSlip;
     }
 
     @Transactional
@@ -899,6 +1281,7 @@ public class OrderService {
         tx.setOrderId(order.getId());
         tx.setSessionId(sessionId);
         tx.setReceiptNumber(generateReceiptNumber());
+        tx.setReferenceNumber(referenceNumber);
         tx.setSubtotal(amount);
         tx.setDiscount(BigDecimal.ZERO);
         tx.setTotal(amount);
@@ -959,6 +1342,13 @@ public class OrderService {
                             ? u.getDisplayName() : u.getUsername())
                     .orElse(null);
         }
+        String lastEditedByDisplayName = null;
+        if (order.getLastEditedByUserId() != null) {
+            lastEditedByDisplayName = userRepository.findById(order.getLastEditedByUserId())
+                    .map(u -> u.getDisplayName() != null && !u.getDisplayName().isBlank()
+                            ? u.getDisplayName() : u.getUsername())
+                    .orElse(null);
+        }
         List<OrderItem> items = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId());
         Map<UUID, List<OrderItemAttendee>> attendeesByItem = new HashMap<>();
         boolean sessionCompleted = false;
@@ -991,19 +1381,21 @@ public class OrderService {
                 String sName = a.getServiceId() == null ? null
                         : serviceNameById.computeIfAbsent(a.getServiceId(),
                             sid -> serviceRepository.findById(sid).map(s -> s.getName()).orElse(""));
-                String sessionStatus = a.getSessionId() == null ? null
-                        : sessionRepository.findById(a.getSessionId())
-                                .map(s -> s.getStatus()).orElse(null);
+                var sess = a.getSessionId() == null ? null
+                        : sessionRepository.findById(a.getSessionId()).orElse(null);
+                String sessionStatus = sess == null ? null : sess.getStatus();
+                boolean sessionExtended = sess != null && sess.isExtension();
                 attRes.add(new OrderItemAttendeeResponse(
                         a.getId(), a.getServiceId(), sName, a.getPackageTierId(),
                         a.getLockerNumber(), a.getClientGender(),
-                        a.getSessionId(), sessionStatus, a.getTreatmentSlipId(), a.getPosition(),
+                        a.getSessionId(), sessionStatus, sessionExtended, a.getTreatmentSlipId(), a.getPosition(),
                         a.getDiscount(), a.getProvidedTsn()
                 ));
             }
             itemResponses.add(new OrderItemResponse(
                     it.getId(), it.getPackageId(), pkgName,
-                    it.getQuantity(), it.getUnitPrice(), it.getLineTotal(), it.getPosition(),
+                    it.getQuantity(), it.getUnitPrice(), it.getLineTotal(),
+                    it.getRoomType(), it.getRoomTypeCharge(), it.getPosition(),
                     attRes
             ));
         }
@@ -1024,6 +1416,8 @@ public class OrderService {
                 order.getDiscount(),
                 order.getTax(),
                 order.getTotal(),
+                order.getExtensionAmount(),
+                order.getExtensionMinutes(),
                 order.getAmountPaid(),
                 balance,
                 order.getStatus(),
@@ -1039,6 +1433,7 @@ public class OrderService {
                 order.getRoomTypeCharge(),
                 sessionCompleted,
                 orderCouplePackage,
+                lastEditedByDisplayName,
                 itemResponses
         );
     }

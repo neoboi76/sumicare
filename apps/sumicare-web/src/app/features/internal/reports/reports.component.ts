@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
 
 interface ServiceLine { serviceId: number | null; serviceName: string; qty: number; unitPrice: number; lineTotal: number; }
 interface CutoffServicesReport { from: string; to: string; lines: ServiceLine[]; grandTotal: number; }
@@ -34,7 +35,7 @@ type CommissionTab = 'shift' | 'daily' | 'cutoff' | 'monthly';
 @Component({
   selector: 'sumi-reports',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule, DecimalPipe, PaginatorComponent],
   templateUrl: './reports.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -45,8 +46,8 @@ export class ReportsComponent implements OnInit {
   commissionTab = signal<CommissionTab>('cutoff');
   loading = signal(false);
 
-  cutoffFrom = new Date().toISOString().slice(0, 10);
-  cutoffTo = new Date().toISOString().slice(0, 10);
+  cutoffFrom = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+  cutoffTo = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
   cutoffShiftId: number | null = null;
   servicesReport = signal<CutoffServicesReport | null>(null);
 
@@ -56,7 +57,7 @@ export class ReportsComponent implements OnInit {
     return s ? `${s.label} (${s.startTime} - ${s.endTime})` : 'All shifts';
   };
 
-  dailyDate = new Date().toISOString().slice(0, 10);
+  dailyDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
   dailyReport = signal<DailyReport | null>(null);
 
   monthlyYear = new Date().getFullYear();
@@ -65,10 +66,10 @@ export class ReportsComponent implements OnInit {
 
   shifts = signal<Shift[]>([]);
   commissionShiftId: number | null = null;
-  commissionShiftDate = new Date().toISOString().slice(0, 10);
+  commissionShiftDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
   commissionShiftReport = signal<CommissionShiftReport | null>(null);
 
-  commissionDailyDate = new Date().toISOString().slice(0, 10);
+  commissionDailyDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
   commissionDailyReport = signal<CommissionDailyReport | null>(null);
 
   commissionCutoffYear = new Date().getFullYear();
@@ -80,8 +81,17 @@ export class ReportsComponent implements OnInit {
   commissionMonthlyMonth = new Date().getMonth() + 1;
   commissionMonthlyReport = signal<MatrixReport | null>(null);
 
-  deckingDate = new Date().toISOString().slice(0, 10);
+  deckingDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
   deckingReport = signal<DeckingDailyReport | null>(null);
+
+  pageSize = signal(15);
+  dailyPage = signal(0);
+
+  pagedDailyRows = computed(() => {
+    const rows = this.dailyReport()?.rows ?? [];
+    const start = this.dailyPage() * this.pageSize();
+    return rows.slice(start, start + this.pageSize());
+  });
 
   ngOnInit(): void {
     this.loadShifts();
@@ -120,7 +130,7 @@ export class ReportsComponent implements OnInit {
   loadDaily(): void {
     this.loading.set(true);
     this.http.get<DailyReport>(`${environment.apiBaseUrl}/api/reports/daily?date=${this.dailyDate}`).subscribe({
-      next: (r) => { this.dailyReport.set(r); this.loading.set(false); },
+      next: (r) => { this.dailyReport.set(r); this.dailyPage.set(0); this.loading.set(false); },
       error: () => { this.dailyReport.set(null); this.loading.set(false); }
     });
   }

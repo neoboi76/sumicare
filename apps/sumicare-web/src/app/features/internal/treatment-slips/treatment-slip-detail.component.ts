@@ -5,6 +5,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { environment } from '../../../../environments/environment';
+import { LockerLabelPipe } from '../../../shared/pipes/locker-label.pipe';
 
 interface TreatmentSlip {
   id: string;
@@ -28,6 +29,8 @@ interface TreatmentSlip {
   orNumber: string | null;
   addOnOrNumber: string | null;
   othersAddOn: string | null;
+  extensionMinutes: number | null;
+  clientGender: string | null;
   remarks: string | null;
   totalAmount: number | null;
   waiverAccepted: boolean;
@@ -40,7 +43,7 @@ interface TreatmentSlip {
 @Component({
   selector: 'sumi-treatment-slip-detail',
   standalone: true,
-  imports: [RouterLink, QRCodeComponent, DecimalPipe, FormsModule],
+  imports: [RouterLink, QRCodeComponent, DecimalPipe, FormsModule, LockerLabelPipe],
   templateUrl: './treatment-slip-detail.component.html',
   styleUrls: ['./treatment-slip-detail.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush

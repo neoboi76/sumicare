@@ -10,5 +10,7 @@ import java.math.BigDecimal;
 public record RecordPaymentRequest(
         @NotBlank String paymentMethod,
         @DecimalMin("0.00") @NotNull BigDecimal amount,
-        @Size(max = 100) String referenceNumber
+        @Size(max = 100) String referenceNumber,
+        PaymentDetailsRequest paymentDetails,
+        @Size(max = 200) String returnPath
 ) {}

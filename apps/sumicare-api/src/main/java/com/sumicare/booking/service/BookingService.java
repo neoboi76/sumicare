@@ -4,12 +4,15 @@ import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
+import com.sumicare.booking.dto.CreateBookingItemRequest;
 import com.sumicare.booking.dto.PublicAttendeeRequest;
+import com.sumicare.booking.dto.PublicPaymentResponse;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.dto.PaymentDetailsRequest;
 import com.sumicare.cashier.domain.Package;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
@@ -21,7 +24,6 @@ import com.sumicare.pos.domain.PosTransaction;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.repository.PosTransactionRepository;
 import com.sumicare.pos.repository.TransactionLedgerRepository;
-import com.sumicare.pos.service.PosService;
 import com.sumicare.room.domain.Bed;
 import com.sumicare.room.domain.Room;
 import com.sumicare.room.repository.BedRepository;
@@ -36,6 +38,8 @@ import com.sumicare.transaction.domain.Commission;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import com.sumicare.transaction.service.TreatmentSlipService;
+import com.sumicare.print.ReceiptPdfService;
+import com.sumicare.print.TreatmentSlipPdfService;
 import com.sumicare.auth.service.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,17 +72,20 @@ public class BookingService {
     private final TreatmentSlipRepository slipRepository;
     private final TreatmentSlipService treatmentSlipService;
     private final OrderRepository orderRepository;
-    private final PosService posService;
     private final PosTransactionRepository transactionRepository;
     private final com.sumicare.cashier.repository.OrderItemAttendeeRepository attendeeRepository;
     private final com.sumicare.transaction.repository.CommissionRepository commissionRepository;
     private final com.sumicare.cashier.repository.OrderItemRepository orderItemRepository;
     private final com.sumicare.cashier.repository.PackageTierRepository packageTierRepository;
     private final PackageRepository packageRepository;
+    private final com.sumicare.cashier.service.PackageService packageService;
     private final ClientRepository clientRepository;
     private final TransactionLedgerRepository ledgerRepository;
     private final OrderService orderService;
     private final EmailService emailService;
+    private final ReceiptPdfService receiptPdfService;
+    private final TreatmentSlipPdfService treatmentSlipPdfService;
+    private final com.sumicare.pos.service.PayMongoService payMongoService;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
@@ -88,17 +95,20 @@ public class BookingService {
                           TreatmentSlipRepository slipRepository,
                           TreatmentSlipService treatmentSlipService,
                           OrderRepository orderRepository,
-                          PosService posService,
                           PosTransactionRepository transactionRepository,
                           com.sumicare.cashier.repository.OrderItemAttendeeRepository attendeeRepository,
                           com.sumicare.transaction.repository.CommissionRepository commissionRepository,
                           com.sumicare.cashier.repository.OrderItemRepository orderItemRepository,
                           com.sumicare.cashier.repository.PackageTierRepository packageTierRepository,
                           PackageRepository packageRepository,
+                          com.sumicare.cashier.service.PackageService packageService,
                           ClientRepository clientRepository,
                           TransactionLedgerRepository ledgerRepository,
                           @Lazy OrderService orderService,
-                          EmailService emailService) {
+                          EmailService emailService,
+                          ReceiptPdfService receiptPdfService,
+                          TreatmentSlipPdfService treatmentSlipPdfService,
+                          com.sumicare.pos.service.PayMongoService payMongoService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -111,17 +121,20 @@ public class BookingService {
         this.slipRepository = slipRepository;
         this.treatmentSlipService = treatmentSlipService;
         this.orderRepository = orderRepository;
-        this.posService = posService;
         this.transactionRepository = transactionRepository;
         this.attendeeRepository = attendeeRepository;
         this.commissionRepository = commissionRepository;
         this.orderItemRepository = orderItemRepository;
         this.packageTierRepository = packageTierRepository;
         this.packageRepository = packageRepository;
+        this.packageService = packageService;
         this.clientRepository = clientRepository;
         this.ledgerRepository = ledgerRepository;
         this.orderService = orderService;
         this.emailService = emailService;
+        this.receiptPdfService = receiptPdfService;
+        this.treatmentSlipPdfService = treatmentSlipPdfService;
+        this.payMongoService = payMongoService;
     }
 
     @PreAuthorize("permitAll()")
@@ -170,6 +183,10 @@ public class BookingService {
                 }
                 resolvedClientId = existing.getId();
             }
+        }
+
+        if (request.items() != null && !request.items().isEmpty()) {
+            return createMultiPackageBooking(organizationId, request, resolvedClientId, service);
         }
 
         Package selectedPackage = request.packageId() == null ? null
@@ -234,12 +251,15 @@ public class BookingService {
 
         int resolvedPax = attendees.size();
 
+        boolean publicReservation = !"WALK_IN".equalsIgnoreCase(request.reservationType());
+        String resolvedBookingLocker = publicReservation ? null : request.lockerNumber();
+
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(resolvedClientId);
         booking.setClientNickname(request.clientNickname());
         booking.setClientEmail(request.clientEmail());
-        booking.setLockerNumber(request.lockerNumber());
+        booking.setLockerNumber(resolvedBookingLocker);
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
         booking.setScheduledAt(request.scheduledAt());
@@ -258,6 +278,7 @@ public class BookingService {
         order.setTransactorName(booking.getClientNickname());
         order.setRoomType(resolvedRoomType);
         order.setRoomTypeCharge(resolvedRoomCharge);
+        order.setGroupBooking(resolvedPax > 1);
         orderRepository.save(order);
 
         if (request.packageId() != null) {
@@ -271,6 +292,8 @@ public class BookingService {
                         ? lineTotal.divide(BigDecimal.valueOf(resolvedPax), 2, java.math.RoundingMode.HALF_UP)
                         : lineTotal));
             item.setLineTotal(lineTotal);
+            item.setRoomType(resolvedRoomType);
+            item.setRoomTypeCharge(resolvedRoomCharge);
             item.setPosition(0);
             orderItemRepository.save(item);
 
@@ -284,20 +307,30 @@ public class BookingService {
                         resolvedServiceId = t.getServiceId();
                     }
                 }
+                validateVipMassageDuration(selectedPackage != null && selectedPackage.isRequiresVipRoom(), resolvedServiceId);
                 com.sumicare.cashier.domain.OrderItemAttendee att = new com.sumicare.cashier.domain.OrderItemAttendee();
                 att.setOrderItemId(item.getId());
                 att.setOrderId(order.getId());
                 att.setOrganizationId(organizationId);
                 att.setServiceId(resolvedServiceId);
                 att.setPackageTierId(resolvedTierId);
-                att.setLockerNumber(a.lockerNumber() != null ? a.lockerNumber() : request.lockerNumber());
+                att.setLockerNumber(publicReservation ? null
+                        : (a.lockerNumber() != null ? a.lockerNumber() : request.lockerNumber()));
                 att.setClientGender(a.clientGender() != null ? a.clientGender() : request.clientGender());
                 att.setPosition(pos++);
                 attendeeRepository.save(att);
             }
         }
 
-        if ("HARD".equalsIgnoreCase(request.reservationType())) {
+        return finalizeBooking(order, booking, service, selectedPackage, resolvedRoomType, orderTotal, request);
+    }
+
+    private BookingResponse finalizeBooking(Order order, Booking booking, Service service, Package selectedPackage,
+                                            String resolvedRoomType, BigDecimal orderTotal, CreateBookingRequest request) {
+        boolean onlinePayment = "HARD".equalsIgnoreCase(request.reservationType())
+                && com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod());
+
+        if ("HARD".equalsIgnoreCase(request.reservationType()) && !onlinePayment) {
             order.setOrNumber(orderService.nextOrNumber());
             order.setStatus("PAID");
             order.setFinishedAt(OffsetDateTime.now());
@@ -310,28 +343,304 @@ public class BookingService {
             orderRepository.save(order);
         }
 
-        if (request.clientEmail() != null && !request.clientEmail().isBlank()) {
-            try {
-                OffsetDateTime effectiveStart = booking.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
-                java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d yyyy h:mm a");
-                emailService.sendBookingConfirmationEmail(
-                        request.clientEmail(),
-                        request.clientNickname(),
-                        new EmailService.BookingEmailPayload(
-                                booking.getId().toString(),
-                                selectedPackage == null ? null : selectedPackage.getName(),
-                                service.getName(),
-                                request.reservationType(),
-                                booking.getScheduledAt().atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
-                                effectiveStart.atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
-                                resolvedRoomType,
-                                orderTotal.toPlainString()));
-            } catch (Exception ex) {
-                log.warn("Could not send booking confirmation email to {}: {}", request.clientEmail(), ex.getMessage());
-            }
+        if (!onlinePayment && request.clientEmail() != null && !request.clientEmail().isBlank()) {
+            sendBookingEmail(booking, order, resolvedRoomType, orderTotal, order.getOrNumber());
         }
 
         return toBookingResponse(booking, service);
+    }
+
+    private BookingResponse createMultiPackageBooking(UUID organizationId, CreateBookingRequest request,
+                                                      UUID resolvedClientId, Service service) {
+        boolean publicReservation = !"WALK_IN".equalsIgnoreCase(request.reservationType());
+        List<CreateBookingItemRequest> items = request.items();
+
+        int totalAttendees = 0;
+        BigDecimal itemsSubtotal = BigDecimal.ZERO;
+        BigDecimal roomChargeTotal = BigDecimal.ZERO;
+        java.util.Set<String> roomTypes = new java.util.LinkedHashSet<>();
+        Package firstPackage = null;
+        List<Package> packages = new java.util.ArrayList<>();
+        List<List<PublicAttendeeRequest>> normalisedAttendees = new java.util.ArrayList<>();
+        List<String> itemRoomTypes = new java.util.ArrayList<>();
+        List<BigDecimal> itemRoomCharges = new java.util.ArrayList<>();
+        List<BigDecimal> itemLineTotals = new java.util.ArrayList<>();
+
+        for (CreateBookingItemRequest ci : items) {
+            if (ci.packageId() == null) {
+                throw new IllegalArgumentException("Each booking item must reference a package");
+            }
+            Package pkg = packageRepository.findById(ci.packageId())
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown package"));
+            boolean coupleOrVip = pkg.isCouple() || pkg.isRequiresVipRoom();
+            List<PublicAttendeeRequest> attendees = padAttendees(ci.attendees(), pkg, coupleOrVip, request.clientGender());
+
+            String roomType = resolveRoomType(pkg, ci.roomType());
+            BigDecimal roomCharge = resolveRoomCharge(roomType);
+            BigDecimal lineTotal = computeLineTotal(ci, attendees, coupleOrVip);
+
+            if (firstPackage == null) firstPackage = pkg;
+            packages.add(pkg);
+            normalisedAttendees.add(attendees);
+            itemRoomTypes.add(roomType);
+            itemRoomCharges.add(roomCharge);
+            itemLineTotals.add(lineTotal);
+            roomTypes.add(roomType);
+            roomChargeTotal = roomChargeTotal.add(roomCharge);
+            itemsSubtotal = itemsSubtotal.add(lineTotal);
+            totalAttendees += attendees.size();
+        }
+
+        BigDecimal orderTotal = itemsSubtotal.add(roomChargeTotal);
+        String orderRoomType = roomTypes.size() == 1 ? roomTypes.iterator().next() : "MIXED";
+
+        Booking booking = new Booking();
+        booking.setOrganizationId(organizationId);
+        booking.setClientId(resolvedClientId);
+        booking.setClientNickname(request.clientNickname());
+        booking.setClientEmail(request.clientEmail());
+        booking.setLockerNumber(publicReservation ? null : request.lockerNumber());
+        booking.setServiceId(request.serviceId());
+        booking.setReservationType(request.reservationType());
+        booking.setScheduledAt(request.scheduledAt());
+        booking.setPax(totalAttendees);
+        booking.setClientGender(request.clientGender());
+        booking.setNationality(request.nationality());
+        booking.setStatus("PENDING");
+        bookingRepository.save(booking);
+
+        Order order = new Order();
+        order.setOrganizationId(organizationId);
+        order.setBookingId(booking.getId());
+        order.setSubtotal(orderTotal);
+        order.setTotal(orderTotal);
+        order.setStatus("OPEN");
+        order.setTransactorName(booking.getClientNickname());
+        order.setRoomType(orderRoomType);
+        order.setRoomTypeCharge(roomChargeTotal);
+        order.setGroupBooking(totalAttendees > 1);
+        orderRepository.save(order);
+
+        int position = 0;
+        for (int i = 0; i < items.size(); i++) {
+            CreateBookingItemRequest ci = items.get(i);
+            Package pkg = packages.get(i);
+            boolean coupleOrVip = pkg.isCouple() || pkg.isRequiresVipRoom();
+            List<PublicAttendeeRequest> attendees = normalisedAttendees.get(i);
+            BigDecimal lineTotal = itemLineTotals.get(i);
+            int quantity = coupleOrVip ? 1 : attendees.size();
+
+            com.sumicare.cashier.domain.OrderItem item = new com.sumicare.cashier.domain.OrderItem();
+            item.setOrderId(order.getId());
+            item.setOrganizationId(organizationId);
+            item.setPackageId(pkg.getId());
+            item.setQuantity(quantity);
+            item.setUnitPrice(quantity > 0
+                    ? lineTotal.divide(BigDecimal.valueOf(quantity), 2, java.math.RoundingMode.HALF_UP)
+                    : lineTotal);
+            item.setLineTotal(lineTotal);
+            item.setRoomType(itemRoomTypes.get(i));
+            item.setRoomTypeCharge(itemRoomCharges.get(i));
+            item.setPosition(position++);
+            orderItemRepository.save(item);
+
+            Long sharedTierId = coupleOrVip && !attendees.isEmpty() ? resolveTierId(attendees.get(0), ci) : null;
+            int attPos = 0;
+            for (PublicAttendeeRequest a : attendees) {
+                Long tierId = coupleOrVip ? sharedTierId : resolveTierId(a, ci);
+                Long resolvedServiceId = request.serviceId();
+                if (tierId != null) {
+                    com.sumicare.cashier.domain.PackageTier t = packageTierRepository.findById(tierId).orElse(null);
+                    if (t != null && t.getServiceId() != null) {
+                        resolvedServiceId = t.getServiceId();
+                    }
+                }
+                validateVipMassageDuration(pkg.isRequiresVipRoom(), resolvedServiceId);
+                com.sumicare.cashier.domain.OrderItemAttendee att = new com.sumicare.cashier.domain.OrderItemAttendee();
+                att.setOrderItemId(item.getId());
+                att.setOrderId(order.getId());
+                att.setOrganizationId(organizationId);
+                att.setServiceId(resolvedServiceId);
+                att.setPackageTierId(tierId);
+                att.setLockerNumber(publicReservation ? null : a.lockerNumber());
+                att.setClientGender(a.clientGender() != null ? a.clientGender() : request.clientGender());
+                att.setPosition(attPos++);
+                attendeeRepository.save(att);
+            }
+        }
+
+        return finalizeBooking(order, booking, service, firstPackage, orderRoomType, orderTotal, request);
+    }
+
+    private List<PublicAttendeeRequest> padAttendees(List<PublicAttendeeRequest> attendees, Package pkg,
+                                                     boolean coupleOrVip, String fallbackGender) {
+        List<PublicAttendeeRequest> resolved = attendees == null || attendees.isEmpty()
+                ? new java.util.ArrayList<>(List.of(new PublicAttendeeRequest(null, null, fallbackGender)))
+                : new java.util.ArrayList<>(attendees);
+        if (coupleOrVip) {
+            int requiredPax = Math.max(2, pkg.getDefaultPax());
+            PublicAttendeeRequest seed = resolved.get(0);
+            while (resolved.size() < requiredPax) {
+                resolved.add(new PublicAttendeeRequest(seed.packageTierId(), null, seed.clientGender()));
+            }
+        }
+        return resolved;
+    }
+
+    private Long resolveTierId(PublicAttendeeRequest attendee, CreateBookingItemRequest item) {
+        return attendee.packageTierId() != null ? attendee.packageTierId() : item.packageTierId();
+    }
+
+    private BigDecimal computeLineTotal(CreateBookingItemRequest item, List<PublicAttendeeRequest> attendees,
+                                        boolean coupleOrVip) {
+        if (coupleOrVip) {
+            Long tierId = !attendees.isEmpty() ? resolveTierId(attendees.get(0), item) : item.packageTierId();
+            return tierWeekdayPrice(tierId);
+        }
+        BigDecimal sum = BigDecimal.ZERO;
+        for (PublicAttendeeRequest a : attendees) {
+            sum = sum.add(tierWeekdayPrice(resolveTierId(a, item)));
+        }
+        return sum;
+    }
+
+    private BigDecimal tierWeekdayPrice(Long tierId) {
+        if (tierId == null) return BigDecimal.ZERO;
+        return packageTierRepository.findById(tierId)
+                .map(com.sumicare.cashier.domain.PackageTier::getWeekdayPrice)
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private String resolveRoomType(Package pkg, String requestedRoomType) {
+        if (pkg.isRequiresVipRoom()) return "VIP";
+        if ("PRIVATE".equalsIgnoreCase(requestedRoomType)) return "PRIVATE";
+        return "COMMON";
+    }
+
+    private BigDecimal resolveRoomCharge(String roomType) {
+        return "PRIVATE".equalsIgnoreCase(roomType) ? new BigDecimal("500") : BigDecimal.ZERO;
+    }
+
+    @PreAuthorize("permitAll()")
+    @Transactional
+    public PublicPaymentResponse initiatePublicPayment(UUID organizationId, UUID orderId,
+                                                       String paymentMethod, PaymentDetailsRequest details) {
+        Order order = requirePublicOrder(organizationId, orderId);
+        if ("PAID".equals(order.getStatus())) {
+            return paymentResponse("succeeded", null, null, order);
+        }
+        if (order.getTotal() == null || order.getTotal().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("This reservation has no payable total");
+        }
+        if (!com.sumicare.pos.service.PayMongoService.supports(paymentMethod)) {
+            throw new IllegalArgumentException("Unsupported payment method: " + paymentMethod);
+        }
+        com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.initiate(
+                order, order.getTotal(), paymentMethod, null, details, "/book");
+        if ("succeeded".equalsIgnoreCase(result.status())) {
+            settlePublicPayment(order, result.intentId(), paymentMethod);
+            return paymentResponse("succeeded", result.intentId(), null, order);
+        }
+        return paymentResponse(result.status(), result.intentId(), result.nextActionUrl(), order);
+    }
+
+    @PreAuthorize("permitAll()")
+    @Transactional
+    public PublicPaymentResponse confirmPublicPayment(UUID organizationId, UUID orderId,
+                                                      String intentId, String paymentMethod) {
+        Order order = requirePublicOrder(organizationId, orderId);
+        if ("PAID".equals(order.getStatus())) {
+            return paymentResponse("succeeded", intentId, null, order);
+        }
+        String status = payMongoService.confirm(intentId);
+        if (!"succeeded".equalsIgnoreCase(status) && !"processing".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("PayMongo payment was not authorized (status: " + status + ")");
+        }
+        String method = paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "GCASH";
+        settlePublicPayment(order, intentId, method);
+        return paymentResponse("succeeded", intentId, null, order);
+    }
+
+    private PublicPaymentResponse paymentResponse(String status, String intentId, String redirectUrl, Order order) {
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        String nickname = booking == null ? null : booking.getClientNickname();
+        String reservationType = booking == null ? null : booking.getReservationType();
+        String scheduledAt = booking == null || booking.getScheduledAt() == null
+                ? null : booking.getScheduledAt().toString();
+        String serviceName = booking == null || booking.getServiceId() == null ? null
+                : serviceRepository.findById(booking.getServiceId()).map(Service::getName).orElse(null);
+        Package pkg = resolveOrderPackage(order);
+        String packageName = pkg == null ? null : pkg.getName();
+        return new PublicPaymentResponse(status, intentId, redirectUrl, order.getOrNumber(),
+                nickname, packageName, serviceName, scheduledAt, reservationType);
+    }
+
+    private Order requirePublicOrder(UUID organizationId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown order"));
+        if (!order.getOrganizationId().equals(organizationId)) {
+            throw new IllegalArgumentException("Order not in organization");
+        }
+        return order;
+    }
+
+    private String settlePublicPayment(Order order, String intentId, String paymentMethod) {
+        if (order.getOrNumber() == null || order.getOrNumber().isBlank()) {
+            order.setOrNumber(orderService.nextOrNumber());
+            orderRepository.save(order);
+        }
+        orderService.settleGatewayPayment(order, null, intentId, paymentMethod, order.getTotal());
+
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        if (booking != null && booking.getClientEmail() != null && !booking.getClientEmail().isBlank()) {
+            sendBookingEmail(booking, order, order.getRoomType(), order.getTotal(), order.getOrNumber());
+        }
+        return order.getOrNumber();
+    }
+
+    private Package resolveOrderPackage(Order order) {
+        return orderItemRepository.findAllByOrderIdOrderByPosition(order.getId()).stream()
+                .filter(it -> it.getPackageId() != null)
+                .findFirst()
+                .flatMap(it -> packageRepository.findById(it.getPackageId()))
+                .orElse(null);
+    }
+
+    private void sendBookingEmail(Booking booking, Order order, String roomType, BigDecimal total, String orNumber) {
+        try {
+            OffsetDateTime effectiveStart = booking.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d yyyy h:mm a");
+            List<EmailService.PackageLine> lines = new java.util.ArrayList<>();
+            for (com.sumicare.cashier.domain.OrderItem item : orderItemRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+                Package pkg = item.getPackageId() == null ? null
+                        : packageRepository.findById(item.getPackageId()).orElse(null);
+                String name = pkg != null ? pkg.getName() : "Service";
+                java.util.LinkedHashSet<String> massages = new java.util.LinkedHashSet<>();
+                for (com.sumicare.cashier.domain.OrderItemAttendee att : attendeeRepository.findAllByOrderItemIdOrderByPosition(item.getId())) {
+                    if (att.getServiceId() != null) {
+                        serviceRepository.findById(att.getServiceId()).ifPresent(s -> massages.add(s.getName()));
+                    }
+                }
+                List<String> inclusions = pkg != null ? packageService.deriveInclusions(pkg) : List.of();
+                lines.add(new EmailService.PackageLine(name, String.join(", ", massages), inclusions));
+            }
+            emailService.sendBookingConfirmationEmail(
+                    booking.getClientEmail(),
+                    booking.getClientNickname(),
+                    new EmailService.BookingEmailPayload(
+                            booking.getId().toString(),
+                            orNumber,
+                            lines,
+                            booking.getReservationType(),
+                            booking.getScheduledAt().atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
+                            effectiveStart.atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
+                            roomType,
+                            total.toPlainString()));
+        } catch (Exception ex) {
+            log.warn("Could not send booking confirmation email to {}: {}", booking.getClientEmail(), ex.getMessage());
+        }
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -378,26 +687,30 @@ public class BookingService {
             throw new IllegalStateException("This session has already ended.");
         }
 
+        String itemRoomType = orderItemRepository.findById(attendee.getOrderItemId())
+                .map(com.sumicare.cashier.domain.OrderItem::getRoomType)
+                .orElse(order.getRoomType());
         if (request.roomId() != null) {
             Room room = roomRepository.findById(request.roomId()).orElseThrow(() ->
                     new IllegalArgumentException("Unknown room"));
-            boolean vipAllowed = "VIP".equalsIgnoreCase(order.getRoomType()) || (service != null && service.isVip());
+            boolean vipAllowed = "VIP".equalsIgnoreCase(itemRoomType);
             if ("VIP".equalsIgnoreCase(room.getRoomType()) && !vipAllowed) {
-                throw new IllegalStateException("VIP room can only be selected for VIP-package orders");
+                throw new IllegalStateException("VIP room can only be selected for VIP packages");
             }
         boolean isPrivateOrVip = "PRIVATE".equalsIgnoreCase(room.getRoomType())
                 || "VIP".equalsIgnoreCase(room.getRoomType());
-        boolean isCouplePkg = orderItemRepository.findById(attendee.getOrderItemId())
-                .map(item -> packageRepository.findById(item.getPackageId())
-                        .map(Package::isCouple).orElse(false))
-                .orElse(false);
-        if (!isPrivateOrVip && !isCouplePkg && request.bedId() != null
+        UUID placingItemId = attendee.getOrderItemId();
+        if (!isPrivateOrVip && request.bedId() != null
                 && clientGender != null && !clientGender.isBlank()) {
                 List<Bed> roomBeds = bedRepository.findAllByRoomId(room.getId());
                 for (Bed bed : roomBeds) {
                     if (bed.getId().equals(request.bedId())) continue;
                     Map<Object, Object> occ = occupancyService.read(room.getId(), bed.getId());
                     if ("OCCUPIED".equals(occ.get("status"))) {
+                        Object owner = occ.get("ownerItemId");
+                        boolean samePackage = placingItemId != null && owner != null
+                                && placingItemId.toString().equals(owner.toString());
+                        if (samePackage) continue;
                         Object lock = occ.get("genderLock");
                         if (lock != null && !lock.toString().isEmpty() && !lock.toString().equals(clientGender)) {
                             throw new IllegalStateException("Gender conflict: this common room is occupied by " +
@@ -454,7 +767,7 @@ public class BookingService {
         sessionRepository.save(session);
         attendeeRepository.save(attendee);
 
-        if (booking != null && !order.isGroupBooking()) {
+        if (booking != null && !isMultiAttendeeOrder(order)) {
             booking.setActualStartAt(now);
             booking.setStatus("ACTIVE");
         }
@@ -474,7 +787,7 @@ public class BookingService {
             String nickname = booking != null ? booking.getClientNickname()
                     : (order.getTransactorName() == null ? "" : order.getTransactorName());
             occupancyService.occupy(organizationId, request.roomId(), request.bedId(),
-                    nickname, attendee.getLockerNumber(), therapistNickname, clientGender);
+                    nickname, attendee.getLockerNumber(), therapistNickname, clientGender, attendee.getOrderItemId());
         }
 
         if (request.primaryTherapistId() != null) {
@@ -496,7 +809,7 @@ public class BookingService {
             attendeeRepository.save(attendee);
         }
 
-        if (order.isGroupBooking() && booking != null && booking.getStatus() != null && !"ACTIVE".equals(booking.getStatus())) {
+        if (isMultiAttendeeOrder(order) && booking != null && booking.getStatus() != null && !"ACTIVE".equals(booking.getStatus())) {
             List<com.sumicare.cashier.domain.OrderItemAttendee> allAtts = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
             boolean allActive = allAtts.stream()
                     .filter(a -> a.getSessionId() != null)
@@ -516,8 +829,13 @@ public class BookingService {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
     public SessionResponse endSession(UUID organizationId, UUID sessionId) {
+        return endSessionAt(organizationId, sessionId, OffsetDateTime.now());
+    }
+
+    @Transactional
+    public SessionResponse endSessionAt(UUID organizationId, UUID sessionId, OffsetDateTime endTime) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = endTime != null ? endTime : OffsetDateTime.now();
         session.setEndedAt(now);
         session.setStatus("COMPLETED");
         sessionRepository.save(session);
@@ -525,7 +843,7 @@ public class BookingService {
         Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
 
         boolean isGroupSession = orderRepository.findByBookingId(booking.getId())
-                .map(Order::isGroupBooking)
+                .map(this::isMultiAttendeeOrder)
                 .orElse(false);
         if (!isGroupSession) {
             booking.setActualEndAt(now);
@@ -551,7 +869,7 @@ public class BookingService {
         slipRepository.save(slip);
 
         orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
-            if (!order.isGroupBooking()) {
+            if (!isMultiAttendeeOrder(order)) {
                 order.setTreatmentSlipId(slip.getId());
             }
             orderRepository.save(order);
@@ -564,7 +882,7 @@ public class BookingService {
             });
         }
 
-        posService.recordCommissionsForSession(organizationId, session);
+        orderService.recordCommissionsForSession(organizationId, session);
 
         UUID roomId = session.getRoomId();
         UUID bedId = session.getBedId();
@@ -578,14 +896,83 @@ public class BookingService {
                     Map.of("event", "SESSION_ENDED", "sessionId", session.getId()));
         }
 
+        maybeSendCompletionEmail(booking);
+
         return toSessionResponse(session);
+    }
+
+    private void maybeSendCompletionEmail(Booking booking) {
+        if (booking == null || !"COMPLETED".equals(booking.getStatus())) return;
+        if (booking.getClientEmail() == null || booking.getClientEmail().isBlank()) return;
+        Order order = orderRepository.findByBookingId(booking.getId()).orElse(null);
+        if (order == null || order.getCompletionEmailSentAt() != null) return;
+        BigDecimal total = order.getTotal() == null ? BigDecimal.ZERO : order.getTotal();
+        BigDecimal paid = order.getAmountPaid() == null ? BigDecimal.ZERO : order.getAmountPaid();
+        if (paid.compareTo(total) < 0) return;
+        try {
+            byte[] receipt = receiptPdfService.renderReceipt(order.getId());
+            List<EmailService.EmailAttachment> slips = new java.util.ArrayList<>();
+            int idx = 1;
+            for (TreatmentSlip slip : slipRepository.findAllByBookingId(booking.getId())) {
+                if ("VOIDED".equals(slip.getStatus())) continue;
+                byte[] pdf = treatmentSlipPdfService.renderSlip(slip.getId());
+                String label = slip.getTsn() != null && !slip.getTsn().isBlank() ? slip.getTsn() : String.valueOf(idx);
+                slips.add(new EmailService.EmailAttachment("treatment-slip-" + label + ".pdf", pdf));
+                idx++;
+            }
+            OffsetDateTime scheduled = booking.getScheduledAt();
+            EmailService.CompletionEmailPayload payload = new EmailService.CompletionEmailPayload(
+                    booking.getId().toString(),
+                    order.getOrNumber(),
+                    buildAvailedLines(order),
+                    formatManila(scheduled),
+                    formatManila(scheduled == null ? null : scheduled.plusMinutes(PREP_BUFFER_MINUTES)),
+                    total.toPlainString());
+            emailService.sendCompletionEmail(booking.getClientEmail(), booking.getClientNickname(), payload, receipt, slips);
+            order.setCompletionEmailSentAt(OffsetDateTime.now());
+            orderRepository.save(order);
+        } catch (Exception ex) {
+            log.warn("Could not send completion email for booking {}: {}", booking.getId(), ex.getMessage());
+        }
+    }
+
+    private List<String> buildAvailedLines(Order order) {
+        List<String> lines = new java.util.ArrayList<>();
+        for (com.sumicare.cashier.domain.OrderItem item : orderItemRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+            String packageName = item.getPackageId() == null ? "Service"
+                    : packageRepository.findById(item.getPackageId()).map(Package::getName).orElse("Package");
+            java.util.LinkedHashSet<String> services = new java.util.LinkedHashSet<>();
+            for (com.sumicare.cashier.domain.OrderItemAttendee att : attendeeRepository.findAllByOrderItemIdOrderByPosition(item.getId())) {
+                if (att.getServiceId() != null) {
+                    serviceRepository.findById(att.getServiceId())
+                            .ifPresent(s -> services.add(s.getName()));
+                }
+            }
+            String roomLabel = "VIP".equalsIgnoreCase(item.getRoomType()) ? "VIP room"
+                    : "PRIVATE".equalsIgnoreCase(item.getRoomType()) ? "Private room" : "Common room";
+            StringBuilder line = new StringBuilder(packageName);
+            if (!services.isEmpty()) {
+                line.append(" — ").append(String.join(", ", services));
+            }
+            line.append(" (").append(roomLabel).append(")");
+            lines.add(line.toString());
+        }
+        return lines;
+    }
+
+    private String formatManila(OffsetDateTime time) {
+        if (time == null) return "";
+        return time.atZoneSameInstant(java.time.ZoneId.of("Asia/Manila"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d yyyy h:mm a"));
     }
 
     @Transactional
     public void autoEndSession(UUID sessionId) {
         sessionRepository.findById(sessionId).ifPresent(session -> {
             if ("ACTIVE".equals(session.getStatus())) {
-                endSession(session.getOrganizationId(), sessionId);
+                OffsetDateTime endTime = session.getExpectedEndAt() != null
+                        ? session.getExpectedEndAt() : OffsetDateTime.now();
+                endSessionAt(session.getOrganizationId(), sessionId, endTime);
             }
         });
     }
@@ -630,16 +1017,13 @@ public class BookingService {
         if (session.isExtension()) {
             throw new IllegalStateException("This session has already been extended once. No further extensions are allowed.");
         }
+        if (isFixedRateSession(session)) {
+            throw new IllegalStateException("This service has a fixed duration and cannot be extended.");
+        }
         Order parentOrder = session.getBookingId() == null ? null
                 : orderRepository.findByBookingId(session.getBookingId()).orElse(null);
-        if (parentOrder != null) {
-            boolean vip = orderItemRepository.findAllByOrderIdOrderByPosition(parentOrder.getId()).stream()
-                    .anyMatch(it -> it.getPackageId() != null
-                            && packageRepository.findById(it.getPackageId())
-                                    .map(Package::isRequiresVipRoom).orElse(false));
-            if (vip) {
-                throw new IllegalStateException("VIP packages cannot be extended.");
-            }
+        if (isVipPackageSession(session)) {
+            throw new IllegalStateException("VIP packages cannot be extended.");
         }
 
         session.setExtension(true);
@@ -650,13 +1034,17 @@ public class BookingService {
 
         BigDecimal rate = (parentOrder != null && parentOrder.isWeekend())
                 ? new BigDecimal("900") : new BigDecimal("800");
-        BigDecimal commissionAmount = new BigDecimal("120");
+        int halfHours = (int) Math.ceil(additionalMinutes / 30.0);
+        BigDecimal commissionAmount = BigDecimal.valueOf(60L * halfHours);
 
         if (parentOrder != null) {
             BigDecimal newSubtotal = (parentOrder.getSubtotal() == null ? BigDecimal.ZERO : parentOrder.getSubtotal()).add(rate);
             BigDecimal newTotal = (parentOrder.getTotal() == null ? BigDecimal.ZERO : parentOrder.getTotal()).add(rate);
+            BigDecimal newExtension = (parentOrder.getExtensionAmount() == null ? BigDecimal.ZERO : parentOrder.getExtensionAmount()).add(rate);
             parentOrder.setSubtotal(newSubtotal);
             parentOrder.setTotal(newTotal);
+            parentOrder.setExtensionAmount(newExtension);
+            parentOrder.setExtensionMinutes(parentOrder.getExtensionMinutes() + additionalMinutes);
             orderRepository.save(parentOrder);
         }
 
@@ -673,6 +1061,15 @@ public class BookingService {
         }
 
         sessionRepository.save(session);
+
+        slipRepository.findBySessionId(session.getId()).ifPresent(slip -> {
+            slip.setExtensionMinutes(session.getExtensionMinutes());
+            if (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank()) {
+                slip.setOthersAddOn("Massage extension: +" + session.getExtensionMinutes() + " min");
+            }
+            slipRepository.save(slip);
+        });
+
         return toSessionResponse(session);
     }
 
@@ -706,7 +1103,8 @@ public class BookingService {
         int ended = 0;
         for (Session s : expired) {
             try {
-                endSession(organizationId, s.getId());
+                OffsetDateTime endTime = s.getExpectedEndAt() != null ? s.getExpectedEndAt() : OffsetDateTime.now();
+                endSessionAt(organizationId, s.getId(), endTime);
                 ended++;
             } catch (Exception ex) {
                 log.warn("autoEndExpiredSessions failed to end session {}: {}", s.getId(), ex.getMessage());
@@ -720,12 +1118,85 @@ public class BookingService {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown service: " + serviceId));
     }
 
+    private boolean isFixedRateSession(Session session) {
+        Long serviceId = null;
+        if (session.getAttendeeId() != null) {
+            serviceId = attendeeRepository.findById(session.getAttendeeId())
+                    .map(com.sumicare.cashier.domain.OrderItemAttendee::getServiceId)
+                    .orElse(null);
+        }
+        if (serviceId == null && session.getBookingId() != null) {
+            serviceId = bookingRepository.findById(session.getBookingId())
+                    .map(Booking::getServiceId)
+                    .orElse(null);
+        }
+        if (serviceId == null) {
+            return false;
+        }
+        return serviceRepository.findById(serviceId).map(Service::isFixedRate).orElse(false);
+    }
+
+    private boolean isVipPackageSession(Session session) {
+        if (session.getAttendeeId() == null) {
+            return false;
+        }
+        return attendeeRepository.findById(session.getAttendeeId())
+                .map(com.sumicare.cashier.domain.OrderItemAttendee::getOrderItemId)
+                .flatMap(orderItemRepository::findById)
+                .map(com.sumicare.cashier.domain.OrderItem::getPackageId)
+                .flatMap(packageRepository::findById)
+                .map(Package::isRequiresVipRoom)
+                .orElse(false);
+    }
+
+    private boolean isMultiAttendeeOrder(Order order) {
+        return attendeeRepository.findAllByOrderIdOrderByPosition(order.getId()).size() > 1;
+    }
+
+    private void validateVipMassageDuration(boolean vipPackage, Long serviceId) {
+        if (!vipPackage || serviceId == null) {
+            return;
+        }
+        int duration = serviceRepository.findById(serviceId).map(Service::getDurationMinutes).orElse(0);
+        if (duration > 60) {
+            throw new IllegalArgumentException("VIP packages allow massages up to 60 minutes only");
+        }
+    }
+
     private BookingResponse toBookingResponse(Booking b, Service s) {
         OffsetDateTime effectiveStart = b.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
-        OffsetDateTime projectedEnd = effectiveStart.plusMinutes(s.getDurationMinutes());
-        UUID orderId = orderRepository.findByBookingId(b.getId())
-                .map(com.sumicare.cashier.domain.Order::getId)
-                .orElse(null);
+        int maxDuration = s.getDurationMinutes();
+        com.sumicare.cashier.domain.Order order = orderRepository.findByBookingId(b.getId()).orElse(null);
+        UUID orderId = order == null ? null : order.getId();
+        if (order != null) {
+            List<com.sumicare.cashier.domain.OrderItemAttendee> atts =
+                    attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
+            int sessionMax = 0;
+            OffsetDateTime latestExpectedEnd = null;
+            for (com.sumicare.cashier.domain.OrderItemAttendee a : atts) {
+                Long sid = a.getServiceId() != null ? a.getServiceId() : b.getServiceId();
+                if (sid != null) {
+                    Service svc = serviceRepository.findById(sid).orElse(null);
+                    if (svc != null) sessionMax = Math.max(sessionMax, svc.getDurationMinutes());
+                }
+                if (a.getSessionId() != null) {
+                    Session sess = sessionRepository.findById(a.getSessionId()).orElse(null);
+                    if (sess != null && sess.getExpectedEndAt() != null) {
+                        if (latestExpectedEnd == null || sess.getExpectedEndAt().isAfter(latestExpectedEnd)) {
+                            latestExpectedEnd = sess.getExpectedEndAt();
+                        }
+                    }
+                }
+            }
+            if (sessionMax > 0) maxDuration = Math.max(maxDuration, sessionMax);
+            OffsetDateTime projectedEnd = latestExpectedEnd != null
+                    ? latestExpectedEnd
+                    : effectiveStart.plusMinutes(maxDuration);
+            return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
+                    b.getServiceId(), b.getReservationType(), effectiveStart,
+                    projectedEnd, b.getStatus(), orderId, b.getNationality());
+        }
+        OffsetDateTime projectedEnd = effectiveStart.plusMinutes(maxDuration);
         return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), effectiveStart,
                 projectedEnd, b.getStatus(), orderId, b.getNationality());

@@ -3,7 +3,10 @@ package com.sumicare.cashier.controller;
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.cashier.dto.CreateOrderRequest;
 import com.sumicare.cashier.dto.OrderResponse;
+import com.sumicare.cashier.dto.PayMongoConfirmRequest;
+import com.sumicare.cashier.dto.PayMongoInitiateResponse;
 import com.sumicare.cashier.dto.RecordPaymentRequest;
+import com.sumicare.cashier.dto.RefundRequest;
 import com.sumicare.cashier.service.OrderService;
 import com.sumicare.print.ReceiptPdfService;
 import jakarta.validation.Valid;
@@ -44,7 +47,8 @@ public class OrderController {
     public OrderResponse update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                 @PathVariable UUID id,
                                 @Valid @RequestBody CreateOrderRequest request) {
-        return orderService.update(UUID.fromString(principal.organizationId()), id, request);
+        return orderService.update(UUID.fromString(principal.organizationId()), id,
+                UUID.fromString(principal.userId()), request);
     }
 
     @GetMapping
@@ -71,6 +75,33 @@ public class OrderController {
                                        @PathVariable UUID id,
                                        @Valid @RequestBody RecordPaymentRequest request) {
         return orderService.recordPayment(UUID.fromString(principal.organizationId()), id,
+                UUID.fromString(principal.userId()), request);
+    }
+
+    @PostMapping("/{id}/paymongo/initiate")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public PayMongoInitiateResponse initiatePayMongo(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                                     @PathVariable UUID id,
+                                                     @Valid @RequestBody RecordPaymentRequest request) {
+        return orderService.initiatePayMongo(UUID.fromString(principal.organizationId()), id,
+                UUID.fromString(principal.userId()), request);
+    }
+
+    @PostMapping("/{id}/paymongo/confirm")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public OrderResponse confirmPayMongo(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                         @PathVariable UUID id,
+                                         @Valid @RequestBody PayMongoConfirmRequest request) {
+        return orderService.confirmPayMongo(UUID.fromString(principal.organizationId()), id,
+                UUID.fromString(principal.userId()), request);
+    }
+
+    @PostMapping("/{id}/refund")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public OrderResponse refund(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                @PathVariable UUID id,
+                                @Valid @RequestBody RefundRequest request) {
+        return orderService.refundOrder(UUID.fromString(principal.organizationId()), id,
                 UUID.fromString(principal.userId()), request);
     }
 

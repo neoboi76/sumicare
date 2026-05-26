@@ -42,7 +42,6 @@ public class ServiceAdminController {
         if (updates.getCategory() != null) service.setCategory(updates.getCategory());
         service.setRequiresTwoTherapists(updates.isRequiresTwoTherapists());
         service.setFixedRate(updates.isFixedRate());
-        service.setVip(updates.isVip());
         if (updates.getDescription() != null) service.setDescription(updates.getDescription());
         if (updates.getImageUrl() != null) service.setImageUrl(updates.getImageUrl());
         return service;

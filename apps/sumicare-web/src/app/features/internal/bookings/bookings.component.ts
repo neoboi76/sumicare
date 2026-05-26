@@ -7,6 +7,8 @@ import { ConfirmService } from '../../../shared/components/confirm-dialog/confir
 import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
 import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
 import { SortState, sortRows } from '../../../shared/utils/compare-by';
+import { LockerLabelPipe } from '../../../shared/pipes/locker-label.pipe';
+import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
 
 interface BookingResponse {
   id: string;
@@ -42,7 +44,7 @@ interface ServiceItem {
   durationMinutes: number;
   price: number;
   requiresTwoTherapists: boolean;
-  vip: boolean;
+  fixedRate: boolean;
 }
 
 interface LineupTherapist {
@@ -87,6 +89,7 @@ interface OrderAttendee {
   clientGender: string | null;
   sessionId: string | null;
   sessionStatus: string | null;
+  sessionExtended: boolean;
   treatmentSlipId: string | null;
 }
 
@@ -95,6 +98,7 @@ interface OrderItemLite {
   packageId: number | null;
   packageName: string;
   unitPrice: number;
+  roomType: string | null;
   attendees: OrderAttendee[];
 }
 
@@ -105,13 +109,14 @@ interface OrderLite {
   roomType: string | null;
   groupBooking: boolean;
   couplePackage: boolean;
+  treatmentSlipId: string | null;
   items: OrderItemLite[];
 }
 
 @Component({
   selector: 'sumi-bookings',
   standalone: true,
-  imports: [FormsModule, RouterLink, SortableColumnDirective, SortIconComponent],
+  imports: [FormsModule, RouterLink, SortableColumnDirective, SortIconComponent, LockerLabelPipe, PaginatorComponent],
   templateUrl: './bookings.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -121,7 +126,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private confirmService = inject(ConfirmService);
   private therapistRefreshTimer: any;
 
-  selectedDate = signal(new Date().toISOString().slice(0, 10));
+  selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
   bookings = signal<BookingResponse[]>([]);
   services = signal<ServiceItem[]>([]);
   lineup = signal<LineupTherapist[]>([]);
@@ -140,7 +145,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   startRoomId = signal<string | null>(null);
   startBedId = signal<string | null>(null);
   startSpecificallyRequested = signal(false);
-  startOrderRoomType = signal<string | null>(null);
+  startRoomType = signal<string | null>(null);
 
   editBooking = signal<BookingResponse | null>(null);
   editServiceId = signal<number>(0);
@@ -168,6 +173,14 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   });
 
+  currentPage = signal(0);
+  pageSize = signal(15);
+
+  pagedBookings = computed(() => {
+    const start = this.currentPage() * this.pageSize();
+    return this.sortedBookings().slice(start, start + this.pageSize());
+  });
+
   availableTherapists = computed(() => {
     return this.lineup().filter(t => !t.onCall && !t.skipped);
   });
@@ -183,8 +196,25 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return order.items.some(it => it.packageId != null && vip.has(it.packageId));
   }
 
-  isVipAttendee(_a: OrderAttendee, b: BookingResponse): boolean {
-    return this.isVipBooking(b);
+  isVipAttendee(a: OrderAttendee, b: BookingResponse): boolean {
+    const order = this.ordersByBooking().get(b.id);
+    if (!order || !order.items) return false;
+    const item = order.items.find(it => it.attendees.some(att => att.id === a.id));
+    if (!item || item.packageId == null) return false;
+    return this.vipPackageIds().has(item.packageId);
+  }
+
+  private isFixedService(serviceId: number | null): boolean {
+    if (serviceId == null) return false;
+    return this.services().find(s => s.id === serviceId)?.fixedRate ?? false;
+  }
+
+  isFixedBooking(b: BookingResponse): boolean {
+    return this.isFixedService(b.serviceId);
+  }
+
+  isFixedAttendee(a: OrderAttendee, b: BookingResponse): boolean {
+    return this.isFixedService(a.serviceId ?? b.serviceId);
   }
 
   selectedStartService = computed(() => {
@@ -217,15 +247,17 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startBedId() !== null
   );
 
-  isCouplePackage = computed(() => {
+  startItemId = computed(() => {
+    const attId = this.startAttendeeId();
     const booking = this.startBooking();
-    if (!booking) return false;
-    const ord = this.ordersByBooking().get(booking.id);
-    return ord?.couplePackage ?? false;
+    if (!attId || !booking) return null;
+    const order = this.ordersByBooking().get(booking.id);
+    const item = order?.items?.find(it => it.attendees.some(a => a.id === attId));
+    return item?.id ?? null;
   });
 
   filteredStartRooms = computed(() => {
-    const rt = this.startOrderRoomType();
+    const rt = this.startRoomType();
     const all = this.rooms();
     if (!rt) return all;
     const want = rt.toUpperCase();
@@ -260,6 +292,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.http.get<BookingResponse[]>(`${environment.apiBaseUrl}/api/bookings${params}`).subscribe({
       next: (b) => {
         this.bookings.set(b);
+        this.currentPage.set(0);
         this.loadOrderStatuses(b);
       },
       error: () => this.bookings.set([])
@@ -295,6 +328,22 @@ export class BookingsComponent implements OnInit, OnDestroy {
     const order = this.ordersByBooking().get(bookingId);
     if (!order || !order.items) return 0;
     return order.items.reduce((sum, it) => sum + (it.attendees ? it.attendees.length : 0), 0);
+  }
+
+  private singleAttendee(bookingId: string): OrderAttendee | null {
+    const order = this.ordersByBooking().get(bookingId);
+    const attendees = order?.items?.flatMap(it => it.attendees) ?? [];
+    return attendees.length === 1 ? attendees[0] : null;
+  }
+
+  singleSlipId(b: BookingResponse): string | null {
+    const single = this.singleAttendee(b.id);
+    if (single?.treatmentSlipId) return single.treatmentSlipId;
+    return this.ordersByBooking().get(b.id)?.treatmentSlipId ?? null;
+  }
+
+  bookingSessionExtended(b: BookingResponse): boolean {
+    return this.singleAttendee(b.id)?.sessionExtended ?? false;
   }
 
   toggleExpand(bookingId: string): void {
@@ -360,6 +409,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.services().find(s => s.id === id)?.name ?? '-';
   }
 
+  sourceLabel(b: BookingResponse): string {
+    return b.reservationType === 'WALK_IN' ? 'Walk-in' : 'Online';
+  }
+
   activeStartGender(): string | null {
     return this.startAttendeeGender() ?? this.startBooking()?.clientGender ?? null;
   }
@@ -374,11 +427,12 @@ export class BookingsComponent implements OnInit, OnDestroy {
   isRoomSelectableForGender(room: RoomItem, clientGender: string | null | undefined): boolean {
     if ((room.roomType || '').toUpperCase() !== 'COMMON') return true;
     if (!clientGender) return true;
-    if (this.isCouplePackage()) return true;
+    const myItem = this.startItemId();
     return !room.beds.some(b =>
       b.occupancy['status'] === 'OCCUPIED' &&
       b.occupancy['genderLock'] &&
-      b.occupancy['genderLock'] !== clientGender
+      b.occupancy['genderLock'] !== clientGender &&
+      b.occupancy['ownerItemId'] !== myItem
     );
   }
 
@@ -414,32 +468,41 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.startBedId.set(bed.id);
   }
 
-  private resetStartForm(b: BookingResponse): void {
+  private roomTypeForAttendee(order: OrderLite | null | undefined, attendeeId: string | null): string | null {
+    if (!order) return null;
+    if (attendeeId) {
+      const item = order.items?.find(it => it.attendees.some(a => a.id === attendeeId));
+      if (item) return item.roomType ?? null;
+    }
+    return order.roomType ?? null;
+  }
+
+  private resetStartForm(b: BookingResponse, attendeeId: string | null): void {
     this.startBooking.set(b);
     this.startPrimaryTherapistId.set(null);
     this.startSecondaryTherapistId.set(null);
     this.startRoomId.set(null);
     this.startBedId.set(null);
     this.startSpecificallyRequested.set(false);
-    const order = this.ordersByBooking().get(b.id);
-    this.startOrderRoomType.set(order ? (order.roomType ?? null) : null);
+    const cached = this.ordersByBooking().get(b.id);
+    this.startRoomType.set(this.roomTypeForAttendee(cached, attendeeId));
     this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/by-booking/${b.id}`).subscribe({
-      next: (o) => this.startOrderRoomType.set(o.roomType ?? null),
-      error: () => { /* no order yet — show all rooms */ }
+      next: (o) => this.startRoomType.set(this.roomTypeForAttendee(o, attendeeId)),
+      error: () => { }
     });
     this.refreshLineup();
   }
 
   openStart(b: BookingResponse): void {
-    this.resetStartForm(b);
     const order = this.ordersByBooking().get(b.id);
     const attendees = order?.items?.flatMap(it => it.attendees) ?? [];
-    if (attendees.length === 1) {
-      const a = attendees[0];
-      this.startAttendeeId.set(a.id);
-      this.startAttendeeServiceId.set(a.serviceId ?? null);
-      this.startAttendeeGender.set(a.clientGender ?? b.clientGender ?? null);
-      this.startAttendeeLabel.set(a.serviceName || b.clientNickname);
+    const single = attendees.length === 1 ? attendees[0] : null;
+    this.resetStartForm(b, single?.id ?? null);
+    if (single) {
+      this.startAttendeeId.set(single.id);
+      this.startAttendeeServiceId.set(single.serviceId ?? null);
+      this.startAttendeeGender.set(single.clientGender ?? b.clientGender ?? null);
+      this.startAttendeeLabel.set(single.serviceName || b.clientNickname);
     } else {
       this.startAttendeeId.set(null);
       this.startAttendeeServiceId.set(null);
@@ -449,7 +512,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   openStartForAttendee(b: BookingResponse, attendee: OrderAttendee): void {
-    this.resetStartForm(b);
+    this.resetStartForm(b, attendee.id);
     this.startAttendeeId.set(attendee.id);
     this.startAttendeeServiceId.set(attendee.serviceId ?? null);
     this.startAttendeeGender.set(attendee.clientGender ?? b.clientGender ?? null);
@@ -558,34 +621,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
         next: () => this.reload(),
         error: (err) => this.extendError.set(err?.error?.message || 'Could not extend the session.')
       });
-    });
-  }
-
-
-  async generateSlip(b: BookingResponse): Promise<void> {
-    const confirmed = await this.confirmService.confirm({
-      title: 'Generate Treatment Slip',
-      message: 'Generate a treatment slip for this session?',
-      confirmText: 'Generate'
-    });
-    if (!confirmed) return;
-    this.lookupSession(b.id).subscribe(session => {
-      if (!session) return;
-      this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${session.id}`, {}).subscribe({
-        next: (slip) => this.router.navigate(['/app/treatment-slips', slip.id])
-      });
-    });
-  }
-
-  async generateSlipForSession(sessionId: string): Promise<void> {
-    const confirmed = await this.confirmService.confirm({
-      title: 'Generate Treatment Slip',
-      message: 'Generate a treatment slip for this sub-session?',
-      confirmText: 'Generate'
-    });
-    if (!confirmed) return;
-    this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips/from-session/${sessionId}`, {}).subscribe({
-      next: (slip) => this.router.navigate(['/app/treatment-slips', slip.id])
     });
   }
 

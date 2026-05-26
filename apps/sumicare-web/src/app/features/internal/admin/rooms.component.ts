@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
+import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
 
 interface Room {
   id: string;
@@ -24,7 +25,7 @@ interface Bed {
 @Component({
   selector: 'sumi-admin-rooms',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PaginatorComponent],
   templateUrl: './rooms.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -44,6 +45,14 @@ export class RoomsAdminComponent implements OnInit {
   formBedLabel = '';
   formBedRow = 0;
 
+  currentPage = signal(0);
+  pageSize = signal(10);
+
+  pagedRooms = computed(() => {
+    const start = this.currentPage() * this.pageSize();
+    return this.rooms().slice(start, start + this.pageSize());
+  });
+
   ngOnInit(): void {
     this.reload();
   }
@@ -52,6 +61,7 @@ export class RoomsAdminComponent implements OnInit {
     this.http.get<Room[]>(`${environment.apiBaseUrl}/api/admin/rooms`).subscribe({
       next: (r) => {
         this.rooms.set(r);
+        this.currentPage.set(0);
         r.forEach(room => this.loadBeds(room.id));
       }
     });

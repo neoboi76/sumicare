@@ -1,0 +1,40 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div class="bg-[#1f3a8a] text-white px-6 py-4">
+            <div class="text-sm uppercase tracking-widest opacity-80">PayMongo</div>
+            <div class="text-lg font-semibold">Authorize payment</div>
+        </div>
+        <div class="px-6 py-6 space-y-4">
+            <p class="text-sm text-slate-600">
+                Confirm your {{ methodLabel() }} payment to complete the transaction. This authorization page
+                stands in for the PayMongo hosted checkout while running in test mode.
+            </p>
+            <dl class="rounded-lg border border-slate-200 divide-y divide-slate-100 text-sm">
+                <div class="flex justify-between px-3 py-2">
+                    <dt class="text-slate-500">Method</dt>
+                    <dd class="font-medium text-slate-800">{{ methodLabel() }}</dd>
+                </div>
+                <div class="flex justify-between px-3 py-2">
+                    <dt class="text-slate-500">Amount</dt>
+                    <dd class="font-medium text-slate-800">&#8369; {{ amount() }}</dd>
+                </div>
+                <div class="flex justify-between px-3 py-2">
+                    <dt class="text-slate-500">Reference</dt>
+                    <dd class="font-mono text-xs text-slate-600">{{ intentId() }}</dd>
+                </div>
+            </dl>
+            <div class="space-y-2 pt-2">
+                <button type="button" (click)="authorize()" [disabled]="processing()"
+                    class="w-full py-2.5 rounded-lg text-white font-medium disabled:opacity-50"
+                    [style.backgroundColor]="'#1f3a8a'">
+                    Authorize &#8369; {{ amount() }}
+                </button>
+                <button type="button" (click)="cancel()" [disabled]="processing()"
+                    class="w-full py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-50">
+                    Cancel
+                </button>
+            </div>
+            <p class="text-[11px] text-slate-400 text-center">Test mode — no real funds are moved.</p>
+        </div>
+    </div>
+</div>

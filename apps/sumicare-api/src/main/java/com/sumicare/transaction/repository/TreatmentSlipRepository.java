@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface TreatmentSlipRepository extends JpaRepository<TreatmentSlip, UUID> {
     List<TreatmentSlip> findAllByOrganizationIdAndCreatedAtBetween(UUID organizationId, OffsetDateTime from, OffsetDateTime to);
     Optional<TreatmentSlip> findBySessionId(UUID sessionId);
+    List<TreatmentSlip> findAllByBookingId(UUID bookingId);
 }

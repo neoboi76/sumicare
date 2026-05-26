@@ -69,12 +69,11 @@ sumicare:
     publicBaseUrl: ${APP_PUBLIC_BASE_URL}
     emailFrom: ${EMAIL_FROM:noreply@sumicare.app}
   payment:
-    stripe:
-      secretKey: ${STRIPE_SECRET_KEY}
-      webhookSecret: ${STRIPE_WEBHOOK_SECRET}
     paymongo:
       secretKey: ${PAYMONGO_SECRET_KEY}
+      publicKey: ${PAYMONGO_PUBLIC_KEY:}
       webhookSecret: ${PAYMONGO_WEBHOOK_SECRET}
+      mockMode: ${PAYMONGO_MOCK_MODE:true}
 
 management:
   endpoints:

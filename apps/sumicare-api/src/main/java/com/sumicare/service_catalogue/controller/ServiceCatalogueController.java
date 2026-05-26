@@ -37,7 +37,7 @@ public class ServiceCatalogueController {
                 UUID.fromString(principal.organizationId()));
         StringBuilder sb = new StringBuilder();
         sb.append("Code,Name,Category,Duration (min),Price (PHP),Commission (PHP),")
-                .append("VIP,Fixed Rate,Requires Two Therapists,Description\r\n");
+                .append("Fixed Rate,Requires Two Therapists,Description\r\n");
         for (Service s : services) {
             sb.append(csvCell(s.getCode())).append(',')
                     .append(csvCell(s.getName())).append(',')
@@ -45,7 +45,6 @@ public class ServiceCatalogueController {
                     .append(s.getDurationMinutes()).append(',')
                     .append(formatMoney(s.getPrice())).append(',')
                     .append(formatMoney(s.getCommissionAmount())).append(',')
-                    .append(s.isVip() ? "Yes" : "No").append(',')
                     .append(s.isFixedRate() ? "Yes" : "No").append(',')
                     .append(s.isRequiresTwoTherapists() ? "Yes" : "No").append(',')
                     .append(csvCell(s.getDescription()))

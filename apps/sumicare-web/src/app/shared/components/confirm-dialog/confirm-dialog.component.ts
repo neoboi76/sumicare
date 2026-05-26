@@ -1,44 +1,52 @@
-import { Component, inject } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, ViewChild, effect, inject } from '@angular/core';
 import { ConfirmService } from './confirm.service';
 
 @Component({
-  selector: 'sumi-confirm-dialog',
-  standalone: true,
-  template: `
-    @if (config()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" (click)="cancel()"></div>
-        <div class="relative bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-left transform transition-all">
-          <h3 class="text-lg font-semibold text-slate-900 mb-2">{{ config()!.title }}</h3>
-          <p class="text-sm text-slate-600 mb-6">{{ config()!.message }}</p>
-          <div class="flex items-center justify-end gap-3">
-            <button (click)="cancel()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200">
-              {{ config()!.cancelText || 'Cancel' }}
-            </button>
-            <button (click)="confirm()" 
-                    class="px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2"
-                    [class.bg-rose-600]="config()!.danger"
-                    [class.hover:bg-rose-700]="config()!.danger"
-                    [class.focus:ring-rose-600]="config()!.danger"
-                    [class.bg-\[var\(--sumi-primary\)\]]="!config()!.danger"
-                    [class.hover:opacity-90]="!config()!.danger">
-              {{ config()!.confirmText || 'Confirm' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-  `
+    selector: 'sumi-confirm-dialog',
+    standalone: true,
+    templateUrl: './confirm-dialog.component.html',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ConfirmDialogComponent {
-  private service = inject(ConfirmService);
-  config = this.service.config;
+export class ConfirmDialogComponent implements AfterViewInit {
+    private service = inject(ConfirmService);
+    config = this.service.config;
 
-  cancel() {
-    this.service.respond(false);
-  }
+    @ViewChild('confirmBtn') confirmBtn?: ElementRef<HTMLButtonElement>;
 
-  confirm() {
-    this.service.respond(true);
-  }
+    constructor() {
+        effect(() => {
+            if (this.config()) {
+                queueMicrotask(() => this.confirmBtn?.nativeElement.focus());
+            }
+        });
+    }
+
+    ngAfterViewInit(): void {
+        if (this.config()) {
+            this.confirmBtn?.nativeElement.focus();
+        }
+    }
+
+    @HostListener('document:keydown.enter', ['$event'])
+    onEnter(event: Event): void {
+        if (!this.config()) return;
+        const target = event.target as HTMLElement | null;
+        if (target && (target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+        event.preventDefault();
+        this.confirm();
+    }
+
+    @HostListener('document:keydown.escape')
+    onEscape(): void {
+        if (!this.config()) return;
+        this.cancel();
+    }
+
+    cancel() {
+        this.service.respond(false);
+    }
+
+    confirm() {
+        this.service.respond(true);
+    }
 }

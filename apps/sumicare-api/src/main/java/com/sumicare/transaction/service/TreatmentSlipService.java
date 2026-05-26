@@ -70,10 +70,18 @@ public class TreatmentSlipService {
     public TreatmentSlip generateForSession(UUID organizationId, UUID sessionId) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
 
-        Optional<TreatmentSlip> existing = slipRepository.findBySessionId(sessionId);
+        com.sumicare.cashier.domain.OrderItemAttendee attendee = session.getAttendeeId() != null
+                ? attendeeRepository.findById(session.getAttendeeId()).orElse(null)
+                : null;
+
+        Optional<TreatmentSlip> existing = slipRepository.findBySessionId(sessionId)
+                .or(() -> attendee != null && attendee.getTreatmentSlipId() != null
+                        ? slipRepository.findById(attendee.getTreatmentSlipId())
+                        : Optional.empty());
         TreatmentSlip slip;
         if (existing.isPresent()) {
             slip = existing.get();
+            slip.setSessionId(session.getId());
             if (!slip.isWaiverAccepted()) {
                 slip.setWaiverAccepted(true);
                 slip.setWaiverAcceptedAt(OffsetDateTime.now());
@@ -87,13 +95,27 @@ public class TreatmentSlipService {
             slip.setWaiverAccepted(true);
             slip.setWaiverAcceptedAt(OffsetDateTime.now());
         }
-        
+
+        if (attendee != null) {
+            slip.setAttendeeId(attendee.getId());
+            if (attendee.getClientGender() != null && !attendee.getClientGender().isBlank()) {
+                slip.setClientGender(attendee.getClientGender());
+            }
+        }
+
         Booking booking = session.getBookingId() != null ? bookingRepository.findById(session.getBookingId()).orElse(null) : null;
         if (booking != null) {
             slip.setBookingId(booking.getId());
             slip.setClientNickname(booking.getClientNickname());
-            slip.setLockerNumber(booking.getLockerNumber());
+            String locker = attendee != null && attendee.getLockerNumber() != null && !attendee.getLockerNumber().isBlank()
+                    ? attendee.getLockerNumber()
+                    : booking.getLockerNumber();
+            slip.setLockerNumber(locker);
             slip.setPax(booking.getPax());
+            if ((slip.getClientGender() == null || slip.getClientGender().isBlank())
+                    && booking.getClientGender() != null && !booking.getClientGender().isBlank()) {
+                slip.setClientGender(booking.getClientGender());
+            }
             if (booking.getClientId() != null) {
                 clientRepository.findById(booking.getClientId())
                         .ifPresent(c -> slip.setNationality(c.getNationality()));
@@ -123,40 +145,55 @@ public class TreatmentSlipService {
                     .ifPresent(t -> slip.setRequestedTherapistNickname(t.getNickname()));
         }
 
+        boolean packageVip = false;
+        if (attendee != null && attendee.getOrderItemId() != null) {
+            var item = orderItemRepository.findById(attendee.getOrderItemId()).orElse(null);
+            if (item != null && item.getPackageId() != null) {
+                var pkg = packageRepository.findById(item.getPackageId()).orElse(null);
+                if (pkg != null) {
+                    packageVip = pkg.isRequiresVipRoom();
+                    if (slip.getPackageName() == null) {
+                        slip.setPackageName(pkg.getName());
+                    }
+                }
+            }
+        }
+
+        Long resolvedServiceId = attendee != null && attendee.getServiceId() != null
+                ? attendee.getServiceId()
+                : (booking != null ? booking.getServiceId() : null);
+        if (slip.getServiceName() == null && resolvedServiceId != null) {
+            var service = serviceRepository.findById(resolvedServiceId).orElse(null);
+            if (service != null) {
+                slip.setServiceName(service.getName());
+                slip.setTreatmentMinutes(service.getDurationMinutes());
+            }
+        }
+
+        slip.setVip(packageVip);
+        if (packageVip) {
+            if (slip.getJacuzziMinutes() == null) slip.setJacuzziMinutes(60);
+            if (slip.getMassageMinutes() == null) slip.setMassageMinutes(60);
+            if (slip.getWineIncluded() == null) slip.setWineIncluded(true);
+        }
+
         if (booking != null) {
             orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
                 if (order.getOrNumber() != null && !order.getOrNumber().isBlank()) {
                     slip.setOrNumber(order.getOrNumber());
                 }
-                if (order.getTotal() != null && slip.getTotalAmount() == null) {
+                if (order.getTotal() != null) {
                     slip.setTotalAmount(order.getTotal());
                 }
             });
         }
 
-        if (slip.getServiceName() == null && booking != null) {
-            var service = serviceRepository.findById(booking.getServiceId()).orElse(null);
-            if (service != null) {
-                slip.setServiceName(service.getName());
-                slip.setVip(service.isVip());
-                slip.setTotalAmount(service.getPrice());
-                if (!service.isVip()) {
-                    slip.setTreatmentMinutes(service.getDurationMinutes());
-                }
+        if (session.isExtension()) {
+            int minutes = session.getExtensionMinutes() > 0 ? session.getExtensionMinutes() : 60;
+            slip.setExtensionMinutes(minutes);
+            if (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank()) {
+                slip.setOthersAddOn("Massage extension: +" + minutes + " min");
             }
-        }
-
-        if (slip.getPackageName() == null && session.getAttendeeId() != null) {
-            attendeeRepository.findById(session.getAttendeeId()).ifPresent(att -> {
-                if (att.getOrderItemId() != null) {
-                    orderItemRepository.findById(att.getOrderItemId()).ifPresent(item -> {
-                        if (item.getPackageId() != null) {
-                            packageRepository.findById(item.getPackageId())
-                                    .ifPresent(pkg -> slip.setPackageName(pkg.getName()));
-                        }
-                    });
-                }
-            });
         }
 
         return slipRepository.save(slip);
@@ -209,7 +246,9 @@ public class TreatmentSlipService {
     }
 
     private String generateTsn() {
-        return "TS" + System.currentTimeMillis() % 100000;
+        int first = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
+        int second = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
+        return String.format("%03d-%03d", first, second);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")

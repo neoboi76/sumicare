@@ -1,11 +1,11 @@
 <div>
-  <header class="flex items-baseline justify-between">
+  <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Bookings</h1>
       <p class="text-slate-500">Today's reservations and walk-ins. Always allow 15 minutes between sessions for room
         preparation.</p>
     </div>
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate"
         class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
       <button (click)="exportCsv()"
@@ -14,8 +14,8 @@
     </div>
   </header>
 
-  <section class="bg-white rounded-xl shadow overflow-hidden">
-    <table class="w-full text-sm">
+  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+    <table class="w-full text-sm min-w-[720px]">
       <thead class="bg-slate-100">
         <tr>
           <th class="text-left p-3" [sumiSortable]="'scheduledAt'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
@@ -46,7 +46,7 @@
         @if (extendError(); as ee) {
           <tr><td colspan="8" class="p-3 text-sm text-red-700 bg-red-50">{{ ee }}</td></tr>
         }
-        @for (b of sortedBookings(); track b.id) {
+        @for (b of pagedBookings(); track b.id) {
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono text-xs">{{ formatTime(b.scheduledAt) }}</td>
           <td class="p-3 font-medium">
@@ -57,12 +57,19 @@
             </button>
             }
           </td>
-          <td class="p-3">{{ b.lockerNumber || '-' }}</td>
-          <td class="p-3">{{ serviceName(b.serviceId) }}</td>
+          <td class="p-3">{{ (b.lockerNumber | lockerLabel:b.clientGender) || '-' }}</td>
+          <td class="p-3">@if (attendeeCount(b.id) <= 1) { {{ serviceName(b.serviceId) }} }</td>
           <td class="p-3">
-            <span
-              [class]="'rounded-full px-2 py-0.5 text-xs ' + (b.reservationType === 'HARD' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')">{{
-              b.reservationType }}</span>
+            <div class="flex flex-wrap items-center gap-1">
+              <span
+                [class]="'rounded-full px-2 py-0.5 text-xs ' + (sourceLabel(b) === 'Online' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700')">{{
+                sourceLabel(b) }}</span>
+              @if (b.reservationType !== 'WALK_IN') {
+              <span
+                [class]="'rounded-full px-2 py-0.5 text-xs ' + (b.reservationType === 'HARD' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')">{{
+                b.reservationType }}</span>
+              }
+            </div>
           </td>
           <td class="p-3">{{ b.status }}</td>
           <td class="p-3">
@@ -118,10 +125,17 @@
               <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
               } @else {
               <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
-              @if (!isVipBooking(b)) {
+              @if (!isVipBooking(b) && !isFixedBooking(b) && !bookingSessionExtended(b)) {
                 <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+1 hr</button>
               }
-              <button (click)="generateSlip(b)" class="text-blue-700 hover:underline">Slip</button>
+              @if (singleSlipId(b); as slipId) {
+                <a [routerLink]="['/app/treatment-slips', slipId]" class="text-[var(--sumi-primary)] hover:underline">View slip</a>
+              }
+              }
+            }
+            @if (b.status === 'COMPLETED' && attendeeCount(b.id) <= 1) {
+              @if (singleSlipId(b); as slipId) {
+              <a [routerLink]="['/app/treatment-slips', slipId]" class="text-[var(--sumi-primary)] hover:underline">View slip</a>
               }
             }
           </td>
@@ -150,7 +164,7 @@
                   <tr class="border-t border-slate-200">
                     <td class="py-1">{{ it.packageName }}</td>
                     <td class="py-1">{{ a.serviceName || '—' }}</td>
-                    <td class="py-1">{{ a.lockerNumber || '—' }}</td>
+                    <td class="py-1">{{ (a.lockerNumber | lockerLabel:a.clientGender) || '—' }}</td>
                     <td class="py-1">{{ a.clientGender || '—' }}</td>
                     <td class="py-1">
                       @if (a.sessionStatus === 'ACTIVE') { active }
@@ -168,12 +182,10 @@
                       @if (a.sessionStatus === 'ACTIVE') {
                       <button (click)="endAttendeeSession(a)"
                         class="text-emerald-700 hover:underline">End</button>
-                      @if (!isVipAttendee(a, b)) {
+                      @if (!isVipAttendee(a, b) && !isFixedAttendee(a, b) && !a.sessionExtended) {
                         <button (click)="extendAttendeeSession(a)"
                           class="text-amber-700 hover:underline">+1 hr</button>
                       }
-                      <button (click)="generateSlipForSession(a.sessionId!)"
-                        class="text-blue-700 hover:underline">Slip</button>
                       } @else if (a.sessionStatus !== 'COMPLETED' && a.sessionStatus !== 'CANCELLED') {
                       <button (click)="openStartForAttendee(b, a)"
                         class="text-[var(--sumi-primary)] hover:underline font-medium">Start session</button>
@@ -194,6 +206,14 @@
         }
       </tbody>
     </table>
+    @if (sortedBookings().length > pageSize()) {
+    <sumi-paginator
+      [totalElements]="sortedBookings().length"
+      [pageSize]="pageSize()"
+      [currentPage]="currentPage()"
+      (pageChange)="currentPage.set($event)">
+    </sumi-paginator>
+    }
   </section>
 
   <!-- Start Session Modal -->
@@ -243,9 +263,9 @@
 
       <div>
         <span class="text-sm text-slate-700">Room and bed</span>
-        @if (startOrderRoomType()) {
+        @if (startRoomType()) {
         <div class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
-          Filtering rooms: <span class="font-semibold">{{ startOrderRoomType() }}</span> (per the order)
+          Filtering rooms: <span class="font-semibold">{{ startRoomType() }}</span> (per the package)
         </div>
         }
         <div

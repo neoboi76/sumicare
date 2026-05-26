@@ -7,6 +7,7 @@ interface Feedback {
   id: string;
   ratingStars: number;
   comment: string | null;
+  orNumber: string | null;
   submittedAt: string;
 }
 

@@ -21,6 +21,10 @@
   <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">{{ e }}</div>
   }
 
+  @if (paymentNotice(); as n) {
+  <div class="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800 mt-3">{{ n }}</div>
+  }
+
   @if (loading()) {
   <div class="flex justify-center py-12">
     <div class="sumi-spinner"></div>
@@ -31,20 +35,13 @@
       <div>
         <div class="text-xs uppercase tracking-wide text-slate-500">Order</div>
         <div class="text-xl font-semibold">{{ o.transactorName || o.clientNickname || 'Walk-in' }}</div>
-        <div class="text-xs text-slate-500">OR# {{ o.orNumber || '\u2014' }} &middot; Created {{ formatDate(o.createdAt)
+        <div class="text-xs text-slate-500">OR# {{ o.orNumber || '—' }} &middot; Created {{ formatDate(o.createdAt)
           }}</div>
-        @if (o.cashierDisplayName) {
-        <div class="text-xs text-slate-500">Transacted by: {{ o.cashierDisplayName }}</div>
+        @if (o.lastEditedByDisplayName || o.cashierDisplayName) {
+        <div class="text-xs text-slate-500">Transacted by: {{ o.lastEditedByDisplayName || o.cashierDisplayName }}</div>
         }
         @if (o.groupBooking) {
           <div class="mt-1 inline-block rounded bg-sky-100 text-sky-700 text-[10px] uppercase tracking-wide px-1.5 py-0.5">Group booking</div>
-        }
-        @if (o.roomType) {
-          <div class="mt-1 text-xs text-slate-500">
-            Room type: <span class="font-medium text-slate-700">{{ o.roomType }}</span>
-            @if (o.roomTypeCharge > 0) { (+ &#8369;{{ o.roomTypeCharge | number:'1.2-2' }}) }
-            @else if (o.roomType === 'PRIVATE') { (bundled) }
-          </div>
         }
       </div>
       <span class="inline-block rounded px-2 py-0.5 text-xs font-semibold" [class]="statusClass(o.status)">{{ o.status
@@ -63,6 +60,13 @@
                 <div class="font-semibold">&#8369;{{ it.lineTotal | number:'1.2-2' }}</div>
               </div>
             </div>
+            <div class="mt-1 text-xs text-slate-500">
+              @switch (it.roomType) {
+                @case ('VIP') { Room: <span class="font-medium text-slate-700">VIP</span> (included) }
+                @case ('PRIVATE') { Room: <span class="font-medium text-slate-700">Private</span> (+ &#8369;{{ it.roomTypeCharge | number:'1.2-2' }}) }
+                @default { Room: <span class="font-medium text-slate-700">Common</span> }
+              }
+            </div>
             @if (it.attendees && it.attendees.length > 0) {
               <table class="w-full mt-2 text-xs">
                 <thead class="text-slate-500 uppercase tracking-wide">
@@ -72,13 +76,13 @@
                 @for (a of it.attendees; track a.id) {
                   <tr class="border-t border-slate-100">
                     <td class="py-1">{{ a.position + 1 }}</td>
-                    <td class="py-1">{{ a.serviceName || '\u2014' }}</td>
-                    <td class="py-1">{{ a.lockerNumber || '\u2014' }}</td>
-                    <td class="py-1">{{ a.clientGender || '\u2014' }}</td>
+                    <td class="py-1">{{ a.serviceName || '—' }}</td>
+                    <td class="py-1">{{ (a.lockerNumber | lockerLabel:a.clientGender) || '—' }}</td>
+                    <td class="py-1">{{ a.clientGender || '—' }}</td>
                     <td class="py-1">
                       @if (a.treatmentSlipId) {
                         <a [routerLink]="['/app/treatment-slips', a.treatmentSlipId]" class="text-[var(--sumi-primary)] hover:underline">View</a>
-                      } @else { \u2014 }
+                      } @else { — }
                     </td>
                   </tr>
                 }
@@ -108,6 +112,12 @@
         <div>
           <div class="text-xs uppercase tracking-wide text-slate-500">Tax</div>
           <div>&#8369; {{ o.tax | number:'1.2-2' }}</div>
+        </div>
+      }
+      @if (o.extensionMinutes > 0) {
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Extension (+{{ o.extensionMinutes }} min)</div>
+          <div>&#8369; {{ o.extensionAmount | number:'1.2-2' }}</div>
         </div>
       }
       <div>
@@ -150,7 +160,7 @@
     <div class="flex flex-wrap gap-2">
       @for (m of ['CASH', 'GCASH', 'CREDIT', 'DEBIT']; track m) {
       <button (click)="newPaymentMethod = $any(m)" class="px-3 py-1.5 text-xs rounded border"
-        [class.bg-\[var\(--sumi-primary\)\]]="newPaymentMethod === m" [class.text-white]="newPaymentMethod === m"
+        [style.backgroundColor]="newPaymentMethod === m ? 'var(--sumi-primary)' : null" [class.text-white]="newPaymentMethod === m"
         [class.border-slate-300]="newPaymentMethod !== m" [class.text-slate-700]="newPaymentMethod !== m">{{ m
         }}</button>
       }
@@ -174,13 +184,17 @@
         class="rounded bg-emerald-600 text-white text-sm px-4 py-2 disabled:opacity-50">Mark as paid</button>
       <button (click)="markOpen()" [disabled]="busy() || o.status === 'OPEN'"
         class="rounded border border-amber-400 text-amber-700 text-sm px-4 py-2 disabled:opacity-50">Make Open</button>
-      @if (o.status === 'OPEN' && o.amountPaid > 0) {
+      @if (o.status === 'OPEN' && o.amountPaid > 0 && !o.sessionCompleted) {
       <button (click)="cancelPayment()" [disabled]="busy()"
         class="rounded border border-orange-300 text-orange-700 text-sm px-4 py-2">Cancel Payment</button>
       }
       @if (!o.sessionCompleted) {
       <button (click)="openCancel()" [disabled]="busy() || o.status === 'PAID'"
         class="rounded border border-rose-300 text-rose-700 text-sm px-4 py-2">Cancel order</button>
+      }
+      @if (o.status === 'PAID') {
+      <button (click)="openRefund()" [disabled]="busy()"
+        class="rounded border border-violet-300 text-violet-700 text-sm px-4 py-2">Refund (PayMongo)</button>
       }
     </div>
     }
@@ -223,4 +237,39 @@
     </div>
   </div>
   }
+
+  @if (showRefund()) {
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="closeRefund()">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
+      <h3 class="text-lg font-semibold mb-1">Refund order</h3>
+      <p class="text-sm text-slate-500 mb-3">
+        Refunds the card or GCash payment on this order through PayMongo and records a reversing ledger entry.
+      </p>
+      <label class="block text-sm">
+        Reason
+        <select [(ngModel)]="refundReason" name="refundReason"
+          class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+          <option value="requested_by_customer">Requested by customer</option>
+          <option value="duplicate">Duplicate</option>
+          <option value="fraudulent">Fraudulent</option>
+          <option value="others">Others</option>
+        </select>
+      </label>
+      <label class="block text-sm mt-3">
+        Notes (optional)
+        <textarea [(ngModel)]="refundNotes" name="refundNotes" rows="3" maxlength="255"
+          class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"></textarea>
+      </label>
+      <div class="flex justify-end gap-2 mt-4">
+        <button (click)="closeRefund()"
+          class="px-3 py-1.5 text-sm text-slate-600 border border-slate-300 rounded">Cancel</button>
+        <button (click)="confirmRefund()" [disabled]="busy()"
+          class="px-3 py-1.5 text-sm text-white rounded disabled:opacity-50"
+          [style.backgroundColor]="'#7c3aed'">Confirm refund</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <sumi-payment-details-modal />
 </section>

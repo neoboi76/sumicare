@@ -2,9 +2,11 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
+import { PaymentDetailsModalComponent } from '../../../shared/components/payment-details/payment-details-modal.component';
+import { PaymentDetails, PaymentDetailsService } from '../../../shared/components/payment-details/payment-details.service';
 
 interface ClientLite {
   id: string;
@@ -21,6 +23,7 @@ interface PackageTier {
   serviceName: string | null;
   weekdayPrice: number;
   weekendPrice: number;
+  serviceDurationMinutes: number | null;
 }
 
 interface PackageDef {
@@ -36,6 +39,7 @@ interface PackageDef {
   bundlesPrivateRoom: boolean;
   requiresVipRoom: boolean;
   active: boolean;
+  inclusions: string[];
   tiers: PackageTier[];
 }
 
@@ -58,6 +62,8 @@ interface CartItem {
   couple: boolean;
   defaultPax: number;
   tiers: PackageTier[];
+  inclusions: string[];
+  roomType: RoomType;
   unitPrice: number;
   lineTotal: number;
   attendees: CartAttendee[];
@@ -67,6 +73,7 @@ interface AddedPayment {
   paymentMethod: string;
   amount: number;
   referenceNumber?: string;
+  paymentDetails?: PaymentDetails;
 }
 
 interface DiscountConfig {
@@ -102,7 +109,7 @@ type RoomType = 'COMMON' | 'PRIVATE' | 'VIP';
 @Component({
   selector: 'sumi-cashier',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, RouterLink],
+  imports: [FormsModule, DecimalPipe, RouterLink, PaymentDetailsModalComponent],
   templateUrl: './cashier.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -111,10 +118,12 @@ export class CashierComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private confirmService = inject(ConfirmService);
+  private paymentDetailsService = inject(PaymentDetailsService);
 
   searchTerm = '';
   searchResults = signal<ClientLite[]>([]);
   selectedClient = signal<ClientLite | null>(null);
+  clientLocked = signal(false);
 
   transactorName = '';
   packages = signal<PackageDef[]>([]);
@@ -122,8 +131,14 @@ export class CashierComponent implements OnInit {
   cart = signal<CartItem[]>([]);
 
   weekend = signal(false);
-  groupBooking = signal(false);
-  roomType = signal<RoomType>('COMMON');
+  groupBooking = computed(() => this.cart().length > 1);
+
+  tiersForItem(item: CartItem): PackageTier[] {
+    if (!item.requiresVipRoom) {
+      return item.tiers;
+    }
+    return item.tiers.filter(t => t.serviceDurationMinutes == null || t.serviceDurationMinutes <= 60);
+  }
   roomAvailability = signal<{ COMMON: number; PRIVATE: number; VIP: number }>({ COMMON: 0, PRIVATE: 0, VIP: 0 });
 
   referenceNumber = '';
@@ -137,10 +152,19 @@ export class CashierComponent implements OnInit {
   voucherId = signal<string | null>(null);
   voucherError = signal<string | null>(null);
 
-  paymentMethod = signal<'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'>('CASH');
+  paymentMethod = signal<string>('CASH');
   paymentAmount = 0;
   paymentRef = '';
   payments = signal<AddedPayment[]>([]);
+
+  chargeLedgers = signal<{ name: string; shortName: string }[]>([]);
+  chargeOptions = computed<{ value: string; label: string }[]>(() => [
+    { value: 'CASH', label: 'Cash' },
+    { value: 'GCASH', label: 'GCash' },
+    { value: 'CREDIT', label: 'Credit card' },
+    { value: 'DEBIT', label: 'Debit card' },
+    ...this.chargeLedgers().map(l => ({ value: l.shortName, label: l.name }))
+  ]);
 
   showRegister = signal(false);
   newClient = { nickname: '', email: '', gender: 'F', nationality: '' };
@@ -152,7 +176,7 @@ export class CashierComponent implements OnInit {
   });
   builtinTemplates: DiscountTemplate[] = [
     { label: 'Custom', percent: 0, name: '' },
-    { label: 'SENIOR/PWD', percent: 20, name: 'Senior/PWD Discount' }
+    { label: 'SENIOR/PWD', percent: 28.5714, name: 'Senior/PWD Discount' }
   ];
   savedTemplates = signal<DiscountTemplate[]>([]);
   discountTemplates = computed<DiscountTemplate[]>(() => [...this.builtinTemplates, ...this.savedTemplates()]);
@@ -163,9 +187,8 @@ export class CashierComponent implements OnInit {
   error = signal<string | null>(null);
   tax = signal(0);
 
-  anyVip = computed(() => this.cart().some(c => c.requiresVipRoom));
-  effectiveRoomType = computed<RoomType>(() => this.anyVip() ? 'VIP' : this.roomType());
-  roomSurcharge = computed(() => this.effectiveRoomType() === 'PRIVATE' ? 500 : 0);
+  roomSurcharge = computed(() =>
+    this.cart().reduce((sum, c) => sum + (!c.requiresVipRoom && c.roomType === 'PRIVATE' ? 500 : 0), 0));
 
   totalAttendees = computed(() => this.cart().reduce((sum, c) => sum + c.attendees.length, 0));
   itemsSubtotal = computed(() => this.cart().reduce((sum, c) => sum + Number(c.lineTotal || 0), 0));
@@ -180,11 +203,62 @@ export class CashierComponent implements OnInit {
   due = computed(() => Math.max(0, this.total() - this.paid()));
 
   ngOnInit(): void {
+    const params = this.route.snapshot.queryParamMap;
+    if (params.get('paymongoReturn')) {
+      this.handlePayMongoReturn(params);
+      return;
+    }
     this.loadRoomAvailability();
     this.searchClients();
     this.loadDiscountTemplates();
-    const orderId = this.route.snapshot.queryParamMap.get('orderId');
+    this.loadChargeLedgers();
+    const orderId = params.get('orderId');
     this.loadPackages(orderId);
+  }
+
+  private loadChargeLedgers(): void {
+    this.http.get<{ name: string; shortName: string }[]>(`${environment.apiBaseUrl}/api/cashier/ledger/accounts`).subscribe({
+      next: (l) => this.chargeLedgers.set(l),
+      error: () => this.chargeLedgers.set([])
+    });
+  }
+
+  private handlePayMongoReturn(params: ParamMap): void {
+    const orderId = params.get('orderId');
+    const status = params.get('status');
+    const paymentMethod = params.get('paymentMethod');
+    const amount = params.get('amount');
+    if (!orderId) {
+      this.router.navigate(['/app/cashier']);
+      return;
+    }
+    const intent = params.get('intent') ?? sessionStorage.getItem('paymongoIntent:' + orderId);
+    sessionStorage.removeItem('paymongoIntent:' + orderId);
+    if (status === 'cancelled' || status === 'failed') {
+      this.router.navigate(['/app/orders', orderId], { queryParams: { paymentError: 'cancelled' } });
+      return;
+    }
+    if (!intent) {
+      this.router.navigate(['/app/orders', orderId], { queryParams: { paymentError: 'confirm_failed' } });
+      return;
+    }
+    this.submitting.set(true);
+    this.http.post(`${environment.apiBaseUrl}/api/cashier/orders/${orderId}/paymongo/confirm`, {
+      intentId: intent,
+      amount: amount ? Number(amount) : null,
+      paymentMethod: paymentMethod || null
+    }).subscribe({
+      next: () => {
+        this.submitting.set(false);
+        this.router.navigate(['/app/orders', orderId]);
+      },
+      error: (e) => {
+        this.submitting.set(false);
+        this.router.navigate(['/app/orders', orderId], {
+          queryParams: { paymentError: e?.error?.message || 'confirm_failed' }
+        });
+      }
+    });
   }
 
   loadPackages(orderIdToEdit?: string | null): void {
@@ -220,12 +294,17 @@ export class CashierComponent implements OnInit {
         }
         this.editingOrderId.set(o.id);
         this.transactorName = o.transactorName || o.clientNickname || '';
+        if (o.clientId) {
+          this.selectedClient.set({ id: o.clientId, nickname: o.clientNickname || this.transactorName });
+          this.clientLocked.set(true);
+        } else {
+          this.selectedClient.set(null);
+          this.clientLocked.set(false);
+        }
         this.referenceNumber = o.referenceNumber || '';
         this.orNumber = o.orNumber || '';
         this.notes = o.notes || '';
         this.weekend.set(!!o.weekend);
-        this.groupBooking.set(!!o.groupBooking);
-        if (o.roomType === 'PRIVATE' || o.roomType === 'COMMON') this.roomType.set(o.roomType);
         if (o.discount && o.discount > 0) {
           this.discountSummary.set([{ name: 'Existing discount', amount: Number(o.discount) }]);
         }
@@ -247,6 +326,8 @@ export class CashierComponent implements OnInit {
             couple: pkg?.couple ?? false,
             defaultPax: pkg?.defaultPax ?? 1,
             tiers: pkg?.tiers || [],
+            inclusions: pkg?.inclusions || [],
+            roomType: (pkg?.requiresVipRoom ? 'VIP' : (it.roomType === 'PRIVATE' ? 'PRIVATE' : 'COMMON')) as RoomType,
             unitPrice: Number(it.unitPrice || 0),
             lineTotal: Number(it.lineTotal || 0),
             attendees: attendees.length > 0 ? attendees : [this.blankAttendee()]
@@ -295,6 +376,7 @@ export class CashierComponent implements OnInit {
   }
 
   clearClient(): void {
+    if (this.clientLocked()) return;
     this.selectedClient.set(null);
   }
 
@@ -344,13 +426,15 @@ export class CashierComponent implements OnInit {
       couple: pkg.couple,
       defaultPax: pax,
       tiers: pkg.tiers,
+      inclusions: pkg.inclusions || [],
+      roomType: pkg.requiresVipRoom ? 'VIP' : 'COMMON',
       unitPrice: 0,
       lineTotal: 0,
       attendees
     };
     if (pkg.tiers.length > 0) {
       const tier = pkg.tiers[0];
-      const price = this.weekend() ? tier.weekdayPrice : tier.weekendPrice;
+      const price = this.weekend() ? tier.weekendPrice : tier.weekdayPrice;
       for (const a of item.attendees) {
         a.packageTierId = tier.id;
         a.serviceId = tier.serviceId;
@@ -365,12 +449,10 @@ export class CashierComponent implements OnInit {
     }
     this.cart.update(items => [...items, item]);
     this.selectedPackageId = null;
-    if (this.totalAttendees() > 1) this.groupBooking.set(true);
   }
 
   removeItem(idx: number): void {
     this.cart.update(items => items.filter((_, i) => i !== idx));
-    if (this.totalAttendees() < 2) this.groupBooking.set(false);
   }
 
   onAttendeeMassageChange(itemIdx: number, attIdx: number, tierId: number | null): void {
@@ -379,7 +461,7 @@ export class CashierComponent implements OnInit {
       if (i !== itemIdx) return it;
       const tier = tierIdNum != null ? it.tiers.find(t => t.id === tierIdNum) : null;
       const updatedAttendees = it.attendees.map((a, j) => {
-        if (it.couple && j > 0) {
+        if ((it.couple || it.requiresVipRoom) && j !== attIdx) {
           return {
             ...a,
             packageTierId: tier?.id ?? null,
@@ -414,9 +496,11 @@ export class CashierComponent implements OnInit {
     }));
   }
 
-  setRoomType(rt: RoomType): void {
-    if (this.anyVip()) return;
-    this.roomType.set(rt);
+  setItemRoom(idx: number, rt: RoomType): void {
+    this.cart.update(items => items.map((it, i) => {
+      if (i !== idx || it.requiresVipRoom) return it;
+      return { ...it, roomType: rt };
+    }));
   }
 
   applyVoucher(): void {
@@ -486,13 +570,21 @@ export class CashierComponent implements OnInit {
 
   deleteTemplate(tmpl: DiscountTemplate): void {
     if (!tmpl.id) return;
-    if (!confirm(`Delete template "${tmpl.name || tmpl.label}"?`)) return;
-    this.http.delete(`${environment.apiBaseUrl}/api/cashier/discount-templates/${tmpl.id}`).subscribe({
-      next: () => {
-        this.savedTemplates.update(list => list.filter(t => t.id !== tmpl.id));
-        if (this.activeTemplate() === tmpl.name) this.activeTemplate.set('Custom');
-      },
-      error: () => this.error.set('Could not delete template.')
+    this.confirmService.confirm({
+      title: 'Delete discount template',
+      message: `Delete template "${tmpl.name || tmpl.label}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      danger: true
+    }).then(ok => {
+      if (!ok) return;
+      this.http.delete(`${environment.apiBaseUrl}/api/cashier/discount-templates/${tmpl.id}`).subscribe({
+        next: () => {
+          this.savedTemplates.update(list => list.filter(t => t.id !== tmpl.id));
+          if (this.activeTemplate() === tmpl.name) this.activeTemplate.set('Custom');
+        },
+        error: () => this.error.set('Could not delete template.')
+      });
     });
   }
 
@@ -547,22 +639,39 @@ export class CashierComponent implements OnInit {
     this.voucherId.set(null);
   }
 
-  setPaymentMethod(method: 'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'): void {
+  setPaymentMethod(method: string): void {
     this.paymentMethod.set(method);
   }
 
-  addPayment(): void {
+  async addPayment(): Promise<void> {
+    if (this.total() === 0) {
+      this.error.set('No payment is required for a zero-total order.');
+      return;
+    }
     const amt = Number(this.paymentAmount || 0);
-    if (amt < 0) return;
+    if (amt <= 0) {
+      this.error.set('Enter a payment amount greater than zero.');
+      return;
+    }
     if (this.paid() + amt > this.total()) {
       this.error.set('Payment would exceed the total amount due. Maximum: ' + (this.total() - this.paid()).toFixed(2));
       return;
     }
+
+    const method = this.paymentMethod();
+    let paymentDetails: PaymentDetails | undefined;
+    if (method === 'GCASH') {
+      const captured = await this.paymentDetailsService.open(method, amt);
+      if (!captured) return;
+      paymentDetails = captured;
+    }
+
     this.error.set(null);
     this.payments.update(p => [...p, {
-      paymentMethod: this.paymentMethod(),
+      paymentMethod: method,
       amount: amt,
-      referenceNumber: this.paymentRef || undefined
+      referenceNumber: this.paymentRef || undefined,
+      paymentDetails
     }]);
     this.paymentAmount = 0;
     this.paymentRef = '';
@@ -593,9 +702,6 @@ export class CashierComponent implements OnInit {
         if (!a.clientGender) return `Item ${i + 1} (${it.packageName}), guest ${j + 1}: choose a sex.`;
       }
     }
-    if (this.effectiveRoomType() === 'VIP' && !this.anyVip()) {
-      return 'VIP room requires a VIP package.';
-    }
     return null;
   }
 
@@ -605,18 +711,14 @@ export class CashierComponent implements OnInit {
     const isEdit = !!this.editingOrderId();
     const firstPayment = isEdit
       ? null
-      : (payments.length > 0
-        ? payments[0]
-        : (this.total() === 0 ? { paymentMethod: 'CASH', amount: 0, referenceNumber: undefined } : null));
+      : (payments.length > 0 ? payments[0] : null);
     return {
       clientId: this.selectedClient()?.id || null,
       clientNickname: this.transactorName,
       clientGender: first.attendees[0].clientGender,
       transactorName: this.transactorName,
-      groupBooking: this.totalAttendees() > 1 || this.groupBooking(),
+      groupBooking: this.groupBooking(),
       weekend: this.weekend(),
-      roomType: this.effectiveRoomType(),
-      roomTypeCharge: this.roomSurcharge(),
       pax: this.totalAttendees(),
       lockerNumber: first.attendees[0].lockerNumber || null,
       referenceNumber: this.referenceNumber || null,
@@ -633,6 +735,7 @@ export class CashierComponent implements OnInit {
         quantity: 1,
         unitPrice: c.unitPrice,
         lineTotal: c.lineTotal,
+        roomType: c.roomType,
         position: i,
         attendees: c.attendees.map((a, j) => ({
           serviceId: a.serviceId,
@@ -647,7 +750,8 @@ export class CashierComponent implements OnInit {
       initialPayment: firstPayment ? {
         paymentMethod: firstPayment.paymentMethod,
         amount: firstPayment.amount,
-        referenceNumber: firstPayment.referenceNumber || null
+        referenceNumber: firstPayment.referenceNumber || null,
+        paymentDetails: firstPayment.paymentDetails || null
       } : null
     };
   }
@@ -667,9 +771,27 @@ export class CashierComponent implements OnInit {
     });
     if (!confirmed) return;
 
+    const queuedPayments = this.payments();
+    const gatewayMethods = ['GCASH', 'CREDIT', 'DEBIT'];
+    const redirectPayment = !editId && queuedPayments.length === 1 && gatewayMethods.includes(queuedPayments[0].paymentMethod)
+      ? queuedPayments[0]
+      : null;
+
     this.submitting.set(true);
     this.error.set(null);
     const payload = this.buildPayload();
+
+    if (redirectPayment) {
+      const orderPayload = { ...payload, initialPayment: null };
+      this.http.post<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders`, orderPayload).subscribe({
+        next: (order) => this.startPayMongo(order.id, redirectPayment),
+        error: (err) => {
+          this.submitting.set(false);
+          this.error.set(err?.error?.message || 'Could not create order.');
+        }
+      });
+      return;
+    }
 
     if (editId) {
       this.http.put<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders/${editId}`, payload).subscribe({
@@ -719,12 +841,57 @@ export class CashierComponent implements OnInit {
     this.http.post(`${environment.apiBaseUrl}/api/cashier/orders/${orderId}/payments`, {
       paymentMethod: p.paymentMethod,
       amount: p.amount,
-      referenceNumber: p.referenceNumber || null
+      referenceNumber: p.referenceNumber || null,
+      paymentDetails: p.paymentDetails || null
     }).subscribe({
       next: () => this.recordExtraPayments(orderId, list, idx + 1),
       error: () => {
         this.submitting.set(false);
         this.router.navigate(['/app/orders', orderId]);
+      }
+    });
+  }
+
+  private startPayMongo(orderId: string, payment: AddedPayment): void {
+    this.http.post<{ status: string; intentId: string; redirectUrl: string | null }>(
+      `${environment.apiBaseUrl}/api/cashier/orders/${orderId}/paymongo/initiate`,
+      {
+        paymentMethod: payment.paymentMethod,
+        amount: payment.amount,
+        referenceNumber: payment.referenceNumber || null,
+        paymentDetails: payment.paymentDetails || null
+      }
+    ).subscribe({
+      next: (res) => {
+        if (res.status === 'succeeded') {
+          this.submitting.set(false);
+          this.router.navigate(['/app/orders', orderId]);
+          return;
+        }
+        const origin = window.location.origin;
+        const returnUrl = `${origin}/app/cashier?paymongoReturn=1&orderId=${orderId}`
+          + `&intent=${encodeURIComponent(res.intentId)}`
+          + `&paymentMethod=${encodeURIComponent(payment.paymentMethod)}`
+          + `&amount=${payment.amount}`;
+        sessionStorage.setItem('paymongoIntent:' + orderId, res.intentId);
+        if (res.intentId.startsWith('mock_')) {
+          window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
+            + `&amount=${payment.amount}`
+            + `&method=${encodeURIComponent(payment.paymentMethod)}`
+            + `&return=${encodeURIComponent(returnUrl)}`;
+        } else if (res.redirectUrl) {
+          window.location.href = res.redirectUrl;
+        } else {
+          this.submitting.set(false);
+          this.router.navigate(['/app/orders', orderId]);
+        }
+      },
+      error: (err) => {
+        this.submitting.set(false);
+        this.error.set(err?.error?.message || 'Could not start the PayMongo payment.');
+        this.router.navigate(['/app/orders', orderId], {
+          queryParams: { paymentError: err?.error?.message || 'paymongo_failed' }
+        });
       }
     });
   }

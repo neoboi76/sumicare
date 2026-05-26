@@ -5,8 +5,10 @@ import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.domain.OrderItem;
 import com.sumicare.cashier.domain.OrderItemAttendee;
 import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
+import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.domain.Service;
@@ -48,6 +50,7 @@ public class OperationsReportService {
     private final ShiftRepository shiftRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
     private final OrderItemAttendeeRepository attendeeRepository;
+    private final OrderItemRepository orderItemRepository;
 
     public OperationsReportService(SessionRepository sessionRepository,
                                    BookingRepository bookingRepository,
@@ -58,7 +61,8 @@ public class OperationsReportService {
                                    OrderRepository orderRepository,
                                    ShiftRepository shiftRepository,
                                    ShiftAssignmentRepository shiftAssignmentRepository,
-                                   OrderItemAttendeeRepository attendeeRepository) {
+                                   OrderItemAttendeeRepository attendeeRepository,
+                                   OrderItemRepository orderItemRepository) {
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
         this.slipRepository = slipRepository;
@@ -69,6 +73,7 @@ public class OperationsReportService {
         this.shiftRepository = shiftRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
         this.attendeeRepository = attendeeRepository;
+        this.orderItemRepository = orderItemRepository;
     }
 
     public record ServiceLine(Long serviceId, String serviceName, int qty, BigDecimal unitPrice, BigDecimal lineTotal) {}
@@ -112,8 +117,20 @@ public class OperationsReportService {
         }
 
         Map<UUID, UUID> slipToOrderItemId = resolveSlipToOrderItem(slips);
+        Set<UUID> distinctOrderItemIds = new HashSet<>(slipToOrderItemId.values());
+        Map<UUID, OrderItem> orderItemById = new HashMap<>();
+        Map<UUID, Order> orderByItemId = new HashMap<>();
+        for (UUID oid : distinctOrderItemIds) {
+            orderItemRepository.findById(oid).ifPresent(it -> {
+                orderItemById.put(oid, it);
+                if (it.getOrderId() != null) {
+                    orderRepository.findById(it.getOrderId()).ifPresent(o -> orderByItemId.put(oid, o));
+                }
+            });
+        }
         Map<String, ServiceAccumulator> bucket = new HashMap<>();
         Set<UUID> countedOrderItemIds = new HashSet<>();
+        Set<UUID> countedExtensionOrderIds = new HashSet<>();
         for (TreatmentSlip s : slips) {
             String pkg = s.getPackageName() != null ? s.getPackageName() : "(Walk-in)";
             String svc = s.getServiceName() == null ? "Unknown" : s.getServiceName();
@@ -122,10 +139,23 @@ public class OperationsReportService {
             ServiceAccumulator acc = bucket.computeIfAbsent(key, k -> new ServiceAccumulator());
             if (orderItemId != null) {
                 if (countedOrderItemIds.add(orderItemId)) {
-                    acc.qty++;
-                    if (s.getTotalAmount() != null) {
-                        acc.total = acc.total.add(s.getTotalAmount());
+                    OrderItem item = orderItemById.get(orderItemId);
+                    int qty = item != null ? Math.max(1, item.getQuantity()) : 1;
+                    acc.qty += qty;
+                    BigDecimal amount = BigDecimal.ZERO;
+                    if (item != null) {
+                        if (item.getLineTotal() != null) amount = amount.add(item.getLineTotal());
+                        if (item.getRoomTypeCharge() != null) amount = amount.add(item.getRoomTypeCharge());
+                    } else if (s.getTotalAmount() != null) {
+                        amount = s.getTotalAmount();
                     }
+                    Order order = orderByItemId.get(orderItemId);
+                    if (order != null && order.getExtensionAmount() != null
+                            && order.getExtensionAmount().signum() > 0
+                            && countedExtensionOrderIds.add(order.getId())) {
+                        amount = amount.add(order.getExtensionAmount());
+                    }
+                    acc.total = acc.total.add(amount);
                 }
             } else {
                 acc.qty++;
@@ -209,8 +239,18 @@ public class OperationsReportService {
     }
 
     public byte[] monthlyCsv(UUID organizationId, int year, int month) {
-        MonthlyReportResponse r = monthly(organizationId, year, month);
-        return rowsToCsv(r.rows(), r.grandTotal());
+        YearMonth ym = YearMonth.of(year, month);
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        StringBuilder sb = new StringBuilder("Date,Revenue\n");
+        BigDecimal grand = BigDecimal.ZERO;
+        for (int d = 1; d <= ym.lengthOfMonth(); d++) {
+            LocalDate day = ym.atDay(d);
+            BigDecimal total = daily(organizationId, day).grandTotal();
+            sb.append(day.format(dateFmt)).append(',').append(total.toPlainString()).append('\n');
+            grand = grand.add(total);
+        }
+        sb.append("GRAND TOTAL,").append(grand.toPlainString()).append('\n');
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private List<DailyRow> collectRows(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
@@ -241,6 +281,7 @@ public class OperationsReportService {
 
         DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
         List<DailyRow> rows = new ArrayList<>();
+        Set<UUID> extensionCountedOrderIds = new HashSet<>();
 
         for (Map.Entry<UUID, List<TreatmentSlip>> e : groupedByOrderItem.entrySet()) {
             List<TreatmentSlip> group = e.getValue();
@@ -259,8 +300,14 @@ public class OperationsReportService {
             if (b != null && "CANCELLED".equals(b.getStatus())) continue;
             Order o = b == null ? null : orderByBooking.get(b.getId());
             if (o != null && "CANCELLED".equals(o.getStatus())) continue;
-            DailyRow row = buildRow(head, group, b, o, sessionById, timeFmt, true);
-            rows.add(row);
+            OrderItem item = orderItemRepository.findById(e.getKey()).orElse(null);
+            boolean includeExtension = item != null && o != null && o.getExtensionAmount() != null
+                    && o.getExtensionAmount().signum() > 0
+                    && extensionCountedOrderIds.add(o.getId());
+            for (int i = 0; i < group.size(); i++) {
+                boolean countAmount = i == 0;
+                rows.add(buildRow(group.get(i), b, o, item, includeExtension && countAmount, countAmount, sessionById, timeFmt));
+            }
         }
 
         for (TreatmentSlip slip : orphanSlips) {
@@ -270,8 +317,7 @@ public class OperationsReportService {
             if (b != null && "CANCELLED".equals(b.getStatus())) continue;
             Order o = b == null ? null : orderByBooking.get(b.getId());
             if (o != null && "CANCELLED".equals(o.getStatus())) continue;
-            DailyRow row = buildRow(slip, List.of(slip), b, o, sessionById, timeFmt, false);
-            rows.add(row);
+            rows.add(buildRow(slip, b, o, null, false, true, sessionById, timeFmt));
         }
 
         rows.sort((a, b) -> {
@@ -282,8 +328,9 @@ public class OperationsReportService {
         return rows;
     }
 
-    private DailyRow buildRow(TreatmentSlip head, List<TreatmentSlip> group, Booking b, Order o,
-                              Map<UUID, Session> sessionById, DateTimeFormatter timeFmt, boolean grouped) {
+    private DailyRow buildRow(TreatmentSlip head, Booking b, Order o,
+                              OrderItem item, boolean includeExtension, boolean countAmount,
+                              Map<UUID, Session> sessionById, DateTimeFormatter timeFmt) {
         Session s = head.getSessionId() == null ? null
                 : sessionById.computeIfAbsent(head.getSessionId(),
                     id -> sessionRepository.findById(id).orElse(null));
@@ -301,25 +348,27 @@ public class OperationsReportService {
         String orNumber = head.getOrNumber() != null ? head.getOrNumber()
                 : (o != null && o.getOrNumber() != null ? o.getOrNumber() : "");
 
-        String locker;
-        if (grouped && group.size() > 1) {
-            locker = group.stream()
-                    .map(TreatmentSlip::getLockerNumber)
-                    .filter(l -> l != null && !l.isBlank())
-                    .distinct()
-                    .collect(Collectors.joining(", "));
-            if (locker.isBlank() && b != null && b.getLockerNumber() != null) {
-                locker = b.getLockerNumber();
-            }
-        } else {
-            locker = head.getLockerNumber() != null ? head.getLockerNumber()
-                    : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
-        }
+        String rawLocker = head.getLockerNumber() != null ? head.getLockerNumber()
+                : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
+        String gender = head.getClientGender() != null ? head.getClientGender()
+                : (b != null ? b.getClientGender() : null);
+        String locker = prefixGender(rawLocker, gender);
 
         String packageName = head.getPackageName();
         String treatment = head.getServiceName() == null ? "" : head.getServiceName();
 
-        BigDecimal amount = head.getTotalAmount() != null ? head.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal amount = BigDecimal.ZERO;
+        if (countAmount) {
+            if (item != null) {
+                if (item.getLineTotal() != null) amount = amount.add(item.getLineTotal());
+                if (item.getRoomTypeCharge() != null) amount = amount.add(item.getRoomTypeCharge());
+            } else if (head.getTotalAmount() != null) {
+                amount = head.getTotalAmount();
+            }
+            if (includeExtension && o != null && o.getExtensionAmount() != null) {
+                amount = amount.add(o.getExtensionAmount());
+            }
+        }
 
         String tsn = head.getTsn() == null ? "" : head.getTsn();
 
@@ -340,6 +389,18 @@ public class OperationsReportService {
         String end = formatTime(s != null ? s.getEndedAt() : head.getEndTime(), timeFmt);
         String status = s != null ? s.getStatus() : head.getStatus();
         return new DailyRow(checkIn, orNumber, locker, packageName, treatment, amount, tsn, therapist, room, start, end, status);
+    }
+
+    private String prefixGender(String locker, String gender) {
+        if (locker == null || locker.isBlank()) {
+            return locker == null ? "" : locker;
+        }
+        String trimmed = locker.trim();
+        String g = gender == null ? "" : gender.trim().toUpperCase();
+        if ((g.equals("M") || g.equals("F")) && !trimmed.toUpperCase().startsWith(g)) {
+            return g + trimmed;
+        }
+        return trimmed;
     }
 
     private UUID resolveTherapistId(String nickname, UUID sessionId) {

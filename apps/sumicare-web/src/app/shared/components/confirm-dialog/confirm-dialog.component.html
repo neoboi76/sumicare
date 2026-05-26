@@ -1,0 +1,21 @@
+@if (config()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" (click)="cancel()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-left transform transition-all">
+            <h3 class="text-lg font-semibold text-slate-900 mb-2">{{ config()!.title }}</h3>
+            <p class="text-sm text-slate-600 mb-6">{{ config()!.message }}</p>
+            <div class="flex items-center justify-end gap-3">
+                <button type="button" (click)="cancel()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200">
+                    {{ config()!.cancelText || 'Cancel' }}
+                </button>
+                <button type="button" #confirmBtn (click)="confirm()"
+                        class="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                        [class.bg-rose-600]="config()!.danger"
+                        [class.focus:ring-rose-600]="config()!.danger"
+                        [style.backgroundColor]="config()!.danger ? null : 'var(--sumi-primary)'">
+                    {{ config()!.confirmText || 'Confirm' }}
+                </button>
+            </div>
+        </div>
+    </div>
+}

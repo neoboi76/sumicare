@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { LockerLabelPipe } from '../../../shared/pipes/locker-label.pipe';
 
 interface BedView {
   id: string;
@@ -21,6 +22,7 @@ interface RoomView {
 @Component({
   selector: 'sumi-reception',
   standalone: true,
+  imports: [LockerLabelPipe],
   templateUrl: './reception.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

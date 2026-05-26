@@ -42,6 +42,9 @@ public class Order {
     @Column(name = "cashier_user_id", columnDefinition = "uuid")
     private UUID cashierUserId;
 
+    @Column(name = "last_edited_by_user_id", columnDefinition = "uuid")
+    private UUID lastEditedByUserId;
+
     @Column(name = "or_number", length = 50)
     private String orNumber;
 
@@ -62,6 +65,12 @@ public class Order {
 
     @Column(name = "total", nullable = false)
     private BigDecimal total = BigDecimal.ZERO;
+
+    @Column(name = "extension_amount", nullable = false)
+    private BigDecimal extensionAmount = BigDecimal.ZERO;
+
+    @Column(name = "extension_minutes", nullable = false)
+    private int extensionMinutes = 0;
 
     @Column(name = "amount_paid", nullable = false)
     private BigDecimal amountPaid = BigDecimal.ZERO;
@@ -87,6 +96,9 @@ public class Order {
     @Column(name = "voucher_id", columnDefinition = "uuid")
     private UUID voucherId;
 
+    @Column(name = "completion_email_sent_at")
+    private OffsetDateTime completionEmailSentAt;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -97,6 +109,8 @@ public class Order {
     public void setTreatmentSlipId(UUID treatmentSlipId) { this.treatmentSlipId = treatmentSlipId; }
     public UUID getCashierUserId() { return cashierUserId; }
     public void setCashierUserId(UUID cashierUserId) { this.cashierUserId = cashierUserId; }
+    public UUID getLastEditedByUserId() { return lastEditedByUserId; }
+    public void setLastEditedByUserId(UUID lastEditedByUserId) { this.lastEditedByUserId = lastEditedByUserId; }
     public String getOrNumber() { return orNumber; }
     public void setOrNumber(String orNumber) { this.orNumber = orNumber; }
     public String getReferenceNumber() { return referenceNumber; }
@@ -111,6 +125,10 @@ public class Order {
     public void setTax(BigDecimal tax) { this.tax = tax; }
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
+    public BigDecimal getExtensionAmount() { return extensionAmount; }
+    public void setExtensionAmount(BigDecimal extensionAmount) { this.extensionAmount = extensionAmount; }
+    public int getExtensionMinutes() { return extensionMinutes; }
+    public void setExtensionMinutes(int extensionMinutes) { this.extensionMinutes = extensionMinutes; }
     public BigDecimal getAmountPaid() { return amountPaid; }
     public void setAmountPaid(BigDecimal amountPaid) { this.amountPaid = amountPaid; }
     public String getStatus() { return status; }
@@ -137,4 +155,6 @@ public class Order {
     public void setWeekend(boolean weekend) { this.weekend = weekend; }
     public UUID getVoucherId() { return voucherId; }
     public void setVoucherId(UUID voucherId) { this.voucherId = voucherId; }
+    public OffsetDateTime getCompletionEmailSentAt() { return completionEmailSentAt; }
+    public void setCompletionEmailSentAt(OffsetDateTime completionEmailSentAt) { this.completionEmailSentAt = completionEmailSentAt; }
 }

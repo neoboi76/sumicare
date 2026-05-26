@@ -1,18 +1,20 @@
-<section class="max-w-6xl mx-auto p-4 space-y-4">
+<section class="max-w-6xl mx-auto p-4">
   @if (!selectedMethod()) {
-    <div class="flex items-center justify-between">
-      <div class="text-sm text-slate-500">Home &gt; <span class="font-semibold text-slate-900">Ledgers</span></div>
-      <div class="relative">
-        <input type="text" placeholder="Search" [value]="searchQuery()" (input)="searchQuery.set($any($event.target).value)"
-               class="border border-slate-300 rounded-full pl-9 pr-8 py-1.5 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <input type="text" placeholder="Search" [value]="searchQuery()" (input)="searchQuery.set($any($event.target).value)"
+                 class="border border-slate-300 rounded-full pl-9 pr-8 py-1.5 text-sm w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <button (click)="openCreate()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm whitespace-nowrap">Create ledger</button>
       </div>
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <table class="w-full text-sm">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
+      <table class="w-full text-sm min-w-[640px]">
         <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
           <tr>
             <th class="text-left px-4 py-3 w-8"></th>
@@ -38,9 +40,58 @@
               </td>
             </tr>
           }
+          @for (led of filteredCustomLedgers(); track led.id) {
+            <tr class="hover:bg-slate-50 cursor-pointer" (click)="selectAccount(led.shortName)">
+              <td class="px-4 py-3">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+              </td>
+              <td class="px-4 py-3 font-medium">{{ led.name }}</td>
+              <td class="px-4 py-3">{{ led.shortName }}</td>
+              <td class="px-4 py-3">{{ typeLabel(led.type) }}</td>
+              <td class="px-4 py-3 text-right font-medium" [class.text-red-600]="customBalance(led.shortName) < 0">
+                {{ formatCurrency(customBalance(led.shortName)) }}
+              </td>
+            </tr>
+          }
         </tbody>
       </table>
     </div>
+
+    @if (showCreate()) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="closeCreate()">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
+          <h2 class="text-lg font-semibold">Create ledger</h2>
+          @if (createError(); as e) {
+            <p class="text-sm text-red-600">{{ e }}</p>
+          }
+          <label class="block text-sm">
+            Name
+            <input [(ngModel)]="newLedgerName" name="newLedgerName" maxlength="120"
+              class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
+          </label>
+          <label class="block text-sm">
+            Short name
+            <input [(ngModel)]="newLedgerShortName" name="newLedgerShortName" maxlength="40"
+              class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
+          </label>
+          <label class="block text-sm">
+            Type
+            <select [(ngModel)]="newLedgerType" name="newLedgerType"
+              class="mt-1 w-full border border-slate-300 rounded px-3 py-2">
+              @for (t of ledgerTypes; track t.value) {
+                <option [value]="t.value">{{ t.label }}</option>
+              }
+            </select>
+          </label>
+          <div class="flex justify-end gap-2 pt-2">
+            <button (click)="closeCreate()" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+            <button (click)="createLedger()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Create</button>
+          </div>
+        </div>
+      </div>
+    }
   } @else {
     <div class="text-sm text-slate-500">
       <button (click)="backToList()" class="hover:underline">Home</button>

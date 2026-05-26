@@ -2,6 +2,7 @@ package com.sumicare.report.service;
 
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.shift.domain.Shift;
 import com.sumicare.shift.domain.ShiftAssignment;
 import com.sumicare.shift.repository.ShiftAssignmentRepository;
@@ -34,17 +35,20 @@ public class DeckingReportService {
     private final TherapistRepository therapistRepository;
     private final ShiftRepository shiftRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
+    private final ServiceRepository serviceRepository;
 
     public DeckingReportService(CommissionRepository commissionRepository,
                                 SessionRepository sessionRepository,
                                 TherapistRepository therapistRepository,
                                 ShiftRepository shiftRepository,
-                                ShiftAssignmentRepository shiftAssignmentRepository) {
+                                ShiftAssignmentRepository shiftAssignmentRepository,
+                                ServiceRepository serviceRepository) {
         this.commissionRepository = commissionRepository;
         this.sessionRepository = sessionRepository;
         this.therapistRepository = therapistRepository;
         this.shiftRepository = shiftRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
+        this.serviceRepository = serviceRepository;
     }
 
     public record DeckingGlyph(String symbol, String serviceType) {}
@@ -60,6 +64,7 @@ public class DeckingReportService {
 
         List<Commission> commissions = commissionRepository
                 .findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
+        Map<Long, Boolean> scrubCache = new HashMap<>();
 
         List<Shift> shifts = shiftRepository.findAllByOrganizationIdAndActiveTrue(organizationId);
         Map<UUID, Long> therapistToShift = new HashMap<>();
@@ -98,7 +103,7 @@ public class DeckingReportService {
                 if (c.isSpecificallyRequested()) {
                     symbol = "\u2665";
                     requested++;
-                } else if (c.getServiceType() != null && isScrubService(c.getServiceType())) {
+                } else if (isScrub(c.getServiceId(), scrubCache)) {
                     symbol = "\u2605";
                 } else {
                     symbol = "|";
@@ -152,9 +157,16 @@ public class DeckingReportService {
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    private boolean isScrubService(String serviceType) {
-        if (serviceType == null) return false;
-        String lower = serviceType.toLowerCase();
+    private boolean isScrub(Long serviceId, Map<Long, Boolean> cache) {
+        if (serviceId == null) return false;
+        return cache.computeIfAbsent(serviceId, id -> serviceRepository.findById(id)
+                .map(svc -> isScrubService(svc.getName()))
+                .orElse(false));
+    }
+
+    private boolean isScrubService(String serviceName) {
+        if (serviceName == null) return false;
+        String lower = serviceName.toLowerCase();
         return lower.contains("scrub") || lower.contains("salt") || lower.contains("milk bath") || lower.contains("dae mi di");
     }
 

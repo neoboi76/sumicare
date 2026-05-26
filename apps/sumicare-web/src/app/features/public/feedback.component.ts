@@ -27,6 +27,7 @@ export class FeedbackComponent implements OnInit {
   comment = '';
   nickname = '';
   sessionRef = signal<string | null>(null);
+  orNumber = signal<string | null>(null);
   submitted = signal(false);
   submitting = signal(false);
   loadingInitial = signal(true);
@@ -38,6 +39,7 @@ export class FeedbackComponent implements OnInit {
     const slip = this.route.snapshot.queryParamMap.get('slip');
     const or = this.route.snapshot.queryParamMap.get('or');
     this.sessionRef.set(session || slip || or || null);
+    this.orNumber.set(or);
     this.loadRecent();
   }
 
@@ -56,7 +58,8 @@ export class FeedbackComponent implements OnInit {
     const payload = {
       ratingStars: this.rating(),
       comment: this.comment || null,
-      nickname: this.nickname?.trim() || null
+      nickname: this.nickname?.trim() || null,
+      orNumber: this.orNumber() || null
     };
     this.http.post(`${environment.apiBaseUrl}/api/public/feedback/${environment.defaultOrganizationSlug}`, payload).subscribe({
       next: () => {

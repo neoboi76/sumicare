@@ -32,6 +32,13 @@ interface LedgerAccount {
   balance: number;
 }
 
+interface CustomLedger {
+  id: string;
+  name: string;
+  shortName: string;
+  type: string;
+}
+
 @Component({
   selector: 'sumi-ledger',
   standalone: true,
@@ -47,11 +54,23 @@ export class LedgerComponent implements OnInit {
   entries = signal<LedgerEntry[]>([]);
   balance = signal<Balance>({ inflow: 0, outflow: 0, balance: 0, count: 0 });
   loading = signal(false);
-  fromDate = signal(new Date().toISOString().slice(0, 10));
-  toDate = signal(new Date().toISOString().slice(0, 10));
+  fromDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
+  toDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
   selectedMethod = signal<string | null>(null);
   searchQuery = signal('');
   accountBalances = signal<Map<string, number>>(new Map());
+  customLedgers = signal<CustomLedger[]>([]);
+  customLedgerBalances = signal<Map<string, number>>(new Map());
+  readonly ledgerTypes = [
+    { value: 'CASH_BOOK', label: 'Cash book' },
+    { value: 'DEBT', label: 'Debt' },
+    { value: 'REFERRAL', label: 'Referral' }
+  ];
+  showCreate = signal(false);
+  createError = signal<string | null>(null);
+  newLedgerName = '';
+  newLedgerShortName = '';
+  newLedgerType = 'CASH_BOOK';
 
   accounts = computed<LedgerAccount[]>(() => {
     const bals = this.accountBalances();
@@ -69,6 +88,16 @@ export class LedgerComponent implements OnInit {
     return this.accounts().filter(a => a.method.toLowerCase().includes(q));
   });
 
+  filteredCustomLedgers = computed(() => {
+    const q = this.searchQuery().toLowerCase();
+    if (!q) return this.customLedgers();
+    return this.customLedgers().filter(l => l.name.toLowerCase().includes(q) || l.shortName.toLowerCase().includes(q));
+  });
+
+  typeLabel(type: string): string {
+    return this.ledgerTypes.find(t => t.value === type)?.label ?? type;
+  }
+
   selectedAccount = computed(() => {
     const m = this.selectedMethod();
     if (!m) return null;
@@ -77,6 +106,63 @@ export class LedgerComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadAccountBalances();
+    this.loadCustomLedgers();
+  }
+
+  private loadCustomLedgers(): void {
+    this.http.get<CustomLedger[]>(`${environment.apiBaseUrl}/api/cashier/ledger/accounts`).subscribe({
+      next: (l) => { this.customLedgers.set(l); this.loadCustomLedgerBalances(l); },
+      error: () => { this.customLedgers.set([]); this.customLedgerBalances.set(new Map()); }
+    });
+  }
+
+  private loadCustomLedgerBalances(ledgers: CustomLedger[]): void {
+    const from = this.fromDate();
+    const to = this.toDate();
+    for (const led of ledgers) {
+      const url = `${environment.apiBaseUrl}/api/cashier/ledger/balance?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&method=${encodeURIComponent(led.shortName)}`;
+      this.http.get<Balance>(url).subscribe({
+        next: (b) => {
+          this.customLedgerBalances.update(map => {
+            const next = new Map(map);
+            next.set(led.shortName, b.balance);
+            return next;
+          });
+        }
+      });
+    }
+  }
+
+  customBalance(shortName: string): number {
+    return this.customLedgerBalances().get(shortName) ?? 0;
+  }
+
+  openCreate(): void {
+    this.newLedgerName = '';
+    this.newLedgerShortName = '';
+    this.newLedgerType = 'CASH_BOOK';
+    this.createError.set(null);
+    this.showCreate.set(true);
+  }
+
+  closeCreate(): void {
+    this.showCreate.set(false);
+  }
+
+  createLedger(): void {
+    if (!this.newLedgerName.trim() || !this.newLedgerShortName.trim()) {
+      this.createError.set('Name and short name are required.');
+      return;
+    }
+    const payload = {
+      name: this.newLedgerName.trim(),
+      shortName: this.newLedgerShortName.trim(),
+      type: this.newLedgerType
+    };
+    this.http.post<CustomLedger>(`${environment.apiBaseUrl}/api/cashier/ledger/accounts`, payload).subscribe({
+      next: () => { this.showCreate.set(false); this.loadCustomLedgers(); },
+      error: (err) => this.createError.set(err?.error?.message || 'Could not create ledger.')
+    });
   }
 
   private loadAccountBalances(): void {

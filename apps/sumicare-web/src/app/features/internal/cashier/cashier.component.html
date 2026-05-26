@@ -28,9 +28,9 @@
           package line by locker + sex. The first guest's sex follows the selected client profile.</p>
         <label class="block text-sm">
           Transactor name <span class="text-red-500">*</span>
-          <input [(ngModel)]="transactorName" name="transactorName" maxlength="120"
+          <input [(ngModel)]="transactorName" name="transactorName" maxlength="120" [disabled]="clientLocked()"
             placeholder="e.g. Frias, Jeffrey / Company name"
-            class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+            class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)] disabled:bg-slate-100 disabled:text-slate-500" />
         </label>
 
         @if (selectedClient(); as c) {
@@ -41,7 +41,11 @@
               {{ c.gender || 'Sex —' }} · {{ c.email || 'no email' }} · {{ c.nationality || 'Nationality —' }}
             </div>
           </div>
+          @if (clientLocked()) {
+          <span class="text-xs text-slate-400">Linked client</span>
+          } @else {
           <button (click)="clearClient()" class="text-slate-500 hover:text-red-600 text-sm">Change</button>
+          }
         </div>
         } @else {
         <div class="space-y-2">
@@ -92,7 +96,7 @@
           (e.g. couple package) adds one guest row per person.</p>
         } @else {
         <div class="space-y-2">
-          @for (it of cart(); track $index) {
+          @for (it of cart(); track $index; let itemIdx = $index) {
           <div class="border border-slate-200 rounded-lg p-3 space-y-2">
             <div class="flex items-center justify-between">
               <div class="font-medium text-sm">{{ $index + 1 }}. {{ it.packageName }}
@@ -103,18 +107,38 @@
                 <button (click)="removeItem($index)" class="text-xs text-red-600 hover:underline">Remove</button>
               </div>
             </div>
+            @if (it.inclusions && it.inclusions.length > 0) {
+              <div class="flex flex-wrap gap-1.5">
+                @for (inc of it.inclusions; track inc) {
+                  <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{{ inc }}</span>
+                }
+              </div>
+            }
+            <label class="block text-sm border-t border-slate-100 pt-2">
+              <span class="text-xs text-slate-500">Room</span>
+              @if (it.requiresVipRoom) {
+                <input value="VIP — included with package" disabled
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500" />
+              } @else {
+                <select [ngModel]="it.roomType" name="room{{itemIdx}}" (ngModelChange)="setItemRoom(itemIdx, $event)"
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+                  <option value="COMMON">Common &mdash; +&#8369;0</option>
+                  <option value="PRIVATE">Private &mdash; +&#8369;500</option>
+                </select>
+              }
+            </label>
             @for (att of it.attendees; track $index; let attIdx = $index) {
             <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-sm border-t border-slate-100 pt-2">
               <label class="block sm:col-span-2">
                 <span class="text-xs text-slate-500">Guest {{ attIdx + 1 }} &mdash; Massage</span>
-                @if (it.couple && attIdx > 0) {
+                @if ((it.couple || it.requiresVipRoom) && attIdx > 0) {
                   <div class="mt-1 px-2 py-1.5 bg-slate-100 rounded text-slate-500 text-sm">Shared</div>
                 } @else {
-                  <select [ngModel]="att.packageTierId" name="tier{{$index}}_{{attIdx}}"
-                    (ngModelChange)="onAttendeeMassageChange($index, attIdx, $event)"
+                  <select [ngModel]="att.packageTierId" name="tier{{itemIdx}}_{{attIdx}}"
+                    (ngModelChange)="onAttendeeMassageChange(itemIdx, attIdx, $event)"
                     class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
                     <option [ngValue]="null" disabled>Choose massage</option>
-                    @for (t of it.tiers; track t.id) {
+                    @for (t of tiersForItem(it); track t.id) {
                     <option [ngValue]="t.id">{{ t.serviceName }}</option>
                     }
                   </select>
@@ -122,12 +146,12 @@
               </label>
               <label class="block">
                 <span class="text-xs text-slate-500">Locker #</span>
-                <input [(ngModel)]="att.lockerNumber" name="locker{{$index}}_{{attIdx}}" maxlength="16"
+                <input [(ngModel)]="att.lockerNumber" name="locker{{itemIdx}}_{{attIdx}}" maxlength="16"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
               </label>
               <label class="block">
                 <span class="text-xs text-slate-500">Sex</span>
-                <select [(ngModel)]="att.clientGender" name="gender{{$index}}_{{attIdx}}"
+                <select [(ngModel)]="att.clientGender" name="gender{{itemIdx}}_{{attIdx}}"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
                   <option value="F">Female</option>
                   <option value="M">Male</option>
@@ -136,7 +160,7 @@
               <label class="block">
                 <span class="text-xs text-slate-500">Discount (this guest)</span>
                 <input type="number" min="0" step="0.01"
-                  [(ngModel)]="att.discount" name="discount{{$index}}_{{attIdx}}"
+                  [(ngModel)]="att.discount" name="discount{{itemIdx}}_{{attIdx}}"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
               </label>
             </div>
@@ -172,25 +196,8 @@
       </div>
 
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Room &amp; miscellaneous</h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Miscellaneous</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <label class="block">
-            Room type
-            @if (anyVip()) {
-            <input value="VIP — included with VIP package" disabled
-              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500" />
-            } @else {
-            <select [ngModel]="roomType()" name="roomType" (ngModelChange)="setRoomType($event)"
-              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
-              <option value="COMMON" [disabled]="roomAvailability().COMMON === 0">
-                Common ({{ roomAvailability().COMMON }} available) — +&#8369;0
-              </option>
-              <option value="PRIVATE" [disabled]="roomAvailability().PRIVATE === 0">
-                Private ({{ roomAvailability().PRIVATE }} available) — +&#8369;500
-              </option>
-            </select>
-            }
-          </label>
           <label class="block">
             Reference number
             <input [(ngModel)]="referenceNumber" name="referenceNumber" maxlength="100"
@@ -208,10 +215,9 @@
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
             <span class="text-[11px] text-slate-400">Editable. Generated automatically if left blank.</span>
           </label>
-          <label class="flex items-center gap-2 mt-5"
-            [class.opacity-50]="totalAttendees() < 2">
-            <input type="checkbox" [checked]="groupBooking()" [disabled]="totalAttendees() < 2"
-              (change)="groupBooking.set(!groupBooking())"
+          <label class="flex items-center gap-2 sm:self-end sm:pb-2"
+            [class.opacity-50]="!groupBooking()" title="Determined automatically when an order has more than one package">
+            <input type="checkbox" [checked]="groupBooking()" disabled
               class="accent-[var(--sumi-primary)]" />
             Group booking
           </label>
@@ -235,15 +241,15 @@
 
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Payments</h2>
-        <div class="flex flex-wrap gap-2">
-          @for (m of ['CASH', 'GCASH', 'CREDIT', 'DEBIT']; track m) {
-          <button (click)="setPaymentMethod($any(m))" class="px-3 py-1.5 text-xs rounded border"
-            [class.bg-\[var\(--sumi-primary\)\]]="paymentMethod() === m" [class.text-white]="paymentMethod() === m"
-            [class.border-slate-300]="paymentMethod() !== m" [class.text-slate-700]="paymentMethod() !== m">
-            {{ m }}
-          </button>
-          }
-        </div>
+        <label class="block">
+          <span class="text-xs text-slate-500">Charge to</span>
+          <select [ngModel]="paymentMethod()" (ngModelChange)="setPaymentMethod($event)" name="chargeTo"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm">
+            @for (opt of chargeOptions(); track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </label>
 
         <div class="flex gap-2 items-end">
           <label class="block flex-1">
@@ -256,9 +262,13 @@
             <input [(ngModel)]="paymentRef" name="payRef" maxlength="100"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
           </label>
-          <button (click)="addPayment()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2">Add
+          <button (click)="addPayment()" [disabled]="total() === 0"
+            class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2 disabled:opacity-50">Add
             payment</button>
         </div>
+        @if (total() === 0) {
+        <p class="text-[11px] text-slate-400">No payment is required for a zero-total order.</p>
+        }
 
         @if (payments().length > 0) {
         <ul class="text-sm divide-y divide-slate-100 border border-slate-200 rounded">
@@ -285,11 +295,8 @@
         <div class="flex justify-between text-sm"><span>Items subtotal</span><span>&#8369; {{ itemsSubtotal() |
             number:'1.2-2' }}</span></div>
         <div class="flex justify-between text-sm">
-          <span>Room ({{ effectiveRoomType() }})</span>
-          <span>
-            @if (effectiveRoomType() === 'VIP') { included }
-            @else { &#8369; {{ roomSurcharge() | number:'1.2-2' }} }
-          </span>
+          <span>Private rooms</span>
+          <span>&#8369; {{ roomSurcharge() | number:'1.2-2' }}</span>
         </div>
         <div class="flex justify-between text-sm"><span>Subtotal</span><span>&#8369; {{ subtotal() | number:'1.2-2'
             }}</span></div>
@@ -320,7 +327,8 @@
     </aside>
   </div>
 
-  <!-- Register Client Modal -->
+  <sumi-payment-details-modal />
+
   @if (showRegister()) {
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4" (click)="closeRegister()">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
@@ -362,7 +370,6 @@
   </div>
   }
 
-  <!-- Discount / Adjustment Modal -->
   @if (showDiscountModal()) {
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" (click)="closeDiscountModal()">
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
@@ -377,7 +384,7 @@
             @for (tmpl of discountTemplates(); track tmpl.id || tmpl.label) {
             <div class="inline-flex items-center gap-1">
               <button (click)="applyTemplate(tmpl)" class="px-3 py-1.5 text-xs rounded border"
-                [class.bg-\[var\(--sumi-primary\)\]]="activeTemplate() === (tmpl.name || tmpl.label)"
+                [style.backgroundColor]="activeTemplate() === (tmpl.name || tmpl.label) ? 'var(--sumi-primary)' : null"
                 [class.text-white]="activeTemplate() === (tmpl.name || tmpl.label)"
                 [class.border-slate-300]="activeTemplate() !== (tmpl.name || tmpl.label)">
                 {{ tmpl.name || tmpl.label }}
@@ -398,12 +405,12 @@
               <div class="flex gap-1">
                 <button (click)="discountConfig.update(c => ({...c, type: 'DISCOUNT'}))"
                   class="px-3 py-1.5 text-xs rounded border"
-                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().type === 'DISCOUNT'"
+                  [style.backgroundColor]="discountConfig().type === 'DISCOUNT' ? 'var(--sumi-primary)' : null"
                   [class.text-white]="discountConfig().type === 'DISCOUNT'"
                   [class.border-slate-300]="discountConfig().type !== 'DISCOUNT'">DISCOUNT</button>
                 <button (click)="discountConfig.update(c => ({...c, type: 'PRICE_INCREASE'}))"
                   class="px-3 py-1.5 text-xs rounded border"
-                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().type === 'PRICE_INCREASE'"
+                  [style.backgroundColor]="discountConfig().type === 'PRICE_INCREASE' ? 'var(--sumi-primary)' : null"
                   [class.text-white]="discountConfig().type === 'PRICE_INCREASE'"
                   [class.border-slate-300]="discountConfig().type !== 'PRICE_INCREASE'">PRICE INCREASE</button>
               </div>
@@ -413,12 +420,12 @@
               <div class="flex gap-1">
                 <button (click)="discountConfig.update(c => ({...c, amountType: 'PERCENT'}))"
                   class="px-3 py-1.5 text-xs rounded border"
-                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().amountType === 'PERCENT'"
+                  [style.backgroundColor]="discountConfig().amountType === 'PERCENT' ? 'var(--sumi-primary)' : null"
                   [class.text-white]="discountConfig().amountType === 'PERCENT'"
                   [class.border-slate-300]="discountConfig().amountType !== 'PERCENT'">PERCENT</button>
                 <button (click)="discountConfig.update(c => ({...c, amountType: 'FIXED'}))"
                   class="px-3 py-1.5 text-xs rounded border"
-                  [class.bg-\[var\(--sumi-primary\)\]]="discountConfig().amountType === 'FIXED'"
+                  [style.backgroundColor]="discountConfig().amountType === 'FIXED' ? 'var(--sumi-primary)' : null"
                   [class.text-white]="discountConfig().amountType === 'FIXED'"
                   [class.border-slate-300]="discountConfig().amountType !== 'FIXED'">FIXED AMOUNT</button>
               </div>

@@ -5,6 +5,9 @@ import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.CreateWalkInRequest;
+import com.sumicare.booking.dto.PublicPaymentConfirmRequest;
+import com.sumicare.booking.dto.PublicPaymentInitiateRequest;
+import com.sumicare.booking.dto.PublicPaymentResponse;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.booking.dto.WalkInResponse;
@@ -62,6 +65,22 @@ public class BookingController {
     public BookingResponse internalBook(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                         @Valid @RequestBody CreateBookingRequest request) {
         return bookingService.createBooking(UUID.fromString(principal.organizationId()), request);
+    }
+
+    @PostMapping("/api/public/bookings/{slug}/payment/initiate")
+    public PublicPaymentResponse publicPaymentInitiate(@PathVariable String slug,
+                                                       @Valid @RequestBody PublicPaymentInitiateRequest request) {
+        UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
+        return bookingService.initiatePublicPayment(organizationId, request.orderId(),
+                request.paymentMethod(), request.paymentDetails());
+    }
+
+    @PostMapping("/api/public/bookings/{slug}/payment/confirm")
+    public PublicPaymentResponse publicPaymentConfirm(@PathVariable String slug,
+                                                      @Valid @RequestBody PublicPaymentConfirmRequest request) {
+        UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
+        return bookingService.confirmPublicPayment(organizationId, request.orderId(),
+                request.intentId(), request.paymentMethod());
     }
 
     @GetMapping("/api/bookings")

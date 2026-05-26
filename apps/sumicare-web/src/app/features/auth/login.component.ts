@@ -19,11 +19,16 @@ export class LoginComponent implements OnInit {
 
   username = '';
   password = '';
+  code = '';
   busy = signal(false);
   error = signal<string | null>(null);
   verifiedBanner = signal<'success' | 'expired' | null>(null);
   idleBanner = signal(false);
   showContactModal = signal(false);
+  mfaRequired = signal(false);
+  maskedEmail = signal<string | null>(null);
+  resendNotice = signal(false);
+  private challengeId: string | null = null;
 
   openContactModal(): void { this.showContactModal.set(true); }
   closeContactModal(): void { this.showContactModal.set(false); }
@@ -41,14 +46,69 @@ export class LoginComponent implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     this.auth.login(this.username, this.password).subscribe({
+      next: (response) => {
+        this.busy.set(false);
+        if (response.mfaRequired && response.challengeId) {
+          this.challengeId = response.challengeId;
+          this.maskedEmail.set(response.email);
+          this.mfaRequired.set(true);
+          return;
+        }
+        this.router.navigate(['/app/dashboard']);
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(this.messageFor(err));
+      }
+    });
+  }
+
+  verify(event: Event): void {
+    event.preventDefault();
+    if (!this.challengeId) return;
+    this.busy.set(true);
+    this.error.set(null);
+    this.auth.verifyMfa(this.challengeId, this.code.trim()).subscribe({
       next: () => {
         this.busy.set(false);
         this.router.navigate(['/app/dashboard']);
       },
       error: (err) => {
         this.busy.set(false);
-        this.error.set(err.status === 401 || err.status === 400 ? 'Invalid credentials' : 'Sign-in failed');
+        this.error.set(this.messageFor(err));
       }
     });
+  }
+
+  resend(): void {
+    if (!this.challengeId || this.busy()) return;
+    this.busy.set(true);
+    this.error.set(null);
+    this.resendNotice.set(false);
+    this.auth.resendMfa(this.challengeId).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.resendNotice.set(true);
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(this.messageFor(err));
+      }
+    });
+  }
+
+  backToSignIn(): void {
+    this.mfaRequired.set(false);
+    this.challengeId = null;
+    this.code = '';
+    this.error.set(null);
+    this.resendNotice.set(false);
+    this.maskedEmail.set(null);
+  }
+
+  private messageFor(err: { status?: number; error?: { message?: string } }): string {
+    if (err?.error?.message) return err.error.message;
+    if (err?.status === 401 || err?.status === 400) return 'Invalid credentials';
+    return 'Sign-in failed';
   }
 }

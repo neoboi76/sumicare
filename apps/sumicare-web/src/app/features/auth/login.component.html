@@ -17,32 +17,61 @@
         You were signed out for inactivity. Sign in again to continue.
       </div>
     }
-    <form (submit)="submit($event)" class="space-y-4">
-      <label class="block">
-        <span class="text-sm text-slate-700">Username</span>
-        <input [(ngModel)]="username" name="username" autocomplete="username" required
-               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-      </label>
-      <label class="block">
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-sm text-slate-700">Password</span>
-          <button type="button" (click)="openContactModal()" class="text-xs text-[var(--sumi-primary)] hover:underline">Contact administrator</button>
+    @if (!mfaRequired()) {
+      <form (submit)="submit($event)" class="space-y-4">
+        <label class="block">
+          <span class="text-sm text-slate-700">Username</span>
+          <input [(ngModel)]="username" name="username" autocomplete="username" required
+                 class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+        </label>
+        <label class="block">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm text-slate-700">Password</span>
+            <button type="button" (click)="openContactModal()" class="text-xs text-[var(--sumi-primary)] hover:underline">Contact administrator</button>
+          </div>
+          <sumi-password-input
+            [(value)]="password"
+            name="password"
+            autocomplete="current-password"
+            [required]="true">
+          </sumi-password-input>
+        </label>
+        <button type="submit" [disabled]="busy()"
+                class="w-full rounded-md bg-[var(--sumi-primary)] text-white font-medium py-2.5 hover:opacity-95 disabled:opacity-60">
+          {{ busy() ? 'Signing in...' : 'Sign in' }}
+        </button>
+        @if (error(); as msg) {
+          <p class="text-sm text-red-600 mt-2">{{ msg }}</p>
+        }
+      </form>
+    } @else {
+      <form (submit)="verify($event)" class="space-y-4">
+        <p class="text-sm text-slate-600">
+          We sent a six-digit verification code to
+          <span class="font-medium text-slate-800">{{ maskedEmail() }}</span>.
+          Enter it below to finish signing in. The code expires in 15 minutes.
+        </p>
+        <label class="block">
+          <span class="text-sm text-slate-700">Verification code</span>
+          <input [(ngModel)]="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required
+                 class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 tracking-[0.5em] text-center text-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+        </label>
+        <button type="submit" [disabled]="busy()"
+                class="w-full rounded-md bg-[var(--sumi-primary)] text-white font-medium py-2.5 hover:opacity-95 disabled:opacity-60">
+          {{ busy() ? 'Verifying...' : 'Verify and sign in' }}
+        </button>
+        <div class="flex items-center justify-between text-xs">
+          <button type="button" (click)="backToSignIn()" class="text-slate-500 hover:underline">Back to sign in</button>
+          <button type="button" (click)="resend()" [disabled]="busy()" class="text-[var(--sumi-primary)] hover:underline disabled:opacity-60">Resend code</button>
         </div>
-        <sumi-password-input
-          [(value)]="password"
-          name="password"
-          autocomplete="current-password"
-          [required]="true">
-        </sumi-password-input>
-      </label>
-      <button type="submit" [disabled]="busy()"
-              class="w-full rounded-md bg-[var(--sumi-primary)] text-white font-medium py-2.5 hover:opacity-95 disabled:opacity-60">
-        {{ busy() ? 'Signing in...' : 'Sign in' }}
-      </button>
-      @if (error(); as msg) {
-        <p class="text-sm text-red-600 mt-2">{{ msg }}</p>
-      }
-    </form>
+        @if (resendNotice()) {
+          <p class="text-sm text-green-700">A new code has been sent.</p>
+        }
+        @if (error(); as msg) {
+          <p class="text-sm text-red-600 mt-2">{{ msg }}</p>
+        }
+      </form>
+    }
   </div>
   <sumi-contact-admin-modal [show]="showContactModal()" (closed)="closeContactModal()"></sumi-contact-admin-modal>
 </div>

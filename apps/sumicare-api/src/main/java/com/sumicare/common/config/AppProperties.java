@@ -20,8 +20,7 @@ public record AppProperties(
     public record Bcrypt(int cost) {}
     public record RateLimit(int loginPerMinute) {}
     public record App(String publicBaseUrl, String emailFrom) {}
-    public record Payment(Stripe stripe, Paymongo paymongo) {
-        public record Stripe(String secretKey, String webhookSecret) {}
-        public record Paymongo(String secretKey, String webhookSecret) {}
+    public record Payment(Paymongo paymongo) {
+        public record Paymongo(String secretKey, String publicKey, String webhookSecret, boolean mockMode) {}
     }
 }

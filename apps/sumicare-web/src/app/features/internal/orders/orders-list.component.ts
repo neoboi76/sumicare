@@ -9,7 +9,7 @@ import { PaginatorComponent } from '../../../shared/components/paginator/paginat
 interface OrderItem {
   id: string;
   packageName: string;
-  attendees: { id: string }[];
+  attendees: { id: string; treatmentSlipId: string | null }[];
 }
 
 interface Order {
@@ -19,6 +19,7 @@ interface Order {
   clientNickname: string | null;
   transactorName: string | null;
   cashierDisplayName: string | null;
+  lastEditedByDisplayName: string | null;
   orNumber: string | null;
   total: number;
   amountPaid: number;
@@ -120,6 +121,7 @@ export class OrdersListComponent implements OnInit {
       case 'OPEN': return 'bg-amber-100 text-amber-700';
       case 'PAID': return 'bg-emerald-100 text-emerald-700';
       case 'CANCELLED': return 'bg-rose-100 text-rose-700';
+      case 'REFUNDED': return 'bg-violet-100 text-violet-700';
       default: return 'bg-slate-100 text-slate-700';
     }
   }
@@ -142,5 +144,15 @@ export class OrdersListComponent implements OnInit {
 
   isReservation(o: Order): boolean {
     return !!o.bookingId && o.status === 'OPEN';
+  }
+
+  slipId(o: Order): string | null {
+    if (o.treatmentSlipId) return o.treatmentSlipId;
+    for (const item of o.items || []) {
+      for (const att of item.attendees || []) {
+        if (att.treatmentSlipId) return att.treatmentSlipId;
+      }
+    }
+    return null;
   }
 }

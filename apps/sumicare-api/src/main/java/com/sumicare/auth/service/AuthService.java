@@ -1,6 +1,8 @@
 package com.sumicare.auth.service;
 
+import com.sumicare.audit.service.AuditService;
 import com.sumicare.auth.dto.LoginRequest;
+import com.sumicare.auth.dto.LoginResponse;
 import com.sumicare.auth.dto.TokenResponse;
 import com.sumicare.common.config.AppProperties;
 import com.sumicare.user.domain.User;
@@ -10,8 +12,12 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,43 +28,131 @@ import java.util.UUID;
 public class AuthService {
 
     public static final String REFRESH_COOKIE = "sumicare_refresh";
+    private static final String SUPERADMIN = "SUPERADMIN";
+    private static final int MAX_FAILED_ATTEMPTS = 2;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AppProperties appProperties;
     private final LoginRateLimiter rateLimiter;
+    private final AuthenticationManager authenticationManager;
+    private final MfaService mfaService;
+    private final EmailService emailService;
+    private final AuditService auditService;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
-                       AppProperties appProperties, LoginRateLimiter rateLimiter) {
+                       AppProperties appProperties, LoginRateLimiter rateLimiter,
+                       AuthenticationManager authenticationManager, MfaService mfaService,
+                       EmailService emailService, AuditService auditService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.appProperties = appProperties;
         this.rateLimiter = rateLimiter;
+        this.authenticationManager = authenticationManager;
+        this.mfaService = mfaService;
+        this.emailService = emailService;
+        this.auditService = auditService;
     }
 
-    public TokenResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
+    public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
         String key = httpRequest.getRemoteAddr() + ":" + request.username();
         if (!rateLimiter.tryConsume(key)) {
             throw new LockedException("Too many login attempts");
         }
-        User user = userRepository.findByUsername(request.username())
-                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
-        if (!user.isActive()) throw new AccessDeniedException("User is deactivated");
-        if (user.getPasswordHash() == null) {
-            throw new BadCredentialsException("Account setup is not complete. Please use the invitation link sent to your email.");
-        }
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.username(), request.password()));
+        } catch (DisabledException ex) {
+            throw new AccessDeniedException("User is deactivated");
+        } catch (LockedException ex) {
+            throw new LockedException("Your account is locked after too many failed sign-in attempts. Please contact an administrator.");
+        } catch (BadCredentialsException ex) {
+            registerFailedAttempt(request.username());
+            throw new BadCredentialsException("Invalid credentials");
+        } catch (AuthenticationException ex) {
             throw new BadCredentialsException("Invalid credentials");
         }
+        User user = userRepository.findByUsername(request.username())
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
         if (!user.isEmailVerified()) {
             throw new AccessDeniedException("Email address not verified. Please check your inbox for the verification link.");
         }
+        resetFailedAttempts(user);
+        if (SUPERADMIN.equalsIgnoreCase(user.getRole().getCode())) {
+            return LoginResponse.authenticated(completeLogin(user, response, clientIp(httpRequest)));
+        }
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new AccessDeniedException("No email address is on file for verification. Please contact an administrator.");
+        }
+        MfaService.Challenge challenge = mfaService.create(user.getId());
+        emailService.sendMfaCodeEmail(user.getEmail(), displayNameOf(user), challenge.code());
+        return LoginResponse.mfaChallenge(challenge.challengeId(), maskEmail(user.getEmail()));
+    }
+
+    public TokenResponse verifyMfa(String challengeId, String code, HttpServletRequest httpRequest, HttpServletResponse response) {
+        UUID userId = mfaService.verify(challengeId, code);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BadCredentialsException("Unknown user"));
+        return completeLogin(user, response, clientIp(httpRequest));
+    }
+
+    public void resendMfa(String challengeId) {
+        MfaService.Challenge challenge = mfaService.resend(challengeId);
+        userRepository.findById(challenge.userId()).ifPresent(user -> {
+            if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                emailService.sendMfaCodeEmail(user.getEmail(), displayNameOf(user), challenge.code());
+            }
+        });
+    }
+
+    private TokenResponse completeLogin(User user, HttpServletResponse response, String ip) {
         String access = jwtService.issueAccessToken(user.getId(), user.getOrganizationId(), user.getRole().getCode());
         String refresh = jwtService.issueRefreshToken(user.getId(), user.getOrganizationId());
         writeRefreshCookie(response, refresh);
+        auditService.record(user.getOrganizationId(), user.getId(), user.getRole().getCode(),
+                "USER.LOGIN", "USER", user.getId().toString(), null, ip);
         return new TokenResponse(access, "Bearer", appProperties.jwt().accessExpiryMs() / 1000L, user.getRole().getCode());
+    }
+
+    private void registerFailedAttempt(String username) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            int attempts = user.getFailedLoginAttempts() + 1;
+            user.setFailedLoginAttempts(attempts);
+            if (attempts > MAX_FAILED_ATTEMPTS) {
+                user.setAccountLocked(true);
+            }
+            userRepository.save(user);
+        });
+    }
+
+    private void resetFailedAttempts(User user) {
+        if (user.getFailedLoginAttempts() != 0 || user.isAccountLocked()) {
+            user.setFailedLoginAttempts(0);
+            user.setAccountLocked(false);
+            userRepository.save(user);
+        }
+    }
+
+    private String displayNameOf(User user) {
+        return user.getDisplayName() != null && !user.getDisplayName().isBlank()
+                ? user.getDisplayName() : user.getUsername();
+    }
+
+    private String maskEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 1) return email;
+        return email.charAt(0) + "***" + email.substring(at);
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            int comma = forwarded.indexOf(',');
+            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
+        }
+        return request.getRemoteAddr();
     }
 
     public TokenResponse refresh(HttpServletRequest request, HttpServletResponse response) {

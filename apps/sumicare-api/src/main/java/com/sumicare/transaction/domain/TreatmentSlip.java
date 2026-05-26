@@ -84,6 +84,12 @@ public class TreatmentSlip {
     @Column(name = "others_add_on", columnDefinition = "text")
     private String othersAddOn;
 
+    @Column(name = "extension_minutes")
+    private Integer extensionMinutes;
+
+    @Column(name = "client_gender", length = 1)
+    private String clientGender;
+
     @Column(name = "remarks", columnDefinition = "text")
     private String remarks;
 
@@ -144,6 +150,10 @@ public class TreatmentSlip {
     public void setEndTime(OffsetDateTime endTime) { this.endTime = endTime; }
     public boolean isVip() { return vip; }
     public void setVip(boolean vip) { this.vip = vip; }
+    public Integer getExtensionMinutes() { return extensionMinutes; }
+    public void setExtensionMinutes(Integer extensionMinutes) { this.extensionMinutes = extensionMinutes; }
+    public String getClientGender() { return clientGender; }
+    public void setClientGender(String clientGender) { this.clientGender = clientGender; }
     public Integer getPax() { return pax; }
     public void setPax(Integer pax) { this.pax = pax; }
     public Integer getTreatmentMinutes() { return treatmentMinutes; }

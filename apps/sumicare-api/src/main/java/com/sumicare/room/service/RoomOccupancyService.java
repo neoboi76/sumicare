@@ -53,13 +53,14 @@ public class RoomOccupancyService {
     }
 
     public void occupy(UUID organizationId, UUID roomId, UUID bedId, String clientNickname,
-                       String lockerNumber, String therapistNickname, String genderLock) {
+                       String lockerNumber, String therapistNickname, String genderLock, UUID ownerItemId) {
         Map<String, String> hash = new HashMap<>();
         hash.put("status", "OCCUPIED");
         hash.put("clientNickname", clientNickname == null ? "" : clientNickname);
         hash.put("lockerNumber", lockerNumber == null ? "" : lockerNumber);
         hash.put("therapistNickname", therapistNickname == null ? "" : therapistNickname);
         hash.put("genderLock", genderLock == null ? "" : genderLock);
+        hash.put("ownerItemId", ownerItemId == null ? "" : ownerItemId.toString());
         hash.put("startedAt", String.valueOf(Instant.now().toEpochMilli()));
         redis.opsForHash().putAll(key(roomId, bedId), hash);
         notificationService.broadcastRoomUpdate(organizationId, roomId, bedId, hash);

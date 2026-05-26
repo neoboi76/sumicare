@@ -1,0 +1,104 @@
+@if (config(); as cfg) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" (click)="cancel()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-left">
+            <h3 class="text-lg font-semibold text-slate-900 mb-1">
+                @switch (cfg.method) {
+                    @case ('GCASH') { GCash payment }
+                    @case ('CREDIT') { Credit card payment }
+                    @case ('DEBIT') { Debit card payment }
+                }
+            </h3>
+            <p class="text-sm text-slate-500 mb-4">Amount due: &#8369; {{ cfg.amount | number:'1.2-2' }}</p>
+
+            @if (error(); as e) {
+                <p class="text-sm text-red-600 mb-3">{{ e }}</p>
+            }
+
+            @if (isCard()) {
+                <div class="space-y-3 text-sm">
+                    <label class="block">
+                        Card number
+                        <input [ngModel]="card().cardNumber" (ngModelChange)="setCard('cardNumber', $event)"
+                            name="cardNumber" inputmode="numeric" maxlength="23" placeholder="4343 4343 4343 4345"
+                            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="block">
+                            Exp. month
+                            <input [ngModel]="card().expMonth" (ngModelChange)="setCard('expMonth', $event)"
+                                name="expMonth" inputmode="numeric" maxlength="2" placeholder="MM"
+                                class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                        </label>
+                        <label class="block">
+                            Exp. year
+                            <input [ngModel]="card().expYear" (ngModelChange)="setCard('expYear', $event)"
+                                name="expYear" inputmode="numeric" maxlength="4" placeholder="YYYY"
+                                class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                        </label>
+                        <label class="block">
+                            CVC
+                            <input [ngModel]="card().cvc" (ngModelChange)="setCard('cvc', $event)"
+                                name="cvc" inputmode="numeric" maxlength="4" placeholder="123"
+                                class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                        </label>
+                    </div>
+                    <label class="block">
+                        Cardholder name
+                        <input [ngModel]="card().cardHolder" (ngModelChange)="setCard('cardHolder', $event)"
+                            name="cardHolder" maxlength="120"
+                            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                    </label>
+                    <label class="block">
+                        Email (optional)
+                        <input [ngModel]="card().cardEmail" (ngModelChange)="setCard('cardEmail', $event)"
+                            name="cardEmail" type="email" maxlength="120" placeholder="name@example.com"
+                            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                    </label>
+                    <button type="button" (click)="useTestCard()" class="text-xs text-slate-500 hover:underline">
+                        Use test card
+                    </button>
+                </div>
+            } @else {
+                <div class="space-y-3 text-sm">
+                    <label class="block">
+                        GCash account name
+                        <input [ngModel]="gcashName()" (ngModelChange)="gcashName.set($event)"
+                            name="gcashName" maxlength="120" placeholder="Account holder name"
+                            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                    </label>
+                    <label class="block">
+                        GCash mobile number
+                        <input [ngModel]="gcashPhone()" (ngModelChange)="gcashPhone.set($event)"
+                            name="gcashPhone" inputmode="tel" maxlength="13" placeholder="09171234567"
+                            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                    </label>
+                    <label class="block">
+                        Email
+                        <input [ngModel]="gcashEmail()" (ngModelChange)="gcashEmail.set($event)"
+                            name="gcashEmail" type="email" maxlength="120" placeholder="name@example.com"
+                            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+                    </label>
+                    <p class="text-xs text-slate-500">
+                        You will be redirected to the GCash authorization page to complete the payment.
+                    </p>
+                    <button type="button" (click)="useTestGcash()" class="text-xs text-slate-500 hover:underline">
+                        Use test GCash
+                    </button>
+                </div>
+            }
+
+            <div class="flex items-center justify-end gap-3 mt-6">
+                <button type="button" (click)="cancel()"
+                    class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+                    Cancel
+                </button>
+                <button type="button" (click)="submit()"
+                    class="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90"
+                    [style.backgroundColor]="'var(--sumi-primary)'">
+                    Pay &#8369; {{ cfg.amount | number:'1.2-2' }}
+                </button>
+            </div>
+        </div>
+    </div>
+}

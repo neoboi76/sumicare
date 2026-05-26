@@ -6,8 +6,9 @@
     'Monthly' }, { k: 'commissions', label: 'Therapist commissions' }, { k: 'decking', label: 'Therapist decking' }];
     track t.k) {
     <button (click)="setTab($any(t.k))" class="px-3 py-2 text-sm border-b-2"
-      [class.border-\[var\(--sumi-primary\)\]]="tab() === t.k" [class.text-\[var\(--sumi-primary\)\]]="tab() === t.k"
-      [class.font-semibold]="tab() === t.k" [class.border-transparent]="tab() !== t.k"
+      [style.borderBottomColor]="tab() === t.k ? 'var(--sumi-primary)' : 'transparent'"
+      [style.color]="tab() === t.k ? 'var(--sumi-primary)' : null"
+      [class.font-semibold]="tab() === t.k"
       [class.text-slate-600]="tab() !== t.k">{{ t.label }}</button>
     }
   </div>
@@ -36,7 +37,7 @@
     </div>
     @if (servicesReport(); as r) {
     <div class="text-xs text-slate-500 mb-1">Shift: {{ selectedShiftLabel() }}</div>
-    <table class="w-full text-sm mt-2">
+    <div class="overflow-x-auto"><table class="w-full text-sm mt-2 min-w-[600px]">
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
         <tr>
           <th class="text-left px-3 py-2">Service</th>
@@ -61,7 +62,7 @@
           <td class="text-right px-3 py-2">&#8369; {{ r.grandTotal | number:'1.2-2' }}</td>
         </tr>
       </tfoot>
-    </table>
+    </table></div>
     }
   </div>
   }
@@ -94,7 +95,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          @for (row of r.rows; track $index) {
+          @for (row of pagedDailyRows(); track $index) {
           <tr>
             <td class="px-2 py-1.5">{{ row.checkInTime }}</td>
             <td class="px-2 py-1.5 font-mono">{{ row.orNumber }}</td>
@@ -125,6 +126,14 @@
           </tr>
         </tfoot>
       </table>
+      @if (r.rows.length > pageSize()) {
+      <sumi-paginator
+        [totalElements]="r.rows.length"
+        [pageSize]="pageSize()"
+        [currentPage]="dailyPage()"
+        (pageChange)="dailyPage.set($event)">
+      </sumi-paginator>
+      }
     </div>
     }
   </div>
@@ -158,7 +167,7 @@
       @for (s of [{ k: 'shift', label: 'Shift' }, { k: 'daily', label: 'Daily' }, { k: 'cutoff', label: 'Payroll cutoff'
       }, { k: 'monthly', label: 'Monthly' }]; track s.k) {
       <button (click)="setCommissionTab($any(s.k))" class="px-3 py-1.5 text-xs rounded border"
-        [class.bg-\[var\(--sumi-primary\)\]]="commissionTab() === s.k" [class.text-white]="commissionTab() === s.k"
+        [style.backgroundColor]="commissionTab() === s.k ? 'var(--sumi-primary)' : null" [class.text-white]="commissionTab() === s.k"
         [class.border-slate-300]="commissionTab() !== s.k" [class.text-slate-700]="commissionTab() !== s.k">{{ s.label
         }}</button>
       }

@@ -15,7 +15,7 @@
     track f.k
     ) {
     <button (click)="setFilter(f.k)" class="px-3 py-1.5 rounded border"
-      [class.bg-\[var\(--sumi-primary\)\]]="filter() === f.k" [class.text-white]="filter() === f.k"
+      [style.backgroundColor]="filter() === f.k ? 'var(--sumi-primary)' : null" [class.text-white]="filter() === f.k"
       [class.border-slate-300]="filter() !== f.k" [class.text-slate-700]="filter() !== f.k">
       {{ f.label }}
     </button>
@@ -69,7 +69,7 @@
             }
           </td>
           <td class="px-3 py-2 text-xs text-slate-600">{{ itemSummary(o) }}</td>
-          <td class="px-3 py-2 text-slate-500">{{ o.cashierDisplayName || '\u2014' }}</td>
+          <td class="px-3 py-2 text-slate-500">{{ o.lastEditedByDisplayName || o.cashierDisplayName || '\u2014' }}</td>
           <td class="px-3 py-2">
             <span class="inline-block rounded px-2 py-0.5 text-[11px] font-semibold" [class]="statusClass(o.status)">{{
               o.status }}</span>
@@ -78,11 +78,11 @@
           <td class="px-3 py-2 text-right">&#8369; {{ o.amountPaid | number:'1.2-2' }}</td>
           <td class="px-3 py-2 text-right">&#8369; {{ o.balance | number:'1.2-2' }}</td>
           <td class="px-3 py-2">
-            @if (o.treatmentSlipId) {
-            <a [routerLink]="['/app/treatment-slips', o.treatmentSlipId]"
+            @if (slipId(o); as sid) {
+            <a [routerLink]="['/app/treatment-slips', sid]"
               class="text-xs text-[var(--sumi-primary)] hover:underline">View</a>
             } @else {
-            <span class="text-xs text-slate-400">\u2014</span>
+            <span class="text-xs text-slate-400">&mdash;</span>
             }
           </td>
           <td class="px-3 py-2 text-right">

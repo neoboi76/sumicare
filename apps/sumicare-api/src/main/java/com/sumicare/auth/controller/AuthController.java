@@ -2,6 +2,9 @@ package com.sumicare.auth.controller;
 
 import com.sumicare.auth.dto.ContactAdminResetRequest;
 import com.sumicare.auth.dto.LoginRequest;
+import com.sumicare.auth.dto.LoginResponse;
+import com.sumicare.auth.dto.MfaResendRequest;
+import com.sumicare.auth.dto.MfaVerifyRequest;
 import com.sumicare.auth.dto.RedeemInvitationRequest;
 import com.sumicare.auth.dto.ResetPasswordRequest;
 import com.sumicare.auth.dto.TokenResponse;
@@ -44,10 +47,22 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public TokenResponse login(@Valid @RequestBody LoginRequest request,
+    public LoginResponse login(@Valid @RequestBody LoginRequest request,
                                HttpServletRequest httpRequest,
                                HttpServletResponse response) {
         return authService.login(request, httpRequest, response);
+    }
+
+    @PostMapping("/mfa/verify")
+    public TokenResponse verifyMfa(@Valid @RequestBody MfaVerifyRequest request,
+                                   HttpServletRequest httpRequest,
+                                   HttpServletResponse response) {
+        return authService.verifyMfa(request.challengeId(), request.code(), httpRequest, response);
+    }
+
+    @PostMapping("/mfa/resend")
+    public void resendMfa(@Valid @RequestBody MfaResendRequest request) {
+        authService.resendMfa(request.challengeId());
     }
 
     @PostMapping("/refresh")

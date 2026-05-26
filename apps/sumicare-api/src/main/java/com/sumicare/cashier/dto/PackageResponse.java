@@ -15,5 +15,6 @@ public record PackageResponse(
         boolean bundlesPrivateRoom,
         boolean requiresVipRoom,
         boolean active,
+        List<String> inclusions,
         List<PackageTierResponse> tiers
 ) {}

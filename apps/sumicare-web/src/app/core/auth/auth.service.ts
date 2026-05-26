@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, firstValueFrom, of, tap } from 'rxjs';
+import { Observable, catchError, finalize, firstValueFrom, of, shareReplay, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface AuthSession {
@@ -16,10 +16,18 @@ interface TokenResponse {
   role: string;
 }
 
+export interface LoginResponse {
+  mfaRequired: boolean;
+  challengeId: string | null;
+  email: string | null;
+  token: TokenResponse | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private http = inject(HttpClient);
   readonly session = signal<AuthSession | null>(null);
+  private refreshInFlight: Observable<TokenResponse> | null = null;
 
   bootstrapSession(): Promise<void> {
     return firstValueFrom(
@@ -32,16 +40,39 @@ export class AuthService {
     ).then(() => undefined);
   }
 
-  login(username: string, password: string): Observable<TokenResponse> {
+  login(username: string, password: string): Observable<LoginResponse> {
     return this.http
-      .post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/login`, { username, password }, { withCredentials: true })
+      .post<LoginResponse>(`${environment.apiBaseUrl}/api/auth/login`, { username, password }, { withCredentials: true })
+      .pipe(tap((response) => {
+        if (response.token) {
+          this.applyToken(response.token);
+        }
+      }));
+  }
+
+  verifyMfa(challengeId: string, code: string): Observable<TokenResponse> {
+    return this.http
+      .post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/mfa/verify`, { challengeId, code }, { withCredentials: true })
       .pipe(tap((response) => this.applyToken(response)));
   }
 
-  refresh(): Observable<TokenResponse> {
+  resendMfa(challengeId: string): Observable<void> {
     return this.http
+      .post<void>(`${environment.apiBaseUrl}/api/auth/mfa/resend`, { challengeId }, { withCredentials: true });
+  }
+
+  refresh(): Observable<TokenResponse> {
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+    this.refreshInFlight = this.http
       .post<TokenResponse>(`${environment.apiBaseUrl}/api/auth/refresh`, {}, { withCredentials: true })
-      .pipe(tap((response) => this.applyToken(response)));
+      .pipe(
+        tap((response) => this.applyToken(response)),
+        finalize(() => { this.refreshInFlight = null; }),
+        shareReplay({ bufferSize: 1, refCount: true })
+      );
+    return this.refreshInFlight;
   }
 
   logout(): Observable<void> {

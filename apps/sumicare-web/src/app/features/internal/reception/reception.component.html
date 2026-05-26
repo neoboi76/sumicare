@@ -20,7 +20,7 @@
               <div class="font-medium">{{ bed.label }}</div>
               <div class="text-xs text-slate-600 mt-1">{{ bed.occupancy['clientNickname'] || 'Available' }}</div>
               @if (bed.occupancy['lockerNumber']) {
-                <div class="text-xs text-slate-500">Locker {{ bed.occupancy['lockerNumber'] }}</div>
+                <div class="text-xs text-slate-500">Locker {{ bed.occupancy['lockerNumber'] | lockerLabel:bed.occupancy['genderLock'] }}</div>
               }
               @if (bed.occupancy['therapistNickname']) {
                 <div class="text-xs text-slate-500">{{ bed.occupancy['therapistNickname'] }}</div>

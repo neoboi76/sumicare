@@ -120,7 +120,7 @@ public class WalkInService {
             for (UUID bedId : bedIds) {
                 occupancyService.occupy(organizationId, request.roomId(), bedId,
                         request.clientNickname(), request.lockerNumber(), therapistNickname,
-                        request.clientGender());
+                        request.clientGender(), null);
                 notificationService.broadcastRoomUpdate(organizationId, request.roomId(), bedId,
                         Map.of("event", "SESSION_STARTED", "sessionId", session.getId()));
             }
@@ -144,21 +144,14 @@ public class WalkInService {
         slip.setServiceName(service.getName());
         slip.setStartTime(startTime);
         slip.setEndTime(expectedEnd);
-        slip.setVip(service.isVip());
+        slip.setVip(false);
         slip.setPax(request.pax());
         slip.setOrNumber(request.orNumber());
         slip.setAddOnOrNumber(request.addOnOrNumber());
         slip.setOthersAddOn(request.othersAddOn());
         slip.setRemarks(request.remarks());
         slip.setTotalAmount(request.totalAmount());
-
-        if (service.isVip()) {
-            slip.setJacuzziMinutes(request.jacuzziMinutes());
-            slip.setMassageMinutes(request.massageMinutes());
-            slip.setWineIncluded(request.wineIncluded());
-        } else {
-            slip.setTreatmentMinutes(service.getDurationMinutes());
-        }
+        slip.setTreatmentMinutes(service.getDurationMinutes());
 
         slip.setWaiverAccepted(true);
         slip.setWaiverAcceptedAt(OffsetDateTime.now());

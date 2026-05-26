@@ -55,21 +55,22 @@ public class PackageController {
             for (PackageTier t : tiers) {
                 String code = null;
                 String name = null;
+                Integer duration = null;
                 if (t.getServiceId() != null) {
                     Service svc = serviceCache.computeIfAbsent(t.getServiceId(),
                             id -> serviceRepository.findById(id).orElse(null));
-                    if (svc != null) { code = svc.getCode(); name = svc.getName(); }
+                    if (svc != null) { code = svc.getCode(); name = svc.getName(); duration = svc.getDurationMinutes(); }
                 }
                 tierResponses.add(new PackageTierResponse(
                         t.getId(), t.getServiceId(), code, name,
-                        t.getWeekdayPrice(), t.getWeekendPrice()
+                        t.getWeekdayPrice(), t.getWeekendPrice(), duration
                 ));
             }
             responses.add(new PackageResponse(
                     pkg.getId(), pkg.getCode(), pkg.getName(), pkg.getDescription(), pkg.getBenefits(),
                     pkg.getMaxStayHours(), pkg.getDefaultPax(), pkg.isCouple(),
                     pkg.isIncludesMassage(), pkg.isBundlesPrivateRoom(), pkg.isRequiresVipRoom(), pkg.isActive(),
-                    tierResponses
+                    packageService.deriveInclusions(pkg), tierResponses
             ));
         }
         return responses;

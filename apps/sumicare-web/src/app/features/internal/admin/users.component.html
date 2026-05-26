@@ -39,7 +39,12 @@
     <tbody>
       @for (u of sortedUsers(); track u.id) {
         <tr class="border-t hover:bg-slate-50">
-          <td class="p-3 font-mono">{{ u.username }}</td>
+          <td class="p-3 font-mono">
+            {{ u.username }}
+            @if (u.accountLocked) {
+              <span class="ml-2 rounded bg-red-100 text-red-700 px-1.5 py-0.5 text-[11px] font-sans">Locked</span>
+            }
+          </td>
           <td class="p-3">{{ u.displayName || '-' }}</td>
           <td class="p-3">{{ u.email || '-' }}</td>
           <td class="p-3">{{ u.role }}</td>
@@ -48,6 +53,9 @@
               <div class="flex gap-2">
                 <button (click)="openAudit(u)" class="text-xs text-slate-500 hover:underline">Activity</button>
                 @if (canManageUser(u.role)) {
+                  @if (u.accountLocked) {
+                    <button (click)="unlock(u)" class="text-xs text-amber-600 hover:underline">Unlock</button>
+                  }
                   @if (u.email) {
                     <button (click)="sendResetLink(u)" class="text-xs text-blue-600 hover:underline">Send reset link</button>
                   }

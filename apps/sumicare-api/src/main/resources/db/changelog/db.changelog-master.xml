@@ -27,4 +27,18 @@
     <include file="changes/0021-booking-email.xml" relativeToChangelogFile="true"/>
     <include file="changes/0022-batch-fixes-4.xml" relativeToChangelogFile="true"/>
     <include file="changes/0023-batch-fixes-5.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0024-batch-fixes-7.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0025-batch-fixes-8.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0026-batch-fixes-8-refunds.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0027-account-lockout.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0028-order-extension-charge.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0029-couple-package-prices.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0030-service-prices.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0031-order-item-room-type.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0032-seed-more-therapists.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0033-order-completion-email.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0034-remove-vip-massage-service.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0035-treatment-slip-extension-gender.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0036-feedback-or-number.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0037-ledger-accounts.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
