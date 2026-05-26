@@ -1,6 +1,5 @@
 .env
 .env.*
-.env.example
 application-local.yml
 application-local.yaml
 
@@ -11,6 +10,7 @@ docs/
 CLAUDE.md
 .claude/
 test-api.ps1
+start-api.ps1
 .claude/**
 
 node_modules/
