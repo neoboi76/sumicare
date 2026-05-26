@@ -11,6 +11,9 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
+      connection-timeout: 30000
+      keepalive-time: 60000
+      max-lifetime: 1800000
   jpa:
     hibernate:
       ddl-auto: validate
