@@ -253,37 +253,6 @@ public class TreatmentSlipService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
-    public TreatmentSlip createManual(UUID organizationId, com.sumicare.transaction.dto.CreateTreatmentSlipRequest request) {
-        TreatmentSlip slip = new TreatmentSlip();
-        slip.setOrganizationId(organizationId);
-        slip.setStatus("DRAFT");
-        slip.setTsn(request.providedTsn() != null && !request.providedTsn().isBlank() ? request.providedTsn() : generateTsn());
-        slip.setClientNickname(request.clientNickname());
-        slip.setLockerNumber(request.lockerNumber());
-        slip.setRoomNumber(request.roomNumber());
-        slip.setClientGender(request.clientGender());
-        slip.setVip(request.vip());
-        slip.setWaiverAccepted(true);
-        slip.setWaiverAcceptedAt(OffsetDateTime.now());
-        if (request.serviceId() != null) {
-            serviceRepository.findById(request.serviceId()).ifPresent(svc -> {
-                slip.setServiceName(svc.getName());
-                slip.setTreatmentMinutes(svc.getDurationMinutes());
-            });
-        }
-        if (slip.getServiceName() == null) {
-            slip.setServiceName("");
-        }
-        if (request.vip()) {
-            slip.setJacuzziMinutes(60);
-            slip.setMassageMinutes(60);
-            slip.setWineIncluded(true);
-        }
-        return slipRepository.save(slip);
-    }
-
-    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
-    @Transactional
     public TreatmentSlip update(UUID organizationId, UUID slipId, UpdateTreatmentSlipRequest request) {
         TreatmentSlip slip = slipRepository.findById(slipId).orElseThrow();
         if (!slip.getOrganizationId().equals(organizationId)) {

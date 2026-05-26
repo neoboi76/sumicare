@@ -89,6 +89,7 @@ interface OrderAttendee {
   clientGender: string | null;
   sessionId: string | null;
   sessionStatus: string | null;
+  sessionExtended: boolean;
   treatmentSlipId: string | null;
 }
 
@@ -108,6 +109,7 @@ interface OrderLite {
   roomType: string | null;
   groupBooking: boolean;
   couplePackage: boolean;
+  treatmentSlipId: string | null;
   items: OrderItemLite[];
 }
 
@@ -194,8 +196,12 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return order.items.some(it => it.packageId != null && vip.has(it.packageId));
   }
 
-  isVipAttendee(_a: OrderAttendee, b: BookingResponse): boolean {
-    return this.isVipBooking(b);
+  isVipAttendee(a: OrderAttendee, b: BookingResponse): boolean {
+    const order = this.ordersByBooking().get(b.id);
+    if (!order || !order.items) return false;
+    const item = order.items.find(it => it.attendees.some(att => att.id === a.id));
+    if (!item || item.packageId == null) return false;
+    return this.vipPackageIds().has(item.packageId);
   }
 
   private isFixedService(serviceId: number | null): boolean {
@@ -322,6 +328,22 @@ export class BookingsComponent implements OnInit, OnDestroy {
     const order = this.ordersByBooking().get(bookingId);
     if (!order || !order.items) return 0;
     return order.items.reduce((sum, it) => sum + (it.attendees ? it.attendees.length : 0), 0);
+  }
+
+  private singleAttendee(bookingId: string): OrderAttendee | null {
+    const order = this.ordersByBooking().get(bookingId);
+    const attendees = order?.items?.flatMap(it => it.attendees) ?? [];
+    return attendees.length === 1 ? attendees[0] : null;
+  }
+
+  singleSlipId(b: BookingResponse): string | null {
+    const single = this.singleAttendee(b.id);
+    if (single?.treatmentSlipId) return single.treatmentSlipId;
+    return this.ordersByBooking().get(b.id)?.treatmentSlipId ?? null;
+  }
+
+  bookingSessionExtended(b: BookingResponse): boolean {
+    return this.singleAttendee(b.id)?.sessionExtended ?? false;
   }
 
   toggleExpand(bookingId: string): void {

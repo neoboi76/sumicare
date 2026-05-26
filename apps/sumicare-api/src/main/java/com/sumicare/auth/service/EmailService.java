@@ -122,6 +122,23 @@ public class EmailService {
     @Async
     public void sendBookingConfirmationEmail(String to, String displayName, BookingEmailPayload payload) {
         String subject = "Your New Lasema Spa Jjimjilbang booking is confirmed";
+        StringBuilder packagesHtml = new StringBuilder();
+        if (payload.packages() != null) {
+            for (PackageLine line : payload.packages()) {
+                packagesHtml.append("<tr><td style=\"padding: 6px 12px; color: #6b7280; vertical-align: top;\">Package</td><td style=\"padding: 6px 12px;\"><div style=\"font-weight: 600;\">")
+                        .append(line.name() == null ? "" : line.name())
+                        .append("</div>");
+                if (line.massages() != null && !line.massages().isBlank()) {
+                    packagesHtml.append("<div style=\"font-size: 13px; color: #374151;\">Massage: ")
+                            .append(line.massages()).append("</div>");
+                }
+                if (line.inclusions() != null && !line.inclusions().isEmpty()) {
+                    packagesHtml.append("<div style=\"font-size: 12px; color: #6b7280;\">Inclusions: ")
+                            .append(String.join(", ", line.inclusions())).append("</div>");
+                }
+                packagesHtml.append("</td></tr>");
+            }
+        }
         String body = """
                 <html>
                 <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
@@ -131,8 +148,7 @@ public class EmailService {
                   <table style="border-collapse: collapse; margin-top: 16px;">
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Reference</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">OR #</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
-                    <tr><td style="padding: 6px 12px; color: #6b7280;">Package</td><td style="padding: 6px 12px;">%s</td></tr>
-                    <tr><td style="padding: 6px 12px; color: #6b7280;">Massage</td><td style="padding: 6px 12px;">%s</td></tr>
+                    %s
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Reservation type</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Scheduled</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Effective start</td><td style="padding: 6px 12px;">%s</td></tr>
@@ -148,8 +164,7 @@ public class EmailService {
                         displayName == null ? "there" : displayName,
                         payload.reference(),
                         payload.orNumber() == null || payload.orNumber().isBlank() ? "To be issued" : payload.orNumber(),
-                        payload.packageName() == null ? "(no package)" : payload.packageName(),
-                        payload.serviceName() == null ? "(walk-in)" : payload.serviceName(),
+                        packagesHtml.toString(),
                         payload.reservationType(),
                         payload.scheduled(),
                         payload.effectiveStart(),
@@ -158,11 +173,12 @@ public class EmailService {
         sendHtml(to, subject, body);
     }
 
+    public record PackageLine(String name, String massages, List<String> inclusions) {}
+
     public record BookingEmailPayload(
             String reference,
             String orNumber,
-            String packageName,
-            String serviceName,
+            List<PackageLine> packages,
             String reservationType,
             String scheduled,
             String effectiveStart,

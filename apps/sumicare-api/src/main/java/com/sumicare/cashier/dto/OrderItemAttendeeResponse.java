@@ -12,6 +12,7 @@ public record OrderItemAttendeeResponse(
         String clientGender,
         UUID sessionId,
         String sessionStatus,
+        boolean sessionExtended,
         UUID treatmentSlipId,
         int position,
         BigDecimal discount,

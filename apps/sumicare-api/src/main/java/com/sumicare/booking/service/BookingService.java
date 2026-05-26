@@ -78,6 +78,7 @@ public class BookingService {
     private final com.sumicare.cashier.repository.OrderItemRepository orderItemRepository;
     private final com.sumicare.cashier.repository.PackageTierRepository packageTierRepository;
     private final PackageRepository packageRepository;
+    private final com.sumicare.cashier.service.PackageService packageService;
     private final ClientRepository clientRepository;
     private final TransactionLedgerRepository ledgerRepository;
     private final OrderService orderService;
@@ -100,6 +101,7 @@ public class BookingService {
                           com.sumicare.cashier.repository.OrderItemRepository orderItemRepository,
                           com.sumicare.cashier.repository.PackageTierRepository packageTierRepository,
                           PackageRepository packageRepository,
+                          com.sumicare.cashier.service.PackageService packageService,
                           ClientRepository clientRepository,
                           TransactionLedgerRepository ledgerRepository,
                           @Lazy OrderService orderService,
@@ -125,6 +127,7 @@ public class BookingService {
         this.orderItemRepository = orderItemRepository;
         this.packageTierRepository = packageTierRepository;
         this.packageRepository = packageRepository;
+        this.packageService = packageService;
         this.clientRepository = clientRepository;
         this.ledgerRepository = ledgerRepository;
         this.orderService = orderService;
@@ -341,7 +344,7 @@ public class BookingService {
         }
 
         if (!onlinePayment && request.clientEmail() != null && !request.clientEmail().isBlank()) {
-            sendBookingEmail(booking, service, selectedPackage, resolvedRoomType, orderTotal, order.getOrNumber());
+            sendBookingEmail(booking, order, resolvedRoomType, orderTotal, order.getOrNumber());
         }
 
         return toBookingResponse(booking, service);
@@ -592,11 +595,7 @@ public class BookingService {
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
         if (booking != null && booking.getClientEmail() != null && !booking.getClientEmail().isBlank()) {
-            Service service = serviceRepository.findById(booking.getServiceId()).orElse(null);
-            Package pkg = resolveOrderPackage(order);
-            if (service != null) {
-                sendBookingEmail(booking, service, pkg, order.getRoomType(), order.getTotal(), order.getOrNumber());
-            }
+            sendBookingEmail(booking, order, order.getRoomType(), order.getTotal(), order.getOrNumber());
         }
         return order.getOrNumber();
     }
@@ -609,19 +608,31 @@ public class BookingService {
                 .orElse(null);
     }
 
-    private void sendBookingEmail(Booking booking, Service service, Package selectedPackage,
-                                  String roomType, BigDecimal total, String orNumber) {
+    private void sendBookingEmail(Booking booking, Order order, String roomType, BigDecimal total, String orNumber) {
         try {
             OffsetDateTime effectiveStart = booking.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
             java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d yyyy h:mm a");
+            List<EmailService.PackageLine> lines = new java.util.ArrayList<>();
+            for (com.sumicare.cashier.domain.OrderItem item : orderItemRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+                Package pkg = item.getPackageId() == null ? null
+                        : packageRepository.findById(item.getPackageId()).orElse(null);
+                String name = pkg != null ? pkg.getName() : "Service";
+                java.util.LinkedHashSet<String> massages = new java.util.LinkedHashSet<>();
+                for (com.sumicare.cashier.domain.OrderItemAttendee att : attendeeRepository.findAllByOrderItemIdOrderByPosition(item.getId())) {
+                    if (att.getServiceId() != null) {
+                        serviceRepository.findById(att.getServiceId()).ifPresent(s -> massages.add(s.getName()));
+                    }
+                }
+                List<String> inclusions = pkg != null ? packageService.deriveInclusions(pkg) : List.of();
+                lines.add(new EmailService.PackageLine(name, String.join(", ", massages), inclusions));
+            }
             emailService.sendBookingConfirmationEmail(
                     booking.getClientEmail(),
                     booking.getClientNickname(),
                     new EmailService.BookingEmailPayload(
                             booking.getId().toString(),
                             orNumber,
-                            selectedPackage == null ? null : selectedPackage.getName(),
-                            service.getName(),
+                            lines,
                             booking.getReservationType(),
                             booking.getScheduledAt().atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
                             effectiveStart.atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
@@ -1050,6 +1061,15 @@ public class BookingService {
         }
 
         sessionRepository.save(session);
+
+        slipRepository.findBySessionId(session.getId()).ifPresent(slip -> {
+            slip.setExtensionMinutes(session.getExtensionMinutes());
+            if (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank()) {
+                slip.setOthersAddOn("Massage extension: +" + session.getExtensionMinutes() + " min");
+            }
+            slipRepository.save(slip);
+        });
+
         return toSessionResponse(session);
     }
 

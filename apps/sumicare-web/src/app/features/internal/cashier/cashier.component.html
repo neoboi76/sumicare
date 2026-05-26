@@ -241,16 +241,15 @@
 
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Payments</h2>
-        <div class="flex flex-wrap gap-2">
-          @for (m of ['CASH', 'GCASH', 'CREDIT', 'DEBIT']; track m) {
-          <button (click)="setPaymentMethod($any(m))" class="px-3 py-1.5 text-xs rounded border"
-            [style.backgroundColor]="paymentMethod() === m ? 'var(--sumi-primary)' : null"
-            [class.text-white]="paymentMethod() === m"
-            [class.border-slate-300]="paymentMethod() !== m" [class.text-slate-700]="paymentMethod() !== m">
-            {{ m }}
-          </button>
-          }
-        </div>
+        <label class="block">
+          <span class="text-xs text-slate-500">Charge to</span>
+          <select [ngModel]="paymentMethod()" (ngModelChange)="setPaymentMethod($event)" name="chargeTo"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm">
+            @for (opt of chargeOptions(); track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </label>
 
         <div class="flex gap-2 items-end">
           <label class="block flex-1">

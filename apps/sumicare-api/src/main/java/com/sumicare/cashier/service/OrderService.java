@@ -1381,13 +1381,14 @@ public class OrderService {
                 String sName = a.getServiceId() == null ? null
                         : serviceNameById.computeIfAbsent(a.getServiceId(),
                             sid -> serviceRepository.findById(sid).map(s -> s.getName()).orElse(""));
-                String sessionStatus = a.getSessionId() == null ? null
-                        : sessionRepository.findById(a.getSessionId())
-                                .map(s -> s.getStatus()).orElse(null);
+                var sess = a.getSessionId() == null ? null
+                        : sessionRepository.findById(a.getSessionId()).orElse(null);
+                String sessionStatus = sess == null ? null : sess.getStatus();
+                boolean sessionExtended = sess != null && sess.isExtension();
                 attRes.add(new OrderItemAttendeeResponse(
                         a.getId(), a.getServiceId(), sName, a.getPackageTierId(),
                         a.getLockerNumber(), a.getClientGender(),
-                        a.getSessionId(), sessionStatus, a.getTreatmentSlipId(), a.getPosition(),
+                        a.getSessionId(), sessionStatus, sessionExtended, a.getTreatmentSlipId(), a.getPosition(),
                         a.getDiscount(), a.getProvidedTsn()
                 ));
             }

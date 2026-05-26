@@ -239,8 +239,18 @@ public class OperationsReportService {
     }
 
     public byte[] monthlyCsv(UUID organizationId, int year, int month) {
-        MonthlyReportResponse r = monthly(organizationId, year, month);
-        return rowsToCsv(r.rows(), r.grandTotal());
+        YearMonth ym = YearMonth.of(year, month);
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        StringBuilder sb = new StringBuilder("Date,Revenue\n");
+        BigDecimal grand = BigDecimal.ZERO;
+        for (int d = 1; d <= ym.lengthOfMonth(); d++) {
+            LocalDate day = ym.atDay(d);
+            BigDecimal total = daily(organizationId, day).grandTotal();
+            sb.append(day.format(dateFmt)).append(',').append(total.toPlainString()).append('\n');
+            grand = grand.add(total);
+        }
+        sb.append("GRAND TOTAL,").append(grand.toPlainString()).append('\n');
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private List<DailyRow> collectRows(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
@@ -294,8 +304,10 @@ public class OperationsReportService {
             boolean includeExtension = item != null && o != null && o.getExtensionAmount() != null
                     && o.getExtensionAmount().signum() > 0
                     && extensionCountedOrderIds.add(o.getId());
-            DailyRow row = buildRow(head, group, b, o, item, includeExtension, sessionById, timeFmt, true);
-            rows.add(row);
+            for (int i = 0; i < group.size(); i++) {
+                boolean countAmount = i == 0;
+                rows.add(buildRow(group.get(i), b, o, item, includeExtension && countAmount, countAmount, sessionById, timeFmt));
+            }
         }
 
         for (TreatmentSlip slip : orphanSlips) {
@@ -305,8 +317,7 @@ public class OperationsReportService {
             if (b != null && "CANCELLED".equals(b.getStatus())) continue;
             Order o = b == null ? null : orderByBooking.get(b.getId());
             if (o != null && "CANCELLED".equals(o.getStatus())) continue;
-            DailyRow row = buildRow(slip, List.of(slip), b, o, null, false, sessionById, timeFmt, false);
-            rows.add(row);
+            rows.add(buildRow(slip, b, o, null, false, true, sessionById, timeFmt));
         }
 
         rows.sort((a, b) -> {
@@ -317,9 +328,9 @@ public class OperationsReportService {
         return rows;
     }
 
-    private DailyRow buildRow(TreatmentSlip head, List<TreatmentSlip> group, Booking b, Order o,
-                              OrderItem item, boolean includeExtension,
-                              Map<UUID, Session> sessionById, DateTimeFormatter timeFmt, boolean grouped) {
+    private DailyRow buildRow(TreatmentSlip head, Booking b, Order o,
+                              OrderItem item, boolean includeExtension, boolean countAmount,
+                              Map<UUID, Session> sessionById, DateTimeFormatter timeFmt) {
         Session s = head.getSessionId() == null ? null
                 : sessionById.computeIfAbsent(head.getSessionId(),
                     id -> sessionRepository.findById(id).orElse(null));
@@ -337,36 +348,26 @@ public class OperationsReportService {
         String orNumber = head.getOrNumber() != null ? head.getOrNumber()
                 : (o != null && o.getOrNumber() != null ? o.getOrNumber() : "");
 
-        String locker;
-        if (grouped && group.size() > 1) {
-            locker = group.stream()
-                    .map(sl -> prefixGender(sl.getLockerNumber(), sl.getClientGender()))
-                    .filter(l -> l != null && !l.isBlank())
-                    .distinct()
-                    .collect(Collectors.joining(", "));
-            if (locker.isBlank() && b != null && b.getLockerNumber() != null) {
-                locker = prefixGender(b.getLockerNumber(), b.getClientGender());
-            }
-        } else {
-            String rawLocker = head.getLockerNumber() != null ? head.getLockerNumber()
-                    : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
-            String gender = head.getClientGender() != null ? head.getClientGender()
-                    : (b != null ? b.getClientGender() : null);
-            locker = prefixGender(rawLocker, gender);
-        }
+        String rawLocker = head.getLockerNumber() != null ? head.getLockerNumber()
+                : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
+        String gender = head.getClientGender() != null ? head.getClientGender()
+                : (b != null ? b.getClientGender() : null);
+        String locker = prefixGender(rawLocker, gender);
 
         String packageName = head.getPackageName();
         String treatment = head.getServiceName() == null ? "" : head.getServiceName();
 
         BigDecimal amount = BigDecimal.ZERO;
-        if (item != null) {
-            if (item.getLineTotal() != null) amount = amount.add(item.getLineTotal());
-            if (item.getRoomTypeCharge() != null) amount = amount.add(item.getRoomTypeCharge());
-        } else if (head.getTotalAmount() != null) {
-            amount = head.getTotalAmount();
-        }
-        if (includeExtension && o != null && o.getExtensionAmount() != null) {
-            amount = amount.add(o.getExtensionAmount());
+        if (countAmount) {
+            if (item != null) {
+                if (item.getLineTotal() != null) amount = amount.add(item.getLineTotal());
+                if (item.getRoomTypeCharge() != null) amount = amount.add(item.getRoomTypeCharge());
+            } else if (head.getTotalAmount() != null) {
+                amount = head.getTotalAmount();
+            }
+            if (includeExtension && o != null && o.getExtensionAmount() != null) {
+                amount = amount.add(o.getExtensionAmount());
+            }
         }
 
         String tsn = head.getTsn() == null ? "" : head.getTsn();

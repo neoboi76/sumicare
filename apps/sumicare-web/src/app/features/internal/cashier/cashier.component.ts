@@ -152,10 +152,19 @@ export class CashierComponent implements OnInit {
   voucherId = signal<string | null>(null);
   voucherError = signal<string | null>(null);
 
-  paymentMethod = signal<'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'>('CASH');
+  paymentMethod = signal<string>('CASH');
   paymentAmount = 0;
   paymentRef = '';
   payments = signal<AddedPayment[]>([]);
+
+  chargeLedgers = signal<{ name: string; shortName: string }[]>([]);
+  chargeOptions = computed<{ value: string; label: string }[]>(() => [
+    { value: 'CASH', label: 'Cash' },
+    { value: 'GCASH', label: 'GCash' },
+    { value: 'CREDIT', label: 'Credit card' },
+    { value: 'DEBIT', label: 'Debit card' },
+    ...this.chargeLedgers().map(l => ({ value: l.shortName, label: l.name }))
+  ]);
 
   showRegister = signal(false);
   newClient = { nickname: '', email: '', gender: 'F', nationality: '' };
@@ -202,8 +211,16 @@ export class CashierComponent implements OnInit {
     this.loadRoomAvailability();
     this.searchClients();
     this.loadDiscountTemplates();
+    this.loadChargeLedgers();
     const orderId = params.get('orderId');
     this.loadPackages(orderId);
+  }
+
+  private loadChargeLedgers(): void {
+    this.http.get<{ name: string; shortName: string }[]>(`${environment.apiBaseUrl}/api/cashier/ledger/accounts`).subscribe({
+      next: (l) => this.chargeLedgers.set(l),
+      error: () => this.chargeLedgers.set([])
+    });
   }
 
   private handlePayMongoReturn(params: ParamMap): void {
@@ -622,7 +639,7 @@ export class CashierComponent implements OnInit {
     this.voucherId.set(null);
   }
 
-  setPaymentMethod(method: 'CASH' | 'GCASH' | 'CREDIT' | 'DEBIT'): void {
+  setPaymentMethod(method: string): void {
     this.paymentMethod.set(method);
   }
 
@@ -755,7 +772,8 @@ export class CashierComponent implements OnInit {
     if (!confirmed) return;
 
     const queuedPayments = this.payments();
-    const redirectPayment = !editId && queuedPayments.length === 1 && queuedPayments[0].paymentMethod !== 'CASH'
+    const gatewayMethods = ['GCASH', 'CREDIT', 'DEBIT'];
+    const redirectPayment = !editId && queuedPayments.length === 1 && gatewayMethods.includes(queuedPayments[0].paymentMethod)
       ? queuedPayments[0]
       : null;
 

@@ -60,6 +60,7 @@ export class LedgerComponent implements OnInit {
   searchQuery = signal('');
   accountBalances = signal<Map<string, number>>(new Map());
   customLedgers = signal<CustomLedger[]>([]);
+  customLedgerBalances = signal<Map<string, number>>(new Map());
   readonly ledgerTypes = [
     { value: 'CASH_BOOK', label: 'Cash book' },
     { value: 'DEBT', label: 'Debt' },
@@ -110,9 +111,30 @@ export class LedgerComponent implements OnInit {
 
   private loadCustomLedgers(): void {
     this.http.get<CustomLedger[]>(`${environment.apiBaseUrl}/api/cashier/ledger/accounts`).subscribe({
-      next: (l) => this.customLedgers.set(l),
-      error: () => this.customLedgers.set([])
+      next: (l) => { this.customLedgers.set(l); this.loadCustomLedgerBalances(l); },
+      error: () => { this.customLedgers.set([]); this.customLedgerBalances.set(new Map()); }
     });
+  }
+
+  private loadCustomLedgerBalances(ledgers: CustomLedger[]): void {
+    const from = this.fromDate();
+    const to = this.toDate();
+    for (const led of ledgers) {
+      const url = `${environment.apiBaseUrl}/api/cashier/ledger/balance?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&method=${encodeURIComponent(led.shortName)}`;
+      this.http.get<Balance>(url).subscribe({
+        next: (b) => {
+          this.customLedgerBalances.update(map => {
+            const next = new Map(map);
+            next.set(led.shortName, b.balance);
+            return next;
+          });
+        }
+      });
+    }
+  }
+
+  customBalance(shortName: string): number {
+    return this.customLedgerBalances().get(shortName) ?? 0;
   }
 
   openCreate(): void {
