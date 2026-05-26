@@ -304,6 +304,7 @@ public class BookingService {
                         resolvedServiceId = t.getServiceId();
                     }
                 }
+                validateVipMassageDuration(selectedPackage != null && selectedPackage.isRequiresVipRoom(), resolvedServiceId);
                 com.sumicare.cashier.domain.OrderItemAttendee att = new com.sumicare.cashier.domain.OrderItemAttendee();
                 att.setOrderItemId(item.getId());
                 att.setOrderId(order.getId());
@@ -451,6 +452,7 @@ public class BookingService {
                         resolvedServiceId = t.getServiceId();
                     }
                 }
+                validateVipMassageDuration(pkg.isRequiresVipRoom(), resolvedServiceId);
                 com.sumicare.cashier.domain.OrderItemAttendee att = new com.sumicare.cashier.domain.OrderItemAttendee();
                 att.setOrderItemId(item.getId());
                 att.setOrderId(order.getId());
@@ -680,7 +682,7 @@ public class BookingService {
         if (request.roomId() != null) {
             Room room = roomRepository.findById(request.roomId()).orElseThrow(() ->
                     new IllegalArgumentException("Unknown room"));
-            boolean vipAllowed = "VIP".equalsIgnoreCase(itemRoomType) || (service != null && service.isVip());
+            boolean vipAllowed = "VIP".equalsIgnoreCase(itemRoomType);
             if ("VIP".equalsIgnoreCase(room.getRoomType()) && !vipAllowed) {
                 throw new IllegalStateException("VIP room can only be selected for VIP packages");
             }
@@ -754,7 +756,7 @@ public class BookingService {
         sessionRepository.save(session);
         attendeeRepository.save(attendee);
 
-        if (booking != null && !order.isGroupBooking()) {
+        if (booking != null && !isMultiAttendeeOrder(order)) {
             booking.setActualStartAt(now);
             booking.setStatus("ACTIVE");
         }
@@ -796,7 +798,7 @@ public class BookingService {
             attendeeRepository.save(attendee);
         }
 
-        if (order.isGroupBooking() && booking != null && booking.getStatus() != null && !"ACTIVE".equals(booking.getStatus())) {
+        if (isMultiAttendeeOrder(order) && booking != null && booking.getStatus() != null && !"ACTIVE".equals(booking.getStatus())) {
             List<com.sumicare.cashier.domain.OrderItemAttendee> allAtts = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
             boolean allActive = allAtts.stream()
                     .filter(a -> a.getSessionId() != null)
@@ -830,7 +832,7 @@ public class BookingService {
         Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
 
         boolean isGroupSession = orderRepository.findByBookingId(booking.getId())
-                .map(Order::isGroupBooking)
+                .map(this::isMultiAttendeeOrder)
                 .orElse(false);
         if (!isGroupSession) {
             booking.setActualEndAt(now);
@@ -856,7 +858,7 @@ public class BookingService {
         slipRepository.save(slip);
 
         orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
-            if (!order.isGroupBooking()) {
+            if (!isMultiAttendeeOrder(order)) {
                 order.setTreatmentSlipId(slip.getId());
             }
             orderRepository.save(order);
@@ -1009,14 +1011,8 @@ public class BookingService {
         }
         Order parentOrder = session.getBookingId() == null ? null
                 : orderRepository.findByBookingId(session.getBookingId()).orElse(null);
-        if (parentOrder != null) {
-            boolean vip = orderItemRepository.findAllByOrderIdOrderByPosition(parentOrder.getId()).stream()
-                    .anyMatch(it -> it.getPackageId() != null
-                            && packageRepository.findById(it.getPackageId())
-                                    .map(Package::isRequiresVipRoom).orElse(false));
-            if (vip) {
-                throw new IllegalStateException("VIP packages cannot be extended.");
-            }
+        if (isVipPackageSession(session)) {
+            throw new IllegalStateException("VIP packages cannot be extended.");
         }
 
         session.setExtension(true);
@@ -1118,6 +1114,33 @@ public class BookingService {
             return false;
         }
         return serviceRepository.findById(serviceId).map(Service::isFixedRate).orElse(false);
+    }
+
+    private boolean isVipPackageSession(Session session) {
+        if (session.getAttendeeId() == null) {
+            return false;
+        }
+        return attendeeRepository.findById(session.getAttendeeId())
+                .map(com.sumicare.cashier.domain.OrderItemAttendee::getOrderItemId)
+                .flatMap(orderItemRepository::findById)
+                .map(com.sumicare.cashier.domain.OrderItem::getPackageId)
+                .flatMap(packageRepository::findById)
+                .map(Package::isRequiresVipRoom)
+                .orElse(false);
+    }
+
+    private boolean isMultiAttendeeOrder(Order order) {
+        return attendeeRepository.findAllByOrderIdOrderByPosition(order.getId()).size() > 1;
+    }
+
+    private void validateVipMassageDuration(boolean vipPackage, Long serviceId) {
+        if (!vipPackage || serviceId == null) {
+            return;
+        }
+        int duration = serviceRepository.findById(serviceId).map(Service::getDurationMinutes).orElse(0);
+        if (duration > 60) {
+            throw new IllegalArgumentException("VIP packages allow massages up to 60 minutes only");
+        }
     }
 
     private BookingResponse toBookingResponse(Booking b, Service s) {

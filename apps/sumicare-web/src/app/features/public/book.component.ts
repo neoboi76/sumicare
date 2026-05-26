@@ -22,6 +22,7 @@ interface PublicPackageTier {
   serviceName: string | null;
   weekdayPrice: number;
   weekendPrice: number;
+  serviceDurationMinutes: number | null;
 }
 
 interface PublicPackage {
@@ -162,7 +163,12 @@ export class BookComponent implements OnInit {
   }
 
   tiersFor(item: BookingItemForm): PublicPackageTier[] {
-    return this.packageById(item.packageId)?.tiers ?? [];
+    const pkg = this.packageById(item.packageId);
+    const tiers = pkg?.tiers ?? [];
+    if (pkg?.requiresVipRoom) {
+      return tiers.filter(t => t.serviceDurationMinutes == null || t.serviceDurationMinutes <= 60);
+    }
+    return tiers;
   }
 
   isDoubleItem(pkg: PublicPackage | null): boolean {

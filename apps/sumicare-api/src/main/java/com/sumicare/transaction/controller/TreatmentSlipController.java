@@ -3,6 +3,7 @@ package com.sumicare.transaction.controller;
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.print.TreatmentSlipPdfService;
 import com.sumicare.transaction.domain.TreatmentSlip;
+import com.sumicare.transaction.dto.CreateTreatmentSlipRequest;
 import com.sumicare.transaction.dto.UpdateTreatmentSlipRequest;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import com.sumicare.transaction.service.TreatmentSlipService;
@@ -47,6 +48,12 @@ public class TreatmentSlipController {
     public TreatmentSlip generate(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                   @PathVariable UUID sessionId) {
         return service.generateForSession(UUID.fromString(principal.organizationId()), sessionId);
+    }
+
+    @PostMapping
+    public TreatmentSlip create(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                @Valid @RequestBody CreateTreatmentSlipRequest request) {
+        return service.createManual(UUID.fromString(principal.organizationId()), request);
     }
 
     @GetMapping(value = "/export.csv", produces = "text/csv")

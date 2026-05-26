@@ -40,9 +40,6 @@ public class Service {
     @Column(name = "is_fixed_rate", nullable = false)
     private boolean fixedRate;
 
-    @Column(name = "is_vip", nullable = false)
-    private boolean vip;
-
     @Column(name = "description", columnDefinition = "text")
     private String description;
 
@@ -72,8 +69,6 @@ public class Service {
     public void setRequiresTwoTherapists(boolean requiresTwoTherapists) { this.requiresTwoTherapists = requiresTwoTherapists; }
     public boolean isFixedRate() { return fixedRate; }
     public void setFixedRate(boolean fixedRate) { this.fixedRate = fixedRate; }
-    public boolean isVip() { return vip; }
-    public void setVip(boolean vip) { this.vip = vip; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public String getImageUrl() { return imageUrl; }

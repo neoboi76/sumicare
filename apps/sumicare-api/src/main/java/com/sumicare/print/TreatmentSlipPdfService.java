@@ -39,6 +39,8 @@ public class TreatmentSlipPdfService {
         if (slip.getSecondaryTherapistNickname() != null && !slip.getSecondaryTherapistNickname().isBlank()) {
             therapist += " / " + slip.getSecondaryTherapistNickname();
         }
+        String lockerDisplay = lockerWithGender(slip.getLockerNumber(), slip.getClientGender());
+        String othersDisplay = othersWithExtension(slip.getExtensionMinutes(), slip.getOthersAddOn());
 
         StringBuilder sb = new StringBuilder();
         sb.append(CSS_PREFIX);
@@ -78,11 +80,11 @@ public class TreatmentSlipPdfService {
 
         if (vip) {
             sb.append("<div class=\"row row-1\">")
-              .append(cell("Locker Key #", slip.getLockerNumber() == null ? "" : slip.getLockerNumber()))
+              .append(cell("Locker Key #", lockerDisplay))
               .append("</div>");
         } else {
             sb.append("<div class=\"row row-2\">")
-              .append(cell("Locker Key #", slip.getLockerNumber() == null ? "" : slip.getLockerNumber()))
+              .append(cell("Locker Key #", lockerDisplay))
               .append(cell("Room", slip.getRoomNumber() == null ? "" : slip.getRoomNumber()))
               .append("</div>");
         }
@@ -107,8 +109,7 @@ public class TreatmentSlipPdfService {
           .append("</div>");
 
         sb.append("<div class=\"row row-treat\">")
-          .append("<div class=\"cell t1\">").append(cellInner("Others / Add On",
-                  slip.getOthersAddOn() == null ? "" : slip.getOthersAddOn())).append("</div>")
+          .append("<div class=\"cell t1\">").append(cellInner("Others / Add On", othersDisplay)).append("</div>")
           .append("<div class=\"cell t2\">").append(cellInner("Add-on OR #",
                   slip.getAddOnOrNumber() == null ? "" : slip.getAddOnOrNumber())).append("</div>")
           .append("</div>");
@@ -200,6 +201,28 @@ public class TreatmentSlipPdfService {
 
     private String cell(String label, String value) {
         return "<div class=\"cell\">" + cellInner(label, value) + "</div>";
+    }
+
+    private String lockerWithGender(String locker, String gender) {
+        if (locker == null || locker.isBlank()) {
+            return "";
+        }
+        String trimmed = locker.trim();
+        String g = gender == null ? "" : gender.trim().toUpperCase();
+        if ((g.equals("M") || g.equals("F")) && !trimmed.toUpperCase().startsWith(g)) {
+            return g + trimmed;
+        }
+        return trimmed;
+    }
+
+    private String othersWithExtension(Integer extensionMinutes, String othersAddOn) {
+        String extension = extensionMinutes != null && extensionMinutes > 0
+                ? "Extension: +" + extensionMinutes + " min"
+                : "Extension: None";
+        if (othersAddOn != null && !othersAddOn.isBlank()) {
+            return extension + " / " + othersAddOn;
+        }
+        return extension;
     }
 
     private String cellInner(String label, String value) {

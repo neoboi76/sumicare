@@ -22,6 +22,9 @@
         <div class="flex items-center gap-2 mb-1">
           <span class="text-amber-500">{{ stars(f.ratingStars) }}</span>
           <span class="text-xs text-slate-500">{{ formatDate(f.submittedAt) }}</span>
+          @if (f.orNumber) {
+            <span class="text-xs font-mono text-slate-600 bg-slate-100 rounded px-1.5 py-0.5">OR# {{ f.orNumber }}</span>
+          }
         </div>
         <p class="text-sm text-slate-700">{{ f.comment || '(no comment)' }}</p>
       </article>

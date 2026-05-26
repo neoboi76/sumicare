@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
@@ -32,8 +32,14 @@ interface TreatmentSlip {
 })
 export class TreatmentSlipsComponent implements OnInit {
   private http = inject(HttpClient);
+  private router = inject(Router);
   selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
   slips = signal<TreatmentSlip[]>([]);
+
+  showCreate = signal(false);
+  createError = signal<string | null>(null);
+  newSlipNickname = '';
+  newSlipVip = false;
 
   sortState = signal<SortState>({ key: 'tsn', direction: 'asc' });
 
@@ -69,6 +75,29 @@ export class TreatmentSlipsComponent implements OnInit {
     this.http.get<TreatmentSlip[]>(`${environment.apiBaseUrl}/api/treatment-slips${params}`).subscribe({
       next: (s) => this.slips.set(s),
       error: () => this.slips.set([])
+    });
+  }
+
+  openCreate(): void {
+    this.newSlipNickname = '';
+    this.newSlipVip = false;
+    this.createError.set(null);
+    this.showCreate.set(true);
+  }
+
+  closeCreate(): void {
+    this.showCreate.set(false);
+  }
+
+  createSlip(): void {
+    if (!this.newSlipNickname.trim()) {
+      this.createError.set('Client nickname is required.');
+      return;
+    }
+    const payload = { clientNickname: this.newSlipNickname.trim(), vip: this.newSlipVip };
+    this.http.post<{ id: string }>(`${environment.apiBaseUrl}/api/treatment-slips`, payload).subscribe({
+      next: (slip) => { this.showCreate.set(false); this.router.navigate(['/app/treatment-slips', slip.id]); },
+      error: (err) => this.createError.set(err?.error?.message || 'Could not create treatment slip.')
     });
   }
 

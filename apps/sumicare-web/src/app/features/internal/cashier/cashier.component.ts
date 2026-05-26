@@ -23,6 +23,7 @@ interface PackageTier {
   serviceName: string | null;
   weekdayPrice: number;
   weekendPrice: number;
+  serviceDurationMinutes: number | null;
 }
 
 interface PackageDef {
@@ -130,7 +131,14 @@ export class CashierComponent implements OnInit {
   cart = signal<CartItem[]>([]);
 
   weekend = signal(false);
-  groupBooking = signal(false);
+  groupBooking = computed(() => this.cart().length > 1);
+
+  tiersForItem(item: CartItem): PackageTier[] {
+    if (!item.requiresVipRoom) {
+      return item.tiers;
+    }
+    return item.tiers.filter(t => t.serviceDurationMinutes == null || t.serviceDurationMinutes <= 60);
+  }
   roomAvailability = signal<{ COMMON: number; PRIVATE: number; VIP: number }>({ COMMON: 0, PRIVATE: 0, VIP: 0 });
 
   referenceNumber = '';
@@ -280,7 +288,6 @@ export class CashierComponent implements OnInit {
         this.orNumber = o.orNumber || '';
         this.notes = o.notes || '';
         this.weekend.set(!!o.weekend);
-        this.groupBooking.set(!!o.groupBooking);
         if (o.discount && o.discount > 0) {
           this.discountSummary.set([{ name: 'Existing discount', amount: Number(o.discount) }]);
         }
@@ -425,12 +432,10 @@ export class CashierComponent implements OnInit {
     }
     this.cart.update(items => [...items, item]);
     this.selectedPackageId = null;
-    if (this.totalAttendees() > 1 || pkg.couple || pkg.requiresVipRoom) this.groupBooking.set(true);
   }
 
   removeItem(idx: number): void {
     this.cart.update(items => items.filter((_, i) => i !== idx));
-    if (this.totalAttendees() < 2) this.groupBooking.set(false);
   }
 
   onAttendeeMassageChange(itemIdx: number, attIdx: number, tierId: number | null): void {
@@ -695,7 +700,7 @@ export class CashierComponent implements OnInit {
       clientNickname: this.transactorName,
       clientGender: first.attendees[0].clientGender,
       transactorName: this.transactorName,
-      groupBooking: this.totalAttendees() > 1 || this.groupBooking(),
+      groupBooking: this.groupBooking(),
       weekend: this.weekend(),
       pax: this.totalAttendees(),
       lockerNumber: first.attendees[0].lockerNumber || null,

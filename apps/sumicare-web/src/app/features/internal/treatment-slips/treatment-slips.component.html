@@ -7,12 +7,47 @@
     <div class="flex flex-wrap items-center gap-2">
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="date"
              class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
+      <button (click)="openCreate()"
+              class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm">New slip</button>
       <button (click)="exportCsv()"
               class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">
         Export CSV
       </button>
     </div>
   </header>
+
+  @if (showCreate()) {
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="closeCreate()">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
+        <h2 class="text-lg font-semibold">New treatment slip</h2>
+        @if (createError(); as e) {
+          <p class="text-sm text-red-600">{{ e }}</p>
+        }
+        <label class="block text-sm">
+          Client nickname
+          <input [(ngModel)]="newSlipNickname" name="newSlipNickname" maxlength="120"
+            class="mt-1 w-full border border-slate-300 rounded px-3 py-2" />
+        </label>
+        <div class="text-sm">
+          <span class="block mb-1">Slip type</span>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2">
+              <input type="radio" name="newSlipVip" [value]="false" [(ngModel)]="newSlipVip" />
+              Regular
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="radio" name="newSlipVip" [value]="true" [(ngModel)]="newSlipVip" />
+              VIP
+            </label>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button (click)="closeCreate()" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+          <button (click)="createSlip()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Create</button>
+        </div>
+      </div>
+    </div>
+  }
 
   <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
     <table class="w-full text-sm min-w-[720px]">

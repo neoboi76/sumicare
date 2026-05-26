@@ -138,7 +138,7 @@
                     (ngModelChange)="onAttendeeMassageChange(itemIdx, attIdx, $event)"
                     class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
                     <option [ngValue]="null" disabled>Choose massage</option>
-                    @for (t of it.tiers; track t.id) {
+                    @for (t of tiersForItem(it); track t.id) {
                     <option [ngValue]="t.id">{{ t.serviceName }}</option>
                     }
                   </select>
@@ -216,9 +216,8 @@
             <span class="text-[11px] text-slate-400">Editable. Generated automatically if left blank.</span>
           </label>
           <label class="flex items-center gap-2 sm:self-end sm:pb-2"
-            [class.opacity-50]="totalAttendees() < 2">
-            <input type="checkbox" [checked]="groupBooking()" [disabled]="totalAttendees() < 2"
-              (change)="groupBooking.set(!groupBooking())"
+            [class.opacity-50]="!groupBooking()" title="Determined automatically when an order has more than one package">
+            <input type="checkbox" [checked]="groupBooking()" disabled
               class="accent-[var(--sumi-primary)]" />
             Group booking
           </label>

@@ -37,4 +37,8 @@
     <include file="changes/0031-order-item-room-type.xml" relativeToChangelogFile="true"/>
     <include file="changes/0032-seed-more-therapists.xml" relativeToChangelogFile="true"/>
     <include file="changes/0033-order-completion-email.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0034-remove-vip-massage-service.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0035-treatment-slip-extension-gender.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0036-feedback-or-number.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0037-ledger-accounts.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

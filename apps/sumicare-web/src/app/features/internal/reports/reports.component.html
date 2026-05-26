@@ -95,7 +95,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          @for (row of r.rows; track $index) {
+          @for (row of pagedDailyRows(); track $index) {
           <tr>
             <td class="px-2 py-1.5">{{ row.checkInTime }}</td>
             <td class="px-2 py-1.5 font-mono">{{ row.orNumber }}</td>
@@ -126,6 +126,14 @@
           </tr>
         </tfoot>
       </table>
+      @if (r.rows.length > pageSize()) {
+      <sumi-paginator
+        [totalElements]="r.rows.length"
+        [pageSize]="pageSize()"
+        [currentPage]="dailyPage()"
+        (pageChange)="dailyPage.set($event)">
+      </sumi-paginator>
+      }
     </div>
     }
   </div>

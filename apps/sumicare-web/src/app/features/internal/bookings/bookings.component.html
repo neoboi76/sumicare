@@ -46,7 +46,7 @@
         @if (extendError(); as ee) {
           <tr><td colspan="8" class="p-3 text-sm text-red-700 bg-red-50">{{ ee }}</td></tr>
         }
-        @for (b of sortedBookings(); track b.id) {
+        @for (b of pagedBookings(); track b.id) {
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono text-xs">{{ formatTime(b.scheduledAt) }}</td>
           <td class="p-3 font-medium">
@@ -57,16 +57,18 @@
             </button>
             }
           </td>
-          <td class="p-3">{{ b.lockerNumber || '-' }}</td>
-          <td class="p-3">{{ serviceName(b.serviceId) }}</td>
+          <td class="p-3">{{ (b.lockerNumber | lockerLabel:b.clientGender) || '-' }}</td>
+          <td class="p-3">@if (attendeeCount(b.id) <= 1) { {{ serviceName(b.serviceId) }} }</td>
           <td class="p-3">
             <div class="flex flex-wrap items-center gap-1">
               <span
                 [class]="'rounded-full px-2 py-0.5 text-xs ' + (sourceLabel(b) === 'Online' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700')">{{
                 sourceLabel(b) }}</span>
+              @if (b.reservationType !== 'WALK_IN') {
               <span
                 [class]="'rounded-full px-2 py-0.5 text-xs ' + (b.reservationType === 'HARD' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')">{{
                 b.reservationType }}</span>
+              }
             </div>
           </td>
           <td class="p-3">{{ b.status }}</td>
@@ -154,7 +156,7 @@
                   <tr class="border-t border-slate-200">
                     <td class="py-1">{{ it.packageName }}</td>
                     <td class="py-1">{{ a.serviceName || '—' }}</td>
-                    <td class="py-1">{{ a.lockerNumber || '—' }}</td>
+                    <td class="py-1">{{ (a.lockerNumber | lockerLabel:a.clientGender) || '—' }}</td>
                     <td class="py-1">{{ a.clientGender || '—' }}</td>
                     <td class="py-1">
                       @if (a.sessionStatus === 'ACTIVE') { active }
@@ -196,6 +198,14 @@
         }
       </tbody>
     </table>
+    @if (sortedBookings().length > pageSize()) {
+    <sumi-paginator
+      [totalElements]="sortedBookings().length"
+      [pageSize]="pageSize()"
+      [currentPage]="currentPage()"
+      (pageChange)="currentPage.set($event)">
+    </sumi-paginator>
+    }
   </section>
 
   <!-- Start Session Modal -->

@@ -98,6 +98,9 @@ public class TreatmentSlipService {
 
         if (attendee != null) {
             slip.setAttendeeId(attendee.getId());
+            if (attendee.getClientGender() != null && !attendee.getClientGender().isBlank()) {
+                slip.setClientGender(attendee.getClientGender());
+            }
         }
 
         Booking booking = session.getBookingId() != null ? bookingRepository.findById(session.getBookingId()).orElse(null) : null;
@@ -109,6 +112,10 @@ public class TreatmentSlipService {
                     : booking.getLockerNumber();
             slip.setLockerNumber(locker);
             slip.setPax(booking.getPax());
+            if ((slip.getClientGender() == null || slip.getClientGender().isBlank())
+                    && booking.getClientGender() != null && !booking.getClientGender().isBlank()) {
+                slip.setClientGender(booking.getClientGender());
+            }
             if (booking.getClientId() != null) {
                 clientRepository.findById(booking.getClientId())
                         .ifPresent(c -> slip.setNationality(c.getNationality()));
@@ -181,9 +188,12 @@ public class TreatmentSlipService {
             });
         }
 
-        if (session.isExtension() && (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank())) {
+        if (session.isExtension()) {
             int minutes = session.getExtensionMinutes() > 0 ? session.getExtensionMinutes() : 60;
-            slip.setOthersAddOn("Massage extension: +" + minutes + " min");
+            slip.setExtensionMinutes(minutes);
+            if (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank()) {
+                slip.setOthersAddOn("Massage extension: +" + minutes + " min");
+            }
         }
 
         return slipRepository.save(slip);
@@ -236,7 +246,40 @@ public class TreatmentSlipService {
     }
 
     private String generateTsn() {
-        return "TS" + System.currentTimeMillis() % 100000;
+        int first = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
+        int second = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
+        return String.format("%03d-%03d", first, second);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
+    public TreatmentSlip createManual(UUID organizationId, com.sumicare.transaction.dto.CreateTreatmentSlipRequest request) {
+        TreatmentSlip slip = new TreatmentSlip();
+        slip.setOrganizationId(organizationId);
+        slip.setStatus("DRAFT");
+        slip.setTsn(request.providedTsn() != null && !request.providedTsn().isBlank() ? request.providedTsn() : generateTsn());
+        slip.setClientNickname(request.clientNickname());
+        slip.setLockerNumber(request.lockerNumber());
+        slip.setRoomNumber(request.roomNumber());
+        slip.setClientGender(request.clientGender());
+        slip.setVip(request.vip());
+        slip.setWaiverAccepted(true);
+        slip.setWaiverAcceptedAt(OffsetDateTime.now());
+        if (request.serviceId() != null) {
+            serviceRepository.findById(request.serviceId()).ifPresent(svc -> {
+                slip.setServiceName(svc.getName());
+                slip.setTreatmentMinutes(svc.getDurationMinutes());
+            });
+        }
+        if (slip.getServiceName() == null) {
+            slip.setServiceName("");
+        }
+        if (request.vip()) {
+            slip.setJacuzziMinutes(60);
+            slip.setMassageMinutes(60);
+            slip.setWineIncluded(true);
+        }
+        return slipRepository.save(slip);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")

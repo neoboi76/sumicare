@@ -32,6 +32,9 @@ public class Feedback {
     @Column(name = "nickname", length = 120)
     private String nickname;
 
+    @Column(name = "or_number", length = 50)
+    private String orNumber;
+
     @Column(name = "submitted_at", nullable = false, updatable = false)
     private OffsetDateTime submittedAt = OffsetDateTime.now();
 
@@ -49,6 +52,8 @@ public class Feedback {
     public void setComment(String comment) { this.comment = comment; }
     public String getNickname() { return nickname; }
     public void setNickname(String nickname) { this.nickname = nickname; }
+    public String getOrNumber() { return orNumber; }
+    public void setOrNumber(String orNumber) { this.orNumber = orNumber; }
     public OffsetDateTime getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(OffsetDateTime submittedAt) { this.submittedAt = submittedAt; }
 }

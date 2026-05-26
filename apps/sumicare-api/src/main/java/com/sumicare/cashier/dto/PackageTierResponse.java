@@ -8,5 +8,6 @@ public record PackageTierResponse(
         String serviceCode,
         String serviceName,
         BigDecimal weekdayPrice,
-        BigDecimal weekendPrice
+        BigDecimal weekendPrice,
+        Integer serviceDurationMinutes
 ) {}

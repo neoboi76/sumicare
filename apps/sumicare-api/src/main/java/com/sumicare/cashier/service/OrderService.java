@@ -282,7 +282,7 @@ public class OrderService {
         order.setAmountPaid(BigDecimal.ZERO);
         order.setStatus("OPEN");
         order.setTransactorName(request.transactorName() != null ? request.transactorName() : nickname);
-        order.setGroupBooking(Boolean.TRUE.equals(request.groupBooking()) || totalAttendees > 1 || anyCoupleOrVip);
+        order.setGroupBooking(request.items() != null && request.items().size() > 1);
         order.setWeekend(Boolean.TRUE.equals(request.weekend()));
         order.setRoomType(roomType);
         order.setRoomTypeCharge(roomCharge);
@@ -331,7 +331,9 @@ public class OrderService {
                     att.setOrderItemId(item.getId());
                     att.setOrderId(order.getId());
                     att.setOrganizationId(organizationId);
-                    att.setServiceId(coupleOrVip ? sharedServiceId : ar.serviceId());
+                    Long resolvedServiceId = coupleOrVip ? sharedServiceId : ar.serviceId();
+                    validateVipMassageDuration(pkg, resolvedServiceId);
+                    att.setServiceId(resolvedServiceId);
                     att.setPackageTierId(coupleOrVip ? sharedTierId : ar.packageTierId());
                     att.setLockerNumber(ar.lockerNumber());
                     att.setClientGender(ar.clientGender());
@@ -479,7 +481,7 @@ public class OrderService {
         order.setTotal(total);
         order.setTransactorName(request.transactorName() != null ? request.transactorName()
                 : order.getTransactorName());
-        order.setGroupBooking(Boolean.TRUE.equals(request.groupBooking()) || totalAttendees > 1 || anyCoupleOrVip);
+        order.setGroupBooking(request.items() != null && request.items().size() > 1);
         order.setWeekend(Boolean.TRUE.equals(request.weekend()));
         order.setRoomType(roomType);
         order.setRoomTypeCharge(roomCharge);
@@ -529,7 +531,9 @@ public class OrderService {
                 att.setOrderItemId(item.getId());
                 att.setOrderId(order.getId());
                 att.setOrganizationId(organizationId);
-                att.setServiceId(coupleOrVip ? sharedServiceId : ar.serviceId());
+                Long resolvedServiceId = coupleOrVip ? sharedServiceId : ar.serviceId();
+                validateVipMassageDuration(pkg, resolvedServiceId);
+                att.setServiceId(resolvedServiceId);
                 att.setPackageTierId(coupleOrVip ? sharedTierId : ar.packageTierId());
                 att.setLockerNumber(ar.lockerNumber());
                 att.setClientGender(ar.clientGender());
@@ -1138,6 +1142,18 @@ public class OrderService {
             orderRepository.save(order);
             return order;
         });
+    }
+
+    private void validateVipMassageDuration(Package pkg, Long serviceId) {
+        if (pkg == null || !pkg.isRequiresVipRoom() || serviceId == null) {
+            return;
+        }
+        int duration = serviceRepository.findById(serviceId)
+                .map(com.sumicare.service_catalogue.domain.Service::getDurationMinutes)
+                .orElse(0);
+        if (duration > 60) {
+            throw new IllegalArgumentException("VIP packages allow massages up to 60 minutes only");
+        }
     }
 
     @Transactional

@@ -7,6 +7,7 @@ import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 import { PaymentDetailsModalComponent } from '../../../shared/components/payment-details/payment-details-modal.component';
 import { PaymentDetails, PaymentDetailsService } from '../../../shared/components/payment-details/payment-details.service';
+import { LockerLabelPipe } from '../../../shared/pipes/locker-label.pipe';
 
 interface OrderItemAttendee {
   id: string;
@@ -80,7 +81,7 @@ interface AuditEntry {
 @Component({
   selector: 'sumi-order-detail',
   standalone: true,
-  imports: [DecimalPipe, FormsModule, RouterLink, PaymentDetailsModalComponent],
+  imports: [DecimalPipe, FormsModule, RouterLink, PaymentDetailsModalComponent, LockerLabelPipe],
   templateUrl: './order-detail.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

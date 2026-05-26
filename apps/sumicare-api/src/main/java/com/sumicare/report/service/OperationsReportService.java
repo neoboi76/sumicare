@@ -340,16 +340,19 @@ public class OperationsReportService {
         String locker;
         if (grouped && group.size() > 1) {
             locker = group.stream()
-                    .map(TreatmentSlip::getLockerNumber)
+                    .map(sl -> prefixGender(sl.getLockerNumber(), sl.getClientGender()))
                     .filter(l -> l != null && !l.isBlank())
                     .distinct()
                     .collect(Collectors.joining(", "));
             if (locker.isBlank() && b != null && b.getLockerNumber() != null) {
-                locker = b.getLockerNumber();
+                locker = prefixGender(b.getLockerNumber(), b.getClientGender());
             }
         } else {
-            locker = head.getLockerNumber() != null ? head.getLockerNumber()
+            String rawLocker = head.getLockerNumber() != null ? head.getLockerNumber()
                     : (b != null && b.getLockerNumber() != null ? b.getLockerNumber() : "");
+            String gender = head.getClientGender() != null ? head.getClientGender()
+                    : (b != null ? b.getClientGender() : null);
+            locker = prefixGender(rawLocker, gender);
         }
 
         String packageName = head.getPackageName();
@@ -385,6 +388,18 @@ public class OperationsReportService {
         String end = formatTime(s != null ? s.getEndedAt() : head.getEndTime(), timeFmt);
         String status = s != null ? s.getStatus() : head.getStatus();
         return new DailyRow(checkIn, orNumber, locker, packageName, treatment, amount, tsn, therapist, room, start, end, status);
+    }
+
+    private String prefixGender(String locker, String gender) {
+        if (locker == null || locker.isBlank()) {
+            return locker == null ? "" : locker;
+        }
+        String trimmed = locker.trim();
+        String g = gender == null ? "" : gender.trim().toUpperCase();
+        if ((g.equals("M") || g.equals("F")) && !trimmed.toUpperCase().startsWith(g)) {
+            return g + trimmed;
+        }
+        return trimmed;
     }
 
     private UUID resolveTherapistId(String nickname, UUID sessionId) {

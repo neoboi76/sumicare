@@ -77,7 +77,7 @@
                   <tr class="border-t border-slate-100">
                     <td class="py-1">{{ a.position + 1 }}</td>
                     <td class="py-1">{{ a.serviceName || '—' }}</td>
-                    <td class="py-1">{{ a.lockerNumber || '—' }}</td>
+                    <td class="py-1">{{ (a.lockerNumber | lockerLabel:a.clientGender) || '—' }}</td>
                     <td class="py-1">{{ a.clientGender || '—' }}</td>
                     <td class="py-1">
                       @if (a.treatmentSlipId) {

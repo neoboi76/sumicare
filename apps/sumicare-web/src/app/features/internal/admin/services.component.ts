@@ -18,7 +18,6 @@ interface Service {
   category: string | null;
   requiresTwoTherapists: boolean;
   fixedRate: boolean;
-  vip: boolean;
   active: boolean;
   description: string | null;
   imageUrl: string | null;
@@ -45,7 +44,6 @@ export class ServicesAdminComponent implements OnInit {
   formCommission = 120;
   formFixed = false;
   formTandem = false;
-  formVip = false;
   formDescription = '';
   formImageUrl = '';
 
@@ -86,7 +84,6 @@ export class ServicesAdminComponent implements OnInit {
       commissionAmount: Number(this.formCommission),
       fixedRate: this.formFixed,
       requiresTwoTherapists: this.formTandem,
-      vip: this.formVip,
       description: this.formDescription || null,
       imageUrl: this.formImageUrl || null
     };

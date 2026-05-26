@@ -10,7 +10,7 @@
   </header>
 
   <section class="space-y-4">
-    @for (r of rooms(); track r.id) {
+    @for (r of pagedRooms(); track r.id) {
     <article class="bg-white rounded-xl shadow p-5">
       <header class="flex items-baseline justify-between">
         <div>
@@ -38,6 +38,14 @@
     </article>
     } @empty {
     <p class="text-center text-slate-500">No rooms.</p>
+    }
+    @if (rooms().length > pageSize()) {
+    <sumi-paginator
+      [totalElements]="rooms().length"
+      [pageSize]="pageSize()"
+      [currentPage]="currentPage()"
+      (pageChange)="currentPage.set($event)">
+    </sumi-paginator>
     }
   </section>
 

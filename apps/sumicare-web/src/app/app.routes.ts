@@ -54,6 +54,7 @@ export const APP_ROUTES: Routes = [
       { path: 'orders', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/orders/orders-list.component').then(m => m.OrdersListComponent) },
       { path: 'orders/:id', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/orders/order-detail.component').then(m => m.OrderDetailComponent) },
       { path: 'messages', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/messages/messages.component').then(m => m.MessagesComponent) },
+      { path: 'registered-clients', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/registered-clients/registered-clients.component').then(m => m.RegisteredClientsComponent) },
       { path: 'treatment-slips', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slips.component').then(m => m.TreatmentSlipsComponent) },
       { path: 'treatment-slips/:id', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slip-detail.component').then(m => m.TreatmentSlipDetailComponent) },
       { path: 'reports', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/reports/reports.component').then(m => m.ReportsComponent) },

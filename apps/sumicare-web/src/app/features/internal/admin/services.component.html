@@ -54,7 +54,6 @@
             @if (s.fixedRate) { <span class="rounded bg-amber-100 text-amber-800 px-1.5 py-0.5 mr-1">fixed</span> }
             @if (s.requiresTwoTherapists) { <span
               class="rounded bg-blue-100 text-blue-800 px-1.5 py-0.5 mr-1">tandem</span> }
-            @if (s.vip) { <span class="rounded bg-purple-100 text-purple-800 px-1.5 py-0.5">VIP</span> }
           </td>
           <td class="p-3 text-right space-x-3">
             <button (click)="openEdit(s)" class="text-[var(--sumi-primary)] hover:underline text-xs">Edit media</button>
@@ -155,10 +154,6 @@
         <label class="flex items-center gap-2">
           <input type="checkbox" [(ngModel)]="formTandem" name="tandem" />
           <span class="text-sm">Requires two therapists (tandem)</span>
-        </label>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" [(ngModel)]="formVip" name="vip" />
-          <span class="text-sm">VIP package</span>
         </label>
       </div>
       <div class="flex justify-end gap-2 pt-2">

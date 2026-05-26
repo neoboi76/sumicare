@@ -46,6 +46,9 @@ public class FeedbackController {
         if (request.nickname() != null && !request.nickname().isBlank()) {
             feedback.setNickname(request.nickname().trim());
         }
+        if (request.orNumber() != null && !request.orNumber().isBlank()) {
+            feedback.setOrNumber(request.orNumber().trim());
+        }
         return repository.save(feedback);
     }
 
@@ -80,11 +83,12 @@ public class FeedbackController {
                 : OffsetDateTime.now().plusDays(1);
         List<Feedback> rows = repository.findAllByOrganizationIdAndSubmittedAtBetweenOrderBySubmittedAtAsc(orgId, start, end);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        StringBuilder csv = new StringBuilder("Submitted at,Rating,Nickname,Session ID,Client ID,Comment\r\n");
+        StringBuilder csv = new StringBuilder("Submitted at,Rating,Nickname,OR#,Session ID,Client ID,Comment\r\n");
         for (Feedback f : rows) {
             csv.append(csvVal(f.getSubmittedAt() != null ? f.getSubmittedAt().format(fmt) : "")).append(',');
             csv.append(f.getRatingStars()).append(',');
             csv.append(csvVal(f.getNickname())).append(',');
+            csv.append(csvVal(f.getOrNumber())).append(',');
             csv.append(csvVal(f.getSessionId() != null ? f.getSessionId().toString() : "")).append(',');
             csv.append(csvVal(f.getClientId() != null ? f.getClientId().toString() : "")).append(',');
             csv.append(csvVal(f.getComment())).append("\r\n");
@@ -107,6 +111,7 @@ public class FeedbackController {
     public record PublicFeedbackRequest(
             @Min(1) @Max(5) int ratingStars,
             String comment,
-            @Size(max = 120) String nickname
+            @Size(max = 120) String nickname,
+            @Size(max = 50) String orNumber
     ) {}
 }

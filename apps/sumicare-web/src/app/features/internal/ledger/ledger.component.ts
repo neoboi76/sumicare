@@ -32,6 +32,13 @@ interface LedgerAccount {
   balance: number;
 }
 
+interface CustomLedger {
+  id: string;
+  name: string;
+  shortName: string;
+  type: string;
+}
+
 @Component({
   selector: 'sumi-ledger',
   standalone: true,
@@ -52,6 +59,17 @@ export class LedgerComponent implements OnInit {
   selectedMethod = signal<string | null>(null);
   searchQuery = signal('');
   accountBalances = signal<Map<string, number>>(new Map());
+  customLedgers = signal<CustomLedger[]>([]);
+  readonly ledgerTypes = [
+    { value: 'CASH_BOOK', label: 'Cash book' },
+    { value: 'DEBT', label: 'Debt' },
+    { value: 'REFERRAL', label: 'Referral' }
+  ];
+  showCreate = signal(false);
+  createError = signal<string | null>(null);
+  newLedgerName = '';
+  newLedgerShortName = '';
+  newLedgerType = 'CASH_BOOK';
 
   accounts = computed<LedgerAccount[]>(() => {
     const bals = this.accountBalances();
@@ -69,6 +87,16 @@ export class LedgerComponent implements OnInit {
     return this.accounts().filter(a => a.method.toLowerCase().includes(q));
   });
 
+  filteredCustomLedgers = computed(() => {
+    const q = this.searchQuery().toLowerCase();
+    if (!q) return this.customLedgers();
+    return this.customLedgers().filter(l => l.name.toLowerCase().includes(q) || l.shortName.toLowerCase().includes(q));
+  });
+
+  typeLabel(type: string): string {
+    return this.ledgerTypes.find(t => t.value === type)?.label ?? type;
+  }
+
   selectedAccount = computed(() => {
     const m = this.selectedMethod();
     if (!m) return null;
@@ -77,6 +105,42 @@ export class LedgerComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadAccountBalances();
+    this.loadCustomLedgers();
+  }
+
+  private loadCustomLedgers(): void {
+    this.http.get<CustomLedger[]>(`${environment.apiBaseUrl}/api/cashier/ledger/accounts`).subscribe({
+      next: (l) => this.customLedgers.set(l),
+      error: () => this.customLedgers.set([])
+    });
+  }
+
+  openCreate(): void {
+    this.newLedgerName = '';
+    this.newLedgerShortName = '';
+    this.newLedgerType = 'CASH_BOOK';
+    this.createError.set(null);
+    this.showCreate.set(true);
+  }
+
+  closeCreate(): void {
+    this.showCreate.set(false);
+  }
+
+  createLedger(): void {
+    if (!this.newLedgerName.trim() || !this.newLedgerShortName.trim()) {
+      this.createError.set('Name and short name are required.');
+      return;
+    }
+    const payload = {
+      name: this.newLedgerName.trim(),
+      shortName: this.newLedgerShortName.trim(),
+      type: this.newLedgerType
+    };
+    this.http.post<CustomLedger>(`${environment.apiBaseUrl}/api/cashier/ledger/accounts`, payload).subscribe({
+      next: () => { this.showCreate.set(false); this.loadCustomLedgers(); },
+      error: (err) => this.createError.set(err?.error?.message || 'Could not create ledger.')
+    });
   }
 
   private loadAccountBalances(): void {

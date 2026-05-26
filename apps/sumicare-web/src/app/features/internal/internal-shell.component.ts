@@ -51,6 +51,7 @@ export class InternalShellComponent implements OnInit, OnDestroy {
         { label: 'Treatment slips', route: 'treatment-slips', roles: STAFF_ROLES },
         { label: 'Cashier', route: 'cashier', roles: STAFF_ROLES },
         { label: 'Orders', route: 'orders', roles: STAFF_ROLES },
+        { label: 'Registered clients', route: 'registered-clients', roles: STAFF_ROLES },
         { label: 'Messages', route: 'messages', roles: STAFF_ROLES }
       ]
     },

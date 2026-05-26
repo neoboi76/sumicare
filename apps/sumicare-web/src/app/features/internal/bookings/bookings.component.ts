@@ -7,6 +7,8 @@ import { ConfirmService } from '../../../shared/components/confirm-dialog/confir
 import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
 import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
 import { SortState, sortRows } from '../../../shared/utils/compare-by';
+import { LockerLabelPipe } from '../../../shared/pipes/locker-label.pipe';
+import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
 
 interface BookingResponse {
   id: string;
@@ -42,7 +44,6 @@ interface ServiceItem {
   durationMinutes: number;
   price: number;
   requiresTwoTherapists: boolean;
-  vip: boolean;
   fixedRate: boolean;
 }
 
@@ -113,7 +114,7 @@ interface OrderLite {
 @Component({
   selector: 'sumi-bookings',
   standalone: true,
-  imports: [FormsModule, RouterLink, SortableColumnDirective, SortIconComponent],
+  imports: [FormsModule, RouterLink, SortableColumnDirective, SortIconComponent, LockerLabelPipe, PaginatorComponent],
   templateUrl: './bookings.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -168,6 +169,14 @@ export class BookingsComponent implements OnInit, OnDestroy {
         default: return '';
       }
     });
+  });
+
+  currentPage = signal(0);
+  pageSize = signal(15);
+
+  pagedBookings = computed(() => {
+    const start = this.currentPage() * this.pageSize();
+    return this.sortedBookings().slice(start, start + this.pageSize());
   });
 
   availableTherapists = computed(() => {
@@ -277,6 +286,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.http.get<BookingResponse[]>(`${environment.apiBaseUrl}/api/bookings${params}`).subscribe({
       next: (b) => {
         this.bookings.set(b);
+        this.currentPage.set(0);
         this.loadOrderStatuses(b);
       },
       error: () => this.bookings.set([])
