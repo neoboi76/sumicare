@@ -81,14 +81,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
         String origins = appProperties.cors().allowedOrigins();
-        boolean isWildcard = "*".equals(origins);
-        if (isWildcard) {
-            cors.setAllowedOriginPatterns(List.of("*"));
-            cors.setAllowCredentials(false);
-        } else {
-            cors.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).toList());
-            cors.setAllowCredentials(true);
-        }
+        config.setAllowedOrigins(List.of(
+            "http://localhost:4200",
+            "https://frontend-production-1b53.up.railway.app"  
+        ));
+        
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-Biometrics-Key"));
         cors.setExposedHeaders(List.of("Authorization"));
