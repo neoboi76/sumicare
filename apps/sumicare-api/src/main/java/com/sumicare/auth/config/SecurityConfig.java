@@ -80,15 +80,15 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
-        String origins = appProperties.cors().allowedOrigins();
-        config.setAllowedOrigins(List.of(
+        cors.setAllowedOrigins(List.of(
             "http://localhost:4200",
-            "https://frontend-production-1b53.up.railway.app"  
+            "https://frontend-production-1b53.up.railway.app"
         ));
-        
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-Biometrics-Key"));
         cors.setExposedHeaders(List.of("Authorization"));
+        cors.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cors);
         return source;
