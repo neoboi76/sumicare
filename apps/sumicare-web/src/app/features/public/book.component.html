@@ -188,6 +188,27 @@
           </div>
         }
 
+        <div class="block text-sm text-gray-700">
+          Voucher (optional)
+          <div class="mt-1 flex gap-2">
+            <input [(ngModel)]="voucherCode" name="voucherCode" maxlength="40" placeholder="Enter code"
+                   class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+            <button type="button" (click)="applyVoucher()"
+                    class="rounded-lg border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-2 text-sm">Apply</button>
+          </div>
+          @if (voucherError(); as ve) {
+            <span class="text-xs text-red-600 mt-1 block">{{ ve }}</span>
+          }
+          @if (appliedVoucher() && voucherDiscount() > 0) {
+            <span class="text-xs text-emerald-700 mt-1 block">Voucher applied: -&#8369;{{ voucherDiscount() | number:'1.2-2' }}</span>
+          }
+        </div>
+
+        <div class="flex items-center justify-between text-sm text-gray-700 border-t border-gray-100 pt-3">
+          <span>Estimated total</span>
+          <span class="font-semibold">&#8369;{{ estimatedTotal() | number:'1.2-2' }}</span>
+        </div>
+
         <label class="block text-sm text-gray-700">
           Reservation type
           <select [(ngModel)]="reservationType" name="reservationType"

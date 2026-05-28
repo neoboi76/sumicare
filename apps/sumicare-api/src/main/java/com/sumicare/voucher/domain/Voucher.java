@@ -46,6 +46,9 @@ public class Voucher {
     @Column(name = "is_active")
     private boolean active = true;
 
+    @Column(name = "target_package_id")
+    private Long targetPackageId;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -68,4 +71,6 @@ public class Voucher {
     public void setRedeemedByClientId(UUID redeemedByClientId) { this.redeemedByClientId = redeemedByClientId; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public Long getTargetPackageId() { return targetPackageId; }
+    public void setTargetPackageId(Long targetPackageId) { this.targetPackageId = targetPackageId; }
 }

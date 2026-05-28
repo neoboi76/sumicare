@@ -11,11 +11,15 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./features/public/public-shell.component').then(m => m.PublicShellComponent),
     children: [
       { path: '', loadComponent: () => import('./features/public/landing.component').then(m => m.LandingComponent) },
+      { path: 'about', loadComponent: () => import('./features/public/about.component').then(m => m.AboutComponent) },
+      { path: 'packages', loadComponent: () => import('./features/public/packages.component').then(m => m.PackagesComponent) },
       { path: 'services', loadComponent: () => import('./features/public/services.component').then(m => m.ServicesComponent) },
       { path: 'recommendation', loadComponent: () => import('./features/public/recommendation.component').then(m => m.RecommendationComponent) },
       { path: 'book', loadComponent: () => import('./features/public/book.component').then(m => m.BookComponent) },
+      { path: 'visit', loadComponent: () => import('./features/public/visit.component').then(m => m.VisitComponent) },
       { path: 'feedback', loadComponent: () => import('./features/public/feedback.component').then(m => m.FeedbackComponent) },
-      { path: 'contact', loadComponent: () => import('./features/public/contact.component').then(m => m.ContactComponent) }
+      { path: 'contact', loadComponent: () => import('./features/public/contact.component').then(m => m.ContactComponent) },
+      { path: 'terms', loadComponent: () => import('./features/public/terms.component').then(m => m.TermsComponent) }
     ]
   },
   {

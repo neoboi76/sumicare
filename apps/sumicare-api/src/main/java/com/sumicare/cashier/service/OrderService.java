@@ -256,6 +256,7 @@ public class OrderService {
                 null,
                 null,
                 null,
+                null,
                 null
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
@@ -392,6 +393,10 @@ public class OrderService {
             entry.setStatus("COMPLETED");
             entry.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"reason\":\"fully_discounted\"}");
             ledgerRepository.save(entry);
+        }
+
+        if (request.clientId() != null) {
+            bookingService.sendOrderConfirmationEmail(booking.getId());
         }
 
         return toResponse(order, booking);
@@ -630,6 +635,9 @@ public class OrderService {
 
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
+        if (booking != null) {
+            syncBookingPaymentStatus(booking, order);
+        }
         return toResponse(order, booking);
     }
 
@@ -1162,6 +1170,8 @@ public class OrderService {
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
         if (booking == null) return;
 
+        syncBookingPaymentStatus(booking, order);
+
         List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
         if (attendees.isEmpty()) return;
 
@@ -1176,6 +1186,27 @@ public class OrderService {
             session = sessionRepository.save(session);
             att.setSessionId(session.getId());
             attendeeRepository.save(att);
+        }
+    }
+
+    public void syncBookingPaymentStatus(Booking booking, Order order) {
+        if (booking == null || order == null) return;
+        String desired = switch (order.getStatus() == null ? "" : order.getStatus()) {
+            case "PAID" -> "PAID";
+            case "REFUNDED" -> "REFUNDED";
+            case "CANCELLED" -> "UNPAID";
+            default -> {
+                BigDecimal paid = order.getAmountPaid() == null ? BigDecimal.ZERO : order.getAmountPaid();
+                BigDecimal total = order.getTotal() == null ? BigDecimal.ZERO : order.getTotal();
+                if (paid.signum() > 0 && paid.compareTo(total) < 0) {
+                    yield "PARTIAL";
+                }
+                yield "UNPAID";
+            }
+        };
+        if (!desired.equals(booking.getPaymentStatus())) {
+            booking.setPaymentStatus(desired);
+            bookingRepository.save(booking);
         }
     }
 
@@ -1251,6 +1282,10 @@ public class OrderService {
 
     @Transactional
     public void unmaterialiseAttendeeSessions(Order order) {
+        if (order.getBookingId() != null) {
+            bookingRepository.findById(order.getBookingId())
+                    .ifPresent(b -> syncBookingPaymentStatus(b, order));
+        }
         List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
         for (OrderItemAttendee att : attendees) {
             if (att.getSessionId() != null) {

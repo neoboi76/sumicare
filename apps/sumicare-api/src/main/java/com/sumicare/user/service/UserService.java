@@ -86,6 +86,10 @@ public class UserService {
     @Transactional
     public UserResponse createUser(UUID organizationId, String actorRole, CreateUserRequest request) {
         enforceTierForNewRole(actorRole, request.role());
+        if (request.email() != null && !request.email().isBlank()
+                && userRepository.existsByEmailIgnoreCase(request.email())) {
+            throw new IllegalArgumentException("That email is already registered. Use a different email.");
+        }
         Role role = roleRepository.findByCode(request.role())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown role: " + request.role()));
         User user = new User();

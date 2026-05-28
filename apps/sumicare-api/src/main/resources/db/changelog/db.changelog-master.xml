@@ -41,4 +41,7 @@
     <include file="changes/0035-treatment-slip-extension-gender.xml" relativeToChangelogFile="true"/>
     <include file="changes/0036-feedback-or-number.xml" relativeToChangelogFile="true"/>
     <include file="changes/0037-ledger-accounts.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0038-voucher-target-package.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0039-organization-font-family.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0040-payment-status-and-locker-index.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

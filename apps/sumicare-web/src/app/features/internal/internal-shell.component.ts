@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { IdleTimeoutService } from '../../core/auth/idle-timeout.service';
 import { BrandingService } from '../../core/branding/branding.service';
 import { ConfirmService } from '../../shared/components/confirm-dialog/confirm.service';
+import { routeFade } from '../../shared/animations/route-fade';
 
 interface NavItem {
   label: string;
@@ -25,7 +27,8 @@ const ADMIN_PLUS = ['ADMIN', 'SUPERADMIN'];
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './internal-shell.component.html',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [routeFade]
 })
 export class InternalShellComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
@@ -36,6 +39,7 @@ export class InternalShellComponent implements OnInit, OnDestroy {
   session = this.auth.session;
 
   readonly sidebarOpen = signal(true);
+  readonly routeToken = signal(0);
 
   groups: NavGroup[] = [
     {
@@ -100,6 +104,9 @@ export class InternalShellComponent implements OnInit, OnDestroy {
       this.sidebarOpen.set(saved === 'true');
     }
     this.idleTimeout.start();
+    this.router.events
+      .pipe(filter(e => e instanceof NavigationEnd))
+      .subscribe(() => this.routeToken.update(v => v + 1));
   }
 
   ngOnDestroy(): void {

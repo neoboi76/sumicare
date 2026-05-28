@@ -1,67 +1,91 @@
-<section class="max-w-3xl mx-auto px-4 py-10 space-y-8">
-  <header>
-    <h2 class="text-2xl font-semibold text-slate-900">Share your experience</h2>
-    <p class="text-slate-600">Your feedback helps the team improve. All comments are reviewed by management.</p>
-  </header>
-
-  @if (sessionRef()) {
-    <div class="bg-[var(--sumi-primary)]/10 border border-[var(--sumi-primary)]/30 rounded-lg px-4 py-3 text-sm text-slate-700">
-      Leaving feedback for session <strong>{{ sessionRef() }}</strong>.
+<section class="relative h-[44vh] min-h-[300px] flex items-end overflow-hidden">
+    <div class="absolute inset-0 bg-cover bg-center"
+         style="background-image: url('https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=2400&q=80');"></div>
+    <div class="absolute inset-0 hero-overlay"></div>
+    <div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pb-12 w-full">
+        <p class="editorial-label editorial-label-on-dark anim-fade-up editorial-hero-shadow">Your Visit</p>
+        <h1 class="editorial-hero-title editorial-hero-shadow mt-3 anim-fade-up anim-delay-200">Share Your Experience</h1>
+        <p class="editorial-sub editorial-hero-shadow mt-3 anim-fade-up anim-delay-400">Reviewed by management within 24 hours</p>
     </div>
-  }
+</section>
 
-  <form (ngSubmit)="submit($event)" class="bg-white rounded-xl shadow p-6 space-y-4">
-    <label class="block">
-      <span class="text-sm font-medium text-slate-700">Nickname (optional)</span>
-      <input [(ngModel)]="nickname" name="nickname" maxlength="120"
-        placeholder="What should we call you?"
-        class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-    </label>
-    <div>
-      <span class="text-sm font-medium text-slate-700">Your rating</span>
-      <div class="mt-2 flex gap-1">
-        @for (star of starButtons; track star) {
-          <button type="button" (click)="rating.set(star)"
-                  [class]="star <= rating() ? 'text-amber-500 text-3xl' : 'text-slate-300 text-3xl hover:text-amber-300'">★</button>
+<section class="chapter-band" sumiReveal>
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row md:items-center gap-6">
+        <div class="md:w-1/3"><div class="chapter-num">Feedback</div><div class="chapter-rule"></div></div>
+        <div class="md:w-2/3">
+            <h2 class="chapter-text">We read every word</h2>
+            <p class="chapter-strap">Honest, anonymous, and always welcome</p>
+        </div>
+    </div>
+</section>
+
+<section class="bg-[var(--cream)] py-16">
+    <div class="max-w-3xl mx-auto px-5 sm:px-8">
+        @if (sessionRef()) {
+            <div class="bg-[var(--mist)] border border-[var(--jade)]/40 rounded-sm px-5 py-4 text-sm text-[var(--ink)] mb-6 anim-slide-down" sumiReveal>
+                Leaving feedback for OR <span class="font-semibold">{{ sessionRef() }}</span>.
+            </div>
         }
-      </div>
-    </div>
-    <label class="block">
-      <span class="text-sm font-medium text-slate-700">Comment (optional)</span>
-      <textarea [(ngModel)]="comment" name="comment" rows="4" class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></textarea>
-    </label>
-    <button type="submit" [disabled]="rating() === 0 || submitted() || submitting()"
-      class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50 flex items-center gap-2">
-      @if (submitting()) {
-        <div class="sumi-spinner sumi-spinner-sm" style="border-top-color:#fff; border-color:rgba(255,255,255,0.3); border-top-color:#fff;"></div>
-        Submitting...
-      } @else {
-        {{ submitted() ? 'Submitted, thank you' : 'Submit' }}
-      }
-    </button>
-  </form>
+        <form (ngSubmit)="submit($event)" class="bg-[var(--parch)] border border-[var(--rule)] rounded-sm p-8 space-y-6 transition-all duration-500 hover:shadow-xl" sumiReveal>
+            <label class="block">
+                <span class="editorial-label">Nickname (optional)</span>
+                <input [(ngModel)]="nickname" name="nickname" maxlength="120"
+                    placeholder="What should we call you?"
+                    class="mt-2 w-full rounded-sm border border-[var(--rule)] bg-[var(--cream)] px-4 py-3 font-[var(--lasema-font-body)] transition-colors focus:border-[var(--jade)] focus:outline-none focus:ring-1 focus:ring-[var(--jade)]" />
+            </label>
+            <div>
+                <span class="editorial-label">Your Rating</span>
+                <div class="mt-3 flex gap-1">
+                    @for (star of starButtons; track star) {
+                        <button type="button" (click)="rating.set(star)"
+                                class="text-4xl transition-all duration-300 hover:scale-125"
+                                [class.text-[var(--gold)]]="star <= rating()"
+                                [class.text-[var(--rule)]]="star > rating()">&#9733;</button>
+                    }
+                </div>
+            </div>
+            <label class="block">
+                <span class="editorial-label">Comment (optional)</span>
+                <textarea [(ngModel)]="comment" name="comment" rows="5"
+                    class="mt-2 w-full rounded-sm border border-[var(--rule)] bg-[var(--cream)] px-4 py-3 font-[var(--lasema-font-body)] transition-colors focus:border-[var(--jade)] focus:outline-none focus:ring-1 focus:ring-[var(--jade)]"></textarea>
+            </label>
+            <button type="submit" [disabled]="rating() === 0 || submitted() || submitting()"
+                class="btn-editorial flex items-center gap-2 hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                @if (submitting()) {
+                    <div class="sumi-spinner sumi-spinner-sm" style="border-color:rgba(242,245,240,0.3); border-top-color:var(--cream);"></div>
+                    Submitting...
+                } @else if (submitted()) {
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Submitted, thank you
+                } @else {
+                    Submit feedback
+                }
+            </button>
+        </form>
 
-  <section>
-    <h3 class="text-lg font-semibold text-slate-900 mb-3">Recent feedback</h3>
-    @if (loadingInitial()) {
-      <div class="flex justify-center py-8">
-        <div class="sumi-spinner"></div>
-      </div>
-    } @else {
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        @for (f of recent(); track f.id) {
-          <article class="bg-white rounded-xl shadow p-4">
-            <div class="text-amber-500 mb-1">{{ stars(f.ratingStars) }}</div>
-            @if (f.nickname) {
-              <p class="text-xs text-slate-500 font-medium">{{ f.nickname }}</p>
+        <div class="mt-16" sumiReveal>
+            <p class="editorial-label">Recent Voices</p>
+            <h2 class="mt-2 font-[var(--lasema-font-display)] text-3xl">From other guests</h2>
+            @if (loadingInitial()) {
+                <div class="flex justify-center py-12">
+                    <div class="sumi-spinner"></div>
+                </div>
+            } @else {
+                <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    @for (f of recent(); track f.id) {
+                        <article class="bg-[var(--parch)] border border-[var(--rule)] rounded-sm p-5 transition-all duration-500 hover:-translate-y-1 hover:shadow-lg" sumiReveal>
+                            <div class="text-[var(--gold)] text-lg mb-2">{{ stars(f.ratingStars) }}</div>
+                            @if (f.nickname) {
+                                <p class="editorial-label mb-1">{{ f.nickname }}</p>
+                            }
+                            <p class="text-sm text-[var(--ink)]/80 font-[var(--lasema-font-italic)] italic leading-relaxed">{{ f.comment || '(no comment)' }}</p>
+                            <p class="text-xs text-[var(--ink)]/50 mt-3">{{ formatDate(f.submittedAt) }}</p>
+                        </article>
+                    } @empty {
+                        <p class="text-[var(--ink)]/60 col-span-full font-[var(--lasema-font-italic)] italic">Be the first to leave feedback.</p>
+                    }
+                </div>
             }
-            <p class="text-sm text-slate-700">{{ f.comment || '(no comment)' }}</p>
-            <p class="text-xs text-slate-400 mt-2">{{ formatDate(f.submittedAt) }}</p>
-          </article>
-        } @empty {
-          <p class="text-slate-500 col-span-full">Be the first to leave feedback.</p>
-        }
-      </div>
-    }
-  </section>
+        </div>
+    </div>
 </section>
