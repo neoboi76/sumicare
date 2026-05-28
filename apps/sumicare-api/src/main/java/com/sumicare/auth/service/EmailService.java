@@ -191,7 +191,9 @@ public class EmailService {
             List<String> availed,
             String scheduled,
             String effectiveStart,
-            String total) {}
+            String total,
+            String paymentMethod,
+            List<String> slipLines) {}
 
     public record EmailAttachment(String filename, byte[] content) {}
 
@@ -210,6 +212,16 @@ public class EmailService {
                         .append("</td></tr>");
             }
         }
+        StringBuilder slipRows = new StringBuilder();
+        if (payload.slipLines() != null) {
+            for (String line : payload.slipLines()) {
+                slipRows.append("<tr><td style=\"padding: 6px 12px;\">")
+                        .append(line == null ? "" : line)
+                        .append("</td></tr>");
+            }
+        }
+        String paymentMethodLabel = payload.paymentMethod() == null || payload.paymentMethod().isBlank()
+                ? "" : payload.paymentMethod();
         String body = """
                 <html>
                 <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
@@ -220,10 +232,12 @@ public class EmailService {
                   <table style="border-collapse: collapse; margin-top: 16px;">
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Reference</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">OR #</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">Payment method</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Scheduled</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Effective start</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Total</td><td style="padding: 6px 12px;">&#8369; %s</td></tr>
                   </table>
+                  %s
                   <p style="margin-top: 24px;">A copy of your official receipt and treatment slips are attached. We would love your feedback &mdash; scan the code below:</p>
                   <p style="margin: 8px 0;"><img src="cid:feedbackQr" alt="Feedback QR code" style="width: 160px; height: 160px;" /></p>
                   <p style="font-size: 12px;"><a href="%s" style="color: #0F766E;">%s</a></p>
@@ -237,9 +251,13 @@ public class EmailService {
                         availedRows.toString(),
                         payload.reference(),
                         payload.orNumber() == null || payload.orNumber().isBlank() ? "To be issued" : payload.orNumber(),
+                        paymentMethodLabel,
                         payload.scheduled() == null ? "" : payload.scheduled(),
                         payload.effectiveStart() == null ? "" : payload.effectiveStart(),
                         payload.total() == null ? "" : payload.total(),
+                        slipRows.length() == 0 ? "" :
+                                "<h3 style=\"margin-top: 24px; color: #1a1a1a;\">Treatment slips</h3>" +
+                                "<table style=\"border-collapse: collapse; margin-top: 8px; width: 100%;\">" + slipRows + "</table>",
                         feedbackUrl,
                         feedbackUrl);
         sendHtmlWithAttachments(to, subject, body, feedbackUrl, receiptPdf, slipPdfs);

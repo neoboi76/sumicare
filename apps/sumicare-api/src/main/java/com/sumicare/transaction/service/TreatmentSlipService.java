@@ -191,8 +191,9 @@ public class TreatmentSlipService {
         if (session.isExtension()) {
             int minutes = session.getExtensionMinutes() > 0 ? session.getExtensionMinutes() : 60;
             slip.setExtensionMinutes(minutes);
-            if (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank()) {
-                slip.setOthersAddOn("Massage extension: +" + minutes + " min");
+            if (packageVip) {
+                slip.setJacuzziMinutes(0);
+                slip.setMassageMinutes(120);
             }
         }
 

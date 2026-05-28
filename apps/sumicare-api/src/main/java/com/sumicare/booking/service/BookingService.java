@@ -79,6 +79,7 @@ public class BookingService {
     private final com.sumicare.cashier.repository.PackageTierRepository packageTierRepository;
     private final PackageRepository packageRepository;
     private final com.sumicare.cashier.service.PackageService packageService;
+    private final com.sumicare.voucher.service.VoucherService voucherService;
     private final ClientRepository clientRepository;
     private final TransactionLedgerRepository ledgerRepository;
     private final OrderService orderService;
@@ -102,6 +103,7 @@ public class BookingService {
                           com.sumicare.cashier.repository.PackageTierRepository packageTierRepository,
                           PackageRepository packageRepository,
                           com.sumicare.cashier.service.PackageService packageService,
+                          com.sumicare.voucher.service.VoucherService voucherService,
                           ClientRepository clientRepository,
                           TransactionLedgerRepository ledgerRepository,
                           @Lazy OrderService orderService,
@@ -128,6 +130,7 @@ public class BookingService {
         this.packageTierRepository = packageTierRepository;
         this.packageRepository = packageRepository;
         this.packageService = packageService;
+        this.voucherService = voucherService;
         this.clientRepository = clientRepository;
         this.ledgerRepository = ledgerRepository;
         this.orderService = orderService;
@@ -325,8 +328,34 @@ public class BookingService {
         return finalizeBooking(order, booking, service, selectedPackage, resolvedRoomType, orderTotal, request);
     }
 
+    private void applyVoucher(Order order, Booking booking, String voucherCode) {
+        if (voucherCode == null || voucherCode.isBlank()) return;
+        var voucher = voucherService.findValid(order.getOrganizationId(), voucherCode).orElse(null);
+        if (voucher == null) return;
+        BigDecimal base;
+        if (voucher.getTargetPackageId() != null) {
+            base = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId()).stream()
+                    .filter(it -> voucher.getTargetPackageId().equals(it.getPackageId()))
+                    .map(it -> (it.getLineTotal() == null ? BigDecimal.ZERO : it.getLineTotal())
+                            .add(it.getRoomTypeCharge() == null ? BigDecimal.ZERO : it.getRoomTypeCharge()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (base.signum() <= 0) return;
+        } else {
+            base = order.getSubtotal() == null ? BigDecimal.ZERO : order.getSubtotal();
+        }
+        BigDecimal discount = voucherService.computeDiscount(voucher, base);
+        if (discount.signum() <= 0) return;
+        order.setDiscount(discount);
+        order.setTotal((order.getTotal() == null ? BigDecimal.ZERO : order.getTotal()).subtract(discount).max(BigDecimal.ZERO));
+        order.setVoucherId(voucher.getId());
+        orderRepository.save(order);
+        voucherService.markRedeemed(voucher.getId(), booking.getClientId());
+    }
+
     private BookingResponse finalizeBooking(Order order, Booking booking, Service service, Package selectedPackage,
                                             String resolvedRoomType, BigDecimal orderTotal, CreateBookingRequest request) {
+        applyVoucher(order, booking, request.voucherCode());
+        if (order.getTotal() != null) orderTotal = order.getTotal();
         boolean onlinePayment = "HARD".equalsIgnoreCase(request.reservationType())
                 && com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod());
 
@@ -610,6 +639,8 @@ public class BookingService {
 
     private void sendBookingEmail(Booking booking, Order order, String roomType, BigDecimal total, String orNumber) {
         try {
+            String recipient = resolveClientEmail(booking);
+            if (recipient == null || recipient.isBlank()) return;
             OffsetDateTime effectiveStart = booking.getScheduledAt().plusMinutes(PREP_BUFFER_MINUTES);
             java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d yyyy h:mm a");
             List<EmailService.PackageLine> lines = new java.util.ArrayList<>();
@@ -627,7 +658,7 @@ public class BookingService {
                 lines.add(new EmailService.PackageLine(name, String.join(", ", massages), inclusions));
             }
             emailService.sendBookingConfirmationEmail(
-                    booking.getClientEmail(),
+                    recipient,
                     booking.getClientNickname(),
                     new EmailService.BookingEmailPayload(
                             booking.getId().toString(),
@@ -666,10 +697,27 @@ public class BookingService {
         if (!"PAID".equals(order.getStatus())) {
             throw new IllegalStateException("Order must be paid before starting a session. Current status: " + order.getStatus());
         }
+        String lockerNumber = attendee.getLockerNumber();
+        if (lockerNumber == null || lockerNumber.isBlank()) {
+            throw new IllegalStateException("Assign a locker number before starting this guest's session.");
+        }
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
         Service service = attendee.getServiceId() != null ? requireService(attendee.getServiceId()) : null;
         String clientGender = attendee.getClientGender();
+
+        if (clientGender != null && !clientGender.isBlank()) {
+            for (Session active : sessionRepository.findAllByOrganizationIdAndStatus(organizationId, "ACTIVE")) {
+                if (active.getAttendeeId() == null || active.getAttendeeId().equals(attendeeId)) continue;
+                var other = attendeeRepository.findById(active.getAttendeeId()).orElse(null);
+                if (other == null) continue;
+                if (lockerNumber.equalsIgnoreCase(other.getLockerNumber())
+                        && clientGender.equalsIgnoreCase(other.getClientGender())) {
+                    throw new IllegalStateException("Locker " + clientGender.toUpperCase() + lockerNumber
+                            + " is already in use by another active session.");
+                }
+            }
+        }
 
         Session session = attendee.getSessionId() != null
                 ? sessionRepository.findById(attendee.getSessionId()).orElse(null)
@@ -901,9 +949,36 @@ public class BookingService {
         return toSessionResponse(session);
     }
 
+    private String resolveClientEmail(Booking booking) {
+        if (booking == null) return null;
+        if (booking.getClientEmail() != null && !booking.getClientEmail().isBlank()) {
+            return booking.getClientEmail();
+        }
+        if (booking.getClientId() != null) {
+            return clientRepository.findById(booking.getClientId())
+                    .map(Client::getEmail)
+                    .filter(e -> e != null && !e.isBlank())
+                    .orElse(null);
+        }
+        return null;
+    }
+
+    @Transactional
+    public void sendOrderConfirmationEmail(UUID bookingId) {
+        Booking booking = bookingRepository.findById(bookingId).orElse(null);
+        if (booking == null) return;
+        String email = resolveClientEmail(booking);
+        if (email == null || email.isBlank()) return;
+        Order order = orderRepository.findByBookingId(bookingId).orElse(null);
+        if (order == null) return;
+        sendBookingEmail(booking, order, order.getRoomType(),
+                order.getTotal() == null ? BigDecimal.ZERO : order.getTotal(), order.getOrNumber());
+    }
+
     private void maybeSendCompletionEmail(Booking booking) {
         if (booking == null || !"COMPLETED".equals(booking.getStatus())) return;
-        if (booking.getClientEmail() == null || booking.getClientEmail().isBlank()) return;
+        String email = resolveClientEmail(booking);
+        if (email == null || email.isBlank()) return;
         Order order = orderRepository.findByBookingId(booking.getId()).orElse(null);
         if (order == null || order.getCompletionEmailSentAt() != null) return;
         BigDecimal total = order.getTotal() == null ? BigDecimal.ZERO : order.getTotal();
@@ -921,19 +996,64 @@ public class BookingService {
                 idx++;
             }
             OffsetDateTime scheduled = booking.getScheduledAt();
+            String paymentMethod = describePaymentMethods(order);
+            List<String> slipLines = buildSlipSummaryLines(booking.getId());
             EmailService.CompletionEmailPayload payload = new EmailService.CompletionEmailPayload(
                     booking.getId().toString(),
                     order.getOrNumber(),
                     buildAvailedLines(order),
                     formatManila(scheduled),
                     formatManila(scheduled == null ? null : scheduled.plusMinutes(PREP_BUFFER_MINUTES)),
-                    total.toPlainString());
-            emailService.sendCompletionEmail(booking.getClientEmail(), booking.getClientNickname(), payload, receipt, slips);
+                    total.toPlainString(),
+                    paymentMethod,
+                    slipLines);
+            emailService.sendCompletionEmail(email, booking.getClientNickname(), payload, receipt, slips);
             order.setCompletionEmailSentAt(OffsetDateTime.now());
             orderRepository.save(order);
         } catch (Exception ex) {
             log.warn("Could not send completion email for booking {}: {}", booking.getId(), ex.getMessage());
         }
+    }
+
+    private String describePaymentMethods(Order order) {
+        var txs = transactionRepository.findAllByOrderId(order.getId());
+        java.util.LinkedHashSet<String> labels = new java.util.LinkedHashSet<>();
+        for (var tx : txs) {
+            String m = tx.getPaymentMethod();
+            if (m == null || m.isBlank()) continue;
+            labels.add(humanisePaymentMethod(m));
+        }
+        return String.join(", ", labels);
+    }
+
+    private String humanisePaymentMethod(String m) {
+        if (m == null) return "";
+        return switch (m.toUpperCase()) {
+            case "CASH" -> "Cash";
+            case "GCASH" -> "GCash";
+            case "CREDIT" -> "Credit card";
+            case "DEBIT" -> "Debit card";
+            case "CARD" -> "Card";
+            default -> m;
+        };
+    }
+
+    private List<String> buildSlipSummaryLines(UUID bookingId) {
+        List<String> lines = new java.util.ArrayList<>();
+        int idx = 1;
+        for (TreatmentSlip slip : slipRepository.findAllByBookingId(bookingId)) {
+            if ("VOIDED".equals(slip.getStatus())) continue;
+            String tsn = slip.getTsn() == null ? String.valueOf(idx) : slip.getTsn();
+            String guest = slip.getClientNickname() == null ? "Guest" : slip.getClientNickname();
+            String locker = slip.getLockerNumber() == null ? "" : slip.getLockerNumber().replaceFirst("^[MFmf]", "");
+            String service = slip.getServiceName() == null ? "" : slip.getServiceName();
+            StringBuilder line = new StringBuilder("TS #").append(tsn).append(" &middot; ").append(guest);
+            if (!service.isBlank()) line.append(" &middot; ").append(service);
+            if (!locker.isBlank()) line.append(" &middot; Locker ").append(locker);
+            lines.add(line.toString());
+            idx++;
+        }
+        return lines;
     }
 
     private List<String> buildAvailedLines(Order order) {
@@ -1022,9 +1142,7 @@ public class BookingService {
         }
         Order parentOrder = session.getBookingId() == null ? null
                 : orderRepository.findByBookingId(session.getBookingId()).orElse(null);
-        if (isVipPackageSession(session)) {
-            throw new IllegalStateException("VIP packages cannot be extended.");
-        }
+        boolean vip = isVipPackageSession(session);
 
         session.setExtension(true);
         session.setExtensionMinutes(session.getExtensionMinutes() + additionalMinutes);
@@ -1032,12 +1150,11 @@ public class BookingService {
             session.setExpectedEndAt(session.getExpectedEndAt().plusMinutes(additionalMinutes));
         }
 
-        BigDecimal rate = (parentOrder != null && parentOrder.isWeekend())
-                ? new BigDecimal("900") : new BigDecimal("800");
         int halfHours = (int) Math.ceil(additionalMinutes / 30.0);
         BigDecimal commissionAmount = BigDecimal.valueOf(60L * halfHours);
 
-        if (parentOrder != null) {
+        if (!vip && parentOrder != null) {
+            BigDecimal rate = parentOrder.isWeekend() ? new BigDecimal("900") : new BigDecimal("800");
             BigDecimal newSubtotal = (parentOrder.getSubtotal() == null ? BigDecimal.ZERO : parentOrder.getSubtotal()).add(rate);
             BigDecimal newTotal = (parentOrder.getTotal() == null ? BigDecimal.ZERO : parentOrder.getTotal()).add(rate);
             BigDecimal newExtension = (parentOrder.getExtensionAmount() == null ? BigDecimal.ZERO : parentOrder.getExtensionAmount()).add(rate);
@@ -1064,8 +1181,9 @@ public class BookingService {
 
         slipRepository.findBySessionId(session.getId()).ifPresent(slip -> {
             slip.setExtensionMinutes(session.getExtensionMinutes());
-            if (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank()) {
-                slip.setOthersAddOn("Massage extension: +" + session.getExtensionMinutes() + " min");
+            if (vip) {
+                slip.setJacuzziMinutes(0);
+                slip.setMassageMinutes(120);
             }
             slipRepository.save(slip);
         });

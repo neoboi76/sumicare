@@ -91,6 +91,16 @@
             class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
         </label>
       </div>
+      <label class="block text-sm mt-2">
+        <span class="text-slate-700">Applies to</span>
+        <select [(ngModel)]="formTargetPackageId" name="targetPackage"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+          <option [ngValue]="null">Whole order</option>
+          @for (p of packages(); track p.id) {
+          <option [ngValue]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      </label>
       @if (editingVoucher()) {
       <label class="flex items-center gap-2 mt-2">
         <input [(ngModel)]="formActive" name="active" type="checkbox" class="rounded border-slate-300" />

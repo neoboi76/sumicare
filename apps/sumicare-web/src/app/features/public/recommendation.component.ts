@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import { SumiRevealDirective } from '../../shared/directives/sumi-reveal.directive';
 
 interface Service {
   id: number;
@@ -23,7 +24,7 @@ interface RecommendationResponse {
 @Component({
   selector: 'sumi-recommendation',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink, SumiRevealDirective],
   templateUrl: './recommendation.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

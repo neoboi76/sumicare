@@ -10,5 +10,6 @@ public record OrganizationBrandingResponse(
         String primaryColor,
         String secondaryColor,
         String accentColor,
-        String theme
+        String theme,
+        String fontFamily
 ) {}

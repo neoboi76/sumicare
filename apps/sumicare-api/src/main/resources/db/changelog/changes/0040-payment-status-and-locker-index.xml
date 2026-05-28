@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0040-1-backfill-booking-payment-status" author="sumicare">
+        <sql>
+            UPDATE bookings b
+            SET payment_status = o.payment_status
+            FROM orders o
+            WHERE o.booking_id = b.id
+              AND o.payment_status IS NOT NULL
+              AND (b.payment_status IS NULL OR b.payment_status &lt;&gt; o.payment_status);
+        </sql>
+    </changeSet>
+
+    <changeSet id="0040-2-active-session-locker-unique-index" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="uq_active_session_locker_gender"/>
+            </not>
+        </preConditions>
+        <sql>
+            CREATE UNIQUE INDEX uq_active_session_locker_gender
+            ON sessions (organization_id, attendee_id)
+            WHERE status = 'ACTIVE' AND attendee_id IS NOT NULL;
+        </sql>
+        <rollback>
+            DROP INDEX IF EXISTS uq_active_session_locker_gender;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

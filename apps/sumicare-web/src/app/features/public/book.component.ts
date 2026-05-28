@@ -75,6 +75,14 @@ interface BookingItemForm {
   attendees: AttendeeForm[];
 }
 
+interface AppliedVoucher {
+  code: string;
+  name: string | null;
+  discountAmount: number | null;
+  discountPercent: number | null;
+  targetPackageId: number | null;
+}
+
 @Component({
   selector: 'sumi-book',
   standalone: true,
@@ -119,24 +127,70 @@ export class BookComponent implements OnInit {
   consent = false;
   bookingItems = signal<BookingItemForm[]>([this.blankItem()]);
 
-  estimatedTotal = computed(() => {
+  voucherCode = '';
+  voucherError = signal<string | null>(null);
+  appliedVoucher = signal<AppliedVoucher | null>(null);
+
+  private itemAmount(item: BookingItemForm): number {
+    const pkg = this.packageById(item.packageId);
+    if (!pkg) return 0;
     let sum = 0;
-    for (const item of this.bookingItems()) {
-      const pkg = this.packageById(item.packageId);
-      if (!pkg) continue;
-      if (this.isDoubleItem(pkg)) {
-        const t = pkg.tiers.find(x => x.id === Number(item.attendees[0]?.packageTierId));
+    if (this.isDoubleItem(pkg)) {
+      const t = pkg.tiers.find(x => x.id === Number(item.attendees[0]?.packageTierId));
+      sum += t ? t.weekdayPrice : 0;
+    } else {
+      for (const a of item.attendees) {
+        const t = pkg.tiers.find(x => x.id === Number(a.packageTierId));
         sum += t ? t.weekdayPrice : 0;
-      } else {
-        for (const a of item.attendees) {
-          const t = pkg.tiers.find(x => x.id === Number(a.packageTierId));
-          sum += t ? t.weekdayPrice : 0;
-        }
       }
-      if (item.roomType === 'PRIVATE' && !pkg.requiresVipRoom) sum += 500;
     }
+    if (item.roomType === 'PRIVATE' && !pkg.requiresVipRoom) sum += 500;
     return sum;
+  }
+
+  grossTotal = computed(() => this.bookingItems().reduce((sum, item) => sum + this.itemAmount(item), 0));
+
+  voucherDiscount = computed(() => {
+    const v = this.appliedVoucher();
+    if (!v) return 0;
+    let base: number;
+    if (v.targetPackageId != null) {
+      base = this.bookingItems()
+        .filter(item => Number(item.packageId) === v.targetPackageId)
+        .reduce((sum, item) => sum + this.itemAmount(item), 0);
+      if (base <= 0) return 0;
+    } else {
+      base = this.grossTotal();
+    }
+    if (v.discountAmount != null) return Math.min(v.discountAmount, base);
+    if (v.discountPercent != null) return Math.round(base * v.discountPercent) / 100;
+    return 0;
   });
+
+  estimatedTotal = computed(() => Math.max(0, this.grossTotal() - this.voucherDiscount()));
+
+  applyVoucher(): void {
+    const code = this.voucherCode.trim();
+    this.voucherError.set(null);
+    if (!code) {
+      this.appliedVoucher.set(null);
+      return;
+    }
+    this.http
+      .get<AppliedVoucher>(`${environment.apiBaseUrl}/api/public/vouchers/${environment.defaultOrganizationSlug}/check?code=${encodeURIComponent(code)}`)
+      .subscribe({
+        next: (v) => {
+          this.appliedVoucher.set({ ...v, code });
+          if (this.voucherDiscount() <= 0) {
+            this.voucherError.set('This voucher does not apply to the selected packages.');
+          }
+        },
+        error: () => {
+          this.appliedVoucher.set(null);
+          this.voucherError.set('Voucher invalid or already redeemed.');
+        }
+      });
+  }
 
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
@@ -315,7 +369,8 @@ export class BookComponent implements OnInit {
       scheduledAt: combined.toISOString(),
       clientGender: firstItem.attendees[0].clientGender,
       paymentMethod: this.reservationType === 'HARD' ? this.paymentMethod() : null,
-      items: payloadItems
+      items: payloadItems,
+      voucherCode: this.appliedVoucher() ? this.voucherCode.trim() : null
     };
 
     this.http
@@ -470,6 +525,9 @@ export class BookComponent implements OnInit {
     this.scheduledTime = '';
     this.consent = false;
     this.bookingItems.set([this.blankItem()]);
+    this.voucherCode = '';
+    this.appliedVoucher.set(null);
+    this.voucherError.set(null);
   }
 
   formatDateTime(iso: string | null): string {

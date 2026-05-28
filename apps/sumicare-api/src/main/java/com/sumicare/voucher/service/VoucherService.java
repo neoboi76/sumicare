@@ -77,6 +77,7 @@ public class VoucherService {
         if (updates.getValidFrom() != null) v.setValidFrom(updates.getValidFrom());
         if (updates.getValidUntil() != null) v.setValidUntil(updates.getValidUntil());
         if (updates.isActive() != v.isActive()) v.setActive(updates.isActive());
+        v.setTargetPackageId(updates.getTargetPackageId());
         return repository.save(v);
     }
 }

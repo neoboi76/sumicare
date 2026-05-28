@@ -16,8 +16,8 @@ import java.util.UUID;
 public class TreatmentSlipPdfService {
 
     private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy");
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("h:mm a");
 
     private final PdfRenderer pdfRenderer;
     private final TreatmentSlipRepository slipRepository;
@@ -39,7 +39,7 @@ public class TreatmentSlipPdfService {
         if (slip.getSecondaryTherapistNickname() != null && !slip.getSecondaryTherapistNickname().isBlank()) {
             therapist += " / " + slip.getSecondaryTherapistNickname();
         }
-        String lockerDisplay = lockerWithGender(slip.getLockerNumber(), slip.getClientGender());
+        String lockerDisplay = rawLocker(slip.getLockerNumber());
         String othersDisplay = othersWithExtension(slip.getExtensionMinutes(), slip.getOthersAddOn());
 
         StringBuilder sb = new StringBuilder();
@@ -153,8 +153,8 @@ public class TreatmentSlipPdfService {
             <!DOCTYPE html>
             <html><head><meta charset="UTF-8"/>
             <style>
-              @page { size: A6 portrait; margin: 4mm; }
-              body { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #000; }
+              @page { size: A5 portrait; margin: 6mm; }
+              body { font-family: 'DejaVu Sans', 'Liberation Sans', Arial, Helvetica, sans-serif; font-size: 8pt; color: #000; }
               .slip { width: 100%; border: 1.5px solid #000; }
               .row { display: table; width: 100%; border-bottom: 1px solid #000; }
               .row:last-child { border-bottom: none; }
@@ -203,23 +203,18 @@ public class TreatmentSlipPdfService {
         return "<div class=\"cell\">" + cellInner(label, value) + "</div>";
     }
 
-    private String lockerWithGender(String locker, String gender) {
+    private String rawLocker(String locker) {
         if (locker == null || locker.isBlank()) {
             return "";
         }
-        String trimmed = locker.trim();
-        String g = gender == null ? "" : gender.trim().toUpperCase();
-        if ((g.equals("M") || g.equals("F")) && !trimmed.toUpperCase().startsWith(g)) {
-            return g + trimmed;
-        }
-        return trimmed;
+        return locker.trim().replaceFirst("^[MFmf]", "");
     }
 
     private String othersWithExtension(Integer extensionMinutes, String othersAddOn) {
         String extension = extensionMinutes != null && extensionMinutes > 0
                 ? "Extension: +" + extensionMinutes + " min"
                 : "Extension: None";
-        if (othersAddOn != null && !othersAddOn.isBlank()) {
+        if (othersAddOn != null && !othersAddOn.isBlank() && !othersAddOn.startsWith("Massage extension")) {
             return extension + " / " + othersAddOn;
         }
         return extension;
@@ -231,7 +226,7 @@ public class TreatmentSlipPdfService {
 
     private String fmt(BigDecimal v) {
         if (v == null) return "";
-        return "₱ " + v.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        return "&#8369; " + v.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private String esc(String s) {

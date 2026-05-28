@@ -1,38 +1,113 @@
-<section class="max-w-6xl mx-auto px-4 py-10">
-  <h2 class="text-2xl font-semibold text-slate-900">Our services</h2>
-  <p class="text-slate-600 mb-6">All durations include a 15-minute room preparation buffer between bookings.</p>
-  @if (loadingInitial()) {
-    <div class="flex justify-center py-12"><div class="sumi-spinner"></div></div>
-  } @else {
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    @for (s of services(); track s.id) {
-      <article class="bg-white rounded-xl shadow overflow-hidden flex flex-col">
-        @if (s.imageUrl) {
-          <img [src]="s.imageUrl" [alt]="s.name" class="w-full h-40 object-cover" />
-        } @else {
-          <div class="w-full h-40 bg-gradient-to-br from-[var(--sumi-primary)] to-[var(--sumi-secondary)] opacity-80"></div>
-        }
-        <div class="p-5 flex flex-col flex-1">
-          <div class="flex items-baseline justify-between">
-            <h3 class="font-semibold text-slate-900">{{ s.name }}</h3>
-            <span class="text-sm text-slate-500">{{ s.durationMinutes }} min</span>
-          </div>
-          <div class="mt-1 text-xs text-slate-500 capitalize">{{ s.category }}</div>
-          @if (s.description) {
-            <p class="mt-2 text-sm text-slate-600 leading-relaxed flex-1">{{ s.description }}</p>
-          }
-          <div class="mt-3 text-lg font-semibold text-[var(--sumi-primary)]">&#8369; {{ s.price | number:'1.2-2' }}</div>
-          @if (s.fixedRate) {
-            <div class="mt-1 text-xs text-amber-600">Fixed rate &amp; duration</div>
-          }
-          @if (s.vip) {
-            <div class="mt-1 text-xs text-purple-600">VIP package</div>
-          }
+<section class="relative h-[44vh] min-h-[320px] flex items-end overflow-hidden">
+    <div class="absolute inset-0 bg-cover bg-center md:bg-fixed"
+         style="background-image: url('https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=2400&q=80');"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-[var(--ink)]/75 via-[var(--ink)]/60 to-[var(--ink)]/95"></div>
+    <div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pb-12 w-full">
+        <p class="editorial-label editorial-label-on-dark anim-fade-up editorial-hero-shadow">The Experience</p>
+        <h1 class="editorial-hero-title editorial-hero-shadow mt-3 anim-fade-up anim-delay-200">Massage &amp; Body Treatments</h1>
+        <p class="editorial-sub editorial-hero-shadow mt-3 anim-fade-up anim-delay-400">Fourteen modalities from Korean, Filipino, Thai, and Hawaiian traditions</p>
+    </div>
+</section>
+
+<section class="chapter-band" sumiReveal>
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row md:items-center gap-6">
+        <div class="md:w-1/3"><div class="chapter-num">The Menu</div><div class="chapter-rule"></div></div>
+        <div class="md:w-2/3">
+            <h2 class="chapter-text">Tell us how you want to feel</h2>
+            <p class="chapter-strap">Pricing in full on the <a routerLink="/packages" class="underline-offset-2 hover:underline text-[var(--gold)]">Packages page</a> &middot; locker, towel, sauna access included</p>
         </div>
-      </article>
-    } @empty {
-      <p class="text-slate-500 col-span-full">Services are loading or not yet configured.</p>
-    }
-  </div>
-  }
+    </div>
+</section>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <symbol id="glyph-hands" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 32c0-5 3-9 7-11 4-2 8-2 12 0 2 1 4 1 6 0 4-2 8-2 12 0 4 2 7 6 7 11"/>
+            <path d="M14 32v10c0 6 5 11 11 11h14c6 0 11-5 11-11V32"/>
+            <path d="M22 30v-8M30 28v-12M34 28v-12M42 30v-8"/>
+        </symbol>
+        <symbol id="glyph-foot" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M28 12c-6 0-10 4-10 10v18c0 4 2 7 5 9l6 4c2 2 4 3 7 3 5 0 8-3 8-8v-5c0-3 1-5 3-7 3-3 5-6 5-10 0-8-6-14-14-14h-10z"/>
+            <circle cx="22" cy="12" r="3"/>
+            <circle cx="30" cy="9" r="2.5"/>
+            <circle cx="38" cy="10" r="2.5"/>
+            <circle cx="45" cy="13" r="2"/>
+        </symbol>
+        <symbol id="glyph-stone" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="32" cy="44" rx="22" ry="8"/>
+            <ellipse cx="26" cy="32" rx="14" ry="6"/>
+            <ellipse cx="38" cy="20" rx="10" ry="5"/>
+        </symbol>
+        <symbol id="glyph-leaf" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 50c0-20 16-36 36-36 0 20-16 36-36 36z"/>
+            <path d="M14 50L40 24"/>
+        </symbol>
+        <symbol id="glyph-cup" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 18h32v18c0 8-7 14-16 14s-16-6-16-14V18z"/>
+            <path d="M48 22h4c2 0 4 2 4 4v8c0 4-3 8-8 8"/>
+            <path d="M22 10c0 3-2 3-2 6M32 10c0 3-2 3-2 6M42 10c0 3-2 3-2 6"/>
+        </symbol>
+        <symbol id="glyph-scrub" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 38c0-10 8-18 18-18s18 8 18 18v6c0 4-3 8-8 8H22c-5 0-8-4-8-8v-6z"/>
+            <circle cx="22" cy="34" r="2"/>
+            <circle cx="30" cy="38" r="2"/>
+            <circle cx="38" cy="34" r="2"/>
+            <circle cx="44" cy="40" r="2"/>
+            <circle cx="34" cy="44" r="2"/>
+            <circle cx="26" cy="44" r="2"/>
+        </symbol>
+        <symbol id="glyph-lotus" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M32 12c-4 6-4 14 0 22"/>
+            <path d="M32 12c4 6 4 14 0 22"/>
+            <path d="M14 28c4 0 14 4 18 12"/>
+            <path d="M50 28c-4 0-14 4-18 12"/>
+            <path d="M10 38c14 6 30 6 44 0v6c-14 8-30 8-44 0v-6z"/>
+        </symbol>
+        <symbol id="glyph-tandem" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 28c0-4 3-8 7-9 3-1 6 0 9 2 2 2 4 2 6 0 3-2 6-3 9-2 4 1 7 5 7 9"/>
+            <path d="M10 28v8c0 4 4 8 8 8h28c4 0 8-4 8-8v-8"/>
+            <path d="M22 26v-6M30 24v-8M34 24v-8M42 26v-6"/>
+            <circle cx="20" cy="48" r="3"/>
+            <circle cx="44" cy="48" r="3"/>
+        </symbol>
+    </defs>
+</svg>
+
+<section class="bg-[var(--cream)] py-20">
+    <div class="max-w-7xl mx-auto px-5 sm:px-8">
+        @if (loadingInitial()) {
+            <div class="flex justify-center py-16"><div class="sumi-spinner"></div></div>
+        } @else {
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                @for (s of services(); track s.id; let i = $index) {
+                    <article [class]="tileClass(i)" class="relative rounded-sm aspect-[4/5] flex flex-col justify-between p-6 sm:p-7 hover:-translate-y-1 hover:shadow-2xl group" sumiReveal>
+                        <header class="relative z-10 flex items-start justify-between">
+                            <div>
+                                <p class="editorial-label">{{ s.category || 'Massage' }}</p>
+                                <h3 class="mt-2 font-[var(--lasema-font-display)] text-2xl sm:text-3xl leading-tight">{{ s.name }}</h3>
+                                <p class="mt-1 text-xs uppercase tracking-[0.22em] opacity-70">{{ s.durationMinutes }} min</p>
+                            </div>
+                            <svg class="service-glyph shrink-0">
+                                <use [attr.href]="'#glyph-' + glyphFor(s.name)"></use>
+                            </svg>
+                        </header>
+                        <div class="relative z-10 mt-4">
+                            <p class="text-sm leading-relaxed opacity-95 line-clamp-4 font-[var(--lasema-font-body)]">{{ descriptionFor(s) }}</p>
+                            @if (s.fixedRate) {
+                                <p class="mt-3 text-[10.5px] uppercase tracking-[0.22em] opacity-80">Fixed duration service</p>
+                            }
+                            <a routerLink="/book" [queryParams]="{ serviceId: s.id }"
+                               class="mt-4 inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.22em] font-[var(--lasema-font-label)] border-b border-current pb-1 hover:translate-x-1 transition-transform duration-300">
+                                Book this
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                            </a>
+                        </div>
+                    </article>
+                } @empty {
+                    <p class="text-[var(--ink)]/70 col-span-full">Services are loading or not yet configured.</p>
+                }
+            </div>
+            <p class="mt-12 text-center text-sm text-[var(--ink)]/70 font-[var(--lasema-font-italic)] italic">All pricing &mdash; weekday and weekend, regular and promo &mdash; lives on the <a routerLink="/packages" class="text-[var(--jade)] underline-offset-2 hover:underline">Packages page</a>.</p>
+        }
+    </div>
 </section>

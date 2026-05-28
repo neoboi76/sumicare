@@ -57,7 +57,7 @@
             </button>
             }
           </td>
-          <td class="p-3">{{ (b.lockerNumber | lockerLabel:b.clientGender) || '-' }}</td>
+          <td class="p-3">@if (attendeeCount(b.id) <= 1) { {{ (b.lockerNumber | lockerLabel:b.clientGender:false) || '-' }} }</td>
           <td class="p-3">@if (attendeeCount(b.id) <= 1) { {{ serviceName(b.serviceId) }} }</td>
           <td class="p-3">
             <div class="flex flex-wrap items-center gap-1">
@@ -112,8 +112,10 @@
             @if (isOrderPaid(b.id)) {
               @if (attendeeCount(b.id) > 1) {
               <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
-              } @else {
+              } @else if (bookingGuestHasLocker(b)) {
               <button (click)="openStart(b)" class="text-[var(--sumi-primary)] hover:underline">Start session</button>
+              } @else {
+              <span class="text-xs text-slate-400" title="Assign a locker number before starting">Assign a locker first</span>
               }
             } @else {
             <span class="text-xs text-slate-400" title="Order must be paid before starting a session">Awaiting
@@ -125,7 +127,7 @@
               <button (click)="toggleExpand(b.id)" class="text-[var(--sumi-primary)] hover:underline">Start sub-sessions</button>
               } @else {
               <button (click)="endSession(b)" class="text-emerald-700 hover:underline">End</button>
-              @if (!isVipBooking(b) && !isFixedBooking(b) && !bookingSessionExtended(b)) {
+              @if (!isFixedBooking(b) && !bookingSessionExtended(b)) {
                 <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+1 hr</button>
               }
               @if (singleSlipId(b); as slipId) {
@@ -182,13 +184,17 @@
                       @if (a.sessionStatus === 'ACTIVE') {
                       <button (click)="endAttendeeSession(a)"
                         class="text-emerald-700 hover:underline">End</button>
-                      @if (!isVipAttendee(a, b) && !isFixedAttendee(a, b) && !a.sessionExtended) {
+                      @if (!isFixedAttendee(a, b) && !a.sessionExtended) {
                         <button (click)="extendAttendeeSession(a)"
                           class="text-amber-700 hover:underline">+1 hr</button>
                       }
                       } @else if (a.sessionStatus !== 'COMPLETED' && a.sessionStatus !== 'CANCELLED') {
-                      <button (click)="openStartForAttendee(b, a)"
-                        class="text-[var(--sumi-primary)] hover:underline font-medium">Start session</button>
+                        @if (attendeeHasLocker(a)) {
+                        <button (click)="openStartForAttendee(b, a)"
+                          class="text-[var(--sumi-primary)] hover:underline font-medium">Start session</button>
+                        } @else {
+                        <span class="text-slate-400" title="Assign a locker number before starting">Assign a locker first</span>
+                        }
                       }
                     </td>
                   </tr>

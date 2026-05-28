@@ -1,65 +1,85 @@
-<section class="max-w-3xl mx-auto px-4 py-10 space-y-6">
-  <header>
-    <h2 class="text-2xl font-semibold text-slate-900">Personalized recommendation</h2>
-    <p class="text-slate-600">Answer a few questions about your preferences and we will suggest a relaxation service.</p>
-  </header>
-  <form (submit)="submit($event)" class="bg-white rounded-xl shadow p-6 space-y-5">
-    @for (q of questions; track q.code) {
-      <div>
-        <div class="font-medium text-slate-900 mb-2">{{ q.label }}</div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          @for (opt of q.options; track opt.code) {
-            <label class="flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer"
-                   [class.border-[var(--sumi-primary)]]="getAnswer(q.code) === opt.code"
-                   [class.bg-red-50]="submittedOnce() && !getAnswer(q.code)">
-              <input type="radio" [name]="q.code" [value]="opt.code"
-                     [ngModel]="getAnswer(q.code)"
-                     (ngModelChange)="setAnswer(q.code, $event)" />
-              <span>{{ opt.label }}</span>
-            </label>
-          }
-        </div>
-      </div>
-    }
-    @if (submittedOnce() && !allAnswered()) {
-      <p class="text-sm text-red-600">Please answer all 5 questions before submitting.</p>
-    }
-    <button [disabled]="submitting()"
-            class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 disabled:opacity-50 flex items-center gap-2">
-      @if (submitting()) {
-        <div class="sumi-spinner sumi-spinner-sm" style="border-color:rgba(255,255,255,0.3); border-top-color:#fff;"></div>
-        Finding your match...
-      } @else {
-        Get my recommendation
-      }
-    </button>
-  </form>
-  @if (submitting()) {
-    <div class="flex justify-center py-8">
-      <div class="sumi-spinner"></div>
+<section class="relative h-[44vh] min-h-[300px] flex items-end overflow-hidden">
+    <div class="absolute inset-0 bg-cover bg-center"
+         style="background-image: url('https://images.unsplash.com/photo-1591343395082-e120087004b4?auto=format&fit=crop&w=2400&q=80');"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-[var(--ink)]/75 via-[var(--ink)]/60 to-[var(--ink)]/95"></div>
+    <div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pb-12 w-full">
+        <p class="editorial-label editorial-label-on-dark anim-fade-up editorial-hero-shadow">Take Our Quiz</p>
+        <h1 class="editorial-hero-title editorial-hero-shadow mt-3 anim-fade-up anim-delay-200">Find Your Match</h1>
+        <p class="editorial-sub editorial-hero-shadow mt-3 anim-fade-up anim-delay-400">Five questions, one recommendation, plus a couple of alternatives</p>
     </div>
-  }
-  @if (result(); as r) {
-    @if (allAnswered()) {
-      <article class="bg-white rounded-xl shadow p-6 space-y-3">
-        <div class="text-sm text-slate-500 uppercase tracking-wide">Your recommendation</div>
-        <div class="text-2xl font-semibold text-slate-900">{{ r.primary?.name ?? 'No match found' }}</div>
-        @if (r.rationale) {
-          <p class="text-slate-700">{{ r.rationale }}</p>
-        }
-        @if (r.alternatives.length) {
-          <div class="text-sm text-slate-600">
-            Alternatives:
-            @for (a of r.alternatives; track a.id; let last = $last) {
-              <span>{{ a.name }}@if (!last) {, }</span>
+</section>
+
+<section class="chapter-band" sumiReveal>
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row md:items-center gap-6">
+        <div class="md:w-1/3"><div class="chapter-num">For Relaxation Only</div><div class="chapter-rule"></div></div>
+        <div class="md:w-2/3">
+            <h2 class="chapter-text">Tell us how you want to feel</h2>
+            <p class="chapter-strap">Our recommendations are for relaxation purposes only and do not constitute medical advice</p>
+        </div>
+    </div>
+</section>
+
+<section class="bg-[var(--cream)] py-16">
+    <div class="max-w-3xl mx-auto px-5 sm:px-8">
+        <form (submit)="submit($event)" class="bg-[var(--parch)] rounded-sm border border-[var(--rule)] p-8 space-y-8 transition-all duration-500 hover:shadow-xl" sumiReveal>
+            @for (q of questions; track q.code) {
+                <div sumiReveal>
+                    <p class="editorial-label mb-3">{{ q.label }}</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        @for (opt of q.options; track opt.code) {
+                            <label class="flex items-center justify-center gap-2 rounded-sm border border-[var(--rule)] bg-[var(--cream)] px-3 py-3 text-sm cursor-pointer transition-all duration-300 hover:bg-[var(--mist)] hover:border-[var(--jade)] hover:-translate-y-0.5"
+                                   [class.border-[var(--jade)]]="getAnswer(q.code) === opt.code"
+                                   [class.bg-[var(--mist)]]="getAnswer(q.code) === opt.code"
+                                   [class.border-red-400]="submittedOnce() && !getAnswer(q.code)">
+                                <input type="radio" [name]="q.code" [value]="opt.code" class="hidden"
+                                       [ngModel]="getAnswer(q.code)"
+                                       (ngModelChange)="setAnswer(q.code, $event)" />
+                                <span class="font-[var(--lasema-font-label)] tracking-wide text-xs uppercase text-[var(--ink)]">{{ opt.label }}</span>
+                            </label>
+                        }
+                    </div>
+                </div>
             }
-          </div>
+            @if (submittedOnce() && !allAnswered()) {
+                <p class="text-sm text-red-600 anim-slide-down">Please answer all 5 questions before submitting.</p>
+            }
+            <button [disabled]="submitting()" class="btn-editorial flex items-center gap-2 hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                @if (submitting()) {
+                    <div class="sumi-spinner sumi-spinner-sm" style="border-color:rgba(242,245,240,0.3); border-top-color:var(--cream);"></div>
+                    Finding your match...
+                } @else {
+                    Get my recommendation
+                }
+            </button>
+        </form>
+
+        @if (result(); as r) {
+            @if (allAnswered()) {
+                <article class="mt-10 bg-[var(--forest)] text-[var(--cream)] rounded-sm p-8 anim-pop">
+                    <p class="editorial-label editorial-label-on-dark">Your Recommendation</p>
+                    <h3 class="mt-3 font-[var(--lasema-font-display)] text-4xl text-[var(--cream)]">{{ r.primary?.name ?? 'No match found' }}</h3>
+                    @if (r.rationale) {
+                        <p class="mt-4 text-[var(--steam)]/90 font-[var(--lasema-font-italic)] italic text-lg leading-relaxed">{{ r.rationale }}</p>
+                    }
+                    @if (r.alternatives.length) {
+                        <div class="mt-6 pt-4 border-t border-[var(--gold)]/30">
+                            <p class="editorial-label editorial-label-on-dark">Alternatives</p>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                @for (a of r.alternatives; track a.id) {
+                                    <span class="px-3 py-1 rounded-full border border-[var(--gold)]/50 text-sm text-[var(--cream)]">{{ a.name }}</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                    <p class="text-xs italic text-[var(--steam)]/70 pt-5 mt-5 border-t border-[var(--gold)]/30 font-[var(--lasema-font-italic)]">{{ r.disclaimer }}</p>
+                    @if (r.primary) {
+                        <div class="mt-6 flex flex-wrap gap-3">
+                            <button (click)="goToBook(r.primary!.id)" class="btn-editorial bg-[var(--cream)] text-[var(--forest)] hover:bg-[var(--gold)] hover:text-[var(--ink)] hover:scale-105 transition-all duration-300">Book This Service</button>
+                            <a routerLink="/packages" class="btn-editorial bg-transparent border border-[var(--cream)]/70 text-[var(--cream)] hover:bg-[var(--cream)] hover:text-[var(--forest)] hover:scale-105 transition-all duration-300">See All Packages</a>
+                        </div>
+                    }
+                </article>
+            }
         }
-        <p class="text-xs italic text-slate-500 pt-2 border-t">{{ r.disclaimer }}</p>
-        @if (r.primary) {
-          <button (click)="goToBook(r.primary!.id)" class="inline-block mt-3 rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity">Book this service</button>
-        }
-      </article>
-    }
-  }
+    </div>
 </section>

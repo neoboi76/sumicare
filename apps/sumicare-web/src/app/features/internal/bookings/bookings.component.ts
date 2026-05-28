@@ -187,23 +187,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   onBreakTherapists = computed(() => this.lineup().filter(t => t.skipped));
 
-  vipPackageIds = signal<Set<number>>(new Set());
-
-  isVipBooking(b: BookingResponse): boolean {
-    const order = this.ordersByBooking().get(b.id);
-    if (!order || !order.items) return false;
-    const vip = this.vipPackageIds();
-    return order.items.some(it => it.packageId != null && vip.has(it.packageId));
-  }
-
-  isVipAttendee(a: OrderAttendee, b: BookingResponse): boolean {
-    const order = this.ordersByBooking().get(b.id);
-    if (!order || !order.items) return false;
-    const item = order.items.find(it => it.attendees.some(att => att.id === a.id));
-    if (!item || item.packageId == null) return false;
-    return this.vipPackageIds().has(item.packageId);
-  }
-
   private isFixedService(serviceId: number | null): boolean {
     if (serviceId == null) return false;
     return this.services().find(s => s.id === serviceId)?.fixedRate ?? false;
@@ -346,6 +329,16 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.singleAttendee(b.id)?.sessionExtended ?? false;
   }
 
+  attendeeHasLocker(a: OrderAttendee): boolean {
+    return !!(a.lockerNumber && a.lockerNumber.trim());
+  }
+
+  bookingGuestHasLocker(b: BookingResponse): boolean {
+    const single = this.singleAttendee(b.id);
+    if (single) return this.attendeeHasLocker(single);
+    return !!(b.lockerNumber && b.lockerNumber.trim());
+  }
+
   toggleExpand(bookingId: string): void {
     const current = this.expandedBookingId();
     if (current === bookingId) {
@@ -383,14 +376,6 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.refreshLineup();
     this.http.get<RoomItem[]>(`${environment.apiBaseUrl}/api/rooms`).subscribe({
       next: (r) => this.rooms.set(r)
-    });
-    this.http.get<Array<{ id: number; requiresVipRoom: boolean }>>(`${environment.apiBaseUrl}/api/cashier/packages/all`).subscribe({
-      next: (pkgs) => {
-        const vipIds = new Set<number>();
-        for (const p of pkgs) if (p.requiresVipRoom) vipIds.add(p.id);
-        this.vipPackageIds.set(vipIds);
-      },
-      error: () => this.vipPackageIds.set(new Set())
     });
   }
 
@@ -593,6 +578,22 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
+  private markAttendeeExtended(attendeeId: string): void {
+    const next = new Map(this.ordersByBooking());
+    for (const [bookingId, order] of next) {
+      let changed = false;
+      const items = order.items?.map(it => ({
+        ...it,
+        attendees: it.attendees.map(a => {
+          if (a.id === attendeeId) { changed = true; return { ...a, sessionExtended: true }; }
+          return a;
+        })
+      }));
+      if (changed && items) next.set(bookingId, { ...order, items });
+    }
+    this.ordersByBooking.set(next);
+  }
+
   async extendAttendeeSession(attendee: OrderAttendee): Promise<void> {
     if (!attendee.sessionId) return;
     const confirmed = await this.confirmService.confirm({
@@ -602,7 +603,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
     if (!confirmed) return;
     this.http.post(`${environment.apiBaseUrl}/api/sessions/${attendee.sessionId}/extend?minutes=60`, {}).subscribe({
-      next: () => this.reload(),
+      next: () => { this.markAttendeeExtended(attendee.id); this.reload(); },
       error: (err) => this.extendError.set(err?.error?.message || 'Could not extend the session.')
     });
   }
@@ -615,10 +616,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
     if (!confirmed) return;
 
+    const single = this.singleAttendee(b.id);
     this.lookupSession(b.id).subscribe(session => {
       if (!session) return;
       this.http.post(`${environment.apiBaseUrl}/api/sessions/${session.id}/extend?minutes=60`, {}).subscribe({
-        next: () => this.reload(),
+        next: () => { if (single) this.markAttendeeExtended(single.id); this.reload(); },
         error: (err) => this.extendError.set(err?.error?.message || 'Could not extend the session.')
       });
     });

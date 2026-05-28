@@ -49,3 +49,5 @@ redis-data/
 coverage/
 .nyc_output/
 junit.xml
+
+start-api.ps1

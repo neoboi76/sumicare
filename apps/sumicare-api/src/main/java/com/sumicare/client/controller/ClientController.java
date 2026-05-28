@@ -30,6 +30,10 @@ public class ClientController {
         if (clientRepository.existsByOrganizationIdAndNickname(organizationId, request.getNickname())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Nickname already taken");
         }
+        if (request.getEmail() != null && !request.getEmail().isBlank()
+                && clientRepository.existsByOrganizationIdAndEmailIgnoreCase(organizationId, request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That email is already registered. Use a different email.");
+        }
         request.setId(null);
         request.setOrganizationId(organizationId);
         return clientRepository.save(request);
@@ -39,6 +43,12 @@ public class ClientController {
     public boolean isAvailable(@PathVariable String slug, @RequestParam String nickname) {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
         return !clientRepository.existsByOrganizationIdAndNickname(organizationId, nickname);
+    }
+
+    @GetMapping("/api/public/clients/{slug}/check-email")
+    public boolean isEmailAvailable(@PathVariable String slug, @RequestParam String email) {
+        UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
+        return !clientRepository.existsByOrganizationIdAndEmailIgnoreCase(organizationId, email);
     }
 
     @GetMapping("/api/clients")
@@ -65,6 +75,9 @@ public class ClientController {
         }
         if (clientRepository.existsByOrganizationIdAndNickname(orgId, request.getNickname())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Nickname already taken");
+        }
+        if (clientRepository.existsByOrganizationIdAndEmailIgnoreCase(orgId, request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That email is already registered. Use a different email.");
         }
         request.setId(null);
         request.setOrganizationId(orgId);
