@@ -1,7 +1,7 @@
 <section class="relative h-[44vh] min-h-[320px] flex items-end overflow-hidden">
     <div class="absolute inset-0 bg-cover bg-center md:bg-fixed"
          style="background-image: url('https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=2400&q=80');"></div>
-    <div class="absolute inset-0 bg-gradient-to-b from-[var(--ink)]/75 via-[var(--ink)]/60 to-[var(--ink)]/95"></div>
+    <div class="absolute inset-0 hero-overlay"></div>
     <div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pb-12 w-full">
         <p class="editorial-label editorial-label-on-dark anim-fade-up editorial-hero-shadow">The Experience</p>
         <h1 class="editorial-hero-title editorial-hero-shadow mt-3 anim-fade-up anim-delay-200">Massage &amp; Body Treatments</h1>
@@ -19,60 +19,6 @@
     </div>
 </section>
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-        <symbol id="glyph-hands" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 32c0-5 3-9 7-11 4-2 8-2 12 0 2 1 4 1 6 0 4-2 8-2 12 0 4 2 7 6 7 11"/>
-            <path d="M14 32v10c0 6 5 11 11 11h14c6 0 11-5 11-11V32"/>
-            <path d="M22 30v-8M30 28v-12M34 28v-12M42 30v-8"/>
-        </symbol>
-        <symbol id="glyph-foot" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M28 12c-6 0-10 4-10 10v18c0 4 2 7 5 9l6 4c2 2 4 3 7 3 5 0 8-3 8-8v-5c0-3 1-5 3-7 3-3 5-6 5-10 0-8-6-14-14-14h-10z"/>
-            <circle cx="22" cy="12" r="3"/>
-            <circle cx="30" cy="9" r="2.5"/>
-            <circle cx="38" cy="10" r="2.5"/>
-            <circle cx="45" cy="13" r="2"/>
-        </symbol>
-        <symbol id="glyph-stone" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <ellipse cx="32" cy="44" rx="22" ry="8"/>
-            <ellipse cx="26" cy="32" rx="14" ry="6"/>
-            <ellipse cx="38" cy="20" rx="10" ry="5"/>
-        </symbol>
-        <symbol id="glyph-leaf" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 50c0-20 16-36 36-36 0 20-16 36-36 36z"/>
-            <path d="M14 50L40 24"/>
-        </symbol>
-        <symbol id="glyph-cup" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 18h32v18c0 8-7 14-16 14s-16-6-16-14V18z"/>
-            <path d="M48 22h4c2 0 4 2 4 4v8c0 4-3 8-8 8"/>
-            <path d="M22 10c0 3-2 3-2 6M32 10c0 3-2 3-2 6M42 10c0 3-2 3-2 6"/>
-        </symbol>
-        <symbol id="glyph-scrub" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 38c0-10 8-18 18-18s18 8 18 18v6c0 4-3 8-8 8H22c-5 0-8-4-8-8v-6z"/>
-            <circle cx="22" cy="34" r="2"/>
-            <circle cx="30" cy="38" r="2"/>
-            <circle cx="38" cy="34" r="2"/>
-            <circle cx="44" cy="40" r="2"/>
-            <circle cx="34" cy="44" r="2"/>
-            <circle cx="26" cy="44" r="2"/>
-        </symbol>
-        <symbol id="glyph-lotus" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M32 12c-4 6-4 14 0 22"/>
-            <path d="M32 12c4 6 4 14 0 22"/>
-            <path d="M14 28c4 0 14 4 18 12"/>
-            <path d="M50 28c-4 0-14 4-18 12"/>
-            <path d="M10 38c14 6 30 6 44 0v6c-14 8-30 8-44 0v-6z"/>
-        </symbol>
-        <symbol id="glyph-tandem" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M10 28c0-4 3-8 7-9 3-1 6 0 9 2 2 2 4 2 6 0 3-2 6-3 9-2 4 1 7 5 7 9"/>
-            <path d="M10 28v8c0 4 4 8 8 8h28c4 0 8-4 8-8v-8"/>
-            <path d="M22 26v-6M30 24v-8M34 24v-8M42 26v-6"/>
-            <circle cx="20" cy="48" r="3"/>
-            <circle cx="44" cy="48" r="3"/>
-        </symbol>
-    </defs>
-</svg>
-
 <section class="bg-[var(--cream)] py-20">
     <div class="max-w-7xl mx-auto px-5 sm:px-8">
         @if (loadingInitial()) {
@@ -80,24 +26,20 @@
         } @else {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 @for (s of services(); track s.id; let i = $index) {
-                    <article [class]="tileClass(i)" class="relative rounded-sm aspect-[4/5] flex flex-col justify-between p-6 sm:p-7 hover:-translate-y-1 hover:shadow-2xl group" sumiReveal>
-                        <header class="relative z-10 flex items-start justify-between">
-                            <div>
-                                <p class="editorial-label">{{ s.category || 'Massage' }}</p>
-                                <h3 class="mt-2 font-[var(--lasema-font-display)] text-2xl sm:text-3xl leading-tight">{{ s.name }}</h3>
-                                <p class="mt-1 text-xs uppercase tracking-[0.22em] opacity-70">{{ s.durationMinutes }} min</p>
-                            </div>
-                            <svg class="service-glyph shrink-0">
-                                <use [attr.href]="'#glyph-' + glyphFor(s.name)"></use>
-                            </svg>
-                        </header>
-                        <div class="relative z-10 mt-4">
-                            <p class="text-sm leading-relaxed opacity-95 line-clamp-4 font-[var(--lasema-font-body)]">{{ descriptionFor(s) }}</p>
+                    <article class="relative rounded-sm aspect-[4/5] overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl" sumiReveal>
+                        <div class="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-110"
+                             [style.backgroundImage]="'url(' + photoFor(i) + ')'"></div>
+                        <div class="absolute inset-0 tile-overlay"></div>
+                        <div class="relative h-full p-6 sm:p-7 flex flex-col justify-end text-[var(--cream)]">
+                            <p class="editorial-label editorial-label-on-dark editorial-hero-shadow">{{ s.category || 'Massage' }}</p>
+                            <h3 class="mt-2 font-[var(--lasema-font-display)] text-2xl sm:text-3xl leading-tight editorial-hero-shadow">{{ s.name }}</h3>
+                            <p class="mt-1 text-[11px] uppercase tracking-[0.22em] text-[var(--steam)]/90">{{ s.durationMinutes }} min</p>
+                            <p class="mt-3 text-sm leading-relaxed text-[var(--cream)]/95 line-clamp-4 font-[var(--lasema-font-body)] editorial-hero-shadow">{{ descriptionFor(s) }}</p>
                             @if (s.fixedRate) {
-                                <p class="mt-3 text-[10.5px] uppercase tracking-[0.22em] opacity-80">Fixed duration service</p>
+                                <p class="mt-3 text-[10.5px] uppercase tracking-[0.22em] text-[var(--gold)]">Fixed duration service</p>
                             }
                             <a routerLink="/book" [queryParams]="{ serviceId: s.id }"
-                               class="mt-4 inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.22em] font-[var(--lasema-font-label)] border-b border-current pb-1 hover:translate-x-1 transition-transform duration-300">
+                               class="mt-4 inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.22em] font-[var(--lasema-font-label)] text-[var(--cream)] border-b border-[var(--cream)] pb-1 self-start hover:text-[var(--gold)] hover:border-[var(--gold)] hover:translate-x-1 transition-all duration-300">
                                 Book this
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                             </a>

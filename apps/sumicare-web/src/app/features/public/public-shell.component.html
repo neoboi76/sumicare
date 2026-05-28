@@ -1,9 +1,7 @@
 <div class="lasema-shell min-h-screen flex flex-col">
     <header
         class="fixed top-0 inset-x-0 z-30 transition-all duration-300"
-        [class.bg-transparent]="!scrolled() && !menuOpen()"
-        [class.bg-[var(--cream)]]="scrolled() || menuOpen()"
-        [class.shadow-sm]="scrolled() || menuOpen()">
+        [ngClass]="(scrolled() || menuOpen()) ? 'header-on-light' : 'header-on-dark'">
         <div class="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-6">
             <a routerLink="/" class="flex items-center gap-3 group">
                 <img src="/assets/logos/lasema-logo.png" alt="Lasema Jjimjilbang Spa"
@@ -19,12 +17,14 @@
                           [class.text-[var(--jade)]]="scrolled() || menuOpen()">Jjimjilbang &middot; Estd. 2005</span>
                 </span>
             </a>
-            <nav class="hidden lg:flex items-center gap-7">
-                <a routerLink="/services" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">The Experience</a>
-                <a routerLink="/packages" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Facilities</a>
+            <nav class="hidden lg:flex items-center gap-6">
+                <a routerLink="/services" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Services</a>
+                <a routerLink="/packages" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Packages</a>
                 <a routerLink="/about" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">About</a>
                 <a routerLink="/visit" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Plan Your Visit</a>
                 <a routerLink="/recommendation" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Quiz</a>
+                <a routerLink="/contact" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Contact</a>
+                <a routerLink="/feedback" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Feedback</a>
                 <a routerLink="/book" class="btn-editorial btn-editorial-sm">Book Now</a>
             </nav>
             <button (click)="toggleMenu()" type="button"
@@ -56,8 +56,8 @@
             <div class="max-w-7xl mx-auto px-5 py-6 flex flex-col gap-4 transition-transform duration-300"
                  [class.translate-y-0]="menuOpen()"
                  [class.-translate-y-4]="!menuOpen()">
-                <a routerLink="/services" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">The Experience</a>
-                <a routerLink="/packages" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Facilities</a>
+                <a routerLink="/services" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Services</a>
+                <a routerLink="/packages" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Packages</a>
                 <a routerLink="/about" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">About</a>
                 <a routerLink="/visit" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Plan Your Visit</a>
                 <a routerLink="/recommendation" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Quiz</a>

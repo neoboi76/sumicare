@@ -153,33 +153,35 @@ public class TreatmentSlipPdfService {
             <!DOCTYPE html>
             <html><head><meta charset="UTF-8"/>
             <style>
-              @page { size: A5 portrait; margin: 6mm; }
-              body { font-family: 'DejaVu Sans', 'Liberation Sans', Arial, Helvetica, sans-serif; font-size: 8pt; color: #000; }
-              .slip { width: 100%; border: 1.5px solid #000; }
+              @page { size: A5 portrait; margin: 5mm; }
+              html, body { margin: 0; padding: 0; height: 200mm; max-height: 200mm; overflow: hidden; }
+              body { font-family: 'DejaVu Sans', 'Liberation Sans', Arial, Helvetica, sans-serif; font-size: 7.5pt; color: #000; }
+              .slip { width: 100%; height: 198mm; max-height: 198mm; overflow: hidden; border: 1.25px solid #000; page-break-inside: avoid; box-sizing: border-box; }
               .row { display: table; width: 100%; border-bottom: 1px solid #000; }
               .row:last-child { border-bottom: none; }
-              .cell { display: table-cell; padding: 1.5mm 2mm; border-right: 1px solid #000; vertical-align: top; }
+              .cell { display: table-cell; padding: 1mm 1.75mm; border-right: 1px solid #000; vertical-align: top; line-height: 1.18; }
               .cell:last-child { border-right: none; }
               .row-2 .cell { width: 50%; }
               .row-1 .cell { width: 100%; }
               .row-treat .cell.t1 { width: 66%; }
               .row-treat .cell.t2 { width: 34%; }
-              .label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; display: block; }
-              .value { font-size: 9pt; font-weight: 600; margin-top: 0.5mm; }
-              .brand { text-align: center; font-weight: 800; font-size: 16pt; letter-spacing: 0.18em; padding: 2mm; border-bottom: 1.5px solid #000; }
-              .tag { background: #000; color: #fff; text-align: center; font-weight: 800; letter-spacing: 0.2em; font-size: 8pt; padding: 1mm 0; }
-              .vip-top { border-bottom: 1.5px solid #000; }
-              .vip-row { display: flex; justify-content: space-between; align-items: baseline; padding: 1mm 2mm; border-bottom: 1px solid #000; }
+              .label { font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; display: block; }
+              .value { font-size: 8pt; font-weight: 600; margin-top: 0.3mm; }
+              .brand { text-align: center; font-weight: 800; font-size: 13pt; letter-spacing: 0.18em; padding: 1.25mm; border-bottom: 1.25px solid #000; }
+              .tag { background: #000; color: #fff; text-align: center; font-weight: 800; letter-spacing: 0.2em; font-size: 7pt; padding: 0.75mm 0; }
+              .vip-top { border-bottom: 1.25px solid #000; }
+              .vip-row { display: flex; justify-content: space-between; align-items: baseline; padding: 0.75mm 1.75mm; border-bottom: 1px solid #000; }
               .vip-row:last-child { border-bottom: none; }
-              .vip-lbl { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
-              .vip-val { font-size: 9pt; font-weight: 600; }
+              .vip-lbl { font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+              .vip-val { font-size: 8pt; font-weight: 600; }
               .sep { opacity: 0.5; font-weight: 400; }
               .active-choice { font-weight: 800; text-decoration: underline; text-underline-offset: 1px; }
-              .waiver-title { text-align: center; font-weight: 800; letter-spacing: 0.1em; font-size: 8pt; padding-top: 1mm; }
-              .waiver { padding: 2mm; font-size: 6pt; line-height: 1.35; text-align: justify; border-top: 1px solid #000; border-bottom: 1px solid #000; }
-              .sig { padding: 8mm 2mm 1mm; text-align: center; font-size: 6.5pt; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid #000; margin-top: 3mm; }
-              .qr-block { padding: 2mm; text-align: center; border-top: 1px solid #000; }
-              .qr-label { font-size: 6pt; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1mm; }
+              .waiver-title { text-align: center; font-weight: 800; letter-spacing: 0.1em; font-size: 7pt; padding-top: 0.5mm; }
+              .waiver { padding: 1.25mm 1.75mm; font-size: 5.4pt; line-height: 1.22; text-align: justify; border-top: 1px solid #000; border-bottom: 1px solid #000; }
+              .sig { padding: 3mm 1.75mm 0.75mm; text-align: center; font-size: 6pt; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid #000; margin-top: 1.5mm; }
+              .qr-block { padding: 1mm; text-align: center; border-top: 1px solid #000; }
+              .qr-label { font-size: 5.5pt; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.5mm; }
+              .qr-block img { width: 64px; height: 64px; }
             </style></head><body>
             """;
 

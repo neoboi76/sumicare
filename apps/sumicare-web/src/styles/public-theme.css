@@ -245,8 +245,38 @@
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
 
+.header-on-light {
+    background: var(--cream);
+    box-shadow: 0 1px 2px rgba(14, 24, 20, 0.08);
+}
+
+.header-on-dark {
+    background: transparent;
+    box-shadow: none;
+}
+
 .editorial-hero-shadow {
-    text-shadow: 0 2px 24px rgba(14, 24, 20, 0.55), 0 1px 3px rgba(14, 24, 20, 0.45);
+    text-shadow: 0 2px 24px rgba(14, 24, 20, 0.85), 0 1px 4px rgba(14, 24, 20, 0.65), 0 0 1px rgba(14, 24, 20, 0.5);
+}
+
+.hero-overlay {
+    background: linear-gradient(
+        to bottom,
+        rgba(14, 24, 20, 0.75) 0%,
+        rgba(14, 24, 20, 0.55) 35%,
+        rgba(14, 24, 20, 0.70) 70%,
+        rgba(14, 24, 20, 0.92) 100%
+    );
+}
+
+.tile-overlay {
+    background: linear-gradient(
+        to top,
+        rgba(14, 24, 20, 0.95) 0%,
+        rgba(14, 24, 20, 0.7) 35%,
+        rgba(14, 24, 20, 0.15) 70%,
+        rgba(14, 24, 20, 0.1) 100%
+    );
 }
 
 .service-tile {

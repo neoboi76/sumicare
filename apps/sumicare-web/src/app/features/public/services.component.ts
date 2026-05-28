@@ -17,8 +17,6 @@ interface ServiceItem {
     imageUrl: string | null;
 }
 
-type GlyphKey = 'hands' | 'foot' | 'stone' | 'leaf' | 'cup' | 'scrub' | 'lotus' | 'tandem';
-
 @Component({
     selector: 'sumi-services',
     standalone: true,
@@ -31,14 +29,10 @@ export class ServicesComponent implements OnInit {
     services = signal<ServiceItem[]>([]);
     loadingInitial = signal(true);
 
-    private readonly glyphByKeyword: { match: string[]; glyph: GlyphKey }[] = [
-        { match: ['foot', 'reflex'], glyph: 'foot' },
-        { match: ['salt', 'scrub', 'dae mi di', 'milk'], glyph: 'scrub' },
-        { match: ['aromatherapy', 'aroma'], glyph: 'leaf' },
-        { match: ['ventosa', 'cup'], glyph: 'cup' },
-        { match: ['tandem'], glyph: 'tandem' },
-        { match: ['lymphatic', 'shiatsu', 'lomi'], glyph: 'lotus' },
-        { match: ['thai', 'deep', 'combination'], glyph: 'stone' }
+    private readonly photoRotation: string[] = [
+        'https://images.unsplash.com/photo-1600334129128-685c5582fd35?auto=format&fit=crop&w=1200&q=75',
+        'https://images.unsplash.com/photo-1591343395082-e120087004b4?auto=format&fit=crop&w=1200&q=75',
+        'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=75'
     ];
 
     private readonly descriptionByKeyword: { match: string[]; description: string }[] = [
@@ -67,17 +61,8 @@ export class ServicesComponent implements OnInit {
             });
     }
 
-    glyphFor(name: string): GlyphKey {
-        const key = name.toLowerCase();
-        for (const row of this.glyphByKeyword) {
-            if (row.match.some(m => key.includes(m))) return row.glyph;
-        }
-        return 'hands';
-    }
-
-    tileClass(index: number): string {
-        const slot = (index % 8) + 1;
-        return `service-tile service-tile-${slot}`;
+    photoFor(index: number): string {
+        return this.photoRotation[index % this.photoRotation.length];
     }
 
     descriptionFor(s: ServiceItem): string {

@@ -180,6 +180,11 @@ public class BookingService {
                 Client saved = clientRepository.save(created);
                 resolvedClientId = saved.getId();
             } else {
+                if (!request.clientNickname().equalsIgnoreCase(existing.getNickname())) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.CONFLICT,
+                            "That email is already registered to another nickname. Use a different email.");
+                }
                 if (request.nationality() != null && (existing.getNationality() == null || existing.getNationality().isBlank())) {
                     existing.setNationality(request.nationality());
                     clientRepository.save(existing);

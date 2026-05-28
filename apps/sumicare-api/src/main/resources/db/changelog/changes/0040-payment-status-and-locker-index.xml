@@ -6,11 +6,22 @@
     <changeSet id="0040-1-backfill-booking-payment-status" author="sumicare">
         <sql>
             UPDATE bookings b
-            SET payment_status = o.payment_status
+            SET payment_status = CASE
+                WHEN o.status = 'PAID' THEN 'PAID'
+                WHEN o.status = 'REFUNDED' THEN 'REFUNDED'
+                WHEN o.amount_paid IS NOT NULL AND o.amount_paid &gt; 0
+                     AND (o.total IS NULL OR o.amount_paid &lt; o.total) THEN 'PARTIAL'
+                ELSE 'UNPAID'
+            END
             FROM orders o
             WHERE o.booking_id = b.id
-              AND o.payment_status IS NOT NULL
-              AND (b.payment_status IS NULL OR b.payment_status &lt;&gt; o.payment_status);
+              AND COALESCE(b.payment_status, '') &lt;&gt; CASE
+                WHEN o.status = 'PAID' THEN 'PAID'
+                WHEN o.status = 'REFUNDED' THEN 'REFUNDED'
+                WHEN o.amount_paid IS NOT NULL AND o.amount_paid &gt; 0
+                     AND (o.total IS NULL OR o.amount_paid &lt; o.total) THEN 'PARTIAL'
+                ELSE 'UNPAID'
+            END;
         </sql>
     </changeSet>
 

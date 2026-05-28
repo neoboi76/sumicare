@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { BrandingService } from '../../core/branding/branding.service';
@@ -7,7 +8,7 @@ import { routeFade } from '../../shared/animations/route-fade';
 @Component({
     selector: 'sumi-public-shell',
     standalone: true,
-    imports: [RouterOutlet, RouterLink, RouterLinkActive],
+    imports: [RouterOutlet, RouterLink, RouterLinkActive, NgClass],
     templateUrl: './public-shell.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
     animations: [routeFade]
