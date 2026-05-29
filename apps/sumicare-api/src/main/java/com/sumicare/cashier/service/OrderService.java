@@ -70,6 +70,7 @@ public class OrderService {
     private final com.sumicare.voucher.service.VoucherService voucherService;
     private final com.sumicare.transaction.repository.CommissionRepository commissionRepository;
     private final com.sumicare.pos.service.PayMongoService payMongoService;
+    private final com.sumicare.notification.service.NotificationService notificationService;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -87,7 +88,8 @@ public class OrderService {
                         PackageRepository packageRepository,
                         com.sumicare.voucher.service.VoucherService voucherService,
                         com.sumicare.transaction.repository.CommissionRepository commissionRepository,
-                        com.sumicare.pos.service.PayMongoService payMongoService) {
+                        com.sumicare.pos.service.PayMongoService payMongoService,
+                        com.sumicare.notification.service.NotificationService notificationService) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -105,6 +107,7 @@ public class OrderService {
         this.voucherService = voucherService;
         this.commissionRepository = commissionRepository;
         this.payMongoService = payMongoService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -398,6 +401,9 @@ public class OrderService {
         if (request.clientId() != null) {
             bookingService.sendOrderConfirmationEmail(booking.getId());
         }
+
+        notificationService.broadcastOrderEvent(order.getOrganizationId(), "ORDER_CREATED", order.getId(),
+                order.getOrNumber() != null ? "New order " + order.getOrNumber() : "New order");
 
         return toResponse(order, booking);
     }

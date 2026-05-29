@@ -11,6 +11,7 @@ interface DailyRow {
   checkInTime: string; orNumber: string; lockerNumber: string; treatment: string;
   packageName: string | null; amount: number; tsn: string; therapist: string; room: string;
   massageStart: string; massageEnd: string; status: string;
+  orderId: string | null; firstOfOrder: boolean;
 }
 interface DailyReport { date: string; rows: DailyRow[]; grandTotal: number; }
 interface MonthlyReport { year: number; month: number; rows: DailyRow[]; grandTotal: number; }

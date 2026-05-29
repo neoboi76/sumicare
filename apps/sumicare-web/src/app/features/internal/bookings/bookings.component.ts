@@ -4,6 +4,8 @@ import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
+import { StompService } from '../../../core/realtime/stomp.service';
+import { Subscription } from 'rxjs';
 import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
 import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
 import { SortState, sortRows } from '../../../shared/utils/compare-by';
@@ -124,6 +126,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private router = inject(Router);
   private confirmService = inject(ConfirmService);
+  private stomp = inject(StompService);
+  private bookingsSubscription: Subscription | null = null;
+  private bookingsPollTimer: ReturnType<typeof setInterval> | null = null;
+  private reloadDebounce: ReturnType<typeof setTimeout> | null = null;
   private therapistRefreshTimer: any;
 
   selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
@@ -256,12 +262,37 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.reload();
     this.loadReference();
     this.therapistRefreshTimer = setInterval(() => this.refreshLineup(), 30000);
+    this.subscribeBookingsFeed();
+    this.bookingsPollTimer = setInterval(() => this.reload(), 60000);
   }
 
   ngOnDestroy(): void {
     if (this.therapistRefreshTimer) {
       clearInterval(this.therapistRefreshTimer);
     }
+    if (this.bookingsPollTimer) {
+      clearInterval(this.bookingsPollTimer);
+    }
+    if (this.reloadDebounce) {
+      clearTimeout(this.reloadDebounce);
+    }
+    this.bookingsSubscription?.unsubscribe();
+  }
+
+  private subscribeBookingsFeed(): void {
+    try {
+      this.bookingsSubscription = this.stomp.watch<unknown>('/topic/bookings').subscribe({
+        next: () => this.scheduleReload(),
+        error: () => undefined
+      });
+    } catch {
+      this.bookingsSubscription = null;
+    }
+  }
+
+  private scheduleReload(): void {
+    if (this.reloadDebounce) clearTimeout(this.reloadDebounce);
+    this.reloadDebounce = setTimeout(() => this.reload(), 300);
   }
 
   onDateChange(value: string): void {

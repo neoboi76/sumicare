@@ -166,7 +166,9 @@ public class TreatmentSlipPdfService {
               .row-treat .cell.t1 { width: 66%; }
               .row-treat .cell.t2 { width: 34%; }
               .label { font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; display: block; }
-              .value { font-size: 8pt; font-weight: 600; margin-top: 0.3mm; }
+              .value { font-size: 8pt; font-weight: 600; margin-top: 0.3mm; word-break: break-word; overflow-wrap: anywhere; }
+              .row-treat .cell.t1, .row-treat .cell.t2 { overflow: hidden; }
+              .cell { vertical-align: middle; }
               .brand { text-align: center; font-weight: 800; font-size: 13pt; letter-spacing: 0.18em; padding: 1.25mm; border-bottom: 1.25px solid #000; }
               .tag { background: #000; color: #fff; text-align: center; font-weight: 800; letter-spacing: 0.2em; font-size: 7pt; padding: 0.75mm 0; }
               .vip-top { border-bottom: 1.25px solid #000; }
@@ -228,7 +230,7 @@ public class TreatmentSlipPdfService {
 
     private String fmt(BigDecimal v) {
         if (v == null) return "";
-        return "&#8369; " + v.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        return "₱ " + v.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private String esc(String s) {

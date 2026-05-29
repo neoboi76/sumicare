@@ -6,6 +6,9 @@ import { IdleTimeoutService } from '../../core/auth/idle-timeout.service';
 import { BrandingService } from '../../core/branding/branding.service';
 import { ConfirmService } from '../../shared/components/confirm-dialog/confirm.service';
 import { routeFade } from '../../shared/animations/route-fade';
+import { StompService } from '../../core/realtime/stomp.service';
+import { NotificationFeedService, NotificationKey } from '../../core/notifications/notification-feed.service';
+import { NotificationToastComponent } from '../../shared/components/notification-toast/notification-toast.component';
 
 interface NavItem {
   label: string;
@@ -25,7 +28,7 @@ const ADMIN_PLUS = ['ADMIN', 'SUPERADMIN'];
 @Component({
   selector: 'sumi-internal-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationToastComponent],
   templateUrl: './internal-shell.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   animations: [routeFade]
@@ -36,6 +39,8 @@ export class InternalShellComponent implements OnInit, OnDestroy {
   protected branding = inject(BrandingService);
   private confirmService = inject(ConfirmService);
   private idleTimeout = inject(IdleTimeoutService);
+  private stomp = inject(StompService);
+  protected feed = inject(NotificationFeedService);
   session = this.auth.session;
 
   readonly sidebarOpen = signal(true);
@@ -104,13 +109,34 @@ export class InternalShellComponent implements OnInit, OnDestroy {
       this.sidebarOpen.set(saved === 'true');
     }
     this.idleTimeout.start();
+    this.stomp.connect(this.session()?.accessToken ?? null);
+    this.feed.start();
     this.router.events
       .pipe(filter(e => e instanceof NavigationEnd))
-      .subscribe(() => this.routeToken.update(v => v + 1));
+      .subscribe((event) => {
+        this.routeToken.update(v => v + 1);
+        this.clearUnreadFor((event as NavigationEnd).urlAfterRedirects ?? '');
+      });
   }
 
   ngOnDestroy(): void {
     this.idleTimeout.stop();
+    this.feed.stop();
+  }
+
+  unreadFor(route: string): number {
+    if (route.startsWith('bookings')) return this.feed.unreadFor('bookings');
+    if (route.startsWith('orders')) return this.feed.unreadFor('orders');
+    if (route.startsWith('messages')) return this.feed.unreadFor('messages');
+    if (route.startsWith('admin/feedback')) return this.feed.unreadFor('feedback');
+    return 0;
+  }
+
+  private clearUnreadFor(url: string): void {
+    if (url.includes('/app/bookings')) this.feed.markRead('bookings');
+    else if (url.includes('/app/orders')) this.feed.markRead('orders');
+    else if (url.includes('/app/messages')) this.feed.markRead('messages');
+    else if (url.includes('/app/admin/feedback')) this.feed.markRead('feedback');
   }
 
   toggleSidebar(): void {

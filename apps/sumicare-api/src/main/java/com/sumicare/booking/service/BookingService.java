@@ -381,6 +381,9 @@ public class BookingService {
             sendBookingEmail(booking, order, resolvedRoomType, orderTotal, order.getOrNumber());
         }
 
+        notificationService.broadcastBookingEvent(booking.getOrganizationId(), "BOOKING_CREATED", booking.getId(),
+                booking.getClientNickname() == null ? "New booking" : "New booking from " + booking.getClientNickname());
+
         return toBookingResponse(booking, service);
     }
 
