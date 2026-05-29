@@ -30,10 +30,13 @@ public class FeedbackController {
 
     private final FeedbackRepository repository;
     private final OrganizationRepository organizationRepository;
+    private final com.sumicare.notification.service.NotificationService notificationService;
 
-    public FeedbackController(FeedbackRepository repository, OrganizationRepository organizationRepository) {
+    public FeedbackController(FeedbackRepository repository, OrganizationRepository organizationRepository,
+                              com.sumicare.notification.service.NotificationService notificationService) {
         this.repository = repository;
         this.organizationRepository = organizationRepository;
+        this.notificationService = notificationService;
     }
 
     @PostMapping("/api/public/feedback/{slug}")
@@ -49,7 +52,10 @@ public class FeedbackController {
         if (request.orNumber() != null && !request.orNumber().isBlank()) {
             feedback.setOrNumber(request.orNumber().trim());
         }
-        return repository.save(feedback);
+        Feedback saved = repository.save(feedback);
+        notificationService.broadcastFeedbackEvent(orgId, "FEEDBACK_RECEIVED", saved.getId(),
+                "New feedback (" + saved.getRatingStars() + " stars)");
+        return saved;
     }
 
     @GetMapping("/api/public/feedback/{slug}")

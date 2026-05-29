@@ -29,11 +29,14 @@ public class ContactMessageController {
 
     private final ContactMessageRepository repository;
     private final OrganizationRepository organizationRepository;
+    private final com.sumicare.notification.service.NotificationService notificationService;
 
     public ContactMessageController(ContactMessageRepository repository,
-                                    OrganizationRepository organizationRepository) {
+                                    OrganizationRepository organizationRepository,
+                                    com.sumicare.notification.service.NotificationService notificationService) {
         this.repository = repository;
         this.organizationRepository = organizationRepository;
+        this.notificationService = notificationService;
     }
 
     @PostMapping("/api/public/contact/{slug}")
@@ -53,7 +56,9 @@ public class ContactMessageController {
         msg.setEmail(request.email().trim());
         msg.setMessage(request.message().trim());
         msg.setIpAddress(ip);
-        repository.save(msg);
+        ContactMessage saved = repository.save(msg);
+        notificationService.broadcastMessageEvent(organizationId, "MESSAGE_RECEIVED", saved.getId(),
+                "New message from " + saved.getName());
         return ResponseEntity.ok(Map.of("message", "Thank you. We have received your message."));
     }
 

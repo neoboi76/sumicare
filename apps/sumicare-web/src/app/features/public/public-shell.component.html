@@ -1,36 +1,26 @@
 <div class="lasema-shell min-h-screen flex flex-col">
-    <header
-        class="fixed top-0 inset-x-0 z-30 transition-all duration-300"
-        [ngClass]="(scrolled() || menuOpen()) ? 'header-on-light' : 'header-on-dark'">
+    <header class="fixed top-0 inset-x-0 z-30 header-on-light">
         <div class="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-6">
             <a routerLink="/" class="flex items-center gap-3 group">
                 <img src="/assets/logos/lasema-logo.png" alt="Lasema Jjimjilbang Spa"
-                     class="h-12 w-12 object-contain transition-all duration-500 group-hover:rotate-6 group-hover:scale-110"
-                     [class.logo-blend]="scrolled() || menuOpen()"
-                     [class.logo-blend-dark]="!scrolled() && !menuOpen()" />
+                     class="h-12 w-12 object-contain logo-blend transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110" />
                 <span class="hidden sm:flex flex-col leading-tight">
-                    <span class="font-[var(--lasema-font-display)] text-lg tracking-tight transition-colors duration-300"
-                          [class.text-[var(--cream)]]="!scrolled() && !menuOpen()"
-                          [class.text-[var(--ink)]]="scrolled() || menuOpen()">New Lasema Spa</span>
-                    <span class="text-[10px] tracking-[0.32em] uppercase font-[var(--lasema-font-label)] transition-colors duration-300"
-                          [class.text-[var(--steam)]]="!scrolled() && !menuOpen()"
-                          [class.text-[var(--jade)]]="scrolled() || menuOpen()">Jjimjilbang &middot; Estd. 2005</span>
+                    <span class="font-[var(--lasema-font-display)] text-lg tracking-tight text-[var(--ink)]">New Lasema Spa</span>
+                    <span class="text-[10px] tracking-[0.32em] uppercase font-[var(--lasema-font-label)] text-[var(--jade)]">Jjimjilbang &middot; Estd. 2005</span>
                 </span>
             </a>
             <nav class="hidden lg:flex items-center gap-6">
-                <a routerLink="/services" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Services</a>
-                <a routerLink="/packages" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Packages</a>
-                <a routerLink="/about" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">About</a>
-                <a routerLink="/visit" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Plan Your Visit</a>
-                <a routerLink="/recommendation" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Quiz</a>
-                <a routerLink="/contact" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Contact</a>
-                <a routerLink="/feedback" routerLinkActive="is-active" class="nav-link" [class]="scrolled() ? 'nav-link nav-on-light' : 'nav-link nav-on-dark'">Feedback</a>
+                <a routerLink="/services" routerLinkActive="is-active" class="nav-link nav-on-light">Services</a>
+                <a routerLink="/packages" routerLinkActive="is-active" class="nav-link nav-on-light">Packages</a>
+                <a routerLink="/about" routerLinkActive="is-active" class="nav-link nav-on-light">About</a>
+                <a routerLink="/visit" routerLinkActive="is-active" class="nav-link nav-on-light">Plan Your Visit</a>
+                <a routerLink="/recommendation" routerLinkActive="is-active" class="nav-link nav-on-light">Quiz</a>
+                <a routerLink="/contact" routerLinkActive="is-active" class="nav-link nav-on-light">Contact</a>
+                <a routerLink="/feedback" routerLinkActive="is-active" class="nav-link nav-on-light">Feedback</a>
                 <a routerLink="/book" class="btn-editorial btn-editorial-sm">Book Now</a>
             </nav>
             <button (click)="toggleMenu()" type="button"
-                class="lg:hidden p-2 rounded-full transition-all duration-300 hover:scale-110"
-                [class.text-[var(--cream)]]="!scrolled() && !menuOpen()"
-                [class.text-[var(--forest)]]="scrolled() || menuOpen()"
+                class="lg:hidden p-2 rounded-full hover:scale-110 transition-transform duration-200 text-[var(--forest)]"
                 [attr.aria-expanded]="menuOpen()"
                 aria-controls="public-mobile-nav"
                 aria-label="Toggle menu">

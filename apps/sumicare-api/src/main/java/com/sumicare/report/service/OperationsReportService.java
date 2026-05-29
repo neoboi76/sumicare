@@ -91,7 +91,9 @@ public class OperationsReportService {
             String room,
             String massageStart,
             String massageEnd,
-            String status
+            String status,
+            String orderId,
+            boolean firstOfOrder
     ) {}
     public record DailyReportResponse(LocalDate date, List<DailyRow> rows, BigDecimal grandTotal) {}
     public record MonthlyReportResponse(int year, int month, List<DailyRow> rows, BigDecimal grandTotal) {}
@@ -306,7 +308,8 @@ public class OperationsReportService {
                     && extensionCountedOrderIds.add(o.getId());
             for (int i = 0; i < group.size(); i++) {
                 boolean countAmount = i == 0;
-                rows.add(buildRow(group.get(i), b, o, item, includeExtension && countAmount, countAmount, sessionById, timeFmt));
+                rows.add(buildRow(group.get(i), b, o, item, includeExtension && countAmount, countAmount,
+                        o != null ? o.getId().toString() : null, countAmount, sessionById, timeFmt));
             }
         }
 
@@ -317,7 +320,8 @@ public class OperationsReportService {
             if (b != null && "CANCELLED".equals(b.getStatus())) continue;
             Order o = b == null ? null : orderByBooking.get(b.getId());
             if (o != null && "CANCELLED".equals(o.getStatus())) continue;
-            rows.add(buildRow(slip, b, o, null, false, true, sessionById, timeFmt));
+            rows.add(buildRow(slip, b, o, null, false, true,
+                    o != null ? o.getId().toString() : null, true, sessionById, timeFmt));
         }
 
         rows.sort((a, b) -> {
@@ -330,6 +334,7 @@ public class OperationsReportService {
 
     private DailyRow buildRow(TreatmentSlip head, Booking b, Order o,
                               OrderItem item, boolean includeExtension, boolean countAmount,
+                              String orderId, boolean firstOfOrder,
                               Map<UUID, Session> sessionById, DateTimeFormatter timeFmt) {
         Session s = head.getSessionId() == null ? null
                 : sessionById.computeIfAbsent(head.getSessionId(),
@@ -388,7 +393,7 @@ public class OperationsReportService {
         String start = formatTime(s != null ? s.getStartedAt() : head.getStartTime(), timeFmt);
         String end = formatTime(s != null ? s.getEndedAt() : head.getEndTime(), timeFmt);
         String status = s != null ? s.getStatus() : head.getStatus();
-        return new DailyRow(checkIn, orNumber, locker, packageName, treatment, amount, tsn, therapist, room, start, end, status);
+        return new DailyRow(checkIn, orNumber, locker, packageName, treatment, amount, tsn, therapist, room, start, end, status, orderId, firstOfOrder);
     }
 
     private String prefixGender(String locker, String gender) {

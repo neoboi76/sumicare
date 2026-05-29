@@ -1,5 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
-import { NgClass } from '@angular/common';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { BrandingService } from '../../core/branding/branding.service';
@@ -8,7 +7,7 @@ import { routeFade } from '../../shared/animations/route-fade';
 @Component({
     selector: 'sumi-public-shell',
     standalone: true,
-    imports: [RouterOutlet, RouterLink, RouterLinkActive, NgClass],
+    imports: [RouterOutlet, RouterLink, RouterLinkActive],
     templateUrl: './public-shell.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
     animations: [routeFade]
@@ -19,7 +18,6 @@ export class PublicShellComponent {
 
     readonly currentYear = new Date().getFullYear();
     readonly menuOpen = signal(false);
-    readonly scrolled = signal(false);
     readonly routeToken = signal(0);
 
     constructor() {
@@ -30,12 +28,6 @@ export class PublicShellComponent {
                 this.routeToken.update(v => v + 1);
                 if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
             });
-    }
-
-    @HostListener('window:scroll')
-    onScroll(): void {
-        const y = typeof window !== 'undefined' ? window.scrollY : 0;
-        this.scrolled.set(y > 32);
     }
 
     toggleMenu(): void {
