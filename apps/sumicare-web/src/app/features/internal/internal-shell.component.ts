@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
@@ -41,6 +42,7 @@ export class InternalShellComponent implements OnInit, OnDestroy {
   private idleTimeout = inject(IdleTimeoutService);
   private stomp = inject(StompService);
   protected feed = inject(NotificationFeedService);
+  private destroyRef = inject(DestroyRef);
   session = this.auth.session;
 
   readonly sidebarOpen = signal(true);
@@ -110,9 +112,9 @@ export class InternalShellComponent implements OnInit, OnDestroy {
     }
     this.idleTimeout.start();
     this.stomp.connect(this.session()?.accessToken ?? null);
-    this.feed.start();
+    this.feed.start(this.auth.organizationId());
     this.router.events
-      .pipe(filter(e => e instanceof NavigationEnd))
+      .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => {
         this.routeToken.update(v => v + 1);
         this.clearUnreadFor((event as NavigationEnd).urlAfterRedirects ?? '');
@@ -122,6 +124,7 @@ export class InternalShellComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.idleTimeout.stop();
     this.feed.stop();
+    this.stomp.disconnect();
   }
 
   unreadFor(route: string): number {

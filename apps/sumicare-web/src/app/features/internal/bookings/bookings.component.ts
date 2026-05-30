@@ -5,7 +5,9 @@ import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 import { StompService } from '../../../core/realtime/stomp.service';
-import { Subscription } from 'rxjs';
+import { AuthService } from '../../../core/auth/auth.service';
+import { Subscription, forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
 import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
 import { SortState, sortRows } from '../../../shared/utils/compare-by';
@@ -127,10 +129,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private confirmService = inject(ConfirmService);
   private stomp = inject(StompService);
+  private auth = inject(AuthService);
   private bookingsSubscription: Subscription | null = null;
   private bookingsPollTimer: ReturnType<typeof setInterval> | null = null;
   private reloadDebounce: ReturnType<typeof setTimeout> | null = null;
-  private therapistRefreshTimer: any;
+  private therapistRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
   bookings = signal<BookingResponse[]>([]);
@@ -173,7 +176,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
         case 'serviceName': return this.serviceName(b.serviceId);
         case 'reservationType': return b.reservationType;
         case 'status': return b.status;
-        case 'paymentStatus': return this.getOrderStatus(b.id);
+        case 'paymentStatus': return this.statusForBooking(b);
         default: return '';
       }
     });
@@ -280,8 +283,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   private subscribeBookingsFeed(): void {
+    const orgId = this.auth.organizationId();
+    if (!orgId) return;
     try {
-      this.bookingsSubscription = this.stomp.watch<unknown>('/topic/bookings').subscribe({
+      this.bookingsSubscription = this.stomp.watch<unknown>('/topic/bookings/' + orgId).subscribe({
         next: () => this.scheduleReload(),
         error: () => undefined
       });
@@ -314,24 +319,28 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   private loadOrderStatuses(bookings: BookingResponse[]): void {
-    if (bookings.length === 0) return;
-    this.orderStatuses.set(new Map());
-    this.ordersByBooking.set(new Map());
-    for (const b of bookings) {
-      if (b.orderId) {
-        this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/${b.orderId}`).subscribe({
-          next: (order) => {
-            const currentStatuses = new Map(this.orderStatuses());
-            const currentOrders = new Map(this.ordersByBooking());
-            currentStatuses.set(b.id, order.status);
-            currentOrders.set(b.id, order);
-            this.orderStatuses.set(currentStatuses);
-            this.ordersByBooking.set(currentOrders);
-          },
-          error: () => { }
-        });
-      }
+    const withOrders = bookings.filter(b => b.orderId);
+    if (withOrders.length === 0) {
+      this.orderStatuses.set(new Map());
+      this.ordersByBooking.set(new Map());
+      return;
     }
+    forkJoin(withOrders.map(b =>
+      this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/${b.orderId}`).pipe(
+        map(order => ({ bookingId: b.id, order })),
+        catchError(() => of(null))
+      )
+    )).subscribe(results => {
+      const statuses = new Map<string, string>();
+      const orders = new Map<string, OrderLite>();
+      for (const result of results) {
+        if (!result) continue;
+        statuses.set(result.bookingId, result.order.status);
+        orders.set(result.bookingId, result.order);
+      }
+      this.orderStatuses.set(statuses);
+      this.ordersByBooking.set(orders);
+    });
   }
 
   orderForBooking(bookingId: string): OrderLite | null {
@@ -390,9 +399,13 @@ export class BookingsComponent implements OnInit, OnDestroy {
   }
 
   getOrderStatus(bookingId: string): string {
-    const booking = this.bookings().find(b => b.id === bookingId);
-    if (booking && booking.status === 'CANCELLED') return 'CANCELLED';
-    return this.orderStatuses().get(bookingId) ?? 'PENDING';
+    return this.statusForBooking(this.bookings().find(b => b.id === bookingId));
+  }
+
+  private statusForBooking(booking: BookingResponse | undefined): string {
+    if (!booking) return 'PENDING';
+    if (booking.status === 'CANCELLED') return 'CANCELLED';
+    return this.orderStatuses().get(booking.id) ?? 'PENDING';
   }
 
   isOrderPaid(bookingId: string): boolean {
@@ -433,11 +446,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
     return this.startAttendeeGender() ?? this.startBooking()?.clientGender ?? null;
   }
 
-  isBedSelectableForGender(bed: BedItem, clientGender: string | null | undefined): boolean {
-    if (bed.occupancy['status'] === 'OCCUPIED') {
-      return false;
-    }
-    return true;
+  isBedSelectableForGender(bed: BedItem): boolean {
+    return bed.occupancy['status'] !== 'OCCUPIED';
   }
 
   isRoomSelectableForGender(room: RoomItem, clientGender: string | null | undefined): boolean {
@@ -467,7 +477,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     if (!this.isRoomSelectableForGender(room, clientGender)) {
       return base + 'bg-slate-200 text-slate-400 cursor-not-allowed';
     }
-    if (!this.isBedSelectableForGender(bed, clientGender)) {
+    if (!this.isBedSelectableForGender(bed)) {
       const lock = bed.occupancy['genderLock'];
       if (lock === 'M') return base + 'bg-blue-100 text-blue-500 cursor-not-allowed';
       if (lock === 'F') return base + 'bg-pink-100 text-pink-500 cursor-not-allowed';
@@ -479,7 +489,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   pickBed(room: RoomItem, bed: BedItem): void {
     const clientGender = this.activeStartGender();
     if (!this.isRoomSelectableForGender(room, clientGender)) return;
-    if (!this.isBedSelectableForGender(bed, clientGender)) return;
+    if (!this.isBedSelectableForGender(bed)) return;
     this.startRoomId.set(room.id);
     this.startBedId.set(bed.id);
   }

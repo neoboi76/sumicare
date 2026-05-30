@@ -593,8 +593,10 @@ public class BookingService {
         if (!"succeeded".equalsIgnoreCase(status) && !"processing".equalsIgnoreCase(status)) {
             throw new IllegalStateException("PayMongo payment was not authorized (status: " + status + ")");
         }
-        String method = paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "GCASH";
-        settlePublicPayment(order, intentId, method);
+        if (paymentMethod == null || paymentMethod.isBlank()) {
+            throw new IllegalArgumentException("Payment method is required to confirm this payment.");
+        }
+        settlePublicPayment(order, intentId, paymentMethod);
         return paymentResponse("succeeded", intentId, null, order);
     }
 
@@ -702,6 +704,9 @@ public class BookingService {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown attendee"));
         com.sumicare.cashier.domain.Order order = orderRepository.findById(attendee.getOrderId())
                 .orElseThrow(() -> new IllegalStateException("Order not found for attendee"));
+        if (!organizationId.equals(order.getOrganizationId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Attendee belongs to another organization.");
+        }
         if (!"PAID".equals(order.getStatus())) {
             throw new IllegalStateException("Order must be paid before starting a session. Current status: " + order.getStatus());
         }
@@ -786,19 +791,19 @@ public class BookingService {
             throw new IllegalStateException("Secondary therapist is on break; cancel their break before assigning.");
         }
         if (request.primaryTherapistId() != null) {
-            boolean onCall = sessionRepository.existsByPrimaryTherapistIdAndStatus(
-                    request.primaryTherapistId(), "ACTIVE")
-                    || sessionRepository.existsBySecondaryTherapistIdAndStatus(
-                    request.primaryTherapistId(), "ACTIVE");
+            boolean onCall = sessionRepository.existsByOrganizationIdAndPrimaryTherapistIdAndStatus(
+                    organizationId, request.primaryTherapistId(), "ACTIVE")
+                    || sessionRepository.existsByOrganizationIdAndSecondaryTherapistIdAndStatus(
+                    organizationId, request.primaryTherapistId(), "ACTIVE");
             if (onCall) {
                 throw new IllegalStateException("Primary therapist is currently on call and cannot be assigned to another session.");
             }
         }
         if (request.secondaryTherapistId() != null) {
-            boolean onCall = sessionRepository.existsByPrimaryTherapistIdAndStatus(
-                    request.secondaryTherapistId(), "ACTIVE")
-                    || sessionRepository.existsBySecondaryTherapistIdAndStatus(
-                    request.secondaryTherapistId(), "ACTIVE");
+            boolean onCall = sessionRepository.existsByOrganizationIdAndPrimaryTherapistIdAndStatus(
+                    organizationId, request.secondaryTherapistId(), "ACTIVE")
+                    || sessionRepository.existsByOrganizationIdAndSecondaryTherapistIdAndStatus(
+                    organizationId, request.secondaryTherapistId(), "ACTIVE");
             if (onCall) {
                 throw new IllegalStateException("Secondary therapist is currently on call and cannot be assigned to another session.");
             }
@@ -891,6 +896,9 @@ public class BookingService {
     @Transactional
     public SessionResponse endSessionAt(UUID organizationId, UUID sessionId, OffsetDateTime endTime) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
+        if (!"ACTIVE".equals(session.getStatus())) {
+            return toSessionResponse(session);
+        }
         OffsetDateTime now = endTime != null ? endTime : OffsetDateTime.now();
         session.setEndedAt(now);
         session.setStatus("COMPLETED");
@@ -921,8 +929,10 @@ public class BookingService {
         }
 
         TreatmentSlip slip = treatmentSlipService.generateForSession(organizationId, sessionId);
-        slip.setEndTime(now);
-        slipRepository.save(slip);
+        if (!"VOIDED".equals(slip.getStatus())) {
+            slip.setEndTime(now);
+            slipRepository.save(slip);
+        }
 
         orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
             if (!isMultiAttendeeOrder(order)) {
@@ -1120,16 +1130,19 @@ public class BookingService {
                     Map.of("event", "SESSION_CANCELLED", "sessionId", session.getId()));
         }
 
+        slipRepository.findBySessionId(session.getId()).ifPresent(slip -> {
+            if (!"VOIDED".equals(slip.getStatus())) {
+                slip.setStatus("VOIDED");
+                slipRepository.save(slip);
+            }
+        });
+
         Booking booking = bookingRepository.findById(session.getBookingId()).orElseThrow();
         booking.setStatus("PENDING");
 
         orderRepository.findByBookingId(booking.getId()).ifPresent(order -> {
             order.setStatus("OPEN");
             orderRepository.save(order);
-            
-            // Reverse any ledger entries if necessary, though posService.recordCommissionsForSession is not called yet,
-            // we should make sure transactions pointing to this session are reversed or kept if paid.
-            // But since session wasn't COMPLETED, commissions weren't created.
         });
 
         return toSessionResponse(session);
@@ -1138,7 +1151,7 @@ public class BookingService {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
     public SessionResponse extendSession(UUID sessionId, int additionalMinutes) {
-        Session session = sessionRepository.findById(sessionId).orElseThrow();
+        Session session = sessionRepository.findByIdForUpdate(sessionId).orElseThrow();
         if (additionalMinutes != 60) {
             throw new IllegalArgumentException("Extensions are billed per hour; pass additionalMinutes=60.");
         }
@@ -1170,6 +1183,10 @@ public class BookingService {
             parentOrder.setTotal(newTotal);
             parentOrder.setExtensionAmount(newExtension);
             parentOrder.setExtensionMinutes(parentOrder.getExtensionMinutes() + additionalMinutes);
+            BigDecimal amountPaid = parentOrder.getAmountPaid() == null ? BigDecimal.ZERO : parentOrder.getAmountPaid();
+            if (amountPaid.compareTo(newTotal) < 0 && "PAID".equals(parentOrder.getStatus())) {
+                parentOrder.setStatus("OPEN");
+            }
             orderRepository.save(parentOrder);
         }
 

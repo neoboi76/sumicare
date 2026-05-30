@@ -51,6 +51,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 chain.doFilter(request, response);
                 return;
             }
+            if (!"access".equals(claims.get("type", String.class))) {
+                chain.doFilter(request, response);
+                return;
+            }
             String role = claims.get("role", String.class);
             if (role == null) {
                 chain.doFilter(request, response);

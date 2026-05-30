@@ -10,6 +10,7 @@ import com.sumicare.therapist.dto.LineupTherapistResponse;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.therapist.service.DeckingService;
 import com.sumicare.therapist.service.DeckingService.DeckingFlag;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/decking")
+@PreAuthorize("hasAnyRole('RECEPTIONIST','MANAGER','ADMIN','SUPERADMIN')")
 public class DeckingController {
 
     private final DeckingService deckingService;
@@ -58,7 +60,7 @@ public class DeckingController {
         shiftRepository.findAllByOrganizationIdAndActiveTrue(orgId)
                 .forEach(s -> shiftLabels.put(s.getId(), formatShiftLabel(s)));
         Set<UUID> therapistIds = entries.stream().map(DeckingEntry::therapistId).collect(Collectors.toSet());
-        Set<UUID> activeIds = therapistIds.isEmpty() ? Set.of() : sessionRepository.findActiveTherapistIds(therapistIds);
+        Set<UUID> activeIds = therapistIds.isEmpty() ? Set.of() : sessionRepository.findActiveTherapistIds(orgId, therapistIds);
         AtomicInteger pos = new AtomicInteger(0);
         return entries.stream()
                 .filter(e -> !"BACKUP".equals(e.flag()))
@@ -119,12 +121,13 @@ public class DeckingController {
     @DeleteMapping("/{therapistId}")
     public void remove(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                        @PathVariable UUID therapistId) {
-        boolean onCall = sessionRepository.existsByPrimaryTherapistIdAndStatus(therapistId, "ACTIVE")
-                || sessionRepository.existsBySecondaryTherapistIdAndStatus(therapistId, "ACTIVE");
+        UUID orgId = UUID.fromString(principal.organizationId());
+        boolean onCall = sessionRepository.existsByOrganizationIdAndPrimaryTherapistIdAndStatus(orgId, therapistId, "ACTIVE")
+                || sessionRepository.existsByOrganizationIdAndSecondaryTherapistIdAndStatus(orgId, therapistId, "ACTIVE");
         if (onCall) {
             throw new IllegalStateException("Cannot remove therapist while they have an active session. Please wait until the session ends.");
         }
-        deckingService.remove(UUID.fromString(principal.organizationId()), therapistId);
+        deckingService.remove(orgId, therapistId);
     }
 
     @PostMapping("/{therapistId}")

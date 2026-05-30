@@ -13,6 +13,7 @@ public class MfaService {
 
     private static final Duration TTL = Duration.ofMinutes(15);
     private static final int MAX_ATTEMPTS = 5;
+    private static final int MAX_RESENDS = 3;
 
     private final StringRedisTemplate redis;
     private final SecureRandom random = new SecureRandom();
@@ -27,6 +28,7 @@ public class MfaService {
         redis.opsForValue().set(userKey(challengeId), userId.toString(), TTL);
         redis.opsForValue().set(codeKey(challengeId), code, TTL);
         redis.opsForValue().set(attemptsKey(challengeId), "0", TTL);
+        redis.opsForValue().set(resendsKey(challengeId), "0", TTL);
         return new Challenge(challengeId, userId, code);
     }
 
@@ -35,10 +37,14 @@ public class MfaService {
         if (userId == null) {
             throw new BadCredentialsException("Your verification session expired. Please sign in again.");
         }
+        Long resends = redis.opsForValue().increment(resendsKey(challengeId));
+        if (resends == null || resends > MAX_RESENDS) {
+            clear(challengeId);
+            throw new BadCredentialsException("Too many code requests. Please sign in again.");
+        }
         String code = generateCode();
         redis.opsForValue().set(userKey(challengeId), userId, TTL);
         redis.opsForValue().set(codeKey(challengeId), code, TTL);
-        redis.opsForValue().set(attemptsKey(challengeId), "0", TTL);
         return new Challenge(challengeId, UUID.fromString(userId), code);
     }
 
@@ -64,6 +70,7 @@ public class MfaService {
         redis.delete(userKey(challengeId));
         redis.delete(codeKey(challengeId));
         redis.delete(attemptsKey(challengeId));
+        redis.delete(resendsKey(challengeId));
     }
 
     private String generateCode() {
@@ -80,6 +87,10 @@ public class MfaService {
 
     private String attemptsKey(String challengeId) {
         return "mfa:challenge:" + challengeId + ":attempts";
+    }
+
+    private String resendsKey(String challengeId) {
+        return "mfa:challenge:" + challengeId + ":resends";
     }
 
     public record Challenge(String challengeId, UUID userId, String code) {}

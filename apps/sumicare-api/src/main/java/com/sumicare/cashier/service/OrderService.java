@@ -41,8 +41,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
 public class OrderService {
@@ -71,6 +74,7 @@ public class OrderService {
     private final com.sumicare.transaction.repository.CommissionRepository commissionRepository;
     private final com.sumicare.pos.service.PayMongoService payMongoService;
     private final com.sumicare.notification.service.NotificationService notificationService;
+    private final com.sumicare.common.util.IdSequenceService idSequenceService;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -89,7 +93,8 @@ public class OrderService {
                         com.sumicare.voucher.service.VoucherService voucherService,
                         com.sumicare.transaction.repository.CommissionRepository commissionRepository,
                         com.sumicare.pos.service.PayMongoService payMongoService,
-                        com.sumicare.notification.service.NotificationService notificationService) {
+                        com.sumicare.notification.service.NotificationService notificationService,
+                        com.sumicare.common.util.IdSequenceService idSequenceService) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -108,6 +113,7 @@ public class OrderService {
         this.commissionRepository = commissionRepository;
         this.payMongoService = payMongoService;
         this.notificationService = notificationService;
+        this.idSequenceService = idSequenceService;
     }
 
     @Transactional
@@ -1094,40 +1100,6 @@ public class OrderService {
     }
 
     @Transactional
-    public void onSessionCompleted(UUID bookingId, OffsetDateTime endedAt) {
-        orderRepository.findByBookingId(bookingId).ifPresent(order -> {
-            if (order.getTreatmentSlipId() != null) {
-                slipRepository.findById(order.getTreatmentSlipId()).ifPresent(slip -> {
-                    slip.setStatus("FINALIZED");
-                    slip.setSignedAt(OffsetDateTime.now());
-                    slipRepository.save(slip);
-                });
-            }
-
-            List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
-            boolean handledAny = false;
-            for (OrderItemAttendee attendee : attendees) {
-                if (attendee.getSessionId() == null) continue;
-                handledAny = true;
-                sessionRepository.findById(attendee.getSessionId()).ifPresent(session ->
-                        recordCommissionsForSession(order.getOrganizationId(), session));
-                if (attendee.getTreatmentSlipId() != null) {
-                    slipRepository.findById(attendee.getTreatmentSlipId()).ifPresent(slip -> {
-                        slip.setStatus("FINALIZED");
-                        slip.setSignedAt(OffsetDateTime.now());
-                        slipRepository.save(slip);
-                    });
-                }
-            }
-
-            if (!handledAny) {
-                sessionRepository.findFirstByBookingId(bookingId).ifPresent(session ->
-                        recordCommissionsForSession(order.getOrganizationId(), session));
-            }
-        });
-    }
-
-    @Transactional
     public Order ensureForBooking(UUID organizationId, UUID bookingId, BigDecimal total) {
         return orderRepository.findByBookingId(bookingId).orElseGet(() -> {
             Order order = new Order();
@@ -1348,7 +1320,7 @@ public class OrderService {
     }
 
     private String generateReceiptNumber() {
-        return "OR" + System.currentTimeMillis() % 1000000;
+        return idSequenceService.nextReceiptNumber();
     }
 
     public String nextOrNumber() {
@@ -1356,11 +1328,11 @@ public class OrderService {
     }
 
     private String generateOrNumber() {
-        return "OR" + (System.currentTimeMillis() % 100000000L);
+        return idSequenceService.nextOrNumber();
     }
 
     private String generateTsn() {
-        return "TS-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+        return idSequenceService.nextTsn();
     }
 
     private OrderResponse toResponseWithBookingLookup(Order order) {
@@ -1391,39 +1363,48 @@ public class OrderService {
                     .orElse(null);
         }
         List<OrderItem> items = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId());
+        List<OrderItemAttendee> allAttendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
+
+        Set<UUID> sessionIds = allAttendees.stream().map(OrderItemAttendee::getSessionId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, Session> sessionsById = new HashMap<>();
+        for (Session s : sessionRepository.findAllById(sessionIds)) {
+            sessionsById.put(s.getId(), s);
+        }
+        Set<Long> packageIds = items.stream().map(OrderItem::getPackageId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, Package> packagesById = new HashMap<>();
+        for (Package p : packageRepository.findAllById(packageIds)) {
+            packagesById.put(p.getId(), p);
+        }
+
         Map<UUID, List<OrderItemAttendee>> attendeesByItem = new HashMap<>();
         boolean sessionCompleted = false;
-        for (OrderItemAttendee a : attendeeRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+        for (OrderItemAttendee a : allAttendees) {
             attendeesByItem.computeIfAbsent(a.getOrderItemId(), k -> new ArrayList<>()).add(a);
             if (a.getSessionId() != null) {
-                boolean done = sessionRepository.findById(a.getSessionId())
-                        .map(s -> "COMPLETED".equals(s.getStatus())).orElse(false);
-                if (done) sessionCompleted = true;
+                Session s = sessionsById.get(a.getSessionId());
+                if (s != null && "COMPLETED".equals(s.getStatus())) sessionCompleted = true;
             }
         }
         if (!sessionCompleted && order.getBookingId() != null) {
             sessionCompleted = sessionRepository.findFirstByBookingId(order.getBookingId())
                     .map(s -> "COMPLETED".equals(s.getStatus())).orElse(false);
         }
-        Map<Long, String> packageNameById = new HashMap<>();
-        Map<Long, Boolean> packageCoupleById = new HashMap<>();
         Map<Long, String> serviceNameById = new HashMap<>();
         List<OrderItemResponse> itemResponses = new ArrayList<>();
         boolean orderCouplePackage = false;
         for (OrderItem it : items) {
-            String pkgName = packageNameById.computeIfAbsent(it.getPackageId(),
-                    pid -> packageRepository.findById(pid).map(p -> p.getName()).orElse(""));
-            boolean pkgCouple = packageCoupleById.computeIfAbsent(it.getPackageId(),
-                    pid -> packageRepository.findById(pid).map(Package::isCouple).orElse(false));
-            if (pkgCouple) orderCouplePackage = true;
+            Package pkg = it.getPackageId() == null ? null : packagesById.get(it.getPackageId());
+            String pkgName = pkg == null ? "" : pkg.getName();
+            if (pkg != null && pkg.isCouple()) orderCouplePackage = true;
             List<OrderItemAttendee> atts = attendeesByItem.getOrDefault(it.getId(), List.of());
             List<OrderItemAttendeeResponse> attRes = new ArrayList<>();
             for (OrderItemAttendee a : atts) {
                 String sName = a.getServiceId() == null ? null
                         : serviceNameById.computeIfAbsent(a.getServiceId(),
                             sid -> serviceRepository.findById(sid).map(s -> s.getName()).orElse(""));
-                var sess = a.getSessionId() == null ? null
-                        : sessionRepository.findById(a.getSessionId()).orElse(null);
+                Session sess = a.getSessionId() == null ? null : sessionsById.get(a.getSessionId());
                 String sessionStatus = sess == null ? null : sess.getStatus();
                 boolean sessionExtended = sess != null && sess.isExtension();
                 attRes.add(new OrderItemAttendeeResponse(

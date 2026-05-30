@@ -1,7 +1,10 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { LockerLabelPipe } from '../../../shared/pipes/locker-label.pipe';
+import { StompService } from '../../../core/realtime/stomp.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 interface BedView {
   id: string;
@@ -26,12 +29,29 @@ interface RoomView {
   templateUrl: './reception.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ReceptionComponent implements OnInit {
+export class ReceptionComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
+  private stomp = inject(StompService);
+  private auth = inject(AuthService);
+  private roomSubscription: Subscription | null = null;
   rooms = signal<RoomView[]>([]);
 
   ngOnInit(): void {
     this.reload();
+    const orgId = this.auth.organizationId();
+    if (!orgId) return;
+    try {
+      this.roomSubscription = this.stomp.watch<unknown>('/topic/room-updates/' + orgId).subscribe({
+        next: () => this.reload(),
+        error: () => undefined
+      });
+    } catch {
+      this.roomSubscription = null;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.roomSubscription?.unsubscribe();
   }
 
   reload(): void {

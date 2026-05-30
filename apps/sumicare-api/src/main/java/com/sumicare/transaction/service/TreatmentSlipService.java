@@ -40,6 +40,7 @@ public class TreatmentSlipService {
     private final OrderItemAttendeeRepository attendeeRepository;
     private final OrderItemRepository orderItemRepository;
     private final PackageRepository packageRepository;
+    private final com.sumicare.common.util.IdSequenceService idSequenceService;
 
     public TreatmentSlipService(TreatmentSlipRepository slipRepository,
                                 BookingRepository bookingRepository,
@@ -51,7 +52,8 @@ public class TreatmentSlipService {
                                 ClientRepository clientRepository,
                                 OrderItemAttendeeRepository attendeeRepository,
                                 OrderItemRepository orderItemRepository,
-                                PackageRepository packageRepository) {
+                                PackageRepository packageRepository,
+                                com.sumicare.common.util.IdSequenceService idSequenceService) {
         this.slipRepository = slipRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -63,6 +65,7 @@ public class TreatmentSlipService {
         this.attendeeRepository = attendeeRepository;
         this.orderItemRepository = orderItemRepository;
         this.packageRepository = packageRepository;
+        this.idSequenceService = idSequenceService;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -81,6 +84,9 @@ public class TreatmentSlipService {
         TreatmentSlip slip;
         if (existing.isPresent()) {
             slip = existing.get();
+            if ("VOIDED".equals(slip.getStatus())) {
+                return slip;
+            }
             slip.setSessionId(session.getId());
             if (!slip.isWaiverAccepted()) {
                 slip.setWaiverAccepted(true);
@@ -247,9 +253,7 @@ public class TreatmentSlipService {
     }
 
     private String generateTsn() {
-        int first = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
-        int second = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
-        return String.format("%03d-%03d", first, second);
+        return idSequenceService.nextTsn();
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")

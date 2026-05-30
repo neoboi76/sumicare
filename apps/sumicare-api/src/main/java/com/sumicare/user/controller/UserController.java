@@ -47,7 +47,7 @@ public class UserController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public UserResponse update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                @PathVariable UUID userId,
-                               @RequestBody UpdateUserRequest request) {
+                               @Valid @RequestBody UpdateUserRequest request) {
         return userService.updateUser(UUID.fromString(principal.userId()), principal.role(), userId, request);
     }
 
@@ -70,7 +70,7 @@ public class UserController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public UserResponse unlock(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                @PathVariable UUID userId) {
-        return userService.unlockUser(principal.role(), userId);
+        return userService.unlockUser(UUID.fromString(principal.userId()), principal.role(), userId);
     }
 
     @GetMapping("/me")
@@ -80,7 +80,7 @@ public class UserController {
 
     @PatchMapping("/me/profile")
     public UserResponse updateProfile(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                      @RequestBody UpdateProfileRequest request) {
+                                      @Valid @RequestBody UpdateProfileRequest request) {
         return userService.updateProfile(UUID.fromString(principal.userId()), request);
     }
 
@@ -93,7 +93,7 @@ public class UserController {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     public ResponseEntity<Void> sendResetLink(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                               @PathVariable UUID userId) {
-        userService.sendResetLink(principal.role(), userId);
+        userService.sendResetLink(UUID.fromString(principal.userId()), principal.role(), userId);
         return ResponseEntity.noContent().build();
     }
 }

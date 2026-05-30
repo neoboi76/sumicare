@@ -29,10 +29,12 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -110,10 +112,14 @@ public class OperationsReportService {
             for (ShiftAssignment sa : shiftAssignmentRepository.findAllByShiftId(shiftId)) {
                 assignedTherapistIds.add(sa.getTherapistId());
             }
+            Map<String, UUID> idByNickname = new HashMap<>();
+            therapistRepository.findAllByOrganizationId(organizationId).forEach(t -> {
+                if (t.getNickname() != null) idByNickname.put(t.getNickname().trim().toLowerCase(), t.getId());
+            });
 
             slips = slips.stream().filter(slip -> {
-                UUID primaryId = resolveTherapistId(slip.getPrimaryTherapistNickname(), slip.getSessionId());
-                UUID secondaryId = resolveTherapistId(slip.getSecondaryTherapistNickname(), null);
+                UUID primaryId = resolveTherapistId(slip.getPrimaryTherapistNickname(), slip.getSessionId(), idByNickname);
+                UUID secondaryId = resolveTherapistId(slip.getSecondaryTherapistNickname(), null, idByNickname);
                 return assignedTherapistIds.contains(primaryId) || assignedTherapistIds.contains(secondaryId);
             }).collect(Collectors.toList());
         }
@@ -264,6 +270,17 @@ public class OperationsReportService {
 
         Map<UUID, Booking> bookingById = new HashMap<>();
         Map<UUID, Session> sessionById = new HashMap<>();
+        Set<UUID> sessionIds = slips.stream().map(TreatmentSlip::getSessionId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        for (Session s : sessionRepository.findAllById(sessionIds)) {
+            sessionById.put(s.getId(), s);
+        }
+        Map<UUID, String> therapistNickById = new HashMap<>();
+        therapistRepository.findAllByOrganizationId(organizationId)
+                .forEach(t -> therapistNickById.put(t.getId(), t.getNickname()));
+        Map<UUID, String> roomNumberById = new HashMap<>();
+        roomRepository.findAllByOrganizationId(organizationId)
+                .forEach(r -> roomNumberById.put(r.getId(), r.getRoomNumber()));
         Map<UUID, Order> orderByBooking = orderRepository.findAllByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
                 .filter(o -> o.getBookingId() != null)
                 .collect(Collectors.toMap(Order::getBookingId, o -> o, (a, b) -> a));
@@ -285,16 +302,15 @@ public class OperationsReportService {
         List<DailyRow> rows = new ArrayList<>();
         Set<UUID> extensionCountedOrderIds = new HashSet<>();
 
-        for (Map.Entry<UUID, List<TreatmentSlip>> e : groupedByOrderItem.entrySet()) {
+        Comparator<TreatmentSlip> bySlipCreatedAt =
+                Comparator.comparing(TreatmentSlip::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+        List<Map.Entry<UUID, List<TreatmentSlip>>> orderedGroups = new ArrayList<>(groupedByOrderItem.entrySet());
+        orderedGroups.forEach(en -> en.getValue().sort(bySlipCreatedAt));
+        orderedGroups.sort(Comparator.comparing(en -> en.getValue().get(0).getCreatedAt(),
+                Comparator.nullsLast(Comparator.naturalOrder())));
+
+        for (Map.Entry<UUID, List<TreatmentSlip>> e : orderedGroups) {
             List<TreatmentSlip> group = e.getValue();
-            group.sort((x, y) -> {
-                OffsetDateTime cx = x.getCreatedAt();
-                OffsetDateTime cy = y.getCreatedAt();
-                if (cx == null && cy == null) return 0;
-                if (cx == null) return 1;
-                if (cy == null) return -1;
-                return cx.compareTo(cy);
-            });
             TreatmentSlip head = group.get(0);
             Booking b = head.getBookingId() == null ? null
                     : bookingById.computeIfAbsent(head.getBookingId(),
@@ -309,7 +325,8 @@ public class OperationsReportService {
             for (int i = 0; i < group.size(); i++) {
                 boolean countAmount = i == 0;
                 rows.add(buildRow(group.get(i), b, o, item, includeExtension && countAmount, countAmount,
-                        o != null ? o.getId().toString() : null, countAmount, sessionById, timeFmt));
+                        o != null ? o.getId().toString() : null, countAmount, sessionById,
+                        therapistNickById, roomNumberById, timeFmt));
             }
         }
 
@@ -321,7 +338,8 @@ public class OperationsReportService {
             Order o = b == null ? null : orderByBooking.get(b.getId());
             if (o != null && "CANCELLED".equals(o.getStatus())) continue;
             rows.add(buildRow(slip, b, o, null, false, true,
-                    o != null ? o.getId().toString() : null, true, sessionById, timeFmt));
+                    o != null ? o.getId().toString() : null, true, sessionById,
+                    therapistNickById, roomNumberById, timeFmt));
         }
 
         rows.sort((a, b) -> {
@@ -335,7 +353,9 @@ public class OperationsReportService {
     private DailyRow buildRow(TreatmentSlip head, Booking b, Order o,
                               OrderItem item, boolean includeExtension, boolean countAmount,
                               String orderId, boolean firstOfOrder,
-                              Map<UUID, Session> sessionById, DateTimeFormatter timeFmt) {
+                              Map<UUID, Session> sessionById,
+                              Map<UUID, String> therapistNickById, Map<UUID, String> roomNumberById,
+                              DateTimeFormatter timeFmt) {
         Session s = head.getSessionId() == null ? null
                 : sessionById.computeIfAbsent(head.getSessionId(),
                     id -> sessionRepository.findById(id).orElse(null));
@@ -379,14 +399,13 @@ public class OperationsReportService {
 
         String therapist = "";
         if (s != null && s.getPrimaryTherapistId() != null) {
-            therapist = therapistRepository.findById(s.getPrimaryTherapistId())
-                    .map(t -> t.getNickname()).orElse("");
+            therapist = therapistNickById.getOrDefault(s.getPrimaryTherapistId(), "");
         } else if (head.getPrimaryTherapistNickname() != null) {
             therapist = head.getPrimaryTherapistNickname();
         }
         String room = "";
         if (s != null && s.getRoomId() != null) {
-            room = roomRepository.findById(s.getRoomId()).map(r -> r.getRoomNumber()).orElse("");
+            room = roomNumberById.getOrDefault(s.getRoomId(), "");
         } else if (head.getRoomNumber() != null) {
             room = head.getRoomNumber();
         }
@@ -408,7 +427,7 @@ public class OperationsReportService {
         return trimmed;
     }
 
-    private UUID resolveTherapistId(String nickname, UUID sessionId) {
+    private UUID resolveTherapistId(String nickname, UUID sessionId, Map<String, UUID> idByNickname) {
         if (sessionId != null) {
             Session session = sessionRepository.findById(sessionId).orElse(null);
             if (session != null && session.getPrimaryTherapistId() != null) {
@@ -416,10 +435,7 @@ public class OperationsReportService {
             }
         }
         if (nickname == null || nickname.isBlank()) return null;
-        return therapistRepository.findAll().stream()
-                .filter(t -> nickname.equalsIgnoreCase(t.getNickname()))
-                .map(t -> t.getId())
-                .findFirst().orElse(null);
+        return idByNickname.get(nickname.trim().toLowerCase());
     }
 
     private byte[] rowsToCsv(List<DailyRow> rows, BigDecimal grandTotal) {
@@ -460,12 +476,5 @@ public class OperationsReportService {
     private static class ServiceAccumulator {
         int qty = 0;
         BigDecimal total = BigDecimal.ZERO;
-
-        void accept(TreatmentSlip slip) {
-            qty++;
-            if (slip.getTotalAmount() != null) {
-                total = total.add(slip.getTotalAmount());
-            }
-        }
     }
 }

@@ -53,18 +53,22 @@ export class OrdersListComponent implements OnInit {
 
   sortedOrders = computed(() => {
     const data = [...this.orders()];
-    const col = this.sortColumn();
+    const col = this.sortColumn() as keyof Order;
     const dir = this.sortDirection();
+    const norm = (value: Order[keyof Order]): string | number => {
+      if (value == null) return '';
+      if (typeof value === 'number') return value;
+      if (typeof value === 'boolean') return value ? 1 : 0;
+      return String(value).toLowerCase();
+    };
     data.sort((a, b) => {
-      let valA: any = (a as any)[col];
-      let valB: any = (b as any)[col];
-      if (typeof valA === 'string') valA = valA.toLowerCase();
-      if (typeof valB === 'string') valB = valB.toLowerCase();
-      if (valA == null) return 1;
-      if (valB == null) return -1;
-      if (valA < valB) return dir === 'asc' ? -1 : 1;
-      if (valA > valB) return dir === 'asc' ? 1 : -1;
-      return 0;
+      const valA = norm(a[col]);
+      const valB = norm(b[col]);
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return dir === 'asc' ? valA - valB : valB - valA;
+      }
+      const cmp = String(valA).localeCompare(String(valB));
+      return dir === 'asc' ? cmp : -cmp;
     });
     return data;
   });

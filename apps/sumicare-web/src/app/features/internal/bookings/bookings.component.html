@@ -286,7 +286,7 @@
             <div class="grid grid-cols-3 gap-1 mt-1">
               @for (bed of room.beds; track bed.id) {
               <button type="button" (click)="pickBed(room, bed)" [class]="bedClass(room, bed)"
-                [title]="!isBedSelectableForGender(bed, activeStartGender()) ? (bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : 'Occupied') : bed.label">
+                [title]="!isBedSelectableForGender(bed) ? (bed.occupancy['genderLock'] === 'M' ? 'Male occupied' : bed.occupancy['genderLock'] === 'F' ? 'Female occupied' : 'Occupied') : bed.label">
                 {{ bed.label }}
               </button>
               }

@@ -23,13 +23,13 @@ export class NotificationFeedService {
     readonly unreadFeedback = signal(0);
     readonly events$ = new Subject<NotificationEvent>();
 
-    start(): void {
-        if (this.started) return;
+    start(organizationId: string | null): void {
+        if (this.started || !organizationId) return;
         this.started = true;
-        this.subscriptions.push(this.watch('bookings', this.unreadBookings));
-        this.subscriptions.push(this.watch('orders', this.unreadOrders));
-        this.subscriptions.push(this.watch('messages', this.unreadMessages));
-        this.subscriptions.push(this.watch('feedback', this.unreadFeedback));
+        this.subscriptions.push(this.watch('bookings', this.unreadBookings, organizationId));
+        this.subscriptions.push(this.watch('orders', this.unreadOrders, organizationId));
+        this.subscriptions.push(this.watch('messages', this.unreadMessages, organizationId));
+        this.subscriptions.push(this.watch('feedback', this.unreadFeedback, organizationId));
     }
 
     stop(): void {
@@ -56,9 +56,9 @@ export class NotificationFeedService {
         }
     }
 
-    private watch(key: NotificationKey, counter: { set(v: number): void; (): number }): Subscription {
+    private watch(key: NotificationKey, counter: { set(v: number): void; (): number }, organizationId: string): Subscription {
         try {
-            return this.stomp.watch<{ event: string; summary: string; at: string }>('/topic/' + key).subscribe({
+            return this.stomp.watch<{ event: string; summary: string; at: string }>('/topic/' + key + '/' + organizationId).subscribe({
                 next: (message) => {
                     counter.set(counter() + 1);
                     this.events$.next({

@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +21,8 @@ import java.util.UUID;
 
 @Service
 public class ReportAggregationService {
+
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     private final ReportService reportService;
     private final DayReportRepository dayReportRepository;
@@ -56,8 +58,8 @@ public class ReportAggregationService {
 
     @Transactional
     public DayReport generateDayReport(UUID organizationId, LocalDate date) {
-        OffsetDateTime from = date.atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime to = date.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime from = date.atStartOfDay(MANILA).toOffsetDateTime();
+        OffsetDateTime to = date.plusDays(1).atStartOfDay(MANILA).toOffsetDateTime();
         ReportService.ReportSummary summary = reportService.buildCutoffReport(organizationId, from, to);
         DayReport report = dayReportRepository.findByOrganizationIdAndReportDate(organizationId, date)
                 .orElseGet(() -> {
@@ -73,8 +75,8 @@ public class ReportAggregationService {
 
     @Transactional
     public MonthlyReport generateMonthlyReport(UUID organizationId, YearMonth ym) {
-        OffsetDateTime from = ym.atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime to = ym.plusMonths(1).atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime from = ym.atDay(1).atStartOfDay(MANILA).toOffsetDateTime();
+        OffsetDateTime to = ym.plusMonths(1).atDay(1).atStartOfDay(MANILA).toOffsetDateTime();
         ReportService.ReportSummary summary = reportService.buildCutoffReport(organizationId, from, to);
         List<DayReport> days = dayReportRepository
                 .findAllByOrganizationIdAndReportDateBetweenOrderByReportDateDesc(organizationId, ym.atDay(1), ym.atEndOfMonth());

@@ -52,7 +52,6 @@ export const APP_ROUTES: Routes = [
       { path: 'bookings', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/bookings/bookings.component').then(m => m.BookingsComponent) },
       { path: 'reception', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/reception/reception.component').then(m => m.ReceptionComponent) },
       { path: 'lineup', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/lineup/lineup.component').then(m => m.LineupComponent) },
-      { path: 'decking', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/decking/decking.component').then(m => m.DeckingComponent) },
       { path: 'cashier', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/cashier/cashier.component').then(m => m.CashierComponent) },
       { path: 'pos', redirectTo: 'cashier' },
       { path: 'orders', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/orders/orders-list.component').then(m => m.OrdersListComponent) },

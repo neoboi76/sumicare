@@ -64,19 +64,6 @@ public class DeckingService {
         notificationService.broadcastDecking(organizationId, currentLineup(organizationId));
     }
 
-    public void prependShift(UUID organizationId, Long newShiftId, List<UUID> therapistIds) {
-        if (therapistIds.isEmpty()) return;
-        double minScore = lowestScore(organizationId);
-        double step = 1.0;
-        double base = minScore - (therapistIds.size() * step);
-        for (int i = 0; i < therapistIds.size(); i++) {
-            UUID id = therapistIds.get(i);
-            redis.opsForZSet().add(queueKey(organizationId), id.toString(), base + i);
-            redis.opsForSet().add(shiftMembersKey(organizationId, newShiftId), id.toString());
-        }
-        notificationService.broadcastDecking(organizationId, currentLineup(organizationId));
-    }
-
     public void rotateToBack(UUID organizationId, UUID therapistId) {
         Double current = redis.opsForZSet().score(queueKey(organizationId), therapistId.toString());
         if (current == null) return;

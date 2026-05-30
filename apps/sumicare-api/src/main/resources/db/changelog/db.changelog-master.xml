@@ -44,4 +44,7 @@
     <include file="changes/0038-voucher-target-package.xml" relativeToChangelogFile="true"/>
     <include file="changes/0039-organization-font-family.xml" relativeToChangelogFile="true"/>
     <include file="changes/0040-payment-status-and-locker-index.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0041-ledger-gateway-reference.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0042-drop-decking-state.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0043-id-sequences.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
