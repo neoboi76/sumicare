@@ -25,6 +25,7 @@ interface Order {
   amountPaid: number;
   balance: number;
   status: string;
+  scheduledAt: string | null;
   createdAt: string;
   groupBooking: boolean;
   roomType: string | null;
@@ -132,9 +133,18 @@ export class OrdersListComponent implements OnInit {
 
   formatDate(iso: string): string {
     return new Date(iso).toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', hour12: false
     });
+  }
+
+  formatSchedule(iso: string | null): string {
+    return iso ? new Date(iso).toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true
+    }) : '—';
   }
 
   itemSummary(o: Order): string {

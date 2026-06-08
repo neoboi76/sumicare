@@ -72,10 +72,11 @@ public class TreatmentSlipPdfService {
           .append(cell("Nationality", slip.getNationality() == null ? "" : slip.getNationality()))
           .append("</div>");
 
+        java.time.OffsetDateTime slipDate = slip.getStartTime() != null ? slip.getStartTime() : slip.getCreatedAt();
         sb.append("<div class=\"row row-2\">")
           .append(cell("TS #", slip.getTsn() == null ? "" : slip.getTsn()))
-          .append(cell("Date", slip.getCreatedAt() == null ? "" :
-                  slip.getCreatedAt().atZoneSameInstant(MANILA).format(DATE_FMT)))
+          .append(cell("Date", slipDate == null ? "" :
+                  slipDate.atZoneSameInstant(MANILA).format(DATE_FMT)))
           .append("</div>");
 
         if (vip) {

@@ -7,6 +7,7 @@ import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 import { PaymentDetailsModalComponent } from '../../../shared/components/payment-details/payment-details-modal.component';
 import { PaymentDetails, PaymentDetailsService } from '../../../shared/components/payment-details/payment-details.service';
+import { manilaToday, manilaNowTime, toManilaIso } from '../../../shared/util/manila-time';
 
 interface ClientLite {
   id: string;
@@ -126,6 +127,8 @@ export class CashierComponent implements OnInit {
   clientLocked = signal(false);
 
   transactorName = '';
+  scheduleDate = '';
+  scheduleTime = '';
   packages = signal<PackageDef[]>([]);
   selectedPackageId: number | null = null;
   cart = signal<CartItem[]>([]);
@@ -134,10 +137,7 @@ export class CashierComponent implements OnInit {
   groupBooking = computed(() => this.cart().length > 1);
 
   tiersForItem(item: CartItem): PackageTier[] {
-    if (!item.requiresVipRoom) {
-      return item.tiers;
-    }
-    return item.tiers.filter(t => t.serviceDurationMinutes == null || t.serviceDurationMinutes <= 60);
+    return item.tiers;
   }
   roomAvailability = signal<{ COMMON: number; PRIVATE: number; VIP: number }>({ COMMON: 0, PRIVATE: 0, VIP: 0 });
 
@@ -213,6 +213,10 @@ export class CashierComponent implements OnInit {
     this.loadDiscountTemplates();
     this.loadChargeLedgers();
     const orderId = params.get('orderId');
+    if (!orderId) {
+      this.scheduleDate = manilaToday();
+      this.scheduleTime = manilaNowTime();
+    }
     this.loadPackages(orderId);
   }
 
@@ -304,6 +308,15 @@ export class CashierComponent implements OnInit {
         this.referenceNumber = o.referenceNumber || '';
         this.orNumber = o.orNumber || '';
         this.notes = o.notes || '';
+        if (o.scheduledAt) {
+          const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: false
+          }).formatToParts(new Date(o.scheduledAt));
+          const lookup = (t: string) => parts.find(p => p.type === t)?.value ?? '';
+          this.scheduleDate = `${lookup('year')}-${lookup('month')}-${lookup('day')}`;
+          this.scheduleTime = `${lookup('hour')}:${lookup('minute')}`;
+        }
         this.weekend.set(!!o.weekend);
         if (o.discount && o.discount > 0) {
           this.discountSummary.set([{ name: 'Existing discount', amount: Number(o.discount) }]);
@@ -688,8 +701,19 @@ export class CashierComponent implements OnInit {
     this.payments.update(p => p.filter((_, i) => i !== idx));
   }
 
+  get scheduleMinDate(): string {
+    return manilaToday();
+  }
+
+  get scheduleMinTime(): string | null {
+    return this.scheduleDate === manilaToday() ? manilaNowTime() : null;
+  }
+
   private validate(): string | null {
     if (!this.transactorName.trim()) return 'Enter a transactor name.';
+    if (!this.scheduleDate || !this.scheduleTime) {
+      return 'Enter the schedule date and time.';
+    }
     if (this.cart().length === 0) return 'Add at least one package.';
     for (let i = 0; i < this.cart().length; i++) {
       const it = this.cart()[i];
@@ -716,6 +740,7 @@ export class CashierComponent implements OnInit {
       clientId: this.selectedClient()?.id || null,
       clientNickname: this.transactorName,
       clientGender: first.attendees[0].clientGender,
+      scheduledAt: toManilaIso(this.scheduleDate, this.scheduleTime),
       transactorName: this.transactorName,
       groupBooking: this.groupBooking(),
       weekend: this.weekend(),
@@ -773,7 +798,7 @@ export class CashierComponent implements OnInit {
 
     const queuedPayments = this.payments();
     const gatewayMethods = ['GCASH', 'CREDIT', 'DEBIT'];
-    const redirectPayment = !editId && queuedPayments.length === 1 && gatewayMethods.includes(queuedPayments[0].paymentMethod)
+    const redirectPayment = queuedPayments.length === 1 && gatewayMethods.includes(queuedPayments[0].paymentMethod)
       ? queuedPayments[0]
       : null;
 
@@ -783,11 +808,14 @@ export class CashierComponent implements OnInit {
 
     if (redirectPayment) {
       const orderPayload = { ...payload, initialPayment: null };
-      this.http.post<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders`, orderPayload).subscribe({
+      const request = editId
+        ? this.http.put<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders/${editId}`, orderPayload)
+        : this.http.post<OrderCreated>(`${environment.apiBaseUrl}/api/cashier/orders`, orderPayload);
+      request.subscribe({
         next: (order) => this.startPayMongo(order.id, redirectPayment),
         error: (err) => {
           this.submitting.set(false);
-          this.error.set(err?.error?.message || 'Could not create order.');
+          this.error.set(err?.error?.message || (editId ? 'Could not update order.' : 'Could not create order.'));
         }
       });
       return;

@@ -35,7 +35,7 @@
                             <input [(ngModel)]="username" name="username" autocomplete="username" required
                                 class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
                         </label>
-                        <label class="block">
+                        <div class="block">
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Password</span>
                                 <button type="button" (click)="openContactModal()" class="text-xs text-[var(--sumi-primary)] hover:underline">Contact administrator</button>
@@ -46,7 +46,7 @@
                                 autocomplete="current-password"
                                 [required]="true">
                             </sumi-password-input>
-                        </label>
+                        </div>
                         <button type="submit" [disabled]="busy()"
                                 class="w-full rounded-lg bg-[var(--sumi-primary)] text-white font-medium py-3 text-sm tracking-wide hover:opacity-95 hover:scale-[1.01] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                             @if (busy()) {

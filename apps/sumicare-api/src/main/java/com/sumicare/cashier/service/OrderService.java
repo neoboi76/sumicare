@@ -248,6 +248,12 @@ public class OrderService {
         String nickname = request.clientNickname() != null ? request.clientNickname() : request.transactorName();
         if (nickname == null || nickname.isBlank()) nickname = "Walk-in";
 
+        OffsetDateTime now = OffsetDateTime.now();
+        if (request.scheduledAt() != null && request.scheduledAt().isBefore(now.minusMinutes(1))) {
+            throw new IllegalArgumentException("Cannot schedule a booking in the past");
+        }
+        OffsetDateTime scheduledAt = request.scheduledAt() != null ? request.scheduledAt() : now;
+
         var bookingRequest = new CreateBookingRequest(
                 request.clientId(),
                 nickname,
@@ -255,7 +261,7 @@ public class OrderService {
                 request.lockerNumber(),
                 firstServiceId,
                 "WALK_IN",
-                OffsetDateTime.now(),
+                scheduledAt,
                 request.pax() == null ? Math.max(1, totalAttendees) : request.pax(),
                 request.clientGender(),
                 null,
@@ -1137,8 +1143,8 @@ public class OrderService {
         int duration = serviceRepository.findById(serviceId)
                 .map(com.sumicare.service_catalogue.domain.Service::getDurationMinutes)
                 .orElse(0);
-        if (duration > 60) {
-            throw new IllegalArgumentException("VIP packages allow massages up to 60 minutes only");
+        if (duration > 120) {
+            throw new IllegalArgumentException("VIP massages may not exceed 120 minutes");
         }
     }
 
@@ -1443,6 +1449,7 @@ public class OrderService {
                 order.getAmountPaid(),
                 balance,
                 order.getStatus(),
+                booking != null ? booking.getScheduledAt() : null,
                 order.getCreatedAt(),
                 order.getCompletedAt(),
                 order.getFinishedAt(),

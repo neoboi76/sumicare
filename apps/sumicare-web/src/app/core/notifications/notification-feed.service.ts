@@ -1,6 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Subject, Subscription } from 'rxjs';
 import { StompService } from '../realtime/stomp.service';
+import { environment } from '../../../environments/environment';
 
 export type NotificationKey = 'bookings' | 'orders' | 'messages' | 'feedback';
 
@@ -14,6 +16,7 @@ export interface NotificationEvent {
 @Injectable({ providedIn: 'root' })
 export class NotificationFeedService {
     private readonly stomp = inject(StompService);
+    private readonly http = inject(HttpClient);
     private subscriptions: Subscription[] = [];
     private started = false;
 
@@ -26,10 +29,22 @@ export class NotificationFeedService {
     start(organizationId: string | null): void {
         if (this.started || !organizationId) return;
         this.started = true;
+        this.seedUnreadCounts();
         this.subscriptions.push(this.watch('bookings', this.unreadBookings, organizationId));
         this.subscriptions.push(this.watch('orders', this.unreadOrders, organizationId));
         this.subscriptions.push(this.watch('messages', this.unreadMessages, organizationId));
         this.subscriptions.push(this.watch('feedback', this.unreadFeedback, organizationId));
+    }
+
+    private seedUnreadCounts(): void {
+        this.http.get<{ count: number }>(`${environment.apiBaseUrl}/api/contact-messages/unread-count`).subscribe({
+            next: (r) => this.unreadMessages.set(r.count ?? 0),
+            error: () => undefined
+        });
+        this.http.get<{ count: number }>(`${environment.apiBaseUrl}/api/feedback/unread-count`).subscribe({
+            next: (r) => this.unreadFeedback.set(r.count ?? 0),
+            error: () => undefined
+        });
     }
 
     stop(): void {

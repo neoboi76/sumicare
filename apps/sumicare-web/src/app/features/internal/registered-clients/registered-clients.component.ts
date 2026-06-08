@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
+import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 
 interface RegisteredClient {
   id: string;
@@ -21,6 +22,7 @@ interface RegisteredClient {
 })
 export class RegisteredClientsComponent implements OnInit {
   private http = inject(HttpClient);
+  private confirmService = inject(ConfirmService);
 
   clients = signal<RegisteredClient[]>([]);
   loading = signal(false);
@@ -50,5 +52,19 @@ export class RegisteredClientsComponent implements OnInit {
     if (gender === 'M') return 'Male';
     if (gender === 'F') return 'Female';
     return '-';
+  }
+
+  async remove(client: RegisteredClient): Promise<void> {
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete client',
+      message: `Remove ${client.nickname} from the active client list? Their booking and payment history is preserved.`,
+      confirmText: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
+    this.http.delete(`${environment.apiBaseUrl}/api/clients/${client.id}`).subscribe({
+      next: () => this.clients.update(list => list.filter(c => c.id !== client.id)),
+      error: () => this.load()
+    });
   }
 }

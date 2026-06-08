@@ -26,6 +26,7 @@ public record OrderResponse(
         BigDecimal amountPaid,
         BigDecimal balance,
         String status,
+        OffsetDateTime scheduledAt,
         OffsetDateTime createdAt,
         OffsetDateTime completedAt,
         OffsetDateTime finishedAt,

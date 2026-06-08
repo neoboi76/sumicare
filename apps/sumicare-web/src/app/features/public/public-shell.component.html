@@ -9,7 +9,7 @@
                     <span class="text-[10px] tracking-[0.32em] uppercase font-[var(--lasema-font-label)] text-[var(--jade)]">Jjimjilbang &middot; Estd. 2005</span>
                 </span>
             </a>
-            <nav class="hidden lg:flex items-center gap-6">
+            <nav class="hidden xl:flex items-center gap-5">
                 <a routerLink="/services" routerLinkActive="is-active" class="nav-link nav-on-light">Services</a>
                 <a routerLink="/packages" routerLinkActive="is-active" class="nav-link nav-on-light">Packages</a>
                 <a routerLink="/about" routerLinkActive="is-active" class="nav-link nav-on-light">About</a>
@@ -20,7 +20,7 @@
                 <a routerLink="/book" class="btn-editorial btn-editorial-sm">Book Now</a>
             </nav>
             <button (click)="toggleMenu()" type="button"
-                class="lg:hidden p-2 rounded-full hover:scale-110 transition-transform duration-200 text-[var(--forest)]"
+                class="xl:hidden p-2 rounded-full hover:scale-110 transition-transform duration-200 text-[var(--forest)]"
                 [attr.aria-expanded]="menuOpen()"
                 aria-controls="public-mobile-nav"
                 aria-label="Toggle menu">
@@ -37,7 +37,7 @@
             </button>
         </div>
         <nav id="public-mobile-nav"
-             class="lg:hidden absolute inset-x-0 top-16 bg-[var(--cream)] border-t border-[var(--rule)] overflow-hidden transition-all duration-300 origin-top shadow-lg"
+             class="xl:hidden absolute inset-x-0 top-16 bg-[var(--cream)] border-t border-[var(--rule)] overflow-hidden transition-all duration-300 origin-top shadow-lg"
              [class.max-h-[600px]]="menuOpen()"
              [class.max-h-0]="!menuOpen()"
              [class.opacity-100]="menuOpen()"

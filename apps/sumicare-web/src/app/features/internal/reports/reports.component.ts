@@ -110,8 +110,8 @@ export class ReportsComponent implements OnInit {
 
   loadServices(): void {
     this.loading.set(true);
-    const from = `${this.cutoffFrom}T00:00:00Z`;
-    const to = `${this.cutoffTo}T23:59:59Z`;
+    const from = `${this.cutoffFrom}T00:00:00.000+08:00`;
+    const to = `${this.cutoffTo}T23:59:59.999+08:00`;
     let url = `${environment.apiBaseUrl}/api/reports/cutoff/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     if (this.cutoffShiftId) url += `&shiftId=${this.cutoffShiftId}`;
     this.http.get<CutoffServicesReport>(url).subscribe({
@@ -121,8 +121,8 @@ export class ReportsComponent implements OnInit {
   }
 
   exportServicesCsv(): void {
-    const from = `${this.cutoffFrom}T00:00:00Z`;
-    const to = `${this.cutoffTo}T23:59:59Z`;
+    const from = `${this.cutoffFrom}T00:00:00.000+08:00`;
+    const to = `${this.cutoffTo}T23:59:59.999+08:00`;
     let url = `${environment.apiBaseUrl}/api/reports/cutoff/services/export.csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     if (this.cutoffShiftId) url += `&shiftId=${this.cutoffShiftId}`;
     this.downloadBlob(url, `cutoff-services-${this.cutoffFrom}-to-${this.cutoffTo}.csv`);

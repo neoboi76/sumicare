@@ -1,5 +1,7 @@
 package com.sumicare.print;
 
+import com.sumicare.booking.domain.Booking;
+import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.cashier.domain.Order;
 import com.sumicare.cashier.domain.OrderItem;
 import com.sumicare.cashier.domain.OrderItemAttendee;
@@ -35,9 +37,11 @@ public class ReceiptPdfService {
 
     private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm a");
+    private static final DateTimeFormatter SCHEDULE = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy h:mm a");
 
     private final PdfRenderer pdfRenderer;
     private final OrderRepository orderRepository;
+    private final BookingRepository bookingRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderItemAttendeeRepository attendeeRepository;
     private final PackageRepository packageRepository;
@@ -50,6 +54,7 @@ public class ReceiptPdfService {
 
     public ReceiptPdfService(PdfRenderer pdfRenderer,
                              OrderRepository orderRepository,
+                             BookingRepository bookingRepository,
                              OrderItemRepository orderItemRepository,
                              OrderItemAttendeeRepository attendeeRepository,
                              PackageRepository packageRepository,
@@ -61,6 +66,7 @@ public class ReceiptPdfService {
                              PackageService packageService) {
         this.pdfRenderer = pdfRenderer;
         this.orderRepository = orderRepository;
+        this.bookingRepository = bookingRepository;
         this.orderItemRepository = orderItemRepository;
         this.attendeeRepository = attendeeRepository;
         this.packageRepository = packageRepository;
@@ -75,6 +81,11 @@ public class ReceiptPdfService {
     public byte[] renderReceipt(UUID orderId) {
         Order order = orderRepository.findById(orderId).orElseThrow();
         Organization org = organizationRepository.findById(order.getOrganizationId()).orElse(null);
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        String scheduleStr = booking != null && booking.getScheduledAt() != null
+                ? booking.getScheduledAt().atZoneSameInstant(MANILA).format(SCHEDULE)
+                : "";
         String cashierName = order.getCashierUserId() == null ? ""
                 : userRepository.findById(order.getCashierUserId())
                     .map(u -> u.getDisplayName() != null && !u.getDisplayName().isBlank()
@@ -182,6 +193,7 @@ public class ReceiptPdfService {
               <table class="small">
                 <tr><td>Cashier:</td><td>%s</td></tr>
                 <tr><td>Date / Time:</td><td>%s</td></tr>
+                <tr><td>Schedule:</td><td>%s</td></tr>
                 <tr><td>OR #:</td><td>%s</td></tr>
                 <tr><td>Customer:</td><td>%s</td></tr>
                 <tr><td>Transacted by:</td><td>%s</td></tr>
@@ -211,6 +223,7 @@ public class ReceiptPdfService {
                 esc(org == null ? "" : (org.getSlug() == null ? "" : org.getSlug())),
                 esc(cashierName),
                 now,
+                esc(scheduleStr),
                 esc(order.getOrNumber() == null ? "" : order.getOrNumber()),
                 esc(order.getTransactorName() == null ? "" : order.getTransactorName()),
                 esc(transactedByName),

@@ -70,7 +70,7 @@ public class TreatmentSlipController {
     public List<TreatmentSlip> list(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                     @RequestParam OffsetDateTime from,
                                     @RequestParam OffsetDateTime to) {
-        return repository.findAllByOrganizationIdAndCreatedAtBetween(
+        return repository.findAllByOrganizationIdAndScheduleBetween(
                 UUID.fromString(principal.organizationId()), from, to);
     }
 

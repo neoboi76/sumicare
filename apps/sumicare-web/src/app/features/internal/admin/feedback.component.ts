@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../../environments/environment';
+import { NotificationFeedService } from '../../../core/notifications/notification-feed.service';
 
 interface Feedback {
   id: string;
@@ -20,6 +21,7 @@ interface Feedback {
 })
 export class FeedbackAdminComponent implements OnInit {
   private http = inject(HttpClient);
+  private feed = inject(NotificationFeedService);
   feedback = signal<Feedback[]>([]);
   exportFrom = '';
   exportTo = '';
@@ -29,6 +31,10 @@ export class FeedbackAdminComponent implements OnInit {
     this.http.get<{ content: Feedback[] }>(`${environment.apiBaseUrl}/api/feedback`).subscribe({
       next: (page) => this.feedback.set(page.content ?? [])
     });
+    this.http.post(`${environment.apiBaseUrl}/api/feedback/mark-all-read`, {}).subscribe({
+      next: () => this.feed.markRead('feedback'),
+      error: () => undefined
+    });
   }
 
   stars(rating: number): string {
@@ -36,7 +42,7 @@ export class FeedbackAdminComponent implements OnInit {
   }
 
   formatDate(iso: string): string {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString('en-US', { timeZone: 'Asia/Manila' });
   }
 
   exportCsv(): void {

@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { PaymentDetailsModalComponent } from '../../shared/components/payment-details/payment-details-modal.component';
 import { PaymentDetails, PaymentDetailsService } from '../../shared/components/payment-details/payment-details.service';
+import { manilaToday, manilaNowTime, toManilaIso } from '../../shared/util/manila-time';
 
 interface ServiceItem {
   id: number;
@@ -211,6 +212,18 @@ export class BookComponent implements OnInit {
       });
   }
 
+  get scheduleMinDate(): string {
+    return manilaToday();
+  }
+
+  get scheduleMinTime(): string | null {
+    return this.scheduledDate === manilaToday() ? manilaNowTime() : null;
+  }
+
+  dismissError(): void {
+    this.error.set(null);
+  }
+
   packageById(id: number | null): PublicPackage | null {
     if (id == null) return null;
     return this.packages().find(p => p.id === Number(id)) ?? null;
@@ -218,11 +231,7 @@ export class BookComponent implements OnInit {
 
   tiersFor(item: BookingItemForm): PublicPackageTier[] {
     const pkg = this.packageById(item.packageId);
-    const tiers = pkg?.tiers ?? [];
-    if (pkg?.requiresVipRoom) {
-      return tiers.filter(t => t.serviceDurationMinutes == null || t.serviceDurationMinutes <= 60);
-    }
-    return tiers;
+    return pkg?.tiers ?? [];
   }
 
   isDoubleItem(pkg: PublicPackage | null): boolean {
@@ -336,9 +345,13 @@ export class BookComponent implements OnInit {
       return;
     }
 
-    const combined = new Date(`${this.scheduledDate}T${this.scheduledTime}`);
-    if (isNaN(combined.getTime())) {
+    const scheduledIso = toManilaIso(this.scheduledDate, this.scheduledTime);
+    if (!scheduledIso) {
       this.error.set('Please enter a valid date and time.');
+      return;
+    }
+    if (new Date(scheduledIso).getTime() < Date.now()) {
+      this.error.set('Please choose a date and time in the future.');
       return;
     }
 
@@ -366,7 +379,7 @@ export class BookComponent implements OnInit {
       nationality: this.nationality.trim() || null,
       serviceId: Number(firstServiceId),
       reservationType: this.reservationType,
-      scheduledAt: combined.toISOString(),
+      scheduledAt: scheduledIso,
       clientGender: firstItem.attendees[0].clientGender,
       paymentMethod: this.reservationType === 'HARD' ? this.paymentMethod() : null,
       items: payloadItems,

@@ -102,7 +102,7 @@ public class OperationsReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public CutoffServicesReport cutoffServices(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
-        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to)
+        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndScheduleBetween(organizationId, from, to)
                 .stream()
                 .filter(s -> !"VOIDED".equals(s.getStatus()))
                 .collect(Collectors.toList());
@@ -262,7 +262,7 @@ public class OperationsReportService {
     }
 
     private List<DailyRow> collectRows(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
-        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to)
+        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndScheduleBetween(organizationId, from, to)
                 .stream()
                 .filter(s -> !"VOIDED".equals(s.getStatus()))
                 .collect(Collectors.toList());

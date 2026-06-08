@@ -178,8 +178,10 @@ public class TreatmentSlipService {
 
         slip.setVip(packageVip);
         if (packageVip) {
-            if (slip.getJacuzziMinutes() == null) slip.setJacuzziMinutes(60);
-            if (slip.getMassageMinutes() == null) slip.setMassageMinutes(60);
+            int massage = slip.getTreatmentMinutes() != null ? slip.getTreatmentMinutes() : 60;
+            massage = Math.min(Math.max(massage, 0), 120);
+            slip.setMassageMinutes(massage);
+            slip.setJacuzziMinutes(Math.max(0, 120 - massage));
             if (slip.getWineIncluded() == null) slip.setWineIncluded(true);
         }
 
@@ -198,8 +200,8 @@ public class TreatmentSlipService {
             int minutes = session.getExtensionMinutes() > 0 ? session.getExtensionMinutes() : 60;
             slip.setExtensionMinutes(minutes);
             if (packageVip) {
-                slip.setJacuzziMinutes(0);
-                slip.setMassageMinutes(120);
+                int massage = slip.getMassageMinutes() == null ? 0 : slip.getMassageMinutes();
+                slip.setMassageMinutes(massage + minutes);
             }
         }
 
@@ -208,16 +210,17 @@ public class TreatmentSlipService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public byte[] exportToCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
-        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
+        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndScheduleBetween(organizationId, from, to);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         StringBuilder sb = new StringBuilder();
         sb.append("Slip Type,TSN,Date,Customer,Locker,Room,Therapist,Secondary Therapist,Requested Therapist,")
           .append("Service,Service Duration (min),Jacuzzi (min),Massage (min),Pax,Wine,")
           .append("Start,End,OR#,Add-on OR#,Others/Add-on,Remarks,Total,Waiver,Generated At\n");
         for (TreatmentSlip s : slips) {
+            OffsetDateTime slipDate = s.getStartTime() != null ? s.getStartTime() : s.getCreatedAt();
             sb.append(csvCell(s.isVip() ? "VIP" : "Regular")).append(',')
               .append(csvCell(s.getTsn())).append(',')
-              .append(csvCell(s.getCreatedAt() != null ? s.getCreatedAt().format(fmt) : "")).append(',')
+              .append(csvCell(slipDate != null ? slipDate.format(fmt) : "")).append(',')
               .append(csvCell(s.getClientNickname())).append(',')
               .append(csvCell(s.getLockerNumber())).append(',')
               .append(csvCell(s.getRoomNumber())).append(',')

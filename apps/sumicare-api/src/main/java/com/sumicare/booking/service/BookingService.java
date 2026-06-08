@@ -168,7 +168,7 @@ public class BookingService {
 
         UUID resolvedClientId = request.clientId();
         if (resolvedClientId == null && request.clientEmail() != null && !request.clientEmail().isBlank()) {
-            Client existing = clientRepository.findByOrganizationIdAndEmail(organizationId, request.clientEmail()).orElse(null);
+            Client existing = clientRepository.findByOrganizationIdAndEmailAndDeletedAtIsNull(organizationId, request.clientEmail()).orElse(null);
             if (existing == null) {
                 Client created = new Client();
                 created.setOrganizationId(organizationId);
@@ -678,6 +678,7 @@ public class BookingService {
                             booking.getScheduledAt().atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
                             effectiveStart.atZoneSameInstant(java.time.ZoneId.of("Asia/Manila")).format(fmt),
                             roomType,
+                            describePaymentMethods(order),
                             total.toPlainString()));
         } catch (Exception ex) {
             log.warn("Could not send booking confirmation email to {}: {}", booking.getClientEmail(), ex.getMessage());
@@ -1229,7 +1230,7 @@ public class BookingService {
     }
 
     public List<BookingResponse> listBookingsForDay(UUID organizationId, OffsetDateTime dayStart, OffsetDateTime dayEnd) {
-        return bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(organizationId, dayStart, dayEnd)
+        return bookingRepository.findAllByOrganizationIdAndEffectiveDateBetween(organizationId, dayStart, dayEnd)
                 .stream()
                 .map(b -> toBookingResponse(b, requireService(b.getServiceId())))
                 .toList();
@@ -1301,8 +1302,8 @@ public class BookingService {
             return;
         }
         int duration = serviceRepository.findById(serviceId).map(Service::getDurationMinutes).orElse(0);
-        if (duration > 60) {
-            throw new IllegalArgumentException("VIP packages allow massages up to 60 minutes only");
+        if (duration > 120) {
+            throw new IllegalArgumentException("VIP massages may not exceed 120 minutes");
         }
     }
 

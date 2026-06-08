@@ -70,8 +70,20 @@
       </div>
     } @else {
       @if (error(); as err) {
-        <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-          <p class="text-sm text-red-700">{{ err }}</p>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" (click)="dismissError()">
+          <div class="w-full max-w-md rounded-2xl bg-white shadow-xl border border-gray-200 p-6" (click)="$event.stopPropagation()">
+            <div class="flex items-start gap-3">
+              <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">!</div>
+              <div class="flex-1">
+                <h3 class="text-base font-semibold text-gray-900">We hit a snag</h3>
+                <p class="mt-1 text-sm text-gray-600">{{ err }}</p>
+              </div>
+            </div>
+            <div class="mt-5 flex justify-end">
+              <button type="button" (click)="dismissError()"
+                class="rounded-lg bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm font-medium hover:opacity-95">Got it</button>
+            </div>
+          </div>
         </div>
       }
       <form (submit)="submit($event)" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
@@ -238,12 +250,12 @@
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-sm text-gray-700">
             Date <span class="text-red-500">*</span>
-            <input [(ngModel)]="scheduledDate" name="scheduledDate" type="date" required
+            <input [(ngModel)]="scheduledDate" name="scheduledDate" type="date" required [min]="scheduleMinDate"
                    class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
           </label>
           <label class="block text-sm text-gray-700">
             Time <span class="text-red-500">*</span>
-            <input [(ngModel)]="scheduledTime" name="scheduledTime" type="time" required
+            <input [(ngModel)]="scheduledTime" name="scheduledTime" type="time" required [min]="scheduleMinTime"
                    class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
           </label>
         </div>

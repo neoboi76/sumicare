@@ -153,6 +153,7 @@ public class EmailService {
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Scheduled</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Effective start</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Room</td><td style="padding: 6px 12px;">%s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">Payment method</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Total</td><td style="padding: 6px 12px;">&#8369; %s</td></tr>
                   </table>
                   <p style="margin-top: 24px;">Sessions begin 15 minutes after your scheduled time to allow room preparation. Please arrive a few minutes early.</p>
@@ -169,6 +170,7 @@ public class EmailService {
                         payload.scheduled(),
                         payload.effectiveStart(),
                         payload.roomType(),
+                        payload.paymentMethod() == null || payload.paymentMethod().isBlank() ? "Pending" : payload.paymentMethod(),
                         payload.total());
         sendHtml(to, subject, body);
     }
@@ -183,6 +185,7 @@ public class EmailService {
             String scheduled,
             String effectiveStart,
             String roomType,
+            String paymentMethod,
             String total) {}
 
     public record CompletionEmailPayload(
