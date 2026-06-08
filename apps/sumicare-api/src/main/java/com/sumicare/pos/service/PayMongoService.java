@@ -193,11 +193,19 @@ public class PayMongoService {
     }
 
     private String buildReturnUrl(Order order, String intentId, String paymentMethod, BigDecimal amount, String returnPath) {
-        String base = originOf(appProperties.app().publicBaseUrl());
-        if (base == null || base.isBlank()) {
-            base = requestOrigin();
+        String base;
+        String path;
+        if (isAbsoluteHttpUrl(returnPath)) {
+            java.net.URI uri = java.net.URI.create(returnPath.trim());
+            base = originOf(returnPath);
+            path = uri.getRawPath() == null || uri.getRawPath().isBlank() ? "/" : uri.getRawPath();
+        } else {
+            base = originOf(appProperties.app().publicBaseUrl());
+            if (base == null || base.isBlank()) {
+                base = requestOrigin();
+            }
+            path = returnPath == null || returnPath.isBlank() ? "/app/cashier" : returnPath;
         }
-        String path = returnPath == null || returnPath.isBlank() ? "/app/cashier" : returnPath;
         StringBuilder url = new StringBuilder(base).append(path)
                 .append("?paymongoReturn=1")
                 .append("&orderId=").append(order.getId());
@@ -227,6 +235,18 @@ public class PayMongoService {
         } catch (Exception ignored) {
         }
         return "";
+    }
+
+    private boolean isAbsoluteHttpUrl(String value) {
+        if (value == null || value.isBlank()) return false;
+        try {
+            java.net.URI uri = java.net.URI.create(value.trim());
+            String scheme = uri.getScheme();
+            return uri.getHost() != null && scheme != null
+                    && (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"));
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private String originOf(String url) {

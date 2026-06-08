@@ -561,7 +561,8 @@ public class BookingService {
     @PreAuthorize("permitAll()")
     @Transactional
     public PublicPaymentResponse initiatePublicPayment(UUID organizationId, UUID orderId,
-                                                       String paymentMethod, PaymentDetailsRequest details) {
+                                                       String paymentMethod, PaymentDetailsRequest details,
+                                                       String returnPath) {
         Order order = requirePublicOrder(organizationId, orderId);
         if ("PAID".equals(order.getStatus())) {
             return paymentResponse("succeeded", null, null, order);
@@ -572,8 +573,9 @@ public class BookingService {
         if (!com.sumicare.pos.service.PayMongoService.supports(paymentMethod)) {
             throw new IllegalArgumentException("Unsupported payment method: " + paymentMethod);
         }
+        String resolvedReturnPath = returnPath == null || returnPath.isBlank() ? "/book" : returnPath;
         com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.initiate(
-                order, order.getTotal(), paymentMethod, null, details, "/book");
+                order, order.getTotal(), paymentMethod, null, details, resolvedReturnPath);
         if ("succeeded".equalsIgnoreCase(result.status())) {
             settlePublicPayment(order, result.intentId(), paymentMethod);
             return paymentResponse("succeeded", result.intentId(), null, order);

@@ -887,7 +887,8 @@ export class CashierComponent implements OnInit {
         paymentMethod: payment.paymentMethod,
         amount: payment.amount,
         referenceNumber: payment.referenceNumber || null,
-        paymentDetails: payment.paymentDetails || null
+        paymentDetails: payment.paymentDetails || null,
+        returnPath: `${window.location.origin}/app/cashier`
       }
     ).subscribe({
       next: (res) => {

@@ -72,7 +72,7 @@ public class BookingController {
                                                        @Valid @RequestBody PublicPaymentInitiateRequest request) {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
         return bookingService.initiatePublicPayment(organizationId, request.orderId(),
-                request.paymentMethod(), request.paymentDetails());
+                request.paymentMethod(), request.paymentDetails(), request.returnPath());
     }
 
     @PostMapping("/api/public/bookings/{slug}/payment/confirm")
