@@ -41,8 +41,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
 public class OrderService {
@@ -70,6 +73,8 @@ public class OrderService {
     private final com.sumicare.voucher.service.VoucherService voucherService;
     private final com.sumicare.transaction.repository.CommissionRepository commissionRepository;
     private final com.sumicare.pos.service.PayMongoService payMongoService;
+    private final com.sumicare.notification.service.NotificationService notificationService;
+    private final com.sumicare.common.util.IdSequenceService idSequenceService;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -87,7 +92,9 @@ public class OrderService {
                         PackageRepository packageRepository,
                         com.sumicare.voucher.service.VoucherService voucherService,
                         com.sumicare.transaction.repository.CommissionRepository commissionRepository,
-                        com.sumicare.pos.service.PayMongoService payMongoService) {
+                        com.sumicare.pos.service.PayMongoService payMongoService,
+                        com.sumicare.notification.service.NotificationService notificationService,
+                        com.sumicare.common.util.IdSequenceService idSequenceService) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -105,6 +112,8 @@ public class OrderService {
         this.voucherService = voucherService;
         this.commissionRepository = commissionRepository;
         this.payMongoService = payMongoService;
+        this.notificationService = notificationService;
+        this.idSequenceService = idSequenceService;
     }
 
     @Transactional
@@ -239,6 +248,12 @@ public class OrderService {
         String nickname = request.clientNickname() != null ? request.clientNickname() : request.transactorName();
         if (nickname == null || nickname.isBlank()) nickname = "Walk-in";
 
+        OffsetDateTime now = OffsetDateTime.now();
+        if (request.scheduledAt() != null && request.scheduledAt().isBefore(now.minusMinutes(1))) {
+            throw new IllegalArgumentException("Cannot schedule a booking in the past");
+        }
+        OffsetDateTime scheduledAt = request.scheduledAt() != null ? request.scheduledAt() : now;
+
         var bookingRequest = new CreateBookingRequest(
                 request.clientId(),
                 nickname,
@@ -246,9 +261,10 @@ public class OrderService {
                 request.lockerNumber(),
                 firstServiceId,
                 "WALK_IN",
-                OffsetDateTime.now(),
+                scheduledAt,
                 request.pax() == null ? Math.max(1, totalAttendees) : request.pax(),
                 request.clientGender(),
+                null,
                 null,
                 null,
                 null,
@@ -393,6 +409,13 @@ public class OrderService {
             entry.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"reason\":\"fully_discounted\"}");
             ledgerRepository.save(entry);
         }
+
+        if (request.clientId() != null) {
+            bookingService.sendOrderConfirmationEmail(booking.getId());
+        }
+
+        notificationService.broadcastOrderEvent(order.getOrganizationId(), "ORDER_CREATED", order.getId(),
+                order.getOrNumber() != null ? "New order " + order.getOrNumber() : "New order");
 
         return toResponse(order, booking);
     }
@@ -630,6 +653,9 @@ public class OrderService {
 
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
+        if (booking != null) {
+            syncBookingPaymentStatus(booking, order);
+        }
         return toResponse(order, booking);
     }
 
@@ -1080,40 +1106,6 @@ public class OrderService {
     }
 
     @Transactional
-    public void onSessionCompleted(UUID bookingId, OffsetDateTime endedAt) {
-        orderRepository.findByBookingId(bookingId).ifPresent(order -> {
-            if (order.getTreatmentSlipId() != null) {
-                slipRepository.findById(order.getTreatmentSlipId()).ifPresent(slip -> {
-                    slip.setStatus("FINALIZED");
-                    slip.setSignedAt(OffsetDateTime.now());
-                    slipRepository.save(slip);
-                });
-            }
-
-            List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
-            boolean handledAny = false;
-            for (OrderItemAttendee attendee : attendees) {
-                if (attendee.getSessionId() == null) continue;
-                handledAny = true;
-                sessionRepository.findById(attendee.getSessionId()).ifPresent(session ->
-                        recordCommissionsForSession(order.getOrganizationId(), session));
-                if (attendee.getTreatmentSlipId() != null) {
-                    slipRepository.findById(attendee.getTreatmentSlipId()).ifPresent(slip -> {
-                        slip.setStatus("FINALIZED");
-                        slip.setSignedAt(OffsetDateTime.now());
-                        slipRepository.save(slip);
-                    });
-                }
-            }
-
-            if (!handledAny) {
-                sessionRepository.findFirstByBookingId(bookingId).ifPresent(session ->
-                        recordCommissionsForSession(order.getOrganizationId(), session));
-            }
-        });
-    }
-
-    @Transactional
     public Order ensureForBooking(UUID organizationId, UUID bookingId, BigDecimal total) {
         return orderRepository.findByBookingId(bookingId).orElseGet(() -> {
             Order order = new Order();
@@ -1151,8 +1143,8 @@ public class OrderService {
         int duration = serviceRepository.findById(serviceId)
                 .map(com.sumicare.service_catalogue.domain.Service::getDurationMinutes)
                 .orElse(0);
-        if (duration > 60) {
-            throw new IllegalArgumentException("VIP packages allow massages up to 60 minutes only");
+        if (duration > 120) {
+            throw new IllegalArgumentException("VIP massages may not exceed 120 minutes");
         }
     }
 
@@ -1161,6 +1153,8 @@ public class OrderService {
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
         if (booking == null) return;
+
+        syncBookingPaymentStatus(booking, order);
 
         List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
         if (attendees.isEmpty()) return;
@@ -1176,6 +1170,27 @@ public class OrderService {
             session = sessionRepository.save(session);
             att.setSessionId(session.getId());
             attendeeRepository.save(att);
+        }
+    }
+
+    public void syncBookingPaymentStatus(Booking booking, Order order) {
+        if (booking == null || order == null) return;
+        String desired = switch (order.getStatus() == null ? "" : order.getStatus()) {
+            case "PAID" -> "PAID";
+            case "REFUNDED" -> "REFUNDED";
+            case "CANCELLED" -> "UNPAID";
+            default -> {
+                BigDecimal paid = order.getAmountPaid() == null ? BigDecimal.ZERO : order.getAmountPaid();
+                BigDecimal total = order.getTotal() == null ? BigDecimal.ZERO : order.getTotal();
+                if (paid.signum() > 0 && paid.compareTo(total) < 0) {
+                    yield "PARTIAL";
+                }
+                yield "UNPAID";
+            }
+        };
+        if (!desired.equals(booking.getPaymentStatus())) {
+            booking.setPaymentStatus(desired);
+            bookingRepository.save(booking);
         }
     }
 
@@ -1251,6 +1266,10 @@ public class OrderService {
 
     @Transactional
     public void unmaterialiseAttendeeSessions(Order order) {
+        if (order.getBookingId() != null) {
+            bookingRepository.findById(order.getBookingId())
+                    .ifPresent(b -> syncBookingPaymentStatus(b, order));
+        }
         List<OrderItemAttendee> attendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
         for (OrderItemAttendee att : attendees) {
             if (att.getSessionId() != null) {
@@ -1307,7 +1326,7 @@ public class OrderService {
     }
 
     private String generateReceiptNumber() {
-        return "OR" + System.currentTimeMillis() % 1000000;
+        return idSequenceService.nextReceiptNumber();
     }
 
     public String nextOrNumber() {
@@ -1315,11 +1334,11 @@ public class OrderService {
     }
 
     private String generateOrNumber() {
-        return "OR" + (System.currentTimeMillis() % 100000000L);
+        return idSequenceService.nextOrNumber();
     }
 
     private String generateTsn() {
-        return "TS-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+        return idSequenceService.nextTsn();
     }
 
     private OrderResponse toResponseWithBookingLookup(Order order) {
@@ -1350,39 +1369,48 @@ public class OrderService {
                     .orElse(null);
         }
         List<OrderItem> items = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId());
+        List<OrderItemAttendee> allAttendees = attendeeRepository.findAllByOrderIdOrderByPosition(order.getId());
+
+        Set<UUID> sessionIds = allAttendees.stream().map(OrderItemAttendee::getSessionId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, Session> sessionsById = new HashMap<>();
+        for (Session s : sessionRepository.findAllById(sessionIds)) {
+            sessionsById.put(s.getId(), s);
+        }
+        Set<Long> packageIds = items.stream().map(OrderItem::getPackageId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, Package> packagesById = new HashMap<>();
+        for (Package p : packageRepository.findAllById(packageIds)) {
+            packagesById.put(p.getId(), p);
+        }
+
         Map<UUID, List<OrderItemAttendee>> attendeesByItem = new HashMap<>();
         boolean sessionCompleted = false;
-        for (OrderItemAttendee a : attendeeRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+        for (OrderItemAttendee a : allAttendees) {
             attendeesByItem.computeIfAbsent(a.getOrderItemId(), k -> new ArrayList<>()).add(a);
             if (a.getSessionId() != null) {
-                boolean done = sessionRepository.findById(a.getSessionId())
-                        .map(s -> "COMPLETED".equals(s.getStatus())).orElse(false);
-                if (done) sessionCompleted = true;
+                Session s = sessionsById.get(a.getSessionId());
+                if (s != null && "COMPLETED".equals(s.getStatus())) sessionCompleted = true;
             }
         }
         if (!sessionCompleted && order.getBookingId() != null) {
             sessionCompleted = sessionRepository.findFirstByBookingId(order.getBookingId())
                     .map(s -> "COMPLETED".equals(s.getStatus())).orElse(false);
         }
-        Map<Long, String> packageNameById = new HashMap<>();
-        Map<Long, Boolean> packageCoupleById = new HashMap<>();
         Map<Long, String> serviceNameById = new HashMap<>();
         List<OrderItemResponse> itemResponses = new ArrayList<>();
         boolean orderCouplePackage = false;
         for (OrderItem it : items) {
-            String pkgName = packageNameById.computeIfAbsent(it.getPackageId(),
-                    pid -> packageRepository.findById(pid).map(p -> p.getName()).orElse(""));
-            boolean pkgCouple = packageCoupleById.computeIfAbsent(it.getPackageId(),
-                    pid -> packageRepository.findById(pid).map(Package::isCouple).orElse(false));
-            if (pkgCouple) orderCouplePackage = true;
+            Package pkg = it.getPackageId() == null ? null : packagesById.get(it.getPackageId());
+            String pkgName = pkg == null ? "" : pkg.getName();
+            if (pkg != null && pkg.isCouple()) orderCouplePackage = true;
             List<OrderItemAttendee> atts = attendeesByItem.getOrDefault(it.getId(), List.of());
             List<OrderItemAttendeeResponse> attRes = new ArrayList<>();
             for (OrderItemAttendee a : atts) {
                 String sName = a.getServiceId() == null ? null
                         : serviceNameById.computeIfAbsent(a.getServiceId(),
                             sid -> serviceRepository.findById(sid).map(s -> s.getName()).orElse(""));
-                var sess = a.getSessionId() == null ? null
-                        : sessionRepository.findById(a.getSessionId()).orElse(null);
+                Session sess = a.getSessionId() == null ? null : sessionsById.get(a.getSessionId());
                 String sessionStatus = sess == null ? null : sess.getStatus();
                 boolean sessionExtended = sess != null && sess.isExtension();
                 attRes.add(new OrderItemAttendeeResponse(
@@ -1421,6 +1449,7 @@ public class OrderService {
                 order.getAmountPaid(),
                 balance,
                 order.getStatus(),
+                booking != null ? booking.getScheduledAt() : null,
                 order.getCreatedAt(),
                 order.getCompletedAt(),
                 order.getFinishedAt(),

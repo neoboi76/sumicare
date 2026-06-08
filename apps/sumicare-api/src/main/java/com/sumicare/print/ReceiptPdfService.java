@@ -1,5 +1,7 @@
 package com.sumicare.print;
 
+import com.sumicare.booking.domain.Booking;
+import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.cashier.domain.Order;
 import com.sumicare.cashier.domain.OrderItem;
 import com.sumicare.cashier.domain.OrderItemAttendee;
@@ -13,6 +15,7 @@ import com.sumicare.common.config.AppProperties;
 import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.organization.domain.Organization;
 import com.sumicare.organization.repository.OrganizationRepository;
+import com.sumicare.pos.repository.PosTransactionRepository;
 import com.sumicare.service_catalogue.domain.Service;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.user.repository.UserRepository;
@@ -33,37 +36,44 @@ import java.util.UUID;
 public class ReceiptPdfService {
 
     private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
-    private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm:ss");
+    private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm a");
+    private static final DateTimeFormatter SCHEDULE = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy h:mm a");
 
     private final PdfRenderer pdfRenderer;
     private final OrderRepository orderRepository;
+    private final BookingRepository bookingRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderItemAttendeeRepository attendeeRepository;
     private final PackageRepository packageRepository;
     private final ServiceRepository serviceRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final PosTransactionRepository transactionRepository;
     private final AppProperties appProperties;
     private final PackageService packageService;
 
     public ReceiptPdfService(PdfRenderer pdfRenderer,
                              OrderRepository orderRepository,
+                             BookingRepository bookingRepository,
                              OrderItemRepository orderItemRepository,
                              OrderItemAttendeeRepository attendeeRepository,
                              PackageRepository packageRepository,
                              ServiceRepository serviceRepository,
                              OrganizationRepository organizationRepository,
                              UserRepository userRepository,
+                             PosTransactionRepository transactionRepository,
                              AppProperties appProperties,
                              PackageService packageService) {
         this.pdfRenderer = pdfRenderer;
         this.orderRepository = orderRepository;
+        this.bookingRepository = bookingRepository;
         this.orderItemRepository = orderItemRepository;
         this.attendeeRepository = attendeeRepository;
         this.packageRepository = packageRepository;
         this.serviceRepository = serviceRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
+        this.transactionRepository = transactionRepository;
         this.appProperties = appProperties;
         this.packageService = packageService;
     }
@@ -71,6 +81,11 @@ public class ReceiptPdfService {
     public byte[] renderReceipt(UUID orderId) {
         Order order = orderRepository.findById(orderId).orElseThrow();
         Organization org = organizationRepository.findById(order.getOrganizationId()).orElse(null);
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        String scheduleStr = booking != null && booking.getScheduledAt() != null
+                ? booking.getScheduledAt().atZoneSameInstant(MANILA).format(SCHEDULE)
+                : "";
         String cashierName = order.getCashierUserId() == null ? ""
                 : userRepository.findById(order.getCashierUserId())
                     .map(u -> u.getDisplayName() != null && !u.getDisplayName().isBlank()
@@ -178,9 +193,11 @@ public class ReceiptPdfService {
               <table class="small">
                 <tr><td>Cashier:</td><td>%s</td></tr>
                 <tr><td>Date / Time:</td><td>%s</td></tr>
+                <tr><td>Schedule:</td><td>%s</td></tr>
                 <tr><td>OR #:</td><td>%s</td></tr>
                 <tr><td>Customer:</td><td>%s</td></tr>
                 <tr><td>Transacted by:</td><td>%s</td></tr>
+                <tr><td>Payment method:</td><td>%s</td></tr>
                 <tr><td>Covers:</td><td>%s</td></tr>
               </table>
               <hr/>
@@ -206,9 +223,11 @@ public class ReceiptPdfService {
                 esc(org == null ? "" : (org.getSlug() == null ? "" : org.getSlug())),
                 esc(cashierName),
                 now,
+                esc(scheduleStr),
                 esc(order.getOrNumber() == null ? "" : order.getOrNumber()),
                 esc(order.getTransactorName() == null ? "" : order.getTransactorName()),
                 esc(transactedByName),
+                esc(describePaymentMethods(orderId)),
                 items.size() == 0 ? "1" : Integer.toString(items.size()),
                 lines.toString(),
                 fmt(order.getSubtotal()),
@@ -225,6 +244,28 @@ public class ReceiptPdfService {
     private String fmt(BigDecimal v) {
         if (v == null) return "0.00";
         return v.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
+    private String describePaymentMethods(UUID orderId) {
+        var txs = transactionRepository.findAllByOrderId(orderId);
+        java.util.LinkedHashSet<String> labels = new java.util.LinkedHashSet<>();
+        for (var tx : txs) {
+            String m = tx.getPaymentMethod();
+            if (m == null || m.isBlank()) continue;
+            labels.add(humanise(m));
+        }
+        return String.join(", ", labels);
+    }
+
+    private String humanise(String m) {
+        return switch (m == null ? "" : m.toUpperCase()) {
+            case "CASH" -> "Cash";
+            case "GCASH" -> "GCash";
+            case "CREDIT" -> "Credit card";
+            case "DEBIT" -> "Debit card";
+            case "CARD" -> "Card";
+            default -> m;
+        };
     }
 
     private String esc(String s) {

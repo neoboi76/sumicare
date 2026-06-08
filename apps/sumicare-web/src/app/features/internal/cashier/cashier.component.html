@@ -33,6 +33,17 @@
             class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)] disabled:bg-slate-100 disabled:text-slate-500" />
         </label>
 
+        <div class="space-y-1">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule <span class="text-red-500">*</span></div>
+          <p class="text-xs text-slate-500">Defaults to now for walk-ins. Set a future date and time to record a reservation.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input [(ngModel)]="scheduleDate" name="scheduleDate" type="date" required [min]="scheduleMinDate"
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+            <input [(ngModel)]="scheduleTime" name="scheduleTime" type="time" required [min]="scheduleMinTime"
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+          </div>
+        </div>
+
         @if (selectedClient(); as c) {
         <div class="flex items-start justify-between border border-slate-200 rounded-lg p-3 bg-slate-50">
           <div>
@@ -465,7 +476,7 @@
           <table class="w-full text-sm">
             <thead class="text-xs text-slate-500">
               <tr>
-                <th class="text-left py-1">✓</th>
+                <th class="text-left py-1">Apply</th>
                 <th class="text-left py-1">Package</th>
                 <th class="text-right py-1">Amount</th>
               </tr>

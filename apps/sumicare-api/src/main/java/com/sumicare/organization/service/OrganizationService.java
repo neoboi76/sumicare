@@ -40,6 +40,7 @@ public class OrganizationService {
         if (request.secondaryColor() != null) org.setSecondaryColor(request.secondaryColor());
         if (request.accentColor() != null) org.setAccentColor(request.accentColor());
         if (request.theme() != null) org.setTheme(request.theme());
+        if (request.fontFamily() != null) org.setFontFamily(request.fontFamily());
         org.setUpdatedAt(OffsetDateTime.now());
         return toResponse(org);
     }
@@ -48,7 +49,7 @@ public class OrganizationService {
         return new OrganizationBrandingResponse(
                 org.getId(), org.getSlug(), org.getDisplayName(),
                 org.getLogoUrl(), org.getPrimaryColor(), org.getSecondaryColor(),
-                org.getAccentColor(), org.getTheme()
+                org.getAccentColor(), org.getTheme(), org.getFontFamily()
         );
     }
 }

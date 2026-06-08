@@ -43,6 +43,7 @@ public class WalkInService {
     private final DeckingService deckingService;
     private final NotificationService notificationService;
     private final OrderRepository orderRepository;
+    private final com.sumicare.common.util.IdSequenceService idSequenceService;
 
     public WalkInService(BookingRepository bookingRepository,
                          SessionRepository sessionRepository,
@@ -54,7 +55,8 @@ public class WalkInService {
                          RoomOccupancyService occupancyService,
                          DeckingService deckingService,
                          NotificationService notificationService,
-                         OrderRepository orderRepository) {
+                         OrderRepository orderRepository,
+                         com.sumicare.common.util.IdSequenceService idSequenceService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -66,6 +68,7 @@ public class WalkInService {
         this.deckingService = deckingService;
         this.notificationService = notificationService;
         this.orderRepository = orderRepository;
+        this.idSequenceService = idSequenceService;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -224,6 +227,6 @@ public class WalkInService {
     }
 
     private String generateTsn() {
-        return "TS" + System.currentTimeMillis() % 100000;
+        return idSequenceService.nextTsn();
     }
 }

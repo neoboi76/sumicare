@@ -4,6 +4,7 @@ import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.shift.domain.Shift;
 import com.sumicare.shift.repository.ShiftRepository;
 import com.sumicare.shift.service.ShiftService;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,8 +42,9 @@ public class ShiftController {
     @PatchMapping("/{shiftId}")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     @Transactional
-    public Shift update(@PathVariable Long shiftId, @RequestBody Shift updates) {
-        Shift shift = shiftRepository.findById(shiftId).orElseThrow();
+    public Shift update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                        @PathVariable Long shiftId, @RequestBody Shift updates) {
+        Shift shift = requireSameOrg(principal, shiftId);
         if (updates.getLabel() != null) shift.setLabel(updates.getLabel());
         if (updates.getStartTime() != null) shift.setStartTime(updates.getStartTime());
         if (updates.getEndTime() != null) shift.setEndTime(updates.getEndTime());
@@ -53,8 +55,16 @@ public class ShiftController {
     @DeleteMapping("/{shiftId}")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     @Transactional
-    public void deactivate(@PathVariable Long shiftId) {
+    public void deactivate(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                           @PathVariable Long shiftId) {
+        requireSameOrg(principal, shiftId).setActive(false);
+    }
+
+    private Shift requireSameOrg(AuthenticatedPrincipal principal, Long shiftId) {
         Shift shift = shiftRepository.findById(shiftId).orElseThrow();
-        shift.setActive(false);
+        if (!shift.getOrganizationId().equals(UUID.fromString(principal.organizationId()))) {
+            throw new AccessDeniedException("Shift belongs to another organization.");
+        }
+        return shift;
     }
 }

@@ -1,120 +1,193 @@
+@import "./styles/public-theme.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --sumi-primary: #c42441;
-  --sumi-secondary: #1735d3;
-  --sumi-accent: #ffb94f;
+    --sumi-primary: #eda0d8;
+    --sumi-secondary: #e086c7;
+    --sumi-accent: #b0d35d;
+    --sumi-font-display: 'Anton', 'IBM Plex Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --sumi-font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --sumi-app-font-display: 'IBM Plex Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --sumi-app-font-body: 'IBM Plex Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
 html, body { height: 100%; }
 body {
-  margin: 0;
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
+    margin: 0;
+    font-family: var(--sumi-font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
 }
 
-h1, h2, h3, .font-serif {
-  font-family: 'Playfair Display', Georgia, serif;
+h1, h2, h3, h4, .font-serif, .sumi-display {
+    font-family: var(--sumi-font-display);
+    letter-spacing: 0.01em;
 }
 
+.sumi-app-shell {
+    font-family: var(--sumi-app-font-body);
+}
+
+.sumi-app-shell h1,
+.sumi-app-shell h2,
+.sumi-app-shell h3,
+.sumi-app-shell h4 {
+    font-family: var(--sumi-app-font-display);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+}
+
+.sumi-brand-mark {
+    font-family: 'Anton', sans-serif;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
 
 a, button {
-  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
-  transition-duration: 150ms;
-  transition-timing-function: ease;
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 180ms;
+    transition-timing-function: ease;
 }
 
 button::selection,
 button *::selection,
 a::selection,
 a *::selection {
-  background: rgba(0, 0, 0, 0.2);
-  color: inherit;
+    background: rgba(0, 0, 0, 0.2);
+    color: inherit;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes sumi-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes sumi-slide-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sumi-slide-down {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sumi-pop {
+    0% { opacity: 0; transform: scale(0.92); }
+    60% { opacity: 1; transform: scale(1.02); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.sumi-fade-in {
+    animation: sumi-fade-in 220ms ease both;
+}
+
+.sumi-slide-up {
+    animation: sumi-slide-up 280ms ease both;
+}
+
+.anim-slide-down {
+    animation: sumi-slide-down 320ms ease both;
+}
+
+.anim-pop {
+    animation: sumi-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sumi-fade-in,
+    .sumi-slide-up,
+    .anim-slide-down,
+    .anim-pop {
+        animation: none;
+    }
+    a, button {
+        transition: none;
+    }
 }
 
 .sumi-spinner {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(148, 163, 184, 0.3);
-  border-top-color: var(--sumi-primary);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(148, 163, 184, 0.3);
+    border-top-color: var(--sumi-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
 }
 
 .sumi-spinner-sm {
-  width: 16px;
-  height: 16px;
-  border-width: 2px;
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
 }
 
 button:active:not(:disabled),
 [type="button"]:active:not(:disabled),
 [type="submit"]:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: inset 0 0 0 3px rgba(196, 36, 65, 0.20);
-  transition: transform 80ms ease, box-shadow 80ms ease;
+    transform: translateY(1px);
+    box-shadow: inset 0 0 0 3px rgba(237, 160, 216, 0.20);
+    transition: transform 80ms ease, box-shadow 80ms ease;
 }
 
 button.is-outline:active,
 .btn-outline:active {
-  background-color: rgba(196, 36, 65, 0.06);
+    background-color: rgba(237, 160, 216, 0.06);
 }
 
 
 @media print {
-  @page {
-    margin: 8mm;
-  }
+    @page {
+        margin: 8mm;
+    }
 
-  html, body {
-    background: white !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-  }
+    html, body {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+    }
 
-  
-  body * {
-    visibility: hidden !important;
-    box-shadow: none !important;
-  }
+    body * {
+        visibility: hidden !important;
+        box-shadow: none !important;
+    }
 
-  
-  .print-area-wrapper,
-  .print-area-wrapper * {
-    visibility: visible !important;
-  }
+    .print-area-wrapper,
+    .print-area-wrapper * {
+        visibility: visible !important;
+    }
 
-  
-  .print-area-wrapper {
-    position: absolute !important;
-    inset: 0 !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-    max-width: none !important;
-  }
+    .print-area-wrapper {
+        position: absolute !important;
+        inset: 0 !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        max-width: none !important;
+    }
 
-  
-  .print-area-wrapper article {
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    width: 100% !important;
-    page-break-inside: avoid;
-  }
+    .print-area-wrapper article {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        page-break-inside: avoid;
+    }
 
-  .no-print {
-    display: none !important;
-  }
+    .no-print {
+        display: none !important;
+    }
 }

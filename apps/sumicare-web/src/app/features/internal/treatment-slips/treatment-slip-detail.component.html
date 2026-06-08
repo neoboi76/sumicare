@@ -138,14 +138,14 @@
         <div class="row">
           <div class="cell" style="grid-column: span 2;">
             <span class="label">Locker Key #</span>
-            <div class="value">{{ s.lockerNumber | lockerLabel:s.clientGender }}</div>
+            <div class="value">{{ s.lockerNumber | lockerLabel:s.clientGender:false }}</div>
           </div>
         </div>
       } @else {
         <div class="row row-2">
           <div class="cell">
             <span class="label">Locker Key #</span>
-            <div class="value">{{ s.lockerNumber | lockerLabel:s.clientGender }}</div>
+            <div class="value">{{ s.lockerNumber | lockerLabel:s.clientGender:false }}</div>
           </div>
           <div class="cell">
             <span class="label">Room</span>
@@ -203,7 +203,7 @@
           <span class="label">Others / Add On</span>
           <div class="value">
             Extension: {{ s.extensionMinutes && s.extensionMinutes > 0 ? '+' + s.extensionMinutes + ' min' : 'None' }}
-            @if (s.othersAddOn) { &middot; {{ s.othersAddOn }} }
+            @if (s.othersAddOn && !s.othersAddOn.startsWith('Massage extension')) { &middot; {{ s.othersAddOn }} }
           </div>
         </div>
       </div>

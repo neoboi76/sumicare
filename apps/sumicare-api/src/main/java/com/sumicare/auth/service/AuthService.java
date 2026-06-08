@@ -57,8 +57,11 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
-        String key = httpRequest.getRemoteAddr() + ":" + request.username();
-        if (!rateLimiter.tryConsume(key)) {
+        String ip = clientIp(httpRequest);
+        boolean withinLimit = rateLimiter.tryConsume("ip:" + ip)
+                & rateLimiter.tryConsume("user:" + request.username())
+                & rateLimiter.tryConsume("ip:" + ip + ":user:" + request.username());
+        if (!withinLimit) {
             throw new LockedException("Too many login attempts");
         }
         try {
@@ -166,7 +169,13 @@ public class AuthService {
             throw new BadCredentialsException("Refresh token revoked");
         }
         UUID userId = UUID.fromString(claims.getSubject());
+        if (jwtService.isTokenIssuedBeforeRevocation(userId.toString(), claims.getIssuedAt().toInstant().getEpochSecond())) {
+            throw new BadCredentialsException("Refresh token revoked");
+        }
         User user = userRepository.findById(userId).orElseThrow(() -> new BadCredentialsException("Unknown user"));
+        if (!user.isActive() || user.isAccountLocked() || !user.isEmailVerified()) {
+            throw new AccessDeniedException("This account can no longer refresh its session.");
+        }
         long ttl = Math.max(claims.getExpiration().getTime() - System.currentTimeMillis(), 0L);
         jwtService.revoke(claims.getId(), Duration.ofMillis(ttl));
         String access = jwtService.issueAccessToken(user.getId(), user.getOrganizationId(), user.getRole().getCode());

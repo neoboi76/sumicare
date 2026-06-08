@@ -24,5 +24,6 @@ public record CreateBookingRequest(
         String paymentMethod,
         com.sumicare.cashier.dto.PaymentDetailsRequest paymentDetails,
         List<PublicAttendeeRequest> attendees,
-        List<CreateBookingItemRequest> items
+        List<CreateBookingItemRequest> items,
+        String voucherCode
 ) {}

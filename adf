@@ -1,0 +1,324 @@
+[33mcommit 26d308ce81464558c63843f5c77bac4d0678ef5d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeatures(supabase-UI-refactor-misc)[m[33m, [m[1;31morigin/features(supabase-UI-refactor-misc)[m[33m)[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Sun May 31 06:16:10 2026 +0800
+
+    strengthen security, tenancy isolation, session integrity, notifications, reporting performance, and platform cleanup
+    
+    fix(security): harden auth refresh, rate limiting, MFA, errors, and decking authz
+    Resolves C-001, S-007, S-008, SEC-001, SEC-002, SEC-003, SEC-004, L-004.
+    
+    fix(tenancy): enforce organization isolation on user, therapist, shift, and session paths
+    Resolves C-003, S-001, A-001. startAttendeeSession asserts order org; user/therapist/
+    shift mutations check the actor's organization; SessionRepository therapist queries are
+    org-scoped.
+    
+    fix(booking): correct extension billing and session lifecycle integrity
+    Resolves C-002, C-004, S-003, S-004, S-005, S-006. Extension reverts a paid order to OPEN
+    so the charge is collected and ledgered; endSessionAt is idempotent; cancel voids the slip;
+    voided slips are not resurrected; extend takes a pessimistic lock; public confirm requires
+    the real payment method.
+    
+    fix(pos): make PayMongo webhook reconciliation idempotent
+    Resolves C-006, D-007. Adds transaction_ledger.gateway_reference (changeset 0041) and skips
+    duplicate inflows; removes the dead bookingId description parse.
+    
+    perf(reports): batch-load report and order serialization, fix timezone and extension attribution
+    Resolves L-001, L-002, P-001, P-003. Aggregation jobs use Asia/Manila; the extension amount
+    attaches deterministically to the earliest slip group; report and order responses batch-load
+    therapists, rooms, sessions, and packages.
+    
+    fix(notifications): broadcast only on organization-scoped topics and clean up STOMP lifecycle
+    Resolves L-003, NF-1, NF-2. Drops the cross-tenant bare topics; the internal shell unsubscribes
+    router events and disconnects STOMP on destroy; frontend feeds subscribe to /topic/.../{orgId}.
+    
+    fix(therapist): gate the lineup on biometric clock-in with a safe fallback
+    Resolves C-005, D-002. LineupShiftSyncJob requires a same-day clock-in, falling back to
+    shift+active when an organization has no clock-ins; removes unused prependShift.
+    
+    refactor(cleanup): remove dead code and the unused decking_state table
+    Resolves D-001, D-003, D-004, D-005, D-006. Drops decking_state (changeset 0042), unused
+    service methods, the empty decking component and route, and an unused parameter.
+    
+    fix(ids): generate OR, receipt, and TS numbers from database sequences
+    Resolves V-005. Replaces System.currentTimeMillis() % N with Postgres sequences
+    (changeset 0043) via IdSequenceService; TS keeps the NNN-NNN format.
+    
+    refactor(web): live room map, atomic order-status load, and style cleanups
+    Resolves S-002, S-009, P-004, V-001, V-002, V-003, V-004. Reception subscribes to live room
+    updates; bookings load order statuses via forkJoin and sort in O(1); inline templates extracted;
+    any types removed; decorative checkmark replaced with text.
+    ```
+
+[33mcommit af60f221763add0e6ddb0dc76012d5abcdc3ff19[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Sat May 30 23:13:04 2026 +0800
+
+    Backup files
+
+[33mcommit f4e08b6707331590006ca9b7ba3233c3be93ada5[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Fri May 29 12:21:08 2026 +0800
+
+    feat(notifications): add real-time STOMP notifications, live booking updates, and public/treatment-slip UI refinements
+    fix(treatment-slip): render the peso symbol as Unicode so it survives HTML escaping
+    fix(treatment-slip): wrap long therapist nicknames inside the slip cells
+    fix(public): keep the public header on a solid cream band with static nav text
+    fix(public): strengthen the hero overlay and drop arbitrary-opacity body colors
+    feat(notifications): broadcast booking, order, message, and feedback events over STOMP
+    feat(notifications): add a notification feed service, toast stack, and sidebar badges
+    feat(bookings): subscribe the bookings page to live STOMP updates with a polling fallback
+    feat(reports): tag report rows with orderId and firstOfOrder for grouped amount rendering
+    fix(public): keep hero photos atmospheric and let editorial titles render in cream
+
+[33mcommit 6889e10abaa12b94fe52ada73dc40ff70b79b7f2[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Thu May 28 23:37:48 2026 +0800
+
+    improve editorial UI polish, booking validation, payment-status backfill, and treatment-slip PDF layout
+    fix(migrations): correct the booking.payment_status backfill to read from orders.status and orders.amount_paid
+    fix(booking): reject public booking submissions when the email belongs to a different nickname
+    fix(treatment-slip): cap the slip PDF at one A5 page with tighter type and explicit overflow control
+    fix(ui): swap the public header background to NgClass to actually toggle on scroll
+    feat(public): restore Contact and Feedback in the nav and rename Facilities to Services and Packages
+    
+    fix(public): replace broken Tailwind variable-opacity gradients with explicit rgba overlays
+    fix(public): strengthen editorial hero text-shadow for legibility over bright photos
+    fix(public): restore photo-backed service tiles using only vetted massage imagery
+
+[33mcommit e39dd72cb54d18fe745bcf1f3e3bbbae25736540[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Thu May 28 21:20:19 2026 +0800
+
+    enhance VIP booking extensions, voucher-enabled public booking, branding/editorial redesign, and booking/session integrity
+    feat(booking): allow extending a VIP package by converting its jacuzzi hour to massage at no extra charge
+    
+    feat(public): apply an optional voucher, including package-targeted vouchers, to online bookings
+    
+    style(treatment-slip): size the treatment slip to half of an A4 page
+    
+    fix(booking): require a locker before starting a guest's session
+    
+    fix(booking): reject a duplicate active locker for the same gender
+    
+    fix(bookings): leave the locker column blank for multi-package main rows
+    
+    fix(bookings): hide the extension button immediately after extending
+    
+    feat(booking): email cashier order confirmations and completion receipts to the registered client
+    
+    fix(client): reject duplicate client and user emails with a clear message
+    
+    fix(treatment-slip): show the extension once instead of duplicating it under others/add-on
+    
+    feat(batch): apply Batch Fixes #17
+    
+    feat(branding): install SumiCare colour tokens, Anton default, and logo assets
+    feat(branding): expose organization fontFamily through the branding API
+    feat(public): rebuild the public shell with packages/about/terms routes and a branded footer
+    feat(public): add the Packages page populated from the Lasema rate sheet
+    feat(public): add the About page with Lasema venue history and imagery
+    feat(public): add the Terms of Service page with consent and relaxation-only disclaimer
+    fix(public): remove per-service pricing and add descriptions plus imagery to the services page
+    chore(public): redirect /recommendation to /book?step=quiz
+    fix(booking): allow VIP packages to extend by converting the jacuzzi hour to massage at no extra charge
+    fix(booking): enforce one active session per attendee with a partial unique index
+    fix(booking): drop the gender prefix on single-guest locker displays end-to-end
+    fix(treatment-slip): switch the slip PDF to 12-hour time and a font that renders the peso glyph
+    fix(payment): keep booking.payment_status in sync with order.status on every payment write path and backfill drift
+    feat(email): show the payment method on the official receipt and completion email
+    chore(auth): lift the inactivity timeout from 15 minutes to 1 hour
+    
+    feat(public): rebuild the public site under the Lasema editorial chrome
+    feat(public): drop in the Lasema brush logo and remove SumiCare branding from the public header
+    feat(public): rebuild the landing page as a parallax editorial spread with chapters, pull-quote, and mosaic gallery
+    fix(public): replace the unreadable black book button with the forest-green editorial pill at WCAG-AAA contrast
+    feat(ui): add a scroll-triggered reveal directive and tailwind animation utilities
+    feat(public): re-skin About, Packages, Services, and Terms under the editorial chrome
+    chore(public): load Cormorant Garamond, Josefin Sans, Libre Baskerville, and Playfair Display from Google Fonts
+    chore(public): remove the "Your spa team can edit this site" placeholder copy across the site
+    
+    fix(public): make nav link colors actually toggle on scroll
+    fix(public): rebuild the "Powered by SumiCare" footer as a dark band with the white compact mark
+    fix(public): blend the Lasema brush logo into the chrome and add a soft drop-shadow
+    chore(public): drop "Philippine Wellness Guide" from the header and footer
+    fix(public): point "Take Our Quiz" at the recommendation route and re-skin that page
+    feat(public): add a dedicated /visit page with map, hours, and what-to-bring
+    feat(public): re-skin the feedback page under the editorial chrome
+    fix(public): replace the four broken Unsplash photos
+    feat(public): real scroll parallax and counter-up animations on the landing hero
+    feat(internal): show SumiCare branding by default and let it be overridden
+    chore(internal): switch the app font from Anton to IBM Plex Sans for a clean technical default
+    feat(branding): expose font family and organization name in the admin form with hot preview
+    feat(internal): add slide-in, hover, and reveal animations across the internal shell
+    
+    fix(public): replace mismatched service photos with an icon-on-color tile system
+    fix(public): rewrite landing mosaic captions and embed the real Lasema package menus in the strip
+    feat(public): add the Quiz nav item between Plan Your Visit and Book Now
+    fix(ui): animate the public mobile drawer and the internal sidebar in both directions
+    fix(public): strengthen hero overlays and add a text-shadow utility for legibility
+    fix(ui): restore the real SumiCare favicon
+    fix(ui): make every "Powered by SumiCare" footer chip text-only
+    feat(auth): redesign the login page with a two-column SumiCare brand split and staggered value chips
+    feat(ui): cross-fade every route transition on the public site and the internal app
+
+[33mcommit 75c14a48e9e5b47bf577ad9e0b7e2d2cef1fbb5d[m[33m ([m[1;31morigin/dev[m[33m)[m
+Merge: cbd9e26 f5df586
+Author: Dino Alfred T. Timbol <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 18:22:30 2026 +0800
+
+    Merge pull request #5 from neoboi76/features(paymongo-client-account-refactor)
+    
+    Features(paymongo client account refactor)
+
+[33mcommit f5df586ade84e6bbd173840a69e645427bd306ce[m[33m ([m[1;31morigin/features(paymongo-client-account-refactor)[m[33m, [m[1;32mfeatures(paymongo-client-account-refactor)[m[33m)[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 17:30:44 2026 +0800
+
+    add frontend Dockerfile
+
+[33mcommit e599b87a60af4d768173aad93169c9b0fd681e0e[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 17:28:50 2026 +0800
+
+    fix railpack config
+
+[33mcommit ddbe81f099612e84ba8b285bddaebead34f0d54d[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 17:27:01 2026 +0800
+
+    override npm ci with npm install
+
+[33mcommit 76cfbb7d0674bd559d7adb6b77aab2ceef030acd[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 17:22:48 2026 +0800
+
+    regenerate package-lock.json
+
+[33mcommit 319810d76304c6259e7fbe6ea934a35f054c07a2[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 17:21:07 2026 +0800
+
+    sync package-lock.json
+
+[33mcommit a53f6950665590e96f1b753bfd6defefe2cf41ac[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 17:19:38 2026 +0800
+
+    Delete railpack.json
+
+[33mcommit 5842b335779842f5f5d587816d3c6528cb931dbd[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 16:23:02 2026 +0800
+
+    fix: correct railpack.json commands format
+
+[33mcommit 0d5859c8912d7c58f0db084c6e018c34e160b075[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 16:19:28 2026 +0800
+
+    fix: override install command in railpack.json to use npm install
+
+[33mcommit 9bdee913050466ae4c4b75844054b0211803ccad[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 16:16:45 2026 +0800
+
+    chore: remove unused railpack-plan.json
+
+[33mcommit 9ffea4488be6c37200bbcd1da32e19bc83eb18de[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 16:13:34 2026 +0800
+
+    fix: use npm install instead of npm ci for Railway compatibility
+
+[33mcommit 229d6749a250f5548ead3e5c42fcecc3864732e6[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 16:02:36 2026 +0800
+
+    fix: upgrade zone.js to ~0.16.0 for Angular 21 compatibility
+
+[33mcommit c53d9dbd9348d691bb58eaaa6bdb62b976483a6b[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 15:55:31 2026 +0800
+
+    SumiCare charge-to-ledger payments, per-session report rows, complete booking email, and slip extension and bookings refinements
+    revert(treatment-slip): remove standalone slip creation so slips only come from sessions
+    
+    feat(cashier): charge payments to a selectable ledger including custom ledgers
+    
+    feat(ledger): show balances for custom ledgers and make them chargeable
+    
+    fix(ledger): remove the Home breadcrumb header
+    
+    fix(bookings): gate extension per attendee so only non-VIP non-fixed massages can extend
+    
+    fix(bookings): disable the extension button once a session is already extended
+    
+    feat(bookings): add a view slip link for single-guest bookings
+    
+    feat(booking): list every package, massage, and inclusion in the confirmation email
+    
+    fix(reports): split grouped sessions into their own rows without duplicating the amount
+    
+    feat(reports): export the monthly report as per-day revenue
+    
+    fix(treatment-slip): reflect a session extension on the slip immediately
+    
+    feat(batch): apply Batch Fixes #16
+
+[33mcommit f8c681b89fc2be434cee0bc95e5695f66a9eaf4b[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Tue May 26 10:35:05 2026 +0800
+
+    SumiCare package-driven VIP, per-attendee extension limits, manual slip and ledger creation, Registered Clients, pagination, and locker/feedback refinements
+    refactor(service): drop the standalone VIP massage service so VIP derives only from the package
+    
+    feat(treatment-slip): indicate extension under others/add-on and store it on the slip
+    
+    fix(bookings): gate extension per attendee so only non-fixed massage guests can extend
+    
+    feat(cashier): limit VIP package massage choices to durations within 60 minutes
+    
+    feat(treatment-slip): format TS numbers as six digits
+    
+    fix(cashier): derive group booking from package count and disable the manual toggle
+    
+    fix(bookings): leave the main service blank for multi-guest bookings
+    
+    fix(bookings): show a single source label instead of a redundant reservation type chip
+    
+    feat(rooms): prefix locker identifiers with the client gender
+    
+    feat(reports): paginate the reports, bookings, and rooms lists
+    
+    feat(treatment-slip): allow creating regular or VIP slips manually
+    
+    feat(feedback): carry and display the OR number with feedback
+    
+    feat(ledger): allow creating named ledger accounts manually
+    
+    feat(clients): add a Registered Clients section
+    
+    feat(batch): apply Batch Fixes #15
+
+[33mcommit 36d9b7119f149a514e7d484db79415ca5d3f354e[m
+Author: neoboi76 <dattimbol@mymail.mapua.edu.ph>
+Date:   Mon May 25 22:15:50 2026 +0800
+
+    SumiCare client-locked order edits, completion email with OR and slips, online-booking parity, multi-package public booking, and couple-aware room gender constraint
+    fix(cashier): keep an order locked to its registered client when editing
+    
+    feat(notification): email the registered client a completion receipt with the OR and treatment slips once the session ends and the order is settled
+    
+    fix(bookings): remove the slip action so treatment slips are managed only in the Treatment Slips module
+    
+    feat(bookings): label online reservations as online instead of walk-in
+    
+    fix(booking): give online bookings the same group session, commission, slip, and room handling as cashier orders
+    
+    feat(public): allow multiple packages in a single online booking with one guest per non-couple package
+    
+    fix(orders): align the order detail item columns and render em dashes correctly
+    
+    fix(room): exempt same couple or VIP package guests from the room gender constraint while still blocking other packages
+    
+    feat(batch): apply Batch Fixes #14

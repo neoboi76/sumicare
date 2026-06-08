@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -21,6 +22,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -30,10 +32,13 @@ public class FeedbackController {
 
     private final FeedbackRepository repository;
     private final OrganizationRepository organizationRepository;
+    private final com.sumicare.notification.service.NotificationService notificationService;
 
-    public FeedbackController(FeedbackRepository repository, OrganizationRepository organizationRepository) {
+    public FeedbackController(FeedbackRepository repository, OrganizationRepository organizationRepository,
+                              com.sumicare.notification.service.NotificationService notificationService) {
         this.repository = repository;
         this.organizationRepository = organizationRepository;
+        this.notificationService = notificationService;
     }
 
     @PostMapping("/api/public/feedback/{slug}")
@@ -49,7 +54,10 @@ public class FeedbackController {
         if (request.orNumber() != null && !request.orNumber().isBlank()) {
             feedback.setOrNumber(request.orNumber().trim());
         }
-        return repository.save(feedback);
+        Feedback saved = repository.save(feedback);
+        notificationService.broadcastFeedbackEvent(orgId, "FEEDBACK_RECEIVED", saved.getId(),
+                "New feedback (" + saved.getRatingStars() + " stars)");
+        return saved;
     }
 
     @GetMapping("/api/public/feedback/{slug}")
@@ -66,6 +74,24 @@ public class FeedbackController {
         return repository.findAllByOrganizationIdOrderBySubmittedAtDesc(
                 UUID.fromString(principal.organizationId()),
                 PageRequest.of(page, Math.min(size, 200)));
+    }
+
+    @GetMapping("/api/feedback/unread-count")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public Map<String, Long> unreadCount(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return Map.of("count", repository.countByOrganizationIdAndReadAtIsNull(
+                UUID.fromString(principal.organizationId())));
+    }
+
+    @PostMapping("/api/feedback/mark-all-read")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
+    public Map<String, Integer> markAllRead(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        int updated = repository.markAllRead(
+                UUID.fromString(principal.organizationId()),
+                OffsetDateTime.now(),
+                UUID.fromString(principal.userId()));
+        return Map.of("marked", updated);
     }
 
     @GetMapping(value = "/api/feedback/export.csv", produces = "text/csv")

@@ -17,6 +17,12 @@ interface Voucher {
   validUntil: string | null;
   redeemedAt: string | null;
   active: boolean;
+  targetPackageId: number | null;
+}
+
+interface PackageOption {
+  id: number;
+  name: string;
 }
 
 @Component({
@@ -29,6 +35,7 @@ interface Voucher {
 export class VouchersAdminComponent implements OnInit {
   private http = inject(HttpClient);
   vouchers = signal<Voucher[]>([]);
+  packages = signal<PackageOption[]>([]);
   showForm = signal(false);
   editingVoucher = signal<Voucher | null>(null);
 
@@ -39,6 +46,7 @@ export class VouchersAdminComponent implements OnInit {
   formFrom = '';
   formUntil = '';
   formActive = true;
+  formTargetPackageId: number | null = null;
 
   sortState = signal<SortState>({ key: 'code', direction: 'asc' });
 
@@ -56,12 +64,21 @@ export class VouchersAdminComponent implements OnInit {
 
   ngOnInit(): void {
     this.reload();
+    this.http.get<PackageOption[]>(`${environment.apiBaseUrl}/api/cashier/packages/all`).subscribe({
+      next: (p) => this.packages.set(p.map(x => ({ id: x.id, name: x.name }))),
+      error: () => this.packages.set([])
+    });
   }
 
   reload(): void {
     this.http.get<Voucher[]>(`${environment.apiBaseUrl}/api/vouchers`).subscribe({
       next: (v) => this.vouchers.set(v)
     });
+  }
+
+  packageName(id: number | null): string {
+    if (id == null) return 'Whole order';
+    return this.packages().find(p => p.id === id)?.name ?? 'Package';
   }
 
   status(v: Voucher): string {
@@ -78,7 +95,8 @@ export class VouchersAdminComponent implements OnInit {
       discountPercent: this.formPercent ? Number(this.formPercent) : null,
       validFrom: this.formFrom || null,
       validUntil: this.formUntil || null,
-      active: this.formActive
+      active: this.formActive,
+      targetPackageId: this.formTargetPackageId != null ? Number(this.formTargetPackageId) : null
     };
     const editing = this.editingVoucher();
     const req = editing
@@ -101,6 +119,7 @@ export class VouchersAdminComponent implements OnInit {
     this.formFrom = v.validFrom || '';
     this.formUntil = v.validUntil || '';
     this.formActive = v.active;
+    this.formTargetPackageId = v.targetPackageId;
     this.showForm.set(true);
   }
 
@@ -114,5 +133,6 @@ export class VouchersAdminComponent implements OnInit {
     this.formFrom = '';
     this.formUntil = '';
     this.formActive = true;
+    this.formTargetPackageId = null;
   }
 }

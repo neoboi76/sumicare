@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: sumicare-api
+  jackson:
+    time-zone: Asia/Manila
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/sumicare}
     username: ${DB_USERNAME}
@@ -69,7 +71,7 @@ sumicare:
   rateLimit:
     loginPerMinute: 10
   app:
-    publicBaseUrl: ${APP_PUBLIC_BASE_URL}
+    publicBaseUrl: ${APP_PUBLIC_BASE_URL:}
     emailFrom: ${EMAIL_FROM:noreply@sumicare.app}
   payment:
     paymongo:

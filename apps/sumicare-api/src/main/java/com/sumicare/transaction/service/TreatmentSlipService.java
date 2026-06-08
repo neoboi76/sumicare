@@ -40,6 +40,7 @@ public class TreatmentSlipService {
     private final OrderItemAttendeeRepository attendeeRepository;
     private final OrderItemRepository orderItemRepository;
     private final PackageRepository packageRepository;
+    private final com.sumicare.common.util.IdSequenceService idSequenceService;
 
     public TreatmentSlipService(TreatmentSlipRepository slipRepository,
                                 BookingRepository bookingRepository,
@@ -51,7 +52,8 @@ public class TreatmentSlipService {
                                 ClientRepository clientRepository,
                                 OrderItemAttendeeRepository attendeeRepository,
                                 OrderItemRepository orderItemRepository,
-                                PackageRepository packageRepository) {
+                                PackageRepository packageRepository,
+                                com.sumicare.common.util.IdSequenceService idSequenceService) {
         this.slipRepository = slipRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -63,6 +65,7 @@ public class TreatmentSlipService {
         this.attendeeRepository = attendeeRepository;
         this.orderItemRepository = orderItemRepository;
         this.packageRepository = packageRepository;
+        this.idSequenceService = idSequenceService;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -81,6 +84,9 @@ public class TreatmentSlipService {
         TreatmentSlip slip;
         if (existing.isPresent()) {
             slip = existing.get();
+            if ("VOIDED".equals(slip.getStatus())) {
+                return slip;
+            }
             slip.setSessionId(session.getId());
             if (!slip.isWaiverAccepted()) {
                 slip.setWaiverAccepted(true);
@@ -172,8 +178,10 @@ public class TreatmentSlipService {
 
         slip.setVip(packageVip);
         if (packageVip) {
-            if (slip.getJacuzziMinutes() == null) slip.setJacuzziMinutes(60);
-            if (slip.getMassageMinutes() == null) slip.setMassageMinutes(60);
+            int massage = slip.getTreatmentMinutes() != null ? slip.getTreatmentMinutes() : 60;
+            massage = Math.min(Math.max(massage, 0), 120);
+            slip.setMassageMinutes(massage);
+            slip.setJacuzziMinutes(Math.max(0, 120 - massage));
             if (slip.getWineIncluded() == null) slip.setWineIncluded(true);
         }
 
@@ -191,8 +199,9 @@ public class TreatmentSlipService {
         if (session.isExtension()) {
             int minutes = session.getExtensionMinutes() > 0 ? session.getExtensionMinutes() : 60;
             slip.setExtensionMinutes(minutes);
-            if (slip.getOthersAddOn() == null || slip.getOthersAddOn().isBlank()) {
-                slip.setOthersAddOn("Massage extension: +" + minutes + " min");
+            if (packageVip) {
+                int massage = slip.getMassageMinutes() == null ? 0 : slip.getMassageMinutes();
+                slip.setMassageMinutes(massage + minutes);
             }
         }
 
@@ -201,16 +210,17 @@ public class TreatmentSlipService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public byte[] exportToCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
-        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);
+        List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndScheduleBetween(organizationId, from, to);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         StringBuilder sb = new StringBuilder();
         sb.append("Slip Type,TSN,Date,Customer,Locker,Room,Therapist,Secondary Therapist,Requested Therapist,")
           .append("Service,Service Duration (min),Jacuzzi (min),Massage (min),Pax,Wine,")
           .append("Start,End,OR#,Add-on OR#,Others/Add-on,Remarks,Total,Waiver,Generated At\n");
         for (TreatmentSlip s : slips) {
+            OffsetDateTime slipDate = s.getStartTime() != null ? s.getStartTime() : s.getCreatedAt();
             sb.append(csvCell(s.isVip() ? "VIP" : "Regular")).append(',')
               .append(csvCell(s.getTsn())).append(',')
-              .append(csvCell(s.getCreatedAt() != null ? s.getCreatedAt().format(fmt) : "")).append(',')
+              .append(csvCell(slipDate != null ? slipDate.format(fmt) : "")).append(',')
               .append(csvCell(s.getClientNickname())).append(',')
               .append(csvCell(s.getLockerNumber())).append(',')
               .append(csvCell(s.getRoomNumber())).append(',')
@@ -246,9 +256,7 @@ public class TreatmentSlipService {
     }
 
     private String generateTsn() {
-        int first = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
-        int second = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
-        return String.format("%03d-%03d", first, second);
+        return idSequenceService.nextTsn();
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")

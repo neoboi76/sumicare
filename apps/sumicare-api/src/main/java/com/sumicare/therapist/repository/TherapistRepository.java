@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TherapistRepository extends JpaRepository<Therapist, UUID> {
+    List<Therapist> findAllByOrganizationId(UUID organizationId);
     List<Therapist> findAllByOrganizationIdAndActiveTrue(UUID organizationId);
     List<Therapist> findAllByOrganizationIdAndActiveFalse(UUID organizationId);
     Optional<Therapist> findByOrganizationIdAndStaffNumber(UUID organizationId, String staffNumber);

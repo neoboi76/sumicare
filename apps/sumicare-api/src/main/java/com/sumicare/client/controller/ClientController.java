@@ -5,11 +5,13 @@ import com.sumicare.client.domain.Client;
 import com.sumicare.client.repository.ClientRepository;
 import com.sumicare.organization.repository.OrganizationRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,18 +29,20 @@ public class ClientController {
     @PostMapping("/api/public/clients/{slug}")
     public Client register(@PathVariable String slug, @RequestBody Client request) {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
-        if (clientRepository.existsByOrganizationIdAndNickname(organizationId, request.getNickname())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Nickname already taken");
+        if (request.getEmail() != null && !request.getEmail().isBlank()
+                && clientRepository.existsByOrganizationIdAndEmailIgnoreCaseAndDeletedAtIsNull(organizationId, request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That email is already registered. Use a different email.");
         }
         request.setId(null);
         request.setOrganizationId(organizationId);
+        request.setDeletedAt(null);
         return clientRepository.save(request);
     }
 
-    @GetMapping("/api/public/clients/{slug}/check-nickname")
-    public boolean isAvailable(@PathVariable String slug, @RequestParam String nickname) {
+    @GetMapping("/api/public/clients/{slug}/check-email")
+    public boolean isEmailAvailable(@PathVariable String slug, @RequestParam String email) {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
-        return !clientRepository.existsByOrganizationIdAndNickname(organizationId, nickname);
+        return !clientRepository.existsByOrganizationIdAndEmailIgnoreCaseAndDeletedAtIsNull(organizationId, email);
     }
 
     @GetMapping("/api/clients")
@@ -47,9 +51,9 @@ public class ClientController {
                              @RequestParam(required = false) String q) {
         UUID orgId = UUID.fromString(principal.organizationId());
         if (q == null || q.isBlank()) {
-            return clientRepository.findAllByOrganizationIdOrderByNicknameAsc(orgId);
+            return clientRepository.findAllByOrganizationIdAndDeletedAtIsNullOrderByNicknameAsc(orgId);
         }
-        return clientRepository.findTop20ByOrganizationIdAndNicknameContainingIgnoreCaseOrderByNicknameAsc(orgId, q);
+        return clientRepository.findTop20ByOrganizationIdAndNicknameContainingIgnoreCaseAndDeletedAtIsNullOrderByNicknameAsc(orgId, q);
     }
 
     @PostMapping("/api/clients")
@@ -63,11 +67,29 @@ public class ClientController {
         if (request.getEmail() == null || request.getEmail().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email required");
         }
-        if (clientRepository.existsByOrganizationIdAndNickname(orgId, request.getNickname())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Nickname already taken");
+        if (clientRepository.existsByOrganizationIdAndEmailIgnoreCaseAndDeletedAtIsNull(orgId, request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That email is already registered. Use a different email.");
         }
         request.setId(null);
         request.setOrganizationId(orgId);
+        request.setDeletedAt(null);
         return clientRepository.save(request);
+    }
+
+    @DeleteMapping("/api/clients/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                       @PathVariable UUID id) {
+        UUID orgId = UUID.fromString(principal.organizationId());
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!client.getOrganizationId().equals(orgId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+        if (client.getDeletedAt() == null) {
+            client.setDeletedAt(OffsetDateTime.now());
+            clientRepository.save(client);
+        }
+        return ResponseEntity.noContent().build();
     }
 }

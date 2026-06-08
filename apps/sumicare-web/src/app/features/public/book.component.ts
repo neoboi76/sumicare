@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { PaymentDetailsModalComponent } from '../../shared/components/payment-details/payment-details-modal.component';
 import { PaymentDetails, PaymentDetailsService } from '../../shared/components/payment-details/payment-details.service';
+import { manilaToday, manilaNowTime, toManilaIso } from '../../shared/util/manila-time';
 
 interface ServiceItem {
   id: number;
@@ -75,6 +76,14 @@ interface BookingItemForm {
   attendees: AttendeeForm[];
 }
 
+interface AppliedVoucher {
+  code: string;
+  name: string | null;
+  discountAmount: number | null;
+  discountPercent: number | null;
+  targetPackageId: number | null;
+}
+
 @Component({
   selector: 'sumi-book',
   standalone: true,
@@ -119,24 +128,70 @@ export class BookComponent implements OnInit {
   consent = false;
   bookingItems = signal<BookingItemForm[]>([this.blankItem()]);
 
-  estimatedTotal = computed(() => {
+  voucherCode = '';
+  voucherError = signal<string | null>(null);
+  appliedVoucher = signal<AppliedVoucher | null>(null);
+
+  private itemAmount(item: BookingItemForm): number {
+    const pkg = this.packageById(item.packageId);
+    if (!pkg) return 0;
     let sum = 0;
-    for (const item of this.bookingItems()) {
-      const pkg = this.packageById(item.packageId);
-      if (!pkg) continue;
-      if (this.isDoubleItem(pkg)) {
-        const t = pkg.tiers.find(x => x.id === Number(item.attendees[0]?.packageTierId));
+    if (this.isDoubleItem(pkg)) {
+      const t = pkg.tiers.find(x => x.id === Number(item.attendees[0]?.packageTierId));
+      sum += t ? t.weekdayPrice : 0;
+    } else {
+      for (const a of item.attendees) {
+        const t = pkg.tiers.find(x => x.id === Number(a.packageTierId));
         sum += t ? t.weekdayPrice : 0;
-      } else {
-        for (const a of item.attendees) {
-          const t = pkg.tiers.find(x => x.id === Number(a.packageTierId));
-          sum += t ? t.weekdayPrice : 0;
-        }
       }
-      if (item.roomType === 'PRIVATE' && !pkg.requiresVipRoom) sum += 500;
     }
+    if (item.roomType === 'PRIVATE' && !pkg.requiresVipRoom) sum += 500;
     return sum;
+  }
+
+  grossTotal = computed(() => this.bookingItems().reduce((sum, item) => sum + this.itemAmount(item), 0));
+
+  voucherDiscount = computed(() => {
+    const v = this.appliedVoucher();
+    if (!v) return 0;
+    let base: number;
+    if (v.targetPackageId != null) {
+      base = this.bookingItems()
+        .filter(item => Number(item.packageId) === v.targetPackageId)
+        .reduce((sum, item) => sum + this.itemAmount(item), 0);
+      if (base <= 0) return 0;
+    } else {
+      base = this.grossTotal();
+    }
+    if (v.discountAmount != null) return Math.min(v.discountAmount, base);
+    if (v.discountPercent != null) return Math.round(base * v.discountPercent) / 100;
+    return 0;
   });
+
+  estimatedTotal = computed(() => Math.max(0, this.grossTotal() - this.voucherDiscount()));
+
+  applyVoucher(): void {
+    const code = this.voucherCode.trim();
+    this.voucherError.set(null);
+    if (!code) {
+      this.appliedVoucher.set(null);
+      return;
+    }
+    this.http
+      .get<AppliedVoucher>(`${environment.apiBaseUrl}/api/public/vouchers/${environment.defaultOrganizationSlug}/check?code=${encodeURIComponent(code)}`)
+      .subscribe({
+        next: (v) => {
+          this.appliedVoucher.set({ ...v, code });
+          if (this.voucherDiscount() <= 0) {
+            this.voucherError.set('This voucher does not apply to the selected packages.');
+          }
+        },
+        error: () => {
+          this.appliedVoucher.set(null);
+          this.voucherError.set('Voucher invalid or already redeemed.');
+        }
+      });
+  }
 
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
@@ -157,6 +212,18 @@ export class BookComponent implements OnInit {
       });
   }
 
+  get scheduleMinDate(): string {
+    return manilaToday();
+  }
+
+  get scheduleMinTime(): string | null {
+    return this.scheduledDate === manilaToday() ? manilaNowTime() : null;
+  }
+
+  dismissError(): void {
+    this.error.set(null);
+  }
+
   packageById(id: number | null): PublicPackage | null {
     if (id == null) return null;
     return this.packages().find(p => p.id === Number(id)) ?? null;
@@ -164,11 +231,7 @@ export class BookComponent implements OnInit {
 
   tiersFor(item: BookingItemForm): PublicPackageTier[] {
     const pkg = this.packageById(item.packageId);
-    const tiers = pkg?.tiers ?? [];
-    if (pkg?.requiresVipRoom) {
-      return tiers.filter(t => t.serviceDurationMinutes == null || t.serviceDurationMinutes <= 60);
-    }
-    return tiers;
+    return pkg?.tiers ?? [];
   }
 
   isDoubleItem(pkg: PublicPackage | null): boolean {
@@ -282,9 +345,13 @@ export class BookComponent implements OnInit {
       return;
     }
 
-    const combined = new Date(`${this.scheduledDate}T${this.scheduledTime}`);
-    if (isNaN(combined.getTime())) {
+    const scheduledIso = toManilaIso(this.scheduledDate, this.scheduledTime);
+    if (!scheduledIso) {
       this.error.set('Please enter a valid date and time.');
+      return;
+    }
+    if (new Date(scheduledIso).getTime() < Date.now()) {
+      this.error.set('Please choose a date and time in the future.');
       return;
     }
 
@@ -312,10 +379,11 @@ export class BookComponent implements OnInit {
       nationality: this.nationality.trim() || null,
       serviceId: Number(firstServiceId),
       reservationType: this.reservationType,
-      scheduledAt: combined.toISOString(),
+      scheduledAt: scheduledIso,
       clientGender: firstItem.attendees[0].clientGender,
       paymentMethod: this.reservationType === 'HARD' ? this.paymentMethod() : null,
-      items: payloadItems
+      items: payloadItems,
+      voucherCode: this.appliedVoucher() ? this.voucherCode.trim() : null
     };
 
     this.http
@@ -470,6 +538,9 @@ export class BookComponent implements OnInit {
     this.scheduledTime = '';
     this.consent = false;
     this.bookingItems.set([this.blankItem()]);
+    this.voucherCode = '';
+    this.appliedVoucher.set(null);
+    this.voucherError.set(null);
   }
 
   formatDateTime(iso: string | null): string {

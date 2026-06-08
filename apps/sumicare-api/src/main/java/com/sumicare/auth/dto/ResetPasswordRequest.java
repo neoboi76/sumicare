@@ -1,3 +1,5 @@
 package com.sumicare.auth.dto;
 
-public record ResetPasswordRequest(String token, String newPassword) {}
+import jakarta.validation.constraints.NotBlank;
+
+public record ResetPasswordRequest(@NotBlank String token, @NotBlank String newPassword) {}

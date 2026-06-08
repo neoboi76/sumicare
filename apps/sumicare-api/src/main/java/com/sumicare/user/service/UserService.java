@@ -86,6 +86,10 @@ public class UserService {
     @Transactional
     public UserResponse createUser(UUID organizationId, String actorRole, CreateUserRequest request) {
         enforceTierForNewRole(actorRole, request.role());
+        if (request.email() != null && !request.email().isBlank()
+                && userRepository.existsByEmailIgnoreCase(request.email())) {
+            throw new IllegalArgumentException("That email is already registered. Use a different email.");
+        }
         Role role = roleRepository.findByCode(request.role())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown role: " + request.role()));
         User user = new User();
@@ -132,6 +136,7 @@ public class UserService {
     @Transactional
     public UserResponse updateUser(UUID actorId, String actorRole, UUID userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId).orElseThrow();
+        requireSameOrganization(actorId, user);
         if (!actorId.equals(userId)) {
             enforceTierForTarget(actorRole, user);
         }
@@ -158,6 +163,7 @@ public class UserService {
             throw new IllegalArgumentException("Cannot deactivate your own account");
         }
         User target = userRepository.findById(userId).orElseThrow();
+        requireSameOrganization(actorId, target);
         enforceTierForTarget(actorRole, target);
         target.setActive(false);
         target.setUpdatedAt(OffsetDateTime.now());
@@ -169,6 +175,7 @@ public class UserService {
     @Transactional
     public UserResponse reactivateUser(UUID actorId, String actorRole, UUID userId) {
         User target = userRepository.findById(userId).orElseThrow();
+        requireSameOrganization(actorId, target);
         enforceTierForTarget(actorRole, target);
         target.setActive(true);
         target.setUpdatedAt(OffsetDateTime.now());
@@ -178,8 +185,9 @@ public class UserService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Transactional
-    public UserResponse unlockUser(String actorRole, UUID userId) {
+    public UserResponse unlockUser(UUID actorId, String actorRole, UUID userId) {
         User target = userRepository.findById(userId).orElseThrow();
+        requireSameOrganization(actorId, target);
         enforceTierForTarget(actorRole, target);
         target.setAccountLocked(false);
         target.setFailedLoginAttempts(0);
@@ -217,10 +225,18 @@ public class UserService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Transactional
-    public void sendResetLink(String actorRole, UUID targetUserId) {
+    public void sendResetLink(UUID actorId, String actorRole, UUID targetUserId) {
         User target = userRepository.findById(targetUserId).orElseThrow();
+        requireSameOrganization(actorId, target);
         enforceTierForTarget(actorRole, target);
         requestPasswordReset(targetUserId);
+    }
+
+    private void requireSameOrganization(UUID actorId, User target) {
+        User actor = userRepository.findById(actorId).orElseThrow();
+        if (!actor.getOrganizationId().equals(target.getOrganizationId())) {
+            throw new AccessDeniedException("User belongs to another organization.");
+        }
     }
 
     public List<User> listOrgAdmins(UUID organizationId) {
