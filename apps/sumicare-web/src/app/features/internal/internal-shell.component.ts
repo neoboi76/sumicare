@@ -109,6 +109,8 @@ export class InternalShellComponent implements OnInit, OnDestroy {
     const saved = localStorage.getItem('sumi_sidebar_open');
     if (saved !== null) {
       this.sidebarOpen.set(saved === 'true');
+    } else if (window.innerWidth < 1024) {
+      this.sidebarOpen.set(false);
     }
     this.idleTimeout.start();
     this.stomp.connect(this.session()?.accessToken ?? null);

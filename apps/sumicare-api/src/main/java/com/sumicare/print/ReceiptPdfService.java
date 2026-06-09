@@ -11,7 +11,7 @@ import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
 import com.sumicare.cashier.service.PackageService;
-import com.sumicare.common.config.AppProperties;
+import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.organization.domain.Organization;
 import com.sumicare.organization.repository.OrganizationRepository;
@@ -49,7 +49,7 @@ public class ReceiptPdfService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final PosTransactionRepository transactionRepository;
-    private final AppProperties appProperties;
+    private final BaseUrlResolver baseUrlResolver;
     private final PackageService packageService;
 
     public ReceiptPdfService(PdfRenderer pdfRenderer,
@@ -62,7 +62,7 @@ public class ReceiptPdfService {
                              OrganizationRepository organizationRepository,
                              UserRepository userRepository,
                              PosTransactionRepository transactionRepository,
-                             AppProperties appProperties,
+                             BaseUrlResolver baseUrlResolver,
                              PackageService packageService) {
         this.pdfRenderer = pdfRenderer;
         this.orderRepository = orderRepository;
@@ -74,7 +74,7 @@ public class ReceiptPdfService {
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
-        this.appProperties = appProperties;
+        this.baseUrlResolver = baseUrlResolver;
         this.packageService = packageService;
     }
 
@@ -162,7 +162,7 @@ public class ReceiptPdfService {
                 ? "<tr><td class=\"lbl\">Tax</td><td class=\"val\">" + fmt(orderTax) + "</td></tr>"
                 : "";
 
-        String feedbackUrl = appProperties.app().publicBaseUrl() + "/feedback?or="
+        String feedbackUrl = baseUrlResolver.resolve() + "/feedback?or="
                 + java.net.URLEncoder.encode(order.getOrNumber() == null ? "" : order.getOrNumber(),
                         java.nio.charset.StandardCharsets.UTF_8);
         String qrDataUri = QrCodeUtil.pngDataUri(feedbackUrl, 160);

@@ -650,6 +650,7 @@ public class OrderService {
             materialiseAttendeeSessions(order);
         }
         orderRepository.save(order);
+        bookingService.resendBookingConfirmation(order);
 
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
@@ -700,6 +701,7 @@ public class OrderService {
                 materialiseAttendeeSessions(order);
             }
             orderRepository.save(order);
+            bookingService.resendBookingConfirmation(order);
             return new com.sumicare.cashier.dto.PayMongoInitiateResponse("succeeded", result.intentId(), null);
         }
 
@@ -757,6 +759,7 @@ public class OrderService {
             materialiseAttendeeSessions(order);
         }
         orderRepository.save(order);
+        bookingService.resendBookingConfirmation(order);
         return true;
     }
 

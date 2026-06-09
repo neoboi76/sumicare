@@ -1,6 +1,6 @@
 package com.sumicare.print;
 
-import com.sumicare.common.config.AppProperties;
+import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
@@ -21,13 +21,13 @@ public class TreatmentSlipPdfService {
 
     private final PdfRenderer pdfRenderer;
     private final TreatmentSlipRepository slipRepository;
-    private final AppProperties appProperties;
+    private final BaseUrlResolver baseUrlResolver;
 
     public TreatmentSlipPdfService(PdfRenderer pdfRenderer, TreatmentSlipRepository slipRepository,
-                                   AppProperties appProperties) {
+                                   BaseUrlResolver baseUrlResolver) {
         this.pdfRenderer = pdfRenderer;
         this.slipRepository = slipRepository;
-        this.appProperties = appProperties;
+        this.baseUrlResolver = baseUrlResolver;
     }
 
     public byte[] renderSlip(UUID slipId) {
@@ -139,7 +139,7 @@ public class TreatmentSlipPdfService {
 
         sb.append("<div class=\"sig\">Signature over printed name</div>");
 
-        String feedbackUrl = appProperties.app().publicBaseUrl() + "/feedback?slip="
+        String feedbackUrl = baseUrlResolver.resolve() + "/feedback?slip="
                 + java.net.URLEncoder.encode(slip.getTsn() == null ? "" : slip.getTsn(),
                         java.nio.charset.StandardCharsets.UTF_8);
         String qrDataUri = QrCodeUtil.pngDataUri(feedbackUrl, 180);
