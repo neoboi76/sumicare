@@ -73,6 +73,10 @@ sumicare:
   app:
     publicBaseUrl: ${APP_PUBLIC_BASE_URL:}
     emailFrom: ${EMAIL_FROM:noreply@sumicare.app}
+  email:
+    provider: ${EMAIL_PROVIDER:smtp}
+    fromName: ${EMAIL_FROM_NAME:New Lasema Spa Jjimjilbang}
+    brevoApiKey: ${BREVO_API_KEY:}
   payment:
     paymongo:
       secretKey: ${PAYMONGO_SECRET_KEY}
