@@ -11,7 +11,8 @@ public record AppProperties(
         Bcrypt bcrypt,
         RateLimit rateLimit,
         App app,
-        Payment payment
+        Payment payment,
+        Email email
 ) {
     public record Jwt(String secret, long accessExpiryMs, long refreshExpiryMs) {}
     public record Cors(String allowedOrigins) {}
@@ -23,4 +24,5 @@ public record AppProperties(
     public record Payment(Paymongo paymongo) {
         public record Paymongo(String secretKey, String publicKey, String webhookSecret, boolean mockMode) {}
     }
+    public record Email(String provider, String fromName, String brevoApiKey) {}
 }

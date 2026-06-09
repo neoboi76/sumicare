@@ -1,27 +1,27 @@
 package com.sumicare.auth.service;
 
+import com.sumicare.auth.email.Attachment;
+import com.sumicare.auth.email.EmailMessage;
+import com.sumicare.auth.email.EmailSender;
+import com.sumicare.auth.email.InlineImage;
 import com.sumicare.common.config.AppProperties;
 import com.sumicare.common.util.QrCodeUtil;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.util.ByteArrayDataSource;
-
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final EmailSender emailSender;
     private final AppProperties appProperties;
 
-    public EmailService(JavaMailSender mailSender, AppProperties appProperties) {
-        this.mailSender = mailSender;
+    public EmailService(EmailSender emailSender, AppProperties appProperties) {
+        this.emailSender = emailSender;
         this.appProperties = appProperties;
     }
 
@@ -268,28 +268,20 @@ public class EmailService {
 
     private void sendHtmlWithAttachments(String to, String subject, String body, String feedbackUrl,
                                          byte[] receiptPdf, List<EmailAttachment> slipPdfs) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(appProperties.app().emailFrom());
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(withPoweredBy(body), true);
-            helper.addInline("feedbackQr", new ByteArrayDataSource(QrCodeUtil.pngBytes(feedbackUrl, 160), "image/png"));
-            if (receiptPdf != null && receiptPdf.length > 0) {
-                helper.addAttachment("official-receipt.pdf", new ByteArrayDataSource(receiptPdf, "application/pdf"));
-            }
-            if (slipPdfs != null) {
-                for (EmailAttachment slip : slipPdfs) {
-                    if (slip.content() != null && slip.content().length > 0) {
-                        helper.addAttachment(slip.filename(), new ByteArrayDataSource(slip.content(), "application/pdf"));
-                    }
+        List<InlineImage> inlineImages = List.of(
+                new InlineImage("feedbackQr", "feedback-qr.png", QrCodeUtil.pngBytes(feedbackUrl, 160)));
+        List<Attachment> attachments = new ArrayList<>();
+        if (receiptPdf != null && receiptPdf.length > 0) {
+            attachments.add(new Attachment("official-receipt.pdf", "application/pdf", receiptPdf));
+        }
+        if (slipPdfs != null) {
+            for (EmailAttachment slip : slipPdfs) {
+                if (slip.content() != null && slip.content().length > 0) {
+                    attachments.add(new Attachment(slip.filename(), "application/pdf", slip.content()));
                 }
             }
-            mailSender.send(message);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send completion email", e);
         }
+        emailSender.send(new EmailMessage(to, subject, withPoweredBy(body), inlineImages, attachments));
     }
 
     @Async
@@ -321,17 +313,7 @@ public class EmailService {
     }
 
     private void sendHtml(String to, String subject, String body) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(appProperties.app().emailFrom());
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(withPoweredBy(body), true);
-            mailSender.send(message);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send email", e);
-        }
+        emailSender.send(EmailMessage.html(to, subject, withPoweredBy(body)));
     }
 
     private String withPoweredBy(String body) {
