@@ -35,6 +35,8 @@
         <tr>
           <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('createdAt')">Created{{
             sortIcon('createdAt') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('scheduledAt')">Schedule{{
+            sortIcon('scheduledAt') }}</th>
           <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('orNumber')">OR#{{
             sortIcon('orNumber') }}</th>
           <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('clientNickname')">Client{{
@@ -58,6 +60,7 @@
         @for (o of paginatedOrders(); track o.id) {
         <tr>
           <td class="px-3 py-2 text-xs">{{ formatDate(o.createdAt) }}</td>
+          <td class="px-3 py-2 text-xs">{{ formatSchedule(o.scheduledAt) }}</td>
           <td class="px-3 py-2 font-mono text-xs">{{ o.orNumber || '\u2014' }}</td>
           <td class="px-3 py-2">
             {{ o.transactorName || o.clientNickname || '\u2014' }}

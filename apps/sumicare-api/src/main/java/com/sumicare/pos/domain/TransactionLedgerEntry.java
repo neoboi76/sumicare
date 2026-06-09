@@ -38,6 +38,9 @@ public class TransactionLedgerEntry {
     @Column(name = "status", nullable = false, length = 20)
     private String status = "COMPLETED";
 
+    @Column(name = "gateway_reference", length = 128)
+    private String gatewayReference;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -56,4 +59,6 @@ public class TransactionLedgerEntry {
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getGatewayReference() { return gatewayReference; }
+    public void setGatewayReference(String gatewayReference) { this.gatewayReference = gatewayReference; }
 }

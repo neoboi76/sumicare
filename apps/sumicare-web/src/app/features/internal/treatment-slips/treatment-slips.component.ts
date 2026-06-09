@@ -94,14 +94,14 @@ export class TreatmentSlipsComponent implements OnInit {
 
   formatTime(iso: string | null): string {
     if (!iso) return '-';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit' });
   }
 
   private dayBounds(): { from: string; to: string } {
     const d = this.selectedDate();
     return {
-      from: `${d}T00:00:00.000Z`,
-      to: `${d}T23:59:59.999Z`
+      from: `${d}T00:00:00.000+08:00`,
+      to: `${d}T23:59:59.999+08:00`
     };
   }
 }

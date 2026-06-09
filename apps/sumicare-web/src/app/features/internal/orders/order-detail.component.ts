@@ -56,6 +56,7 @@ interface Order {
   amountPaid: number;
   balance: number;
   status: string;
+  scheduledAt: string | null;
   createdAt: string;
   completedAt: string | null;
   finishedAt: string | null;
@@ -406,8 +407,17 @@ export class OrderDetailComponent implements OnInit {
 
   formatDate(iso: string | null): string {
     return iso ? new Date(iso).toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', hour12: false
+    }) : '\u2014';
+  }
+
+  formatSchedule(iso: string | null): string {
+    return iso ? new Date(iso).toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true
     }) : '\u2014';
   }
 

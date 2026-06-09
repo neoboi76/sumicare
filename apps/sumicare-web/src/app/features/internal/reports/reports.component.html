@@ -96,19 +96,27 @@
         </thead>
         <tbody class="divide-y divide-slate-100">
           @for (row of pagedDailyRows(); track $index) {
-          <tr>
-            <td class="px-2 py-1.5">{{ row.checkInTime }}</td>
+          <tr [class.border-t-2]="row.firstOfOrder" [class.border-[var(--sumi-primary)]]="row.firstOfOrder" [class.bg-slate-50]="!row.firstOfOrder">
+            <td class="px-2 py-1.5" [class.pl-6]="!row.firstOfOrder">{{ row.checkInTime }}</td>
             <td class="px-2 py-1.5 font-mono">{{ row.orNumber }}</td>
             <td class="px-2 py-1.5">{{ row.lockerNumber }}</td>
             <td class="px-2 py-1.5">
-              @if (row.packageName) {
-                <span class="text-slate-400 text-[10px] block leading-tight">{{ row.packageName }}</span>
-              } @else {
-                <span class="text-slate-400 text-[10px] block leading-tight">(walk-in service)</span>
+              @if (row.firstOfOrder) {
+                @if (row.packageName) {
+                  <span class="text-slate-400 text-[10px] block leading-tight">{{ row.packageName }}</span>
+                } @else {
+                  <span class="text-slate-400 text-[10px] block leading-tight">(walk-in service)</span>
+                }
               }
               {{ row.treatment }}
             </td>
-            <td class="px-2 py-1.5 text-right">&#8369; {{ row.amount | number:'1.2-2' }}</td>
+            <td class="px-2 py-1.5 text-right">
+              @if (row.firstOfOrder) {
+                <span>&#8369; {{ row.amount | number:'1.2-2' }}</span>
+              } @else {
+                <span class="text-slate-300">&middot;</span>
+              }
+            </td>
             <td class="px-2 py-1.5 font-mono">{{ row.tsn }}</td>
             <td class="px-2 py-1.5">{{ row.therapist }}</td>
             <td class="px-2 py-1.5">{{ row.room }}</td>
@@ -352,7 +360,7 @@
       <div class="sumi-spinner"></div>
     </div>
     } @else if (deckingReport(); as r) {
-    <div class="text-xs text-slate-400 mt-2 mb-1 px-1">Legend: ♥ = requested &middot; ★ = scrub &middot; | = ordinary
+    <div class="text-xs text-slate-400 mt-2 mb-1 px-1">Legend: ♥ = requested &middot; ★ = scrub &middot; (★ &amp; ♥) = requested scrub &middot; | = ordinary
     </div>
 
     <table class="w-full text-sm mt-3 border-separate border-spacing-0">

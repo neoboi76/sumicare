@@ -1,33 +1,33 @@
 package com.sumicare.auth.service;
 
-import com.sumicare.common.config.AppProperties;
+import com.sumicare.auth.email.Attachment;
+import com.sumicare.auth.email.EmailMessage;
+import com.sumicare.auth.email.EmailSender;
+import com.sumicare.auth.email.InlineImage;
+import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.common.util.QrCodeUtil;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.util.ByteArrayDataSource;
-
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
-    private final AppProperties appProperties;
+    private final EmailSender emailSender;
+    private final BaseUrlResolver baseUrlResolver;
 
-    public EmailService(JavaMailSender mailSender, AppProperties appProperties) {
-        this.mailSender = mailSender;
-        this.appProperties = appProperties;
+    public EmailService(EmailSender emailSender, BaseUrlResolver baseUrlResolver) {
+        this.emailSender = emailSender;
+        this.baseUrlResolver = baseUrlResolver;
     }
 
     @Async
     public void sendVerificationEmail(String to, String displayName, String token) {
-        String link = appProperties.app().publicBaseUrl() + "/verify?token=" + token;
+        String link = baseUrlResolver.resolve() + "/verify?token=" + token;
         String subject = "Confirm your New Lasema Spa Jjimjilbang account";
         String body = """
                 <html>
@@ -52,7 +52,7 @@ public class EmailService {
 
     @Async
     public void sendPasswordResetEmail(String to, String displayName, String token) {
-        String link = appProperties.app().publicBaseUrl() + "/reset-password?token=" + token;
+        String link = baseUrlResolver.resolve() + "/reset-password?token=" + token;
         String subject = "Reset your New Lasema Spa Jjimjilbang password";
         String body = """
                 <html>
@@ -77,7 +77,7 @@ public class EmailService {
 
     @Async
     public void sendInvitationEmail(String to, String displayName, String token) {
-        String link = appProperties.app().publicBaseUrl() + "/invite?token=" + token;
+        String link = baseUrlResolver.resolve() + "/invite?token=" + token;
         String subject = "You have been invited to New Lasema Spa Jjimjilbang";
         String body = """
                 <html>
@@ -153,6 +153,7 @@ public class EmailService {
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Scheduled</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Effective start</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Room</td><td style="padding: 6px 12px;">%s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">Payment method</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Total</td><td style="padding: 6px 12px;">&#8369; %s</td></tr>
                   </table>
                   <p style="margin-top: 24px;">Sessions begin 15 minutes after your scheduled time to allow room preparation. Please arrive a few minutes early.</p>
@@ -169,6 +170,7 @@ public class EmailService {
                         payload.scheduled(),
                         payload.effectiveStart(),
                         payload.roomType(),
+                        payload.paymentMethod() == null || payload.paymentMethod().isBlank() ? "Pending" : payload.paymentMethod(),
                         payload.total());
         sendHtml(to, subject, body);
     }
@@ -183,6 +185,7 @@ public class EmailService {
             String scheduled,
             String effectiveStart,
             String roomType,
+            String paymentMethod,
             String total) {}
 
     public record CompletionEmailPayload(
@@ -191,7 +194,9 @@ public class EmailService {
             List<String> availed,
             String scheduled,
             String effectiveStart,
-            String total) {}
+            String total,
+            String paymentMethod,
+            List<String> slipLines) {}
 
     public record EmailAttachment(String filename, byte[] content) {}
 
@@ -200,7 +205,7 @@ public class EmailService {
                                     byte[] receiptPdf, List<EmailAttachment> slipPdfs) {
         String subject = "Thanks for Choosing New Lasema Spa Jjimjilbang";
         String orForLink = payload.orNumber() == null ? "" : payload.orNumber();
-        String feedbackUrl = appProperties.app().publicBaseUrl()
+        String feedbackUrl = baseUrlResolver.resolve()
                 + "/feedback?or=" + URLEncoder.encode(orForLink, StandardCharsets.UTF_8);
         StringBuilder availedRows = new StringBuilder();
         if (payload.availed() != null) {
@@ -210,6 +215,16 @@ public class EmailService {
                         .append("</td></tr>");
             }
         }
+        StringBuilder slipRows = new StringBuilder();
+        if (payload.slipLines() != null) {
+            for (String line : payload.slipLines()) {
+                slipRows.append("<tr><td style=\"padding: 6px 12px;\">")
+                        .append(line == null ? "" : line)
+                        .append("</td></tr>");
+            }
+        }
+        String paymentMethodLabel = payload.paymentMethod() == null || payload.paymentMethod().isBlank()
+                ? "" : payload.paymentMethod();
         String body = """
                 <html>
                 <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
@@ -220,10 +235,12 @@ public class EmailService {
                   <table style="border-collapse: collapse; margin-top: 16px;">
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Reference</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">OR #</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">Payment method</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Scheduled</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Effective start</td><td style="padding: 6px 12px;">%s</td></tr>
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Total</td><td style="padding: 6px 12px;">&#8369; %s</td></tr>
                   </table>
+                  %s
                   <p style="margin-top: 24px;">A copy of your official receipt and treatment slips are attached. We would love your feedback &mdash; scan the code below:</p>
                   <p style="margin: 8px 0;"><img src="cid:feedbackQr" alt="Feedback QR code" style="width: 160px; height: 160px;" /></p>
                   <p style="font-size: 12px;"><a href="%s" style="color: #0F766E;">%s</a></p>
@@ -237,9 +254,13 @@ public class EmailService {
                         availedRows.toString(),
                         payload.reference(),
                         payload.orNumber() == null || payload.orNumber().isBlank() ? "To be issued" : payload.orNumber(),
+                        paymentMethodLabel,
                         payload.scheduled() == null ? "" : payload.scheduled(),
                         payload.effectiveStart() == null ? "" : payload.effectiveStart(),
                         payload.total() == null ? "" : payload.total(),
+                        slipRows.length() == 0 ? "" :
+                                "<h3 style=\"margin-top: 24px; color: #1a1a1a;\">Treatment slips</h3>" +
+                                "<table style=\"border-collapse: collapse; margin-top: 8px; width: 100%;\">" + slipRows + "</table>",
                         feedbackUrl,
                         feedbackUrl);
         sendHtmlWithAttachments(to, subject, body, feedbackUrl, receiptPdf, slipPdfs);
@@ -247,28 +268,20 @@ public class EmailService {
 
     private void sendHtmlWithAttachments(String to, String subject, String body, String feedbackUrl,
                                          byte[] receiptPdf, List<EmailAttachment> slipPdfs) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(appProperties.app().emailFrom());
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(withPoweredBy(body), true);
-            helper.addInline("feedbackQr", new ByteArrayDataSource(QrCodeUtil.pngBytes(feedbackUrl, 160), "image/png"));
-            if (receiptPdf != null && receiptPdf.length > 0) {
-                helper.addAttachment("official-receipt.pdf", new ByteArrayDataSource(receiptPdf, "application/pdf"));
-            }
-            if (slipPdfs != null) {
-                for (EmailAttachment slip : slipPdfs) {
-                    if (slip.content() != null && slip.content().length > 0) {
-                        helper.addAttachment(slip.filename(), new ByteArrayDataSource(slip.content(), "application/pdf"));
-                    }
+        List<InlineImage> inlineImages = List.of(
+                new InlineImage("feedbackQr", "feedback-qr.png", QrCodeUtil.pngBytes(feedbackUrl, 160)));
+        List<Attachment> attachments = new ArrayList<>();
+        if (receiptPdf != null && receiptPdf.length > 0) {
+            attachments.add(new Attachment("official-receipt.pdf", "application/pdf", receiptPdf));
+        }
+        if (slipPdfs != null) {
+            for (EmailAttachment slip : slipPdfs) {
+                if (slip.content() != null && slip.content().length > 0) {
+                    attachments.add(new Attachment(slip.filename(), "application/pdf", slip.content()));
                 }
             }
-            mailSender.send(message);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send completion email", e);
         }
+        emailSender.send(new EmailMessage(to, subject, withPoweredBy(body), inlineImages, attachments));
     }
 
     @Async
@@ -300,17 +313,7 @@ public class EmailService {
     }
 
     private void sendHtml(String to, String subject, String body) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(appProperties.app().emailFrom());
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(withPoweredBy(body), true);
-            mailSender.send(message);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send email", e);
-        }
+        emailSender.send(EmailMessage.html(to, subject, withPoweredBy(body)));
     }
 
     private String withPoweredBy(String body) {

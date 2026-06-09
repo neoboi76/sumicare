@@ -7,6 +7,7 @@ import com.sumicare.therapist.dto.TherapistResponse;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.therapist.service.TherapistService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,17 +58,26 @@ public class TherapistController {
     @DeleteMapping("/{therapistId}")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     @Transactional
-    public void deactivate(@PathVariable UUID therapistId) {
-        Therapist t = therapistRepository.findById(therapistId).orElseThrow();
-        t.setActive(false);
+    public void deactivate(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                           @PathVariable UUID therapistId) {
+        requireSameOrg(principal, therapistId).setActive(false);
     }
 
     @PostMapping("/{therapistId}/reactivate")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     @Transactional
-    public TherapistResponse reactivate(@PathVariable UUID therapistId) {
-        Therapist t = therapistRepository.findById(therapistId).orElseThrow();
+    public TherapistResponse reactivate(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                        @PathVariable UUID therapistId) {
+        Therapist t = requireSameOrg(principal, therapistId);
         t.setActive(true);
         return therapistService.toResponse(t);
+    }
+
+    private Therapist requireSameOrg(AuthenticatedPrincipal principal, UUID therapistId) {
+        Therapist t = therapistRepository.findById(therapistId).orElseThrow();
+        if (!t.getOrganizationId().equals(UUID.fromString(principal.organizationId()))) {
+            throw new AccessDeniedException("Therapist belongs to another organization.");
+        }
+        return t;
     }
 }

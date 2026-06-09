@@ -38,6 +38,12 @@ public class Feedback {
     @Column(name = "submitted_at", nullable = false, updatable = false)
     private OffsetDateTime submittedAt = OffsetDateTime.now();
 
+    @Column(name = "read_at")
+    private OffsetDateTime readAt;
+
+    @Column(name = "read_by_user_id", columnDefinition = "uuid")
+    private UUID readByUserId;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -56,4 +62,8 @@ public class Feedback {
     public void setOrNumber(String orNumber) { this.orNumber = orNumber; }
     public OffsetDateTime getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(OffsetDateTime submittedAt) { this.submittedAt = submittedAt; }
+    public OffsetDateTime getReadAt() { return readAt; }
+    public void setReadAt(OffsetDateTime readAt) { this.readAt = readAt; }
+    public UUID getReadByUserId() { return readByUserId; }
+    public void setReadByUserId(UUID readByUserId) { this.readByUserId = readByUserId; }
 }

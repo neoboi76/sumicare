@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0041-1-ledger-gateway-reference" author="sumicare">
+        <addColumn tableName="transaction_ledger">
+            <column name="gateway_reference" type="VARCHAR(128)"/>
+        </addColumn>
+        <createIndex tableName="transaction_ledger" indexName="ix_ledger_gateway_reference">
+            <column name="gateway_reference"/>
+        </createIndex>
+        <rollback>
+            <dropIndex tableName="transaction_ledger" indexName="ix_ledger_gateway_reference"/>
+            <dropColumn tableName="transaction_ledger" columnName="gateway_reference"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

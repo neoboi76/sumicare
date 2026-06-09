@@ -1,6 +1,6 @@
 package com.sumicare.print;
 
-import com.sumicare.common.config.AppProperties;
+import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
@@ -16,18 +16,18 @@ import java.util.UUID;
 public class TreatmentSlipPdfService {
 
     private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy");
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("h:mm a");
 
     private final PdfRenderer pdfRenderer;
     private final TreatmentSlipRepository slipRepository;
-    private final AppProperties appProperties;
+    private final BaseUrlResolver baseUrlResolver;
 
     public TreatmentSlipPdfService(PdfRenderer pdfRenderer, TreatmentSlipRepository slipRepository,
-                                   AppProperties appProperties) {
+                                   BaseUrlResolver baseUrlResolver) {
         this.pdfRenderer = pdfRenderer;
         this.slipRepository = slipRepository;
-        this.appProperties = appProperties;
+        this.baseUrlResolver = baseUrlResolver;
     }
 
     public byte[] renderSlip(UUID slipId) {
@@ -39,7 +39,7 @@ public class TreatmentSlipPdfService {
         if (slip.getSecondaryTherapistNickname() != null && !slip.getSecondaryTherapistNickname().isBlank()) {
             therapist += " / " + slip.getSecondaryTherapistNickname();
         }
-        String lockerDisplay = lockerWithGender(slip.getLockerNumber(), slip.getClientGender());
+        String lockerDisplay = rawLocker(slip.getLockerNumber());
         String othersDisplay = othersWithExtension(slip.getExtensionMinutes(), slip.getOthersAddOn());
 
         StringBuilder sb = new StringBuilder();
@@ -72,10 +72,11 @@ public class TreatmentSlipPdfService {
           .append(cell("Nationality", slip.getNationality() == null ? "" : slip.getNationality()))
           .append("</div>");
 
+        java.time.OffsetDateTime slipDate = slip.getStartTime() != null ? slip.getStartTime() : slip.getCreatedAt();
         sb.append("<div class=\"row row-2\">")
           .append(cell("TS #", slip.getTsn() == null ? "" : slip.getTsn()))
-          .append(cell("Date", slip.getCreatedAt() == null ? "" :
-                  slip.getCreatedAt().atZoneSameInstant(MANILA).format(DATE_FMT)))
+          .append(cell("Date", slipDate == null ? "" :
+                  slipDate.atZoneSameInstant(MANILA).format(DATE_FMT)))
           .append("</div>");
 
         if (vip) {
@@ -138,7 +139,7 @@ public class TreatmentSlipPdfService {
 
         sb.append("<div class=\"sig\">Signature over printed name</div>");
 
-        String feedbackUrl = appProperties.app().publicBaseUrl() + "/feedback?slip="
+        String feedbackUrl = baseUrlResolver.resolve() + "/feedback?slip="
                 + java.net.URLEncoder.encode(slip.getTsn() == null ? "" : slip.getTsn(),
                         java.nio.charset.StandardCharsets.UTF_8);
         String qrDataUri = QrCodeUtil.pngDataUri(feedbackUrl, 180);
@@ -153,33 +154,37 @@ public class TreatmentSlipPdfService {
             <!DOCTYPE html>
             <html><head><meta charset="UTF-8"/>
             <style>
-              @page { size: A6 portrait; margin: 4mm; }
-              body { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #000; }
-              .slip { width: 100%; border: 1.5px solid #000; }
+              @page { size: A5 portrait; margin: 5mm; }
+              html, body { margin: 0; padding: 0; height: 200mm; max-height: 200mm; overflow: hidden; }
+              body { font-family: 'DejaVu Sans', 'Liberation Sans', Arial, Helvetica, sans-serif; font-size: 7.5pt; color: #000; }
+              .slip { width: 100%; height: 198mm; max-height: 198mm; overflow: hidden; border: 1.25px solid #000; page-break-inside: avoid; box-sizing: border-box; }
               .row { display: table; width: 100%; border-bottom: 1px solid #000; }
               .row:last-child { border-bottom: none; }
-              .cell { display: table-cell; padding: 1.5mm 2mm; border-right: 1px solid #000; vertical-align: top; }
+              .cell { display: table-cell; padding: 1mm 1.75mm; border-right: 1px solid #000; vertical-align: top; line-height: 1.18; }
               .cell:last-child { border-right: none; }
               .row-2 .cell { width: 50%; }
               .row-1 .cell { width: 100%; }
               .row-treat .cell.t1 { width: 66%; }
               .row-treat .cell.t2 { width: 34%; }
-              .label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; display: block; }
-              .value { font-size: 9pt; font-weight: 600; margin-top: 0.5mm; }
-              .brand { text-align: center; font-weight: 800; font-size: 16pt; letter-spacing: 0.18em; padding: 2mm; border-bottom: 1.5px solid #000; }
-              .tag { background: #000; color: #fff; text-align: center; font-weight: 800; letter-spacing: 0.2em; font-size: 8pt; padding: 1mm 0; }
-              .vip-top { border-bottom: 1.5px solid #000; }
-              .vip-row { display: flex; justify-content: space-between; align-items: baseline; padding: 1mm 2mm; border-bottom: 1px solid #000; }
+              .label { font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; display: block; }
+              .value { font-size: 8pt; font-weight: 600; margin-top: 0.3mm; word-break: break-word; overflow-wrap: anywhere; }
+              .row-treat .cell.t1, .row-treat .cell.t2 { overflow: hidden; }
+              .cell { vertical-align: middle; }
+              .brand { text-align: center; font-weight: 800; font-size: 13pt; letter-spacing: 0.18em; padding: 1.25mm; border-bottom: 1.25px solid #000; }
+              .tag { background: #000; color: #fff; text-align: center; font-weight: 800; letter-spacing: 0.2em; font-size: 7pt; padding: 0.75mm 0; }
+              .vip-top { border-bottom: 1.25px solid #000; }
+              .vip-row { display: flex; justify-content: space-between; align-items: baseline; padding: 0.75mm 1.75mm; border-bottom: 1px solid #000; }
               .vip-row:last-child { border-bottom: none; }
-              .vip-lbl { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
-              .vip-val { font-size: 9pt; font-weight: 600; }
+              .vip-lbl { font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+              .vip-val { font-size: 8pt; font-weight: 600; }
               .sep { opacity: 0.5; font-weight: 400; }
               .active-choice { font-weight: 800; text-decoration: underline; text-underline-offset: 1px; }
-              .waiver-title { text-align: center; font-weight: 800; letter-spacing: 0.1em; font-size: 8pt; padding-top: 1mm; }
-              .waiver { padding: 2mm; font-size: 6pt; line-height: 1.35; text-align: justify; border-top: 1px solid #000; border-bottom: 1px solid #000; }
-              .sig { padding: 8mm 2mm 1mm; text-align: center; font-size: 6.5pt; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid #000; margin-top: 3mm; }
-              .qr-block { padding: 2mm; text-align: center; border-top: 1px solid #000; }
-              .qr-label { font-size: 6pt; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1mm; }
+              .waiver-title { text-align: center; font-weight: 800; letter-spacing: 0.1em; font-size: 7pt; padding-top: 0.5mm; }
+              .waiver { padding: 1.25mm 1.75mm; font-size: 5.4pt; line-height: 1.22; text-align: justify; border-top: 1px solid #000; border-bottom: 1px solid #000; }
+              .sig { padding: 3mm 1.75mm 0.75mm; text-align: center; font-size: 6pt; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid #000; margin-top: 1.5mm; }
+              .qr-block { padding: 1mm; text-align: center; border-top: 1px solid #000; }
+              .qr-label { font-size: 5.5pt; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.5mm; }
+              .qr-block img { width: 64px; height: 64px; }
             </style></head><body>
             """;
 
@@ -203,23 +208,18 @@ public class TreatmentSlipPdfService {
         return "<div class=\"cell\">" + cellInner(label, value) + "</div>";
     }
 
-    private String lockerWithGender(String locker, String gender) {
+    private String rawLocker(String locker) {
         if (locker == null || locker.isBlank()) {
             return "";
         }
-        String trimmed = locker.trim();
-        String g = gender == null ? "" : gender.trim().toUpperCase();
-        if ((g.equals("M") || g.equals("F")) && !trimmed.toUpperCase().startsWith(g)) {
-            return g + trimmed;
-        }
-        return trimmed;
+        return locker.trim().replaceFirst("^[MFmf]", "");
     }
 
     private String othersWithExtension(Integer extensionMinutes, String othersAddOn) {
         String extension = extensionMinutes != null && extensionMinutes > 0
                 ? "Extension: +" + extensionMinutes + " min"
                 : "Extension: None";
-        if (othersAddOn != null && !othersAddOn.isBlank()) {
+        if (othersAddOn != null && !othersAddOn.isBlank() && !othersAddOn.startsWith("Massage extension")) {
             return extension + " / " + othersAddOn;
         }
         return extension;

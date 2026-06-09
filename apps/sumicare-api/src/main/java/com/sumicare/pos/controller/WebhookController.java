@@ -62,9 +62,7 @@ public class WebhookController {
                 JsonNode attributes = data.at("/attributes");
                 String method = resolveMethod(attributes);
                 String orderId = attributes.at("/metadata/orderId").asText("");
-                String description = attributes.path("description").asText("");
-                String bookingId = orderId.isBlank() ? extractBookingId(description) : null;
-                reconcile(orderId, bookingId, amount, method, gatewayId);
+                reconcile(orderId, amount, method, gatewayId);
             } else if ("refund.updated".equals(type) || "payment.refunded".equals(type)) {
                 JsonNode data = event.at("/data/attributes/data");
                 JsonNode attributes = data.at("/attributes");
@@ -83,7 +81,7 @@ public class WebhookController {
         return ResponseEntity.ok("ok");
     }
 
-    private void reconcile(String orderId, String bookingId, BigDecimal amount, String method, String gatewayId) {
+    private void reconcile(String orderId, BigDecimal amount, String method, String gatewayId) {
         Order order = null;
         if (orderId != null && !orderId.isBlank()) {
             try {
@@ -92,18 +90,8 @@ public class WebhookController {
             }
         }
         Booking booking = null;
-        if (order == null && bookingId != null && !bookingId.isBlank()) {
-            try {
-                UUID bid = UUID.fromString(bookingId);
-                booking = bookingRepository.findById(bid).orElse(null);
-                if (booking != null) {
-                    order = orderRepository.findByBookingId(bid).orElse(null);
-                }
-            } catch (IllegalArgumentException ignored) {
-            }
-        }
         if (order != null && order.getBookingId() != null) {
-            booking = bookingRepository.findById(order.getBookingId()).orElse(booking);
+            booking = bookingRepository.findById(order.getBookingId()).orElse(null);
         }
 
         if (booking != null) {
@@ -117,6 +105,9 @@ public class WebhookController {
             return;
         }
 
+        if (gatewayId != null && !gatewayId.isBlank() && ledgerRepository.existsByGatewayReference(gatewayId)) {
+            return;
+        }
         UUID orgId = booking != null ? booking.getOrganizationId()
                 : UUID.fromString("00000000-0000-0000-0000-000000000000");
         TransactionLedgerEntry entry = new TransactionLedgerEntry();
@@ -126,6 +117,7 @@ public class WebhookController {
         entry.setAmount(amount);
         entry.setPaymentMethod(method);
         entry.setRecordedAt(OffsetDateTime.now());
+        entry.setGatewayReference(gatewayId);
         entry.setMetadata("{\"method\":\"" + method + "\",\"gatewayId\":\"" + gatewayId + "\"}");
         ledgerRepository.save(entry);
     }
@@ -154,13 +146,4 @@ public class WebhookController {
         };
     }
 
-    private String extractBookingId(String description) {
-        if (description == null) return null;
-        String prefix = "bookingId:";
-        int idx = description.indexOf(prefix);
-        if (idx < 0) return null;
-        String rest = description.substring(idx + prefix.length()).trim();
-        int space = rest.indexOf(' ');
-        return space > 0 ? rest.substring(0, space) : rest;
-    }
 }

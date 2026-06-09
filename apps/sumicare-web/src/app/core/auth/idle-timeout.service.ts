@@ -2,7 +2,7 @@ import { Injectable, NgZone, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
-const IDLE_MS = 15 * 60 * 1000;
+const IDLE_MS = 60 * 60 * 1000;
 const RESET_THROTTLE_MS = 30 * 1000;
 const REFRESH_INTERVAL_MS = 60 * 1000;
 const REFRESH_WINDOW_MS = 3 * 60 * 1000;

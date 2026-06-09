@@ -20,6 +20,7 @@
             <th class="text-left p-3">Email</th>
             <th class="text-left p-3">Sex</th>
             <th class="text-left p-3">Nationality</th>
+            <th class="text-right p-3">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -29,10 +30,13 @@
             <td class="p-3">{{ c.email || '-' }}</td>
             <td class="p-3">{{ genderLabel(c.gender) }}</td>
             <td class="p-3">{{ c.nationality || '-' }}</td>
+            <td class="p-3 text-right">
+              <button (click)="remove(c)" class="text-sm text-rose-600 hover:underline">Delete</button>
+            </td>
           </tr>
           } @empty {
           <tr>
-            <td colspan="4" class="p-6 text-center text-slate-500">No registered clients found.</td>
+            <td colspan="5" class="p-6 text-center text-slate-500">No registered clients found.</td>
           </tr>
           }
         </tbody>

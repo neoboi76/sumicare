@@ -91,6 +91,17 @@ export class AuthService {
     return value !== null && roles.includes(value.role);
   }
 
+  organizationId(): string | null {
+    const token = this.session()?.accessToken;
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.org ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   private applyToken(response: TokenResponse): void {
     const expiresAt = Date.now() + response.expiresIn * 1000;
     this.session.set({ accessToken: response.accessToken, role: response.role, expiresAt });

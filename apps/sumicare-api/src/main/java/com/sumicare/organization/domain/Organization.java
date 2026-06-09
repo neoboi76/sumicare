@@ -35,6 +35,9 @@ public class Organization {
     @Column(name = "theme")
     private String theme;
 
+    @Column(name = "font_family")
+    private String fontFamily;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -60,6 +63,8 @@ public class Organization {
     public void setAccentColor(String accentColor) { this.accentColor = accentColor; }
     public String getTheme() { return theme; }
     public void setTheme(String theme) { this.theme = theme; }
+    public String getFontFamily() { return fontFamily; }
+    public void setFontFamily(String fontFamily) { this.fontFamily = fontFamily; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

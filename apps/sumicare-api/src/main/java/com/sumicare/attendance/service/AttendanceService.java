@@ -6,6 +6,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -15,6 +19,19 @@ public class AttendanceService {
 
     public AttendanceService(TherapistAttendanceRepository repository) {
         this.repository = repository;
+    }
+
+    public Set<UUID> clockedInTherapistIds(OffsetDateTime from, OffsetDateTime to) {
+        Map<UUID, TherapistAttendance> latest = new HashMap<>();
+        for (TherapistAttendance a : repository.findAllByEventAtBetween(from, to)) {
+            latest.merge(a.getTherapistId(), a,
+                    (existing, candidate) -> candidate.getEventAt().isAfter(existing.getEventAt()) ? candidate : existing);
+        }
+        Set<UUID> result = new HashSet<>();
+        latest.forEach((id, a) -> {
+            if ("CLOCK_IN".equals(a.getEventType())) result.add(id);
+        });
+        return result;
     }
 
     @Transactional

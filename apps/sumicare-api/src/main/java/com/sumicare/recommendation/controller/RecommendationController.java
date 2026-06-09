@@ -6,6 +6,7 @@ import com.sumicare.recommendation.dto.RecommendationResponse;
 import com.sumicare.recommendation.service.RecommendationEngine;
 import com.sumicare.recommendation.service.RecommendationExplainerService;
 import com.sumicare.service_catalogue.domain.Service;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,7 +28,7 @@ public class RecommendationController {
     }
 
     @PostMapping("/api/public/recommendation/{slug}")
-    public RecommendationResponse recommend(@PathVariable String slug, @RequestBody QuizSubmissionRequest request) {
+    public RecommendationResponse recommend(@PathVariable String slug, @Valid @RequestBody QuizSubmissionRequest request) {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
         List<Service> ranked = engine.score(organizationId, request.answers());
         Service primary = ranked.isEmpty() ? null : ranked.get(0);

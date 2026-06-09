@@ -99,11 +99,15 @@ public class DeckingReportService {
 
             for (Commission c : tComms) {
                 if (c.isExtension()) continue;
+                boolean isRequested = c.isSpecificallyRequested();
+                boolean isScrub = isScrub(c.getServiceId(), scrubCache);
+                if (isRequested) requested++;
                 String symbol;
-                if (c.isSpecificallyRequested()) {
+                if (isRequested && isScrub) {
+                    symbol = "(\u2605 & \u2665)";
+                } else if (isRequested) {
                     symbol = "\u2665";
-                    requested++;
-                } else if (isScrub(c.getServiceId(), scrubCache)) {
+                } else if (isScrub) {
                     symbol = "\u2605";
                 } else {
                     symbol = "|";

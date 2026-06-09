@@ -76,7 +76,7 @@ public class AuthController {
     }
 
     @PostMapping("/reset-password")
-    public void resetPassword(@RequestBody ResetPasswordRequest request) {
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         userService.consumePasswordReset(request.token(), request.newPassword());
     }
 

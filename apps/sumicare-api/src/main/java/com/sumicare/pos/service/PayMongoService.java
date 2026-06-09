@@ -5,9 +5,12 @@ import com.sumicare.cashier.dto.PaymentDetailsRequest;
 import com.sumicare.common.config.AppProperties;
 import com.sumicare.pos.gateway.PayMongoGateway;
 import com.sumicare.pos.gateway.PaymentGateway;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.net.URLEncoder;
@@ -191,6 +194,9 @@ public class PayMongoService {
 
     private String buildReturnUrl(Order order, String intentId, String paymentMethod, BigDecimal amount, String returnPath) {
         String base = originOf(appProperties.app().publicBaseUrl());
+        if (base == null || base.isBlank()) {
+            base = requestOrigin();
+        }
         String path = returnPath == null || returnPath.isBlank() ? "/app/cashier" : returnPath;
         StringBuilder url = new StringBuilder(base).append(path)
                 .append("?paymongoReturn=1")
@@ -201,6 +207,26 @@ public class PayMongoService {
         url.append("&paymentMethod=").append(enc(paymentMethod))
                 .append("&amount=").append(amount.toPlainString());
         return url.toString();
+    }
+
+    private String requestOrigin() {
+        try {
+            ServletRequestAttributes attributes =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes == null) return "";
+            HttpServletRequest request = attributes.getRequest();
+            String origin = request.getHeader("Origin");
+            if (origin != null && !origin.isBlank()) return originOf(origin);
+            String host = request.getHeader("X-Forwarded-Host");
+            if (host != null && !host.isBlank()) {
+                String proto = request.getHeader("X-Forwarded-Proto");
+                return (proto != null && !proto.isBlank() ? proto : "https") + "://" + host;
+            }
+            String referer = request.getHeader("Referer");
+            if (referer != null && !referer.isBlank()) return originOf(referer);
+        } catch (Exception ignored) {
+        }
+        return "";
     }
 
     private String originOf(String url) {
