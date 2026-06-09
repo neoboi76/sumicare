@@ -408,6 +408,10 @@ export class CashierComponent implements OnInit {
       this.registerError.set('Nickname is required.');
       return;
     }
+    if (!this.newClient.email.trim()) {
+      this.registerError.set('Email is required.');
+      return;
+    }
     this.http.post<ClientLite>(`${environment.apiBaseUrl}/api/clients`, this.newClient).subscribe({
       next: (c) => {
         this.selectClient(c);

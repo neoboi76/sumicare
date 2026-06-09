@@ -354,8 +354,8 @@
             class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
         </label>
         <label class="block">
-          Email
-          <input [(ngModel)]="newClient.email" name="newEmail" type="email" maxlength="255"
+          Email <span class="text-red-500">*</span>
+          <input [(ngModel)]="newClient.email" name="newEmail" type="email" required maxlength="255"
             class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
         </label>
         <label class="block">

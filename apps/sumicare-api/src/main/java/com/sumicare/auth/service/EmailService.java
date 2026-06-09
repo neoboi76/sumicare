@@ -4,7 +4,7 @@ import com.sumicare.auth.email.Attachment;
 import com.sumicare.auth.email.EmailMessage;
 import com.sumicare.auth.email.EmailSender;
 import com.sumicare.auth.email.InlineImage;
-import com.sumicare.common.config.AppProperties;
+import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.common.util.QrCodeUtil;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -18,16 +18,16 @@ import java.util.List;
 public class EmailService {
 
     private final EmailSender emailSender;
-    private final AppProperties appProperties;
+    private final BaseUrlResolver baseUrlResolver;
 
-    public EmailService(EmailSender emailSender, AppProperties appProperties) {
+    public EmailService(EmailSender emailSender, BaseUrlResolver baseUrlResolver) {
         this.emailSender = emailSender;
-        this.appProperties = appProperties;
+        this.baseUrlResolver = baseUrlResolver;
     }
 
     @Async
     public void sendVerificationEmail(String to, String displayName, String token) {
-        String link = appProperties.app().publicBaseUrl() + "/verify?token=" + token;
+        String link = baseUrlResolver.resolve() + "/verify?token=" + token;
         String subject = "Confirm your New Lasema Spa Jjimjilbang account";
         String body = """
                 <html>
@@ -52,7 +52,7 @@ public class EmailService {
 
     @Async
     public void sendPasswordResetEmail(String to, String displayName, String token) {
-        String link = appProperties.app().publicBaseUrl() + "/reset-password?token=" + token;
+        String link = baseUrlResolver.resolve() + "/reset-password?token=" + token;
         String subject = "Reset your New Lasema Spa Jjimjilbang password";
         String body = """
                 <html>
@@ -77,7 +77,7 @@ public class EmailService {
 
     @Async
     public void sendInvitationEmail(String to, String displayName, String token) {
-        String link = appProperties.app().publicBaseUrl() + "/invite?token=" + token;
+        String link = baseUrlResolver.resolve() + "/invite?token=" + token;
         String subject = "You have been invited to New Lasema Spa Jjimjilbang";
         String body = """
                 <html>
@@ -205,7 +205,7 @@ public class EmailService {
                                     byte[] receiptPdf, List<EmailAttachment> slipPdfs) {
         String subject = "Thanks for Choosing New Lasema Spa Jjimjilbang";
         String orForLink = payload.orNumber() == null ? "" : payload.orNumber();
-        String feedbackUrl = appProperties.app().publicBaseUrl()
+        String feedbackUrl = baseUrlResolver.resolve()
                 + "/feedback?or=" + URLEncoder.encode(orForLink, StandardCharsets.UTF_8);
         StringBuilder availedRows = new StringBuilder();
         if (payload.availed() != null) {

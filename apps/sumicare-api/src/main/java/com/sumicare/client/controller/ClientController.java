@@ -29,8 +29,13 @@ public class ClientController {
     @PostMapping("/api/public/clients/{slug}")
     public Client register(@PathVariable String slug, @RequestBody Client request) {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
-        if (request.getEmail() != null && !request.getEmail().isBlank()
-                && clientRepository.existsByOrganizationIdAndEmailIgnoreCaseAndDeletedAtIsNull(organizationId, request.getEmail())) {
+        if (request.getNickname() == null || request.getNickname().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nickname required");
+        }
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email required");
+        }
+        if (clientRepository.existsByOrganizationIdAndEmailIgnoreCaseAndDeletedAtIsNull(organizationId, request.getEmail())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "That email is already registered. Use a different email.");
         }
         request.setId(null);

@@ -630,13 +630,22 @@ public class BookingService {
             orderRepository.save(order);
         }
         orderService.settleGatewayPayment(order, null, intentId, paymentMethod, order.getTotal());
-
-        Booking booking = order.getBookingId() == null ? null
-                : bookingRepository.findById(order.getBookingId()).orElse(null);
-        if (booking != null && booking.getClientEmail() != null && !booking.getClientEmail().isBlank()) {
-            sendBookingEmail(booking, order, order.getRoomType(), order.getTotal(), order.getOrNumber());
-        }
         return order.getOrNumber();
+    }
+
+    public void resendBookingConfirmation(Order order) {
+        if (order == null || order.getBookingId() == null || !"PAID".equals(order.getStatus())) {
+            return;
+        }
+        Booking booking = bookingRepository.findById(order.getBookingId()).orElse(null);
+        if (booking == null) {
+            return;
+        }
+        String recipient = resolveClientEmail(booking);
+        if (recipient == null || recipient.isBlank()) {
+            return;
+        }
+        sendBookingEmail(booking, order, order.getRoomType(), order.getTotal(), order.getOrNumber());
     }
 
     private Package resolveOrderPackage(Order order) {
