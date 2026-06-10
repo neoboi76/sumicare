@@ -25,6 +25,7 @@ interface BookingResponse {
   status: string;
   clientGender?: string | null;
   orderId?: string | null;
+  remarks?: string | null;
 }
 
 interface SessionResponse {

@@ -120,6 +120,46 @@ public class EmailService {
     }
 
     @Async
+    public void sendCancellationCodeEmail(String to, String displayName, String code) {
+        String subject = "Your New Lasema Spa Jjimjilbang cancellation code";
+        String body = """
+                <html>
+                <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
+                  <h2 style="color: #c42441;">Confirm your cancellation</h2>
+                  <p>Hello %s,</p>
+                  <p>We received a request to cancel your reservation. Enter the code below to verify your identity and review the booking before it is cancelled.</p>
+                  <p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #c42441; margin: 24px 0;">%s</p>
+                  <p>This code expires in 15 minutes. If you did not request this, you may safely ignore this email and your reservation will remain unchanged.</p>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+                  <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
+                </body>
+                </html>
+                """.formatted(displayName == null ? "there" : displayName, code);
+        sendHtml(to, subject, body);
+    }
+
+    @Async
+    public void sendCancellationConfirmedEmail(String to, String displayName, String reference, boolean refunded) {
+        String subject = "Your New Lasema Spa Jjimjilbang reservation has been cancelled";
+        String refundLine = refunded
+                ? "<p>Your payment is being refunded to the original payment method. Refunds may take a few business days to appear.</p>"
+                : "";
+        String body = """
+                <html>
+                <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
+                  <h2 style="color: #c42441;">Reservation cancelled</h2>
+                  <p>Hello %s,</p>
+                  <p>Your reservation <strong>%s</strong> has been cancelled. We hope to welcome you another time.</p>
+                  %s
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+                  <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
+                </body>
+                </html>
+                """.formatted(displayName == null ? "there" : displayName, reference, refundLine);
+        sendHtml(to, subject, body);
+    }
+
+    @Async
     public void sendBookingConfirmationEmail(String to, String displayName, BookingEmailPayload payload) {
         String subject = "Your New Lasema Spa Jjimjilbang booking is confirmed";
         StringBuilder packagesHtml = new StringBuilder();

@@ -14,5 +14,6 @@ public record BookingResponse(
         OffsetDateTime projectedEndAt,
         String status,
         UUID orderId,
-        String nationality
+        String nationality,
+        String remarks
 ) {}

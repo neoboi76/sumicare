@@ -134,7 +134,7 @@ export class CashierComponent implements OnInit {
   cart = signal<CartItem[]>([]);
 
   weekend = signal(false);
-  groupBooking = computed(() => this.cart().length > 1);
+  groupBooking = computed(() => this.cart().length > 1 || this.cart().some(c => c.couple || c.requiresVipRoom));
 
   tiersForItem(item: CartItem): PackageTier[] {
     return item.tiers;

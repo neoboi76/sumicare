@@ -1,0 +1,85 @@
+<section class="bg-[var(--cream)] min-h-screen pt-28 pb-20">
+    <div class="max-w-lg mx-auto px-5 sm:px-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-[var(--lasema-font-display)] text-[var(--ink)]">Cancel a booking</h1>
+            <p class="mt-2 text-sm text-[var(--ink)]/70">Verify your email to review and cancel an upcoming reservation.</p>
+        </div>
+
+        <div class="bg-white rounded-sm border border-[var(--rule)] shadow-sm p-6 space-y-4">
+            @if (error(); as err) {
+                <div class="rounded-sm bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{{ err }}</div>
+            }
+
+            @switch (step()) {
+                @case ('request') {
+                    <label class="block text-sm text-[var(--ink)]">
+                        Booking reference
+                        <input [(ngModel)]="reference" name="reference" maxlength="64"
+                               placeholder="e.g. 3F9A2B7C"
+                               class="mt-1 w-full border border-gray-300 rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+                    </label>
+                    <label class="block text-sm text-[var(--ink)]">
+                        Email on the reservation
+                        <input [(ngModel)]="email" name="email" type="email" maxlength="255"
+                               placeholder="you@email.com"
+                               class="mt-1 w-full border border-gray-300 rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+                    </label>
+                    <button type="button" (click)="requestCode()" [disabled]="busy()"
+                            class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-sm text-sm font-medium hover:opacity-95 disabled:opacity-50">
+                        {{ busy() ? 'Sending...' : 'Send cancellation code' }}
+                    </button>
+                }
+                @case ('code') {
+                    @if (notice(); as n) {
+                        <p class="text-sm text-[var(--ink)]/80">{{ n }}</p>
+                    }
+                    <label class="block text-sm text-[var(--ink)]">
+                        Verification code
+                        <input [(ngModel)]="code" name="code" inputmode="numeric" maxlength="6"
+                               class="mt-1 w-full border border-gray-300 rounded-sm px-3 py-2 text-center text-xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+                    </label>
+                    <button type="button" (click)="verifyCode()" [disabled]="busy()"
+                            class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-sm text-sm font-medium hover:opacity-95 disabled:opacity-50">
+                        {{ busy() ? 'Verifying...' : 'Verify' }}
+                    </button>
+                    <button type="button" (click)="restart()" class="w-full text-xs text-[var(--ink)]/60 hover:underline">Start over</button>
+                }
+                @case ('review') {
+                    @if (details(); as d) {
+                        <h2 class="text-sm font-semibold uppercase tracking-wide text-[var(--ink)]/60">Review your reservation</h2>
+                        <div class="rounded-sm border border-[var(--rule)] divide-y divide-[var(--rule)] text-sm">
+                            <div class="flex justify-between px-3 py-2"><span class="text-[var(--ink)]/60">Reference</span><span class="font-mono">{{ d.reference }}</span></div>
+                            <div class="flex justify-between px-3 py-2"><span class="text-[var(--ink)]/60">Name</span><span>{{ d.clientNickname }}</span></div>
+                            <div class="flex justify-between px-3 py-2"><span class="text-[var(--ink)]/60">Service</span><span>{{ d.summary }}</span></div>
+                            <div class="flex justify-between px-3 py-2"><span class="text-[var(--ink)]/60">Schedule</span><span>{{ d.scheduledAt | date:'EEE, MMM d, y h:mm a':'+0800' }}</span></div>
+                            @if (d.roomType) {
+                                <div class="flex justify-between px-3 py-2"><span class="text-[var(--ink)]/60">Room</span><span>{{ d.roomType }}</span></div>
+                            }
+                            @if (d.total != null) {
+                                <div class="flex justify-between px-3 py-2"><span class="text-[var(--ink)]/60">Total</span><span>&#8369; {{ d.total | number:'1.2-2' }}</span></div>
+                            }
+                            @if (d.remarks) {
+                                <div class="flex justify-between px-3 py-2"><span class="text-[var(--ink)]/60">Remarks</span><span class="text-right">{{ d.remarks }}</span></div>
+                            }
+                        </div>
+                        @if (d.paid) {
+                            <p class="text-xs text-[var(--ink)]/70">This reservation was paid online. Cancelling will refund the full amount to your original payment method.</p>
+                        }
+                        <button type="button" (click)="confirmCancel()" [disabled]="busy()"
+                                class="w-full py-2.5 bg-red-600 text-white rounded-sm text-sm font-medium hover:opacity-95 disabled:opacity-50">
+                            {{ busy() ? 'Cancelling...' : 'Confirm cancellation' }}
+                        </button>
+                        <button type="button" (click)="restart()" class="w-full text-xs text-[var(--ink)]/60 hover:underline">Keep my reservation</button>
+                    }
+                }
+                @case ('done') {
+                    <div class="text-center py-6 space-y-2">
+                        <h2 class="text-xl font-[var(--lasema-font-display)] text-[var(--ink)]">Reservation cancelled</h2>
+                        <p class="text-sm text-[var(--ink)]/70">A confirmation has been sent to your email. If you paid online, your refund is on its way.</p>
+                        <a routerLink="/" class="inline-block mt-3 text-sm text-[var(--sumi-primary)] hover:underline">Back to home</a>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</section>

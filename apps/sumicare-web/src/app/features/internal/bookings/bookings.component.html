@@ -56,6 +56,9 @@
               {{ expandedBookingId() === b.id ? '▾' : '▸' }} {{ attendeeCount(b.id) }} pax
             </button>
             }
+            @if (b.remarks) {
+            <span class="block text-xs font-normal text-slate-500" title="Remarks">{{ b.remarks }}</span>
+            }
           </td>
           <td class="p-3">@if (attendeeCount(b.id) <= 1) { {{ (b.lockerNumber | lockerLabel:b.clientGender:false) || '-' }} }</td>
           <td class="p-3">@if (attendeeCount(b.id) <= 1) { {{ serviceName(b.serviceId) }} }</td>
@@ -118,8 +121,10 @@
               <span class="text-xs text-slate-400" title="Assign a locker number before starting">Assign a locker first</span>
               }
             } @else {
-            <span class="text-xs text-slate-400" title="Order must be paid before starting a session">Awaiting
-              payment</span>
+            <button type="button" disabled
+              class="text-xs text-slate-300 cursor-not-allowed"
+              title="Payment must be completed before starting the session">Start session</button>
+            <span class="text-xs text-slate-400">Awaiting payment</span>
             }
             }
             @if (b.status === 'ACTIVE') {

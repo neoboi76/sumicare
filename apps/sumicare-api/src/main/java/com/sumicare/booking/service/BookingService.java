@@ -274,6 +274,7 @@ public class BookingService {
         booking.setPax(resolvedPax);
         booking.setClientGender(request.clientGender());
         booking.setNationality(request.nationality());
+        booking.setRemarks(request.remarks());
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
 
@@ -286,7 +287,8 @@ public class BookingService {
         order.setTransactorName(booking.getClientNickname());
         order.setRoomType(resolvedRoomType);
         order.setRoomTypeCharge(resolvedRoomCharge);
-        order.setGroupBooking(resolvedPax > 1);
+        order.setNotes(request.remarks());
+        order.setGroupBooking(resolvedPax > 1 || coupleOrVip);
         orderRepository.save(order);
 
         if (request.packageId() != null) {
@@ -403,6 +405,7 @@ public class BookingService {
         List<BigDecimal> itemRoomCharges = new java.util.ArrayList<>();
         List<BigDecimal> itemLineTotals = new java.util.ArrayList<>();
 
+        boolean anyCoupleOrVip = false;
         for (CreateBookingItemRequest ci : items) {
             if (ci.packageId() == null) {
                 throw new IllegalArgumentException("Each booking item must reference a package");
@@ -410,6 +413,7 @@ public class BookingService {
             Package pkg = packageRepository.findById(ci.packageId())
                     .orElseThrow(() -> new IllegalArgumentException("Unknown package"));
             boolean coupleOrVip = pkg.isCouple() || pkg.isRequiresVipRoom();
+            if (coupleOrVip) anyCoupleOrVip = true;
             List<PublicAttendeeRequest> attendees = padAttendees(ci.attendees(), pkg, coupleOrVip, request.clientGender());
 
             String roomType = resolveRoomType(pkg, ci.roomType());
@@ -443,6 +447,7 @@ public class BookingService {
         booking.setPax(totalAttendees);
         booking.setClientGender(request.clientGender());
         booking.setNationality(request.nationality());
+        booking.setRemarks(request.remarks());
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
 
@@ -455,7 +460,8 @@ public class BookingService {
         order.setTransactorName(booking.getClientNickname());
         order.setRoomType(orderRoomType);
         order.setRoomTypeCharge(roomChargeTotal);
-        order.setGroupBooking(totalAttendees > 1);
+        order.setNotes(request.remarks());
+        order.setGroupBooking(totalAttendees > 1 || anyCoupleOrVip);
         orderRepository.save(order);
 
         int position = 0;
@@ -1347,12 +1353,12 @@ public class BookingService {
                     : effectiveStart.plusMinutes(maxDuration);
             return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                     b.getServiceId(), b.getReservationType(), effectiveStart,
-                    projectedEnd, b.getStatus(), orderId, b.getNationality());
+                    projectedEnd, b.getStatus(), orderId, b.getNationality(), b.getRemarks());
         }
         OffsetDateTime projectedEnd = effectiveStart.plusMinutes(maxDuration);
         return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), effectiveStart,
-                projectedEnd, b.getStatus(), orderId, b.getNationality());
+                projectedEnd, b.getStatus(), orderId, b.getNationality(), b.getRemarks());
     }
 
     private SessionResponse toSessionResponse(Session s) {

@@ -193,6 +193,10 @@ public class TreatmentSlipService {
                 if (order.getTotal() != null) {
                     slip.setTotalAmount(order.getTotal());
                 }
+                if ((slip.getRemarks() == null || slip.getRemarks().isBlank())
+                        && order.getNotes() != null && !order.getNotes().isBlank()) {
+                    slip.setRemarks(order.getNotes());
+                }
             });
         }
 
