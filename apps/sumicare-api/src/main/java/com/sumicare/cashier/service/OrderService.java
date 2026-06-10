@@ -272,7 +272,8 @@ public class OrderService {
                 null,
                 null,
                 null,
-                null
+                null,
+                request.notes()
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
         Booking booking = bookingRepository.findById(bookingResponse.id()).orElseThrow();
@@ -298,7 +299,7 @@ public class OrderService {
         order.setAmountPaid(BigDecimal.ZERO);
         order.setStatus("OPEN");
         order.setTransactorName(request.transactorName() != null ? request.transactorName() : nickname);
-        order.setGroupBooking(request.items() != null && request.items().size() > 1);
+        order.setGroupBooking((request.items() != null && request.items().size() > 1) || anyCoupleOrVip);
         order.setWeekend(Boolean.TRUE.equals(request.weekend()));
         order.setRoomType(roomType);
         order.setRoomTypeCharge(roomCharge);
@@ -504,7 +505,7 @@ public class OrderService {
         order.setTotal(total);
         order.setTransactorName(request.transactorName() != null ? request.transactorName()
                 : order.getTransactorName());
-        order.setGroupBooking(request.items() != null && request.items().size() > 1);
+        order.setGroupBooking((request.items() != null && request.items().size() > 1) || anyCoupleOrVip);
         order.setWeekend(Boolean.TRUE.equals(request.weekend()));
         order.setRoomType(roomType);
         order.setRoomTypeCharge(roomCharge);
@@ -933,6 +934,15 @@ public class OrderService {
     @Transactional
     public OrderResponse cancel(UUID organizationId, UUID orderId, String reason) {
         Order order = requireOrder(organizationId, orderId);
+        if ("PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("Cannot cancel a paid order. Open it first or cancel the payment.");
+        }
+        return cancelInternal(organizationId, orderId, reason);
+    }
+
+    @Transactional
+    public OrderResponse cancelInternal(UUID organizationId, UUID orderId, String reason) {
+        Order order = requireOrder(organizationId, orderId);
         Session session = order.getBookingId() == null ? null
                 : sessionRepository.findFirstByBookingId(order.getBookingId()).orElse(null);
         if (hasCompletedSession(order)) {
@@ -944,9 +954,6 @@ public class OrderService {
             if (bookingCompleted) {
                 throw new IllegalStateException("Cannot cancel an order whose booking has already been completed");
             }
-        }
-        if ("PAID".equals(order.getStatus())) {
-            throw new IllegalStateException("Cannot cancel a paid order. Open it first or cancel the payment.");
         }
         order.setStatus("CANCELLED");
         order.setCancelledAt(OffsetDateTime.now());

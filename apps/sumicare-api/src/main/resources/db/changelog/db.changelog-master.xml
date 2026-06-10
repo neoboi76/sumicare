@@ -50,4 +50,5 @@
     <include file="changes/0044-feedback-read-state.xml" relativeToChangelogFile="true"/>
     <include file="changes/0045-clients-soft-delete.xml" relativeToChangelogFile="true"/>
     <include file="changes/0046-clients-drop-nickname-unique.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0047-booking-remarks.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

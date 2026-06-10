@@ -139,8 +139,8 @@ public class TreatmentSlipPdfService {
 
         sb.append("<div class=\"sig\">Signature over printed name</div>");
 
-        String feedbackUrl = baseUrlResolver.resolve() + "/feedback?slip="
-                + java.net.URLEncoder.encode(slip.getTsn() == null ? "" : slip.getTsn(),
+        String feedbackUrl = baseUrlResolver.resolve() + "/feedback?or="
+                + java.net.URLEncoder.encode(slip.getOrNumber() == null ? "" : slip.getOrNumber(),
                         java.nio.charset.StandardCharsets.UTF_8);
         String qrDataUri = QrCodeUtil.pngDataUri(feedbackUrl, 180);
         sb.append("<div class=\"qr-block\"><div class=\"qr-label\">Scan to share feedback</div>")

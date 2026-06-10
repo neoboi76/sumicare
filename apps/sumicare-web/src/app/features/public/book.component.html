@@ -261,6 +261,13 @@
         </div>
         <span class="text-xs text-gray-400 -mt-2 block">Both date and time are required.</span>
 
+        <label class="block text-sm text-gray-700">
+          Remarks
+          <textarea [(ngModel)]="remarks" name="remarks" rows="2" maxlength="1000"
+                    placeholder="Anything we should know (optional)"
+                    class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]"></textarea>
+        </label>
+
         <label class="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
           <input [(ngModel)]="consent" name="consent" type="checkbox" required class="mt-0.5 rounded" />
           <span>I consent to the spa storing my booking details for the purpose of attending to my reservation.</span>

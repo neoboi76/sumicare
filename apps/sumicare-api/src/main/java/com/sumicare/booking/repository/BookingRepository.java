@@ -20,4 +20,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                                                                  @Param("to") OffsetDateTime to);
 
     boolean existsByOrganizationIdAndClientNicknameIgnoreCaseAndStatusIn(UUID organizationId, String clientNickname, List<String> statuses);
+
+    List<Booking> findAllByOrganizationIdAndClientEmailIgnoreCase(UUID organizationId, String clientEmail);
 }
