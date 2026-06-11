@@ -4,24 +4,48 @@
     <p class="text-sm text-gray-500 mt-0.5">{{ branding.branding()?.displayName ?? 'New Lasema Spa Jjimjilbang' }} &mdash; {{ role() }}</p>
   </div>
 
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
-      <span class="text-xs text-gray-500 uppercase tracking-wider">Today's bookings</span>
-      <span class="text-3xl font-bold text-gray-900">{{ todaysBookings() }}</span>
+  <section class="space-y-3">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-medium text-gray-600">Analytics quick summary</h2>
+      @if (isManager()) {
+        <a routerLink="../analytics" class="text-xs text-[var(--sumi-primary)] hover:underline">View full analytics</a>
+      }
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
-      <span class="text-xs text-gray-500 uppercase tracking-wider">Active sessions</span>
-      <span class="text-3xl font-bold text-gray-900">{{ activeSessions() }}</span>
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+      @if (isManager()) {
+        <div class="sumi-fade-in bg-white rounded-xl border border-gray-200 p-5 col-span-2 flex flex-col gap-1 transition-shadow duration-300 hover:shadow-sm">
+          <span class="text-xs text-gray-500 uppercase tracking-wider">Daily revenue</span>
+          <span class="text-3xl font-bold text-gray-900">&#8369; {{ dailyRevenue() | number:'1.2-2' }}</span>
+          @if (sparklinePoints(); as pts) {
+            <svg viewBox="0 0 100 28" preserveAspectRatio="none" class="mt-1 w-full h-8">
+              <polyline [attr.points]="pts" fill="none" stroke="var(--sumi-primary)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+            </svg>
+            <span class="text-[10px] text-gray-400">Net revenue, last 14 days</span>
+          }
+        </div>
+      }
+      <div class="sumi-fade-in bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1 transition-shadow duration-300 hover:shadow-sm">
+        <span class="text-xs text-gray-500 uppercase tracking-wider">Today's bookings</span>
+        <span class="text-3xl font-bold text-gray-900">{{ todaysBookings() }}</span>
+      </div>
+      <div class="sumi-fade-in bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1 transition-shadow duration-300 hover:shadow-sm">
+        <span class="text-xs text-gray-500 uppercase tracking-wider">Active sessions</span>
+        <span class="text-3xl font-bold text-gray-900">{{ activeSessions() }}</span>
+      </div>
+      <div class="sumi-fade-in bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1 transition-shadow duration-300 hover:shadow-sm">
+        <span class="text-xs text-gray-500 uppercase tracking-wider">Completed today</span>
+        <span class="text-3xl font-bold text-gray-900">{{ completedSessions() }}</span>
+      </div>
+      <div class="sumi-fade-in bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1 transition-shadow duration-300 hover:shadow-sm">
+        <span class="text-xs text-gray-500 uppercase tracking-wider">Beds occupied</span>
+        <span class="text-3xl font-bold text-gray-900">{{ occupiedBeds() }}</span>
+      </div>
+      <div class="sumi-fade-in bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1 transition-shadow duration-300 hover:shadow-sm">
+        <span class="text-xs text-gray-500 uppercase tracking-wider">Therapists in lineup</span>
+        <span class="text-3xl font-bold text-gray-900">{{ lineupCount() }}</span>
+      </div>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
-      <span class="text-xs text-gray-500 uppercase tracking-wider">Therapists in lineup</span>
-      <span class="text-3xl font-bold text-gray-900">{{ lineupCount() }}</span>
-    </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
-      <span class="text-xs text-gray-500 uppercase tracking-wider">Beds occupied</span>
-      <span class="text-3xl font-bold text-gray-900">{{ occupiedBeds() }}</span>
-    </div>
-  </div>
+  </section>
 
   @if (isReceptionist()) {
     <div>
@@ -46,7 +70,11 @@
   @if (isManager()) {
     <div>
       <h2 class="text-sm font-medium text-gray-600 mb-3">Finance</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a routerLink="../analytics" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-gray-900">Analytics</span>
+          <span class="text-xs text-gray-500">Interactive daily revenue and breakdowns</span>
+        </a>
         <a routerLink="../reports" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-[var(--sumi-primary)] hover:shadow-sm transition-all flex flex-col gap-1.5">
           <span class="text-sm font-medium text-gray-900">Reports</span>
           <span class="text-xs text-gray-500">View cutoff, day, and monthly summaries</span>

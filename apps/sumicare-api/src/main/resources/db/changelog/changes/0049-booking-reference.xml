@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0049-1-booking-reference" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="bookings" columnName="reference"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="bookings">
+            <column name="reference" type="VARCHAR(8)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0049-2-booking-reference-backfill" author="sumicare">
+        <sql>
+            UPDATE bookings
+            SET reference = upper(substring(replace(cast(id as varchar), '-', ''), 1, 8))
+            WHERE reference IS NULL
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -9,6 +9,7 @@ import com.sumicare.booking.dto.PublicAttendeeRequest;
 import com.sumicare.booking.dto.PublicPaymentResponse;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
+import com.sumicare.common.util.BookingReference;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
@@ -290,6 +291,8 @@ public class BookingService {
         booking.setRemarks(request.remarks());
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
+        booking.setReference(BookingReference.of(booking.getId()));
+        bookingRepository.save(booking);
 
         com.sumicare.cashier.domain.Order order = new com.sumicare.cashier.domain.Order();
         order.setOrganizationId(organizationId);
@@ -480,6 +483,8 @@ public class BookingService {
         booking.setRemarks(request.remarks());
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
+        booking.setReference(BookingReference.of(booking.getId()));
+        bookingRepository.save(booking);
 
         Order order = new Order();
         order.setOrganizationId(organizationId);
@@ -647,8 +652,9 @@ public class BookingService {
                 : serviceRepository.findById(booking.getServiceId()).map(Service::getName).orElse(null);
         Package pkg = resolveOrderPackage(order);
         String packageName = pkg == null ? null : pkg.getName();
+        String reference = booking == null ? null : booking.getReference();
         return new PublicPaymentResponse(status, intentId, redirectUrl, order.getOrNumber(),
-                nickname, packageName, serviceName, scheduledAt, reservationType);
+                reference, nickname, packageName, serviceName, scheduledAt, reservationType);
     }
 
     private Order requirePublicOrder(UUID organizationId, UUID orderId) {
@@ -716,7 +722,7 @@ public class BookingService {
                     recipient,
                     booking.getClientNickname(),
                     new EmailService.BookingEmailPayload(
-                            booking.getId().toString(),
+                            booking.getReference(),
                             orNumber,
                             lines,
                             booking.getReservationType(),
@@ -1381,12 +1387,12 @@ public class BookingService {
             OffsetDateTime projectedEnd = latestExpectedEnd != null
                     ? latestExpectedEnd
                     : effectiveStart.plusMinutes(maxDuration);
-            return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
+            return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                     b.getServiceId(), b.getReservationType(), effectiveStart,
                     projectedEnd, b.getStatus(), orderId, b.getNationality(), b.getRemarks());
         }
         OffsetDateTime projectedEnd = effectiveStart.plusMinutes(maxDuration);
-        return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
+        return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), effectiveStart,
                 projectedEnd, b.getStatus(), orderId, b.getNationality(), b.getRemarks());
     }

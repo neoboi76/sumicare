@@ -80,7 +80,6 @@ public class BookingCancellationService {
                 booking.getId().toString(),
                 "{\"email\":\"" + email + "\",\"orNumber\":\"" + orNumber + "\",\"refunded\":" + refunded + "}",
                 ipAddress);
-        emailService.sendCancellationConfirmedEmail(email, booking.getClientNickname(), reference(booking), refunded);
     }
 
     private Booking requireVerified(UUID organizationId, String reference, String email, String code) {
@@ -96,13 +95,13 @@ public class BookingCancellationService {
         if (reference == null || email == null) {
             return Optional.empty();
         }
-        String ref = reference.trim().toLowerCase().replace("-", "");
+        String ref = reference.trim();
         if (ref.isBlank()) {
             return Optional.empty();
         }
         return bookingRepository.findAllByOrganizationIdAndClientEmailIgnoreCase(organizationId, email.trim()).stream()
                 .filter(b -> CANCELLABLE_BOOKING_STATUSES.contains(b.getStatus()))
-                .filter(b -> b.getId().toString().replace("-", "").toLowerCase().startsWith(ref))
+                .filter(b -> b.getReference() != null && b.getReference().equalsIgnoreCase(ref))
                 .filter(b -> orderRepository.findByBookingId(b.getId())
                         .map(o -> !SETTLED_ORDER_STATUSES.contains(o.getStatus()))
                         .orElse(true))
@@ -126,6 +125,6 @@ public class BookingCancellationService {
     }
 
     private String reference(Booking booking) {
-        return BookingReference.of(booking.getId());
+        return booking.getReference() != null ? booking.getReference() : BookingReference.of(booking.getId());
     }
 }

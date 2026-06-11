@@ -17,10 +17,7 @@
                 <a routerLink="/recommendation" routerLinkActive="is-active" class="nav-link nav-on-light">Quiz</a>
                 <a routerLink="/contact" routerLinkActive="is-active" class="nav-link nav-on-light">Contact</a>
                 <a routerLink="/feedback" routerLinkActive="is-active" class="nav-link nav-on-light">Feedback</a>
-                <span class="flex items-center gap-3">
-                    <a routerLink="/cancel" routerLinkActive="is-active" class="text-xs tracking-wide text-[var(--ink)]/60 hover:text-[var(--jade)] underline-offset-2 hover:underline transition-colors">Manage booking</a>
-                    <a routerLink="/book" class="btn-editorial btn-editorial-sm">Book Now</a>
-                </span>
+                <a routerLink="/book" class="btn-editorial btn-editorial-sm">Book Now</a>
             </nav>
             <button (click)="toggleMenu()" type="button"
                 class="xl:hidden p-2 rounded-full hover:scale-110 transition-transform duration-200 text-[var(--forest)]"
@@ -57,7 +54,6 @@
                 <a routerLink="/contact" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Contact</a>
                 <a routerLink="/feedback" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Feedback</a>
                 <a routerLink="/terms" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Terms</a>
-                <a routerLink="/cancel" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Manage booking</a>
                 <a routerLink="/book" (click)="closeMenu()" class="btn-editorial mt-2 self-start">Book Now</a>
             </div>
         </nav>

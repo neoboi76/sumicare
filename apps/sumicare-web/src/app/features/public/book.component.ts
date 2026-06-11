@@ -41,6 +41,7 @@ interface PublicPackage {
 
 interface BookingCreated {
   id: string;
+  reference: string;
   clientNickname: string;
   reservationType: string;
   scheduledAt: string;
@@ -55,6 +56,7 @@ interface PublicPaymentResult {
   intentId: string | null;
   redirectUrl: string | null;
   orNumber: string | null;
+  reference: string | null;
   clientNickname: string | null;
   packageName: string | null;
   serviceName: string | null;
@@ -400,8 +402,7 @@ export class BookComponent implements OnInit {
             return;
           }
           this.submitting.set(false);
-          const ref = booking.id.slice(0, 8).toUpperCase();
-          this.bookingRef.set(ref);
+          this.bookingRef.set(booking.reference);
           this.setConfirmationFromForm(booking);
           this.confirmation.set(booking);
         },
@@ -455,7 +456,7 @@ export class BookComponent implements OnInit {
   private onPaymentInitiated(booking: BookingCreated, res: PublicPaymentResult, method: PayMethod): void {
     if (res.status === 'succeeded') {
       this.submitting.set(false);
-      this.bookingRef.set(booking.id.slice(0, 8).toUpperCase());
+      this.bookingRef.set(res.reference ?? booking.reference);
       this.orNumber.set(res.orNumber);
       this.setConfirmationFromResponse(res);
       this.confirmation.set(booking);
@@ -504,11 +505,12 @@ export class BookComponent implements OnInit {
       .subscribe({
         next: (res) => {
           this.submitting.set(false);
-          this.bookingRef.set(orderId.slice(0, 8).toUpperCase());
+          this.bookingRef.set(res.reference);
           this.orNumber.set(res.orNumber);
           this.setConfirmationFromResponse(res);
           this.confirmation.set({
             id: orderId,
+            reference: res.reference ?? '',
             clientNickname: res.clientNickname ?? '',
             reservationType: res.reservationType ?? 'HARD',
             scheduledAt: res.scheduledAt ?? '',

@@ -227,7 +227,7 @@ public class ReceiptPdfService {
                 now,
                 esc(scheduleStr),
                 esc(order.getOrNumber() == null ? "" : order.getOrNumber()),
-                esc(BookingReference.of(order.getBookingId()) == null ? "" : BookingReference.of(order.getBookingId())),
+                esc(receiptReference(booking, order)),
                 esc(order.getTransactorName() == null ? "" : order.getTransactorName()),
                 esc(transactedByName),
                 esc(describePaymentMethods(orderId)),
@@ -269,6 +269,14 @@ public class ReceiptPdfService {
             case "CARD" -> "Card";
             default -> m;
         };
+    }
+
+    private String receiptReference(Booking booking, Order order) {
+        if (booking != null && booking.getReference() != null) {
+            return booking.getReference();
+        }
+        String derived = BookingReference.of(order.getBookingId());
+        return derived == null ? "" : derived;
     }
 
     private String esc(String s) {

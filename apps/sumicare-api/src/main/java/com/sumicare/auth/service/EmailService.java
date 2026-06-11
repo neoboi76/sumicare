@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -158,10 +160,24 @@ public class EmailService {
     }
 
     @Async
-    public void sendCancellationConfirmedEmail(String to, String displayName, String reference, boolean refunded) {
+    public void sendCancellationConfirmedEmail(String to, String displayName, String reference,
+                                               List<String> services, BigDecimal refundAmount, boolean refunded) {
         String subject = "Your New Lasema Spa Jjimjilbang reservation has been cancelled";
+        StringBuilder servicesHtml = new StringBuilder();
+        if (services != null) {
+            for (String line : services) {
+                servicesHtml.append("<tr><td style=\"padding: 6px 12px;\">")
+                        .append(line == null ? "" : line)
+                        .append("</td></tr>");
+            }
+        }
+        String servicesBlock = servicesHtml.length() == 0 ? ""
+                : "<h3 style=\"margin-top: 24px; color: #1a1a1a;\">Cancelled services</h3>"
+                + "<table style=\"border-collapse: collapse; margin-top: 8px; width: 100%;\">"
+                + servicesHtml + "</table>";
         String refundLine = refunded
-                ? "<p>Your payment is being refunded to the original payment method. Refunds may take a few business days to appear.</p>"
+                ? "<p>A refund of <strong>&#8369; " + refundAmount.setScale(2, RoundingMode.HALF_UP).toPlainString()
+                        + "</strong> is being returned to your original payment method. Refunds may take a few business days to appear.</p>"
                 : "";
         String body = """
                 <html>
@@ -170,11 +186,12 @@ public class EmailService {
                   <p>Hello %s,</p>
                   <p>Your reservation <strong>%s</strong> has been cancelled. We hope to welcome you another time.</p>
                   %s
+                  %s
                   <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
                   <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
                 </body>
                 </html>
-                """.formatted(displayName == null ? "there" : displayName, reference, refundLine);
+                """.formatted(displayName == null ? "there" : displayName, reference, servicesBlock, refundLine);
         sendHtml(to, subject, body);
     }
 

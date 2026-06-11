@@ -40,6 +40,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -76,6 +77,7 @@ public class OrderService {
     private final com.sumicare.pos.service.PayMongoService payMongoService;
     private final com.sumicare.notification.service.NotificationService notificationService;
     private final com.sumicare.common.util.IdSequenceService idSequenceService;
+    private final com.sumicare.auth.service.EmailService emailService;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -95,7 +97,8 @@ public class OrderService {
                         com.sumicare.transaction.repository.CommissionRepository commissionRepository,
                         com.sumicare.pos.service.PayMongoService payMongoService,
                         com.sumicare.notification.service.NotificationService notificationService,
-                        com.sumicare.common.util.IdSequenceService idSequenceService) {
+                        com.sumicare.common.util.IdSequenceService idSequenceService,
+                        com.sumicare.auth.service.EmailService emailService) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -115,6 +118,7 @@ public class OrderService {
         this.payMongoService = payMongoService;
         this.notificationService = notificationService;
         this.idSequenceService = idSequenceService;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -993,9 +997,46 @@ public class OrderService {
                     + "\",\"refundId\":\"" + (refundId == null ? "" : refundId) + "\",\"reason\":\"order_cancelled\"}");
             ledgerRepository.save(reversal);
         }
+        BigDecimal refundedAmount = order.getAmountPaid() == null ? BigDecimal.ZERO : order.getAmountPaid();
         order.setAmountPaid(BigDecimal.ZERO);
+        dispatchCancellationEmail(order, booking, refundedAmount);
 
         return toResponse(order, booking);
+    }
+
+    private void dispatchCancellationEmail(Order order, Booking booking, BigDecimal refundedAmount) {
+        if (booking == null) {
+            return;
+        }
+        String email = booking.getClientEmail();
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        String reference = booking.getReference() != null
+                ? booking.getReference()
+                : BookingReference.of(booking.getId());
+        boolean refunded = refundedAmount != null && refundedAmount.compareTo(BigDecimal.ZERO) > 0;
+        BigDecimal refundAmount = refunded ? refundedAmount : BigDecimal.ZERO;
+        emailService.sendCancellationConfirmedEmail(email, booking.getClientNickname(), reference,
+                cancelledServiceLines(order), refundAmount, refunded);
+    }
+
+    private List<String> cancelledServiceLines(Order order) {
+        List<String> lines = new ArrayList<>();
+        for (OrderItem item : orderItemRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+            String packageName = item.getPackageId() == null ? "Service"
+                    : packageRepository.findById(item.getPackageId()).map(Package::getName).orElse("Package");
+            LinkedHashSet<String> services = new LinkedHashSet<>();
+            for (OrderItemAttendee attendee : attendeeRepository.findAllByOrderItemIdOrderByPosition(item.getId())) {
+                if (attendee.getServiceId() != null) {
+                    serviceRepository.findById(attendee.getServiceId())
+                            .map(s -> s.getName())
+                            .ifPresent(services::add);
+                }
+            }
+            lines.add(services.isEmpty() ? packageName : packageName + " - " + String.join(", ", services));
+        }
+        return lines;
     }
 
     @Transactional
@@ -1442,7 +1483,7 @@ public class OrderService {
         return new OrderResponse(
                 order.getId(),
                 order.getBookingId(),
-                BookingReference.of(order.getBookingId()),
+                booking != null ? booking.getReference() : BookingReference.of(order.getBookingId()),
                 order.getTreatmentSlipId(),
                 order.getCashierUserId(),
                 cashierDisplayName,

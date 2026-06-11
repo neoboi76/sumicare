@@ -1,11 +1,9 @@
 package com.sumicare.dashboard.dto;
 
-import java.math.BigDecimal;
-
 public record DashboardSummary(
         int todayBookings,
         int activeSessions,
+        int completedSessions,
         int therapistsInLineup,
-        long bedsOccupied,
-        BigDecimal cashOnHand
+        long bedsOccupied
 ) {}

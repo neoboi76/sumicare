@@ -52,4 +52,5 @@
     <include file="changes/0046-clients-drop-nickname-unique.xml" relativeToChangelogFile="true"/>
     <include file="changes/0047-booking-remarks.xml" relativeToChangelogFile="true"/>
     <include file="changes/0048-organization-branding-extras.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0049-booking-reference.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
