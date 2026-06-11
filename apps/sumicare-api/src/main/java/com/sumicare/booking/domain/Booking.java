@@ -14,6 +14,9 @@ public class Booking {
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
+    @Column(name = "reference", length = 8)
+    private String reference;
+
     @Column(name = "organization_id", nullable = false, columnDefinition = "uuid")
     private UUID organizationId;
 
@@ -70,6 +73,8 @@ public class Booking {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public String getReference() { return reference; }
+    public void setReference(String reference) { this.reference = reference; }
     public UUID getOrganizationId() { return organizationId; }
     public void setOrganizationId(UUID organizationId) { this.organizationId = organizationId; }
     public UUID getClientId() { return clientId; }

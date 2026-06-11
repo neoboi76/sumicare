@@ -6,9 +6,13 @@ import com.sumicare.auth.email.EmailSender;
 import com.sumicare.auth.email.InlineImage;
 import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.common.util.QrCodeUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -16,6 +20,8 @@ import java.util.List;
 
 @Service
 public class EmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     private final EmailSender emailSender;
     private final BaseUrlResolver baseUrlResolver;
@@ -119,10 +125,18 @@ public class EmailService {
         sendHtml(to, subject, body);
     }
 
-    @Async
-    public void sendCancellationCodeEmail(String to, String displayName, String code) {
-        String subject = "Your New Lasema Spa Jjimjilbang cancellation code";
-        String body = """
+    public boolean sendCancellationCodeEmail(String to, String displayName, String code) {
+        try {
+            sendHtml(to, "Your New Lasema Spa Jjimjilbang cancellation code", cancellationCodeBody(displayName, code));
+            return true;
+        } catch (Exception e) {
+            log.error("Cancellation code email failed for {}: {}", maskRecipient(to), e.getMessage());
+            return false;
+        }
+    }
+
+    private String cancellationCodeBody(String displayName, String code) {
+        return """
                 <html>
                 <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
                   <h2 style="color: #c42441;">Confirm your cancellation</h2>
@@ -135,14 +149,35 @@ public class EmailService {
                 </body>
                 </html>
                 """.formatted(displayName == null ? "there" : displayName, code);
-        sendHtml(to, subject, body);
+    }
+
+    private String maskRecipient(String to) {
+        if (to == null) {
+            return "(none)";
+        }
+        int at = to.indexOf('@');
+        return at >= 0 ? "***" + to.substring(at) : "***";
     }
 
     @Async
-    public void sendCancellationConfirmedEmail(String to, String displayName, String reference, boolean refunded) {
+    public void sendCancellationConfirmedEmail(String to, String displayName, String reference,
+                                               List<String> services, BigDecimal refundAmount, boolean refunded) {
         String subject = "Your New Lasema Spa Jjimjilbang reservation has been cancelled";
+        StringBuilder servicesHtml = new StringBuilder();
+        if (services != null) {
+            for (String line : services) {
+                servicesHtml.append("<tr><td style=\"padding: 6px 12px;\">")
+                        .append(line == null ? "" : line)
+                        .append("</td></tr>");
+            }
+        }
+        String servicesBlock = servicesHtml.length() == 0 ? ""
+                : "<h3 style=\"margin-top: 24px; color: #1a1a1a;\">Cancelled services</h3>"
+                + "<table style=\"border-collapse: collapse; margin-top: 8px; width: 100%;\">"
+                + servicesHtml + "</table>";
         String refundLine = refunded
-                ? "<p>Your payment is being refunded to the original payment method. Refunds may take a few business days to appear.</p>"
+                ? "<p>A refund of <strong>&#8369; " + refundAmount.setScale(2, RoundingMode.HALF_UP).toPlainString()
+                        + "</strong> is being returned to your original payment method. Refunds may take a few business days to appear.</p>"
                 : "";
         String body = """
                 <html>
@@ -151,11 +186,12 @@ public class EmailService {
                   <p>Hello %s,</p>
                   <p>Your reservation <strong>%s</strong> has been cancelled. We hope to welcome you another time.</p>
                   %s
+                  %s
                   <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
                   <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
                 </body>
                 </html>
-                """.formatted(displayName == null ? "there" : displayName, reference, refundLine);
+                """.formatted(displayName == null ? "there" : displayName, reference, servicesBlock, refundLine);
         sendHtml(to, subject, body);
     }
 

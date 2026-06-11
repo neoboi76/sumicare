@@ -41,15 +41,27 @@ public class OrganizationService {
         if (request.accentColor() != null) org.setAccentColor(request.accentColor());
         if (request.theme() != null) org.setTheme(request.theme());
         if (request.fontFamily() != null) org.setFontFamily(request.fontFamily());
+        if (request.loginBackgroundUrl() != null) org.setLoginBackgroundUrl(emptyToNull(request.loginBackgroundUrl()));
+        if (request.faviconUrl() != null) org.setFaviconUrl(emptyToNull(request.faviconUrl()));
+        if (request.instagramUrl() != null) org.setInstagramUrl(emptyToNull(request.instagramUrl()));
+        if (request.contactPhone() != null) org.setContactPhone(emptyToNull(request.contactPhone()));
+        if (request.contactEmail() != null) org.setContactEmail(emptyToNull(request.contactEmail()));
+        if (request.footerNote() != null) org.setFooterNote(emptyToNull(request.footerNote()));
         org.setUpdatedAt(OffsetDateTime.now());
         return toResponse(org);
+    }
+
+    private String emptyToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private OrganizationBrandingResponse toResponse(Organization org) {
         return new OrganizationBrandingResponse(
                 org.getId(), org.getSlug(), org.getDisplayName(),
                 org.getLogoUrl(), org.getPrimaryColor(), org.getSecondaryColor(),
-                org.getAccentColor(), org.getTheme(), org.getFontFamily()
+                org.getAccentColor(), org.getTheme(), org.getFontFamily(),
+                org.getLoginBackgroundUrl(), org.getFaviconUrl(), org.getInstagramUrl(),
+                org.getContactPhone(), org.getContactEmail(), org.getFooterNote()
         );
     }
 }

@@ -9,6 +9,7 @@ import com.sumicare.booking.dto.PublicAttendeeRequest;
 import com.sumicare.booking.dto.PublicPaymentResponse;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
+import com.sumicare.common.util.BookingReference;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
@@ -87,6 +88,7 @@ public class BookingService {
     private final ReceiptPdfService receiptPdfService;
     private final TreatmentSlipPdfService treatmentSlipPdfService;
     private final com.sumicare.pos.service.PayMongoService payMongoService;
+    private final LockerAssignmentService lockerAssignmentService;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
@@ -110,7 +112,8 @@ public class BookingService {
                           EmailService emailService,
                           ReceiptPdfService receiptPdfService,
                           TreatmentSlipPdfService treatmentSlipPdfService,
-                          com.sumicare.pos.service.PayMongoService payMongoService) {
+                          com.sumicare.pos.service.PayMongoService payMongoService,
+                          LockerAssignmentService lockerAssignmentService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -138,6 +141,7 @@ public class BookingService {
         this.receiptPdfService = receiptPdfService;
         this.treatmentSlipPdfService = treatmentSlipPdfService;
         this.payMongoService = payMongoService;
+        this.lockerAssignmentService = lockerAssignmentService;
     }
 
     @PreAuthorize("permitAll()")
@@ -260,7 +264,17 @@ public class BookingService {
         int resolvedPax = attendees.size();
 
         boolean publicReservation = !"WALK_IN".equalsIgnoreCase(request.reservationType());
-        String resolvedBookingLocker = publicReservation ? null : request.lockerNumber();
+        List<String> assignedLockers = new java.util.ArrayList<>();
+        if (publicReservation) {
+            java.util.Set<String> takenLockers = lockerAssignmentService.takenLockersForDay(organizationId, request.scheduledAt());
+            for (PublicAttendeeRequest a : attendees) {
+                String attendeeGender = a.clientGender() != null ? a.clientGender() : request.clientGender();
+                assignedLockers.add(lockerAssignmentService.assign(attendeeGender, takenLockers));
+            }
+        }
+        String resolvedBookingLocker = publicReservation
+                ? (assignedLockers.isEmpty() ? null : assignedLockers.get(0))
+                : request.lockerNumber();
 
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
@@ -276,6 +290,8 @@ public class BookingService {
         booking.setNationality(request.nationality());
         booking.setRemarks(request.remarks());
         booking.setStatus("PENDING");
+        bookingRepository.save(booking);
+        booking.setReference(BookingReference.of(booking.getId()));
         bookingRepository.save(booking);
 
         com.sumicare.cashier.domain.Order order = new com.sumicare.cashier.domain.Order();
@@ -324,7 +340,7 @@ public class BookingService {
                 att.setOrganizationId(organizationId);
                 att.setServiceId(resolvedServiceId);
                 att.setPackageTierId(resolvedTierId);
-                att.setLockerNumber(publicReservation ? null
+                att.setLockerNumber(publicReservation ? assignedLockers.get(pos)
                         : (a.lockerNumber() != null ? a.lockerNumber() : request.lockerNumber()));
                 att.setClientGender(a.clientGender() != null ? a.clientGender() : request.clientGender());
                 att.setPosition(pos++);
@@ -435,12 +451,29 @@ public class BookingService {
         BigDecimal orderTotal = itemsSubtotal.add(roomChargeTotal);
         String orderRoomType = roomTypes.size() == 1 ? roomTypes.iterator().next() : "MIXED";
 
+        List<List<String>> assignedLockers = new java.util.ArrayList<>();
+        if (publicReservation) {
+            java.util.Set<String> takenLockers = lockerAssignmentService.takenLockersForDay(organizationId, request.scheduledAt());
+            for (List<PublicAttendeeRequest> group : normalisedAttendees) {
+                List<String> groupLockers = new java.util.ArrayList<>();
+                for (PublicAttendeeRequest a : group) {
+                    String attendeeGender = a.clientGender() != null ? a.clientGender() : request.clientGender();
+                    groupLockers.add(lockerAssignmentService.assign(attendeeGender, takenLockers));
+                }
+                assignedLockers.add(groupLockers);
+            }
+        }
+        String bookingLocker = request.lockerNumber();
+        if (publicReservation) {
+            bookingLocker = assignedLockers.stream().flatMap(List::stream).findFirst().orElse(null);
+        }
+
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(resolvedClientId);
         booking.setClientNickname(request.clientNickname());
         booking.setClientEmail(request.clientEmail());
-        booking.setLockerNumber(publicReservation ? null : request.lockerNumber());
+        booking.setLockerNumber(bookingLocker);
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
         booking.setScheduledAt(request.scheduledAt());
@@ -449,6 +482,8 @@ public class BookingService {
         booking.setNationality(request.nationality());
         booking.setRemarks(request.remarks());
         booking.setStatus("PENDING");
+        bookingRepository.save(booking);
+        booking.setReference(BookingReference.of(booking.getId()));
         bookingRepository.save(booking);
 
         Order order = new Order();
@@ -505,7 +540,7 @@ public class BookingService {
                 att.setOrganizationId(organizationId);
                 att.setServiceId(resolvedServiceId);
                 att.setPackageTierId(tierId);
-                att.setLockerNumber(publicReservation ? null : a.lockerNumber());
+                att.setLockerNumber(publicReservation ? assignedLockers.get(i).get(attPos) : a.lockerNumber());
                 att.setClientGender(a.clientGender() != null ? a.clientGender() : request.clientGender());
                 att.setPosition(attPos++);
                 attendeeRepository.save(att);
@@ -619,8 +654,9 @@ public class BookingService {
                 : serviceRepository.findById(booking.getServiceId()).map(Service::getName).orElse(null);
         Package pkg = resolveOrderPackage(order);
         String packageName = pkg == null ? null : pkg.getName();
+        String reference = booking == null ? null : booking.getReference();
         return new PublicPaymentResponse(status, intentId, redirectUrl, order.getOrNumber(),
-                nickname, packageName, serviceName, scheduledAt, reservationType);
+                reference, nickname, packageName, serviceName, scheduledAt, reservationType);
     }
 
     private Order requirePublicOrder(UUID organizationId, UUID orderId) {
@@ -688,7 +724,7 @@ public class BookingService {
                     recipient,
                     booking.getClientNickname(),
                     new EmailService.BookingEmailPayload(
-                            booking.getId().toString(),
+                            booking.getReference(),
                             orNumber,
                             lines,
                             booking.getReservationType(),
@@ -1353,12 +1389,12 @@ public class BookingService {
             OffsetDateTime projectedEnd = latestExpectedEnd != null
                     ? latestExpectedEnd
                     : effectiveStart.plusMinutes(maxDuration);
-            return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
+            return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                     b.getServiceId(), b.getReservationType(), effectiveStart,
                     projectedEnd, b.getStatus(), orderId, b.getNationality(), b.getRemarks());
         }
         OffsetDateTime projectedEnd = effectiveStart.plusMinutes(maxDuration);
-        return new BookingResponse(b.getId(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
+        return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), effectiveStart,
                 projectedEnd, b.getStatus(), orderId, b.getNationality(), b.getRemarks());
     }

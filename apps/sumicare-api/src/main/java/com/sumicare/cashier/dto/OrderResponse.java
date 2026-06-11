@@ -8,6 +8,7 @@ import java.util.UUID;
 public record OrderResponse(
         UUID id,
         UUID bookingId,
+        String bookingReference,
         UUID treatmentSlipId,
         UUID cashierUserId,
         String cashierDisplayName,

@@ -9,6 +9,8 @@ interface Feedback {
   ratingStars: number;
   comment: string | null;
   orNumber: string | null;
+  nickname: string | null;
+  sessionId: string | null;
   submittedAt: string;
 }
 
@@ -23,9 +25,14 @@ export class FeedbackAdminComponent implements OnInit {
   private http = inject(HttpClient);
   private feed = inject(NotificationFeedService);
   feedback = signal<Feedback[]>([]);
+  expandedId = signal<string | null>(null);
   exportFrom = '';
   exportTo = '';
   exporting = signal(false);
+
+  toggle(id: string): void {
+    this.expandedId.update(current => current === id ? null : id);
+  }
 
   ngOnInit(): void {
     this.http.get<{ content: Feedback[] }>(`${environment.apiBaseUrl}/api/feedback`).subscribe({

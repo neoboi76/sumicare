@@ -8,6 +8,7 @@ import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.cashier.domain.Order;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.service.OrderService;
+import com.sumicare.common.util.BookingReference;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,9 +54,9 @@ public class BookingCancellationService {
             return;
         }
         String code = codeService.issue(booking.getId(), email);
-        emailService.sendCancellationCodeEmail(email, booking.getClientNickname(), code);
+        boolean emailSent = emailService.sendCancellationCodeEmail(email, booking.getClientNickname(), code);
         auditService.record(organizationId, null, "PUBLIC", "BOOKING_CANCEL_REQUESTED", "BOOKING",
-                booking.getId().toString(), "{\"email\":\"" + email + "\"}", ipAddress);
+                booking.getId().toString(), "{\"email\":\"" + email + "\",\"emailSent\":" + emailSent + "}", ipAddress);
     }
 
     public CancellationDetailsResponse verify(UUID organizationId, String reference, String email, String code) {
@@ -79,7 +80,6 @@ public class BookingCancellationService {
                 booking.getId().toString(),
                 "{\"email\":\"" + email + "\",\"orNumber\":\"" + orNumber + "\",\"refunded\":" + refunded + "}",
                 ipAddress);
-        emailService.sendCancellationConfirmedEmail(email, booking.getClientNickname(), reference(booking), refunded);
     }
 
     private Booking requireVerified(UUID organizationId, String reference, String email, String code) {
@@ -95,13 +95,13 @@ public class BookingCancellationService {
         if (reference == null || email == null) {
             return Optional.empty();
         }
-        String ref = reference.trim().toLowerCase().replace("-", "");
+        String ref = reference.trim();
         if (ref.isBlank()) {
             return Optional.empty();
         }
         return bookingRepository.findAllByOrganizationIdAndClientEmailIgnoreCase(organizationId, email.trim()).stream()
                 .filter(b -> CANCELLABLE_BOOKING_STATUSES.contains(b.getStatus()))
-                .filter(b -> b.getId().toString().replace("-", "").toLowerCase().startsWith(ref))
+                .filter(b -> b.getReference() != null && b.getReference().equalsIgnoreCase(ref))
                 .filter(b -> orderRepository.findByBookingId(b.getId())
                         .map(o -> !SETTLED_ORDER_STATUSES.contains(o.getStatus()))
                         .orElse(true))
@@ -125,6 +125,6 @@ public class BookingCancellationService {
     }
 
     private String reference(Booking booking) {
-        return booking.getId().toString().substring(0, 8).toUpperCase();
+        return booking.getReference() != null ? booking.getReference() : BookingReference.of(booking.getId());
     }
 }

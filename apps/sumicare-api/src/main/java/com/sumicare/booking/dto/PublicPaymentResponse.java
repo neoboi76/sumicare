@@ -5,6 +5,7 @@ public record PublicPaymentResponse(
         String intentId,
         String redirectUrl,
         String orNumber,
+        String reference,
         String clientNickname,
         String packageName,
         String serviceName,

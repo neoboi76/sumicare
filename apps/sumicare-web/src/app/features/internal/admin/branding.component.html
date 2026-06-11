@@ -62,6 +62,54 @@
                 }
                 <span class="block text-xs text-slate-500 mt-1">Used across the internal app. The public site keeps the Lasema editorial chrome and is unaffected.</span>
             </label>
+
+            <fieldset class="space-y-4 border-t border-slate-200 pt-5">
+                <legend class="text-sm font-semibold text-slate-700">Public site and sign-in</legend>
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-700">Sign-in background image URL</span>
+                    <input [(ngModel)]="f.loginBackgroundUrl" name="loginBackgroundUrl"
+                           (ngModelChange)="previewLocally()"
+                           placeholder="https://..."
+                           class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    <span class="block text-xs text-slate-500 mt-1">Shown behind the login screen. Leave blank for the default backdrop.</span>
+                </label>
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-700">Favicon URL</span>
+                    <input [(ngModel)]="f.faviconUrl" name="faviconUrl"
+                           (ngModelChange)="previewLocally()"
+                           placeholder="https://.../favicon.png"
+                           class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    <span class="block text-xs text-slate-500 mt-1">The icon shown in the browser tab.</span>
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label class="block">
+                        <span class="text-sm font-medium text-slate-700">Instagram URL</span>
+                        <input [(ngModel)]="f.instagramUrl" name="instagramUrl"
+                               placeholder="https://instagram.com/..."
+                               class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-slate-700">Contact phone</span>
+                        <input [(ngModel)]="f.contactPhone" name="contactPhone"
+                               placeholder="+63 ..."
+                               class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-slate-700">Contact email</span>
+                        <input [(ngModel)]="f.contactEmail" name="contactEmail" type="email"
+                               placeholder="hello@example.com"
+                               class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-slate-700">Footer note</span>
+                        <input [(ngModel)]="f.footerNote" name="footerNote"
+                               placeholder="Manila's Korean Bathhouse"
+                               class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    </label>
+                </div>
+                <span class="block text-xs text-slate-500">Social and contact details surface in the public site footer.</span>
+            </fieldset>
+
             <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 transition-all duration-300">
                 <div class="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Live preview</div>
                 <div class="text-2xl text-slate-900" [style.fontFamily]="'var(--sumi-app-font-display)'">{{ f.displayName || 'Your organization' }}</div>

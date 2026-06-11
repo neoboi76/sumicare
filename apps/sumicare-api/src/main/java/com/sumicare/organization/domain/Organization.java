@@ -38,6 +38,24 @@ public class Organization {
     @Column(name = "font_family")
     private String fontFamily;
 
+    @Column(name = "login_background_url")
+    private String loginBackgroundUrl;
+
+    @Column(name = "favicon_url")
+    private String faviconUrl;
+
+    @Column(name = "instagram_url")
+    private String instagramUrl;
+
+    @Column(name = "contact_phone")
+    private String contactPhone;
+
+    @Column(name = "contact_email")
+    private String contactEmail;
+
+    @Column(name = "footer_note")
+    private String footerNote;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -65,6 +83,18 @@ public class Organization {
     public void setTheme(String theme) { this.theme = theme; }
     public String getFontFamily() { return fontFamily; }
     public void setFontFamily(String fontFamily) { this.fontFamily = fontFamily; }
+    public String getLoginBackgroundUrl() { return loginBackgroundUrl; }
+    public void setLoginBackgroundUrl(String loginBackgroundUrl) { this.loginBackgroundUrl = loginBackgroundUrl; }
+    public String getFaviconUrl() { return faviconUrl; }
+    public void setFaviconUrl(String faviconUrl) { this.faviconUrl = faviconUrl; }
+    public String getInstagramUrl() { return instagramUrl; }
+    public void setInstagramUrl(String instagramUrl) { this.instagramUrl = instagramUrl; }
+    public String getContactPhone() { return contactPhone; }
+    public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
+    public String getContactEmail() { return contactEmail; }
+    public void setContactEmail(String contactEmail) { this.contactEmail = contactEmail; }
+    public String getFooterNote() { return footerNote; }
+    public void setFooterNote(String footerNote) { this.footerNote = footerNote; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

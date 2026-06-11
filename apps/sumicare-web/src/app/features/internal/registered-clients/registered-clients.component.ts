@@ -30,6 +30,11 @@ export class RegisteredClientsComponent implements OnInit {
   currentPage = signal(0);
   pageSize = signal(15);
 
+  showAdd = signal(false);
+  saving = signal(false);
+  addError = signal<string | null>(null);
+  newClient = { nickname: '', email: '', gender: 'F', nationality: '' };
+
   paginatedClients = computed(() => {
     const start = this.currentPage() * this.pageSize();
     return this.clients().slice(start, start + this.pageSize());
@@ -52,6 +57,43 @@ export class RegisteredClientsComponent implements OnInit {
     if (gender === 'M') return 'Male';
     if (gender === 'F') return 'Female';
     return '-';
+  }
+
+  openAdd(): void {
+    this.newClient = { nickname: '', email: '', gender: 'F', nationality: '' };
+    this.addError.set(null);
+    this.showAdd.set(true);
+  }
+
+  closeAdd(): void {
+    this.showAdd.set(false);
+  }
+
+  submitAdd(): void {
+    if (this.saving()) return;
+    if (!this.newClient.nickname.trim() || !this.newClient.email.trim()) {
+      this.addError.set('Nickname and email are required.');
+      return;
+    }
+    this.saving.set(true);
+    this.addError.set(null);
+    this.http.post<RegisteredClient>(`${environment.apiBaseUrl}/api/clients`, {
+      nickname: this.newClient.nickname.trim(),
+      email: this.newClient.email.trim(),
+      gender: this.newClient.gender,
+      nationality: this.newClient.nationality.trim() || null
+    }).subscribe({
+      next: (created) => {
+        this.clients.update(list => [created, ...list]);
+        this.currentPage.set(0);
+        this.saving.set(false);
+        this.showAdd.set(false);
+      },
+      error: (err) => {
+        this.addError.set(err?.error?.message || 'Could not add client.');
+        this.saving.set(false);
+      }
+    });
   }
 
   async remove(client: RegisteredClient): Promise<void> {

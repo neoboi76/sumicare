@@ -73,8 +73,9 @@
                     <p class="text-sm leading-relaxed">8846 Sampaloc St<br/>corner Estrella St<br/>Makati City, 1203<br/>Metro Manila</p>
                 </div>
                 <div class="transition-transform duration-500 hover:-translate-y-0.5">
+                    @let b = branding.branding();
                     <div class="editorial-label mb-3">Hours &amp; Contact</div>
-                    <p class="text-sm leading-relaxed">Open 24 Hours<br/>7 Days a Week<br/><a href="tel:+639957830094" class="hover:text-[var(--jade)] transition-colors">+63 995 783 0094</a><br/><a href="mailto:lasema.reservation@gmail.com" class="hover:text-[var(--jade)] transition-colors">lasema.reservation&#64;gmail.com</a><br/><a href="https://www.instagram.com/lasemajimjilbangspa/" target="_blank" rel="noopener" class="hover:text-[var(--jade)] transition-colors">&#64;lasemajimjilbangspa</a></p>
+                    <p class="text-sm leading-relaxed">Open 24 Hours<br/>7 Days a Week<br/><a [href]="'tel:' + (b?.contactPhone || '+639957830094')" class="hover:text-[var(--jade)] transition-colors">{{ b?.contactPhone || '+63 995 783 0094' }}</a><br/><a [href]="'mailto:' + (b?.contactEmail || 'lasema.reservation@gmail.com')" class="hover:text-[var(--jade)] transition-colors">{{ b?.contactEmail || 'lasema.reservation@gmail.com' }}</a><br/><a [href]="b?.instagramUrl || 'https://www.instagram.com/lasemajimjilbangspa/'" target="_blank" rel="noopener" class="hover:text-[var(--jade)] transition-colors">Instagram</a></p>
                 </div>
                 <div class="transition-transform duration-500 hover:-translate-y-0.5">
                     <div class="editorial-label mb-3">Key Packages</div>
@@ -97,7 +98,7 @@
                 </div>
             </div>
             <div class="max-w-7xl mx-auto px-5 sm:px-8 mt-10 pt-6 border-t border-[var(--rule)] flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-                <span class="italic font-[var(--lasema-font-italic)] text-[var(--ink)]/70">New Lasema Spa Jjimjilbang &middot; Manila's Korean Bathhouse</span>
+                <span class="italic font-[var(--lasema-font-italic)] text-[var(--ink)]/70">New Lasema Spa Jjimjilbang &middot; {{ branding.branding()?.footerNote || 'Manila\'s Korean Bathhouse' }}</span>
                 <span class="text-[var(--ink)]/60">&copy; {{ currentYear }} New Lasema Spa Jjimjilbang &middot; <a routerLink="/cancel" class="hover:text-[var(--jade)] underline-offset-2 hover:underline">Cancel a booking</a> &middot; <a routerLink="/terms" class="hover:text-[var(--jade)] underline-offset-2 hover:underline">Terms of Service</a></span>
             </div>
         </div>

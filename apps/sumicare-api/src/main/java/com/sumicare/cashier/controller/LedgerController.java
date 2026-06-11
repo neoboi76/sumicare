@@ -23,6 +23,8 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -102,6 +104,8 @@ public class LedgerController {
 
     public record BalanceResponse(BigDecimal inflow, BigDecimal outflow, BigDecimal balance, int count) {}
 
+    public record DailyRevenuePoint(LocalDate date, BigDecimal net, BigDecimal inflow, BigDecimal outflow, long count) {}
+
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public List<LedgerEntryResponse> list(@AuthenticationPrincipal AuthenticatedPrincipal principal,
@@ -132,6 +136,42 @@ public class LedgerController {
             }
         }
         return new BalanceResponse(inflow, outflow, inflow.subtract(outflow), entries.size());
+    }
+
+    @GetMapping("/daily-revenue")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public List<DailyRevenuePoint> dailyRevenue(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                                @RequestParam(required = false) String method,
+                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        UUID orgId = UUID.fromString(principal.organizationId());
+        LocalDate startDate = from != null ? from : LocalDate.now(MANILA).minusDays(13);
+        LocalDate endDate = to != null ? to : LocalDate.now(MANILA);
+        OffsetDateTime start = startDate.atStartOfDay(MANILA).toOffsetDateTime();
+        OffsetDateTime end = endDate.plusDays(1).atStartOfDay(MANILA).toOffsetDateTime();
+        List<TransactionLedgerEntry> entries = loadEntries(orgId, method, start, end);
+
+        Map<LocalDate, BigDecimal> inflowByDate = new HashMap<>();
+        Map<LocalDate, BigDecimal> outflowByDate = new HashMap<>();
+        Map<LocalDate, Long> countByDate = new HashMap<>();
+        for (TransactionLedgerEntry e : entries) {
+            LocalDate date = e.getRecordedAt().atZoneSameInstant(MANILA).toLocalDate();
+            boolean outflow = "REFUND".equalsIgnoreCase(e.getEntryType()) || "PAYOUT".equalsIgnoreCase(e.getEntryType());
+            if (outflow) {
+                outflowByDate.merge(date, e.getAmount(), BigDecimal::add);
+            } else {
+                inflowByDate.merge(date, e.getAmount(), BigDecimal::add);
+            }
+            countByDate.merge(date, 1L, Long::sum);
+        }
+
+        List<DailyRevenuePoint> points = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            BigDecimal inflow = inflowByDate.getOrDefault(d, BigDecimal.ZERO);
+            BigDecimal outflow = outflowByDate.getOrDefault(d, BigDecimal.ZERO);
+            points.add(new DailyRevenuePoint(d, inflow.subtract(outflow), inflow, outflow, countByDate.getOrDefault(d, 0L)));
+        }
+        return points;
     }
 
     @GetMapping(value = "/export.csv", produces = "text/csv")

@@ -62,7 +62,7 @@ export class ReceptionComponent implements OnInit, OnDestroy {
   }
 
   bedClass(bed: BedView): string {
-    const base = 'rounded-md border p-3 text-sm ';
+    const base = 'rounded-md border p-3 text-sm transition-all duration-300 hover:shadow-sm ';
     const lock = bed.occupancy['genderLock'];
     if (lock === 'M') return base + 'bg-slate-200';
     if (lock === 'F') return base + 'bg-pink-200';

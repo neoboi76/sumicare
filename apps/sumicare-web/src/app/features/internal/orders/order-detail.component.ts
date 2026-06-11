@@ -37,6 +37,7 @@ interface OrderItem {
 interface Order {
   id: string;
   bookingId: string;
+  bookingReference: string | null;
   treatmentSlipId: string | null;
   cashierUserId: string | null;
   cashierDisplayName: string | null;

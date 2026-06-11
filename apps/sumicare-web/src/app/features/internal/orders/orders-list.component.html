@@ -61,7 +61,12 @@
         <tr>
           <td class="px-3 py-2 text-xs">{{ formatDate(o.createdAt) }}</td>
           <td class="px-3 py-2 text-xs">{{ formatSchedule(o.scheduledAt) }}</td>
-          <td class="px-3 py-2 font-mono text-xs">{{ o.orNumber || '\u2014' }}</td>
+          <td class="px-3 py-2 font-mono text-xs">
+            {{ o.orNumber || '\u2014' }}
+            @if (o.bookingReference) {
+              <div class="text-[10px] text-slate-400">Ref {{ o.bookingReference }}</div>
+            }
+          </td>
           <td class="px-3 py-2">
             {{ o.transactorName || o.clientNickname || '\u2014' }}
             @if (isReservation(o)) {

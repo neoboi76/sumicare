@@ -8,7 +8,6 @@ import com.sumicare.therapist.service.DeckingService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -42,15 +41,17 @@ public class DashboardService {
 
         int todayBookings = bookingService.listBookingsForDay(organizationId, dayStart, dayEnd).size();
         int activeSessions = (int) sessionRepository.countByOrganizationIdAndStatus(organizationId, "ACTIVE");
+        int completedSessions = (int) sessionRepository
+                .countByOrganizationIdAndStatusAndEndedAtBetween(organizationId, "COMPLETED", dayStart, dayEnd);
         int therapistsInLineup = deckingService.currentLineup(organizationId).size();
         long bedsOccupied = roomOccupancyService.countOccupiedBeds(organizationId);
 
         return new DashboardSummary(
                 todayBookings,
                 activeSessions,
+                completedSessions,
                 therapistsInLineup,
-                bedsOccupied,
-                BigDecimal.ZERO
+                bedsOccupied
         );
     }
 }

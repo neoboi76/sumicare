@@ -36,4 +36,7 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
             UUID organizationId, String status, OffsetDateTime cutoff);
 
     long countByOrganizationIdAndStatus(UUID organizationId, String status);
+
+    long countByOrganizationIdAndStatusAndEndedAtBetween(
+            UUID organizationId, String status, OffsetDateTime from, OffsetDateTime to);
 }

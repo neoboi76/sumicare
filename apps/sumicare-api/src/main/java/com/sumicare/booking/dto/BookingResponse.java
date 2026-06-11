@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record BookingResponse(
         UUID id,
+        String reference,
         String clientNickname,
         String clientEmail,
         String lockerNumber,
