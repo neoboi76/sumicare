@@ -132,8 +132,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private stomp = inject(StompService);
   private auth = inject(AuthService);
   private bookingsSubscription: Subscription | null = null;
+  private roomsSubscription: Subscription | null = null;
   private bookingsPollTimer: ReturnType<typeof setInterval> | null = null;
   private reloadDebounce: ReturnType<typeof setTimeout> | null = null;
+  private roomsReloadDebounce: ReturnType<typeof setTimeout> | null = null;
   private therapistRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
@@ -267,6 +269,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     this.loadReference();
     this.therapistRefreshTimer = setInterval(() => this.refreshLineup(), 30000);
     this.subscribeBookingsFeed();
+    this.subscribeRoomsFeed();
     this.bookingsPollTimer = setInterval(() => this.reload(), 60000);
   }
 
@@ -280,7 +283,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
     if (this.reloadDebounce) {
       clearTimeout(this.reloadDebounce);
     }
+    if (this.roomsReloadDebounce) {
+      clearTimeout(this.roomsReloadDebounce);
+    }
     this.bookingsSubscription?.unsubscribe();
+    this.roomsSubscription?.unsubscribe();
   }
 
   private subscribeBookingsFeed(): void {
@@ -296,9 +303,27 @@ export class BookingsComponent implements OnInit, OnDestroy {
     }
   }
 
+  private subscribeRoomsFeed(): void {
+    const orgId = this.auth.organizationId();
+    if (!orgId) return;
+    try {
+      this.roomsSubscription = this.stomp.watch<unknown>('/topic/room-updates/' + orgId).subscribe({
+        next: () => this.scheduleRoomsReload(),
+        error: () => undefined
+      });
+    } catch {
+      this.roomsSubscription = null;
+    }
+  }
+
   private scheduleReload(): void {
     if (this.reloadDebounce) clearTimeout(this.reloadDebounce);
     this.reloadDebounce = setTimeout(() => this.reload(), 300);
+  }
+
+  private scheduleRoomsReload(): void {
+    if (this.roomsReloadDebounce) clearTimeout(this.roomsReloadDebounce);
+    this.roomsReloadDebounce = setTimeout(() => this.reloadRooms(), 200);
   }
 
   onDateChange(value: string): void {
@@ -419,6 +444,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
       next: (s) => this.services.set(s)
     });
     this.refreshLineup();
+    this.reloadRooms();
+  }
+
+  private reloadRooms(): void {
     this.http.get<RoomItem[]>(`${environment.apiBaseUrl}/api/rooms`).subscribe({
       next: (r) => this.rooms.set(r)
     });
@@ -582,6 +611,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
       next: () => {
         this.cancelStart();
         this.reload();
+        this.reloadRooms();
       },
       error: (err) => {
         alert(err?.error?.message || 'Could not start session.');

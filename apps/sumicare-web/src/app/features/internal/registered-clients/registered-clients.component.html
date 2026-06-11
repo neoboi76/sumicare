@@ -7,7 +7,8 @@
     <div class="flex flex-wrap gap-2">
       <input [(ngModel)]="searchTerm" (keyup.enter)="load()" name="searchTerm" placeholder="Search by nickname"
         class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
-      <button (click)="load()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm">Search</button>
+      <button (click)="load()" class="rounded border border-slate-300 text-slate-700 px-3 py-1.5 text-sm hover:bg-slate-50">Search</button>
+      <button (click)="openAdd()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm hover:opacity-90 transition-opacity">Add client</button>
     </div>
   </header>
 
@@ -25,7 +26,7 @@
         </thead>
         <tbody>
           @for (c of paginatedClients(); track c.id) {
-          <tr class="border-t hover:bg-slate-50">
+          <tr class="border-t hover:bg-slate-50 transition-colors duration-150">
             <td class="p-3 font-medium">{{ c.nickname }}</td>
             <td class="p-3">{{ c.email || '-' }}</td>
             <td class="p-3">{{ genderLabel(c.gender) }}</td>
@@ -51,4 +52,47 @@
     </sumi-paginator>
     }
   </section>
+
+  @if (showAdd()) {
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" (click)="closeAdd()">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5 anim-pop" (click)="$event.stopPropagation()">
+      <h3 class="text-lg font-semibold mb-3">Add client</h3>
+      @if (addError(); as e) {
+        <p class="text-sm text-rose-600 mb-2">{{ e }}</p>
+      }
+      <div class="space-y-3 text-sm">
+        <label class="block">
+          Nickname <span class="text-rose-500">*</span>
+          <input [(ngModel)]="newClient.nickname" name="addNickname" maxlength="64"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">
+          Email <span class="text-rose-500">*</span>
+          <input [(ngModel)]="newClient.email" name="addEmail" type="email" maxlength="255"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">
+          Sex
+          <select [(ngModel)]="newClient.gender" name="addGender"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+            <option value="F">Female</option>
+            <option value="M">Male</option>
+          </select>
+        </label>
+        <label class="block">
+          Nationality
+          <input [(ngModel)]="newClient.nationality" name="addNationality" maxlength="64"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button (click)="closeAdd()" class="px-3 py-1.5 text-sm text-slate-600">Cancel</button>
+        <button (click)="submitAdd()" [disabled]="saving()"
+          class="px-3 py-1.5 text-sm bg-[var(--sumi-primary)] text-white rounded disabled:opacity-50">
+          {{ saving() ? 'Adding...' : 'Add client' }}
+        </button>
+      </div>
+    </div>
+  </div>
+  }
 </div>

@@ -35,8 +35,8 @@
       <div>
         <div class="text-xs uppercase tracking-wide text-slate-500">Order</div>
         <div class="text-xl font-semibold">{{ o.transactorName || o.clientNickname || 'Walk-in' }}</div>
-        <div class="text-xs text-slate-500">OR# {{ o.orNumber || '—' }} &middot; Created {{ formatDate(o.createdAt)
-          }}</div>
+        <div class="text-xs text-slate-500">OR# {{ o.orNumber || '—' }} &middot; Ref {{ o.bookingReference || '—' }}
+          &middot; Created {{ formatDate(o.createdAt) }}</div>
         @if (o.scheduledAt) {
         <div class="mt-1 inline-flex items-center gap-1.5 rounded bg-[var(--sumi-primary)]/10 text-[var(--sumi-primary)] text-xs font-medium px-2 py-1">
           <span class="uppercase tracking-wide text-[10px]">Schedule</span>

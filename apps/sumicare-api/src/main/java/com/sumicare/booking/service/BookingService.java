@@ -87,6 +87,7 @@ public class BookingService {
     private final ReceiptPdfService receiptPdfService;
     private final TreatmentSlipPdfService treatmentSlipPdfService;
     private final com.sumicare.pos.service.PayMongoService payMongoService;
+    private final LockerAssignmentService lockerAssignmentService;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
@@ -110,7 +111,8 @@ public class BookingService {
                           EmailService emailService,
                           ReceiptPdfService receiptPdfService,
                           TreatmentSlipPdfService treatmentSlipPdfService,
-                          com.sumicare.pos.service.PayMongoService payMongoService) {
+                          com.sumicare.pos.service.PayMongoService payMongoService,
+                          LockerAssignmentService lockerAssignmentService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -138,6 +140,7 @@ public class BookingService {
         this.receiptPdfService = receiptPdfService;
         this.treatmentSlipPdfService = treatmentSlipPdfService;
         this.payMongoService = payMongoService;
+        this.lockerAssignmentService = lockerAssignmentService;
     }
 
     @PreAuthorize("permitAll()")
@@ -260,7 +263,17 @@ public class BookingService {
         int resolvedPax = attendees.size();
 
         boolean publicReservation = !"WALK_IN".equalsIgnoreCase(request.reservationType());
-        String resolvedBookingLocker = publicReservation ? null : request.lockerNumber();
+        List<String> assignedLockers = new java.util.ArrayList<>();
+        if (publicReservation) {
+            java.util.Set<String> takenLockers = lockerAssignmentService.takenLockersForDay(organizationId, request.scheduledAt());
+            for (PublicAttendeeRequest a : attendees) {
+                String attendeeGender = a.clientGender() != null ? a.clientGender() : request.clientGender();
+                assignedLockers.add(lockerAssignmentService.assign(attendeeGender, takenLockers));
+            }
+        }
+        String resolvedBookingLocker = publicReservation
+                ? (assignedLockers.isEmpty() ? null : assignedLockers.get(0))
+                : request.lockerNumber();
 
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
@@ -324,7 +337,7 @@ public class BookingService {
                 att.setOrganizationId(organizationId);
                 att.setServiceId(resolvedServiceId);
                 att.setPackageTierId(resolvedTierId);
-                att.setLockerNumber(publicReservation ? null
+                att.setLockerNumber(publicReservation ? assignedLockers.get(pos)
                         : (a.lockerNumber() != null ? a.lockerNumber() : request.lockerNumber()));
                 att.setClientGender(a.clientGender() != null ? a.clientGender() : request.clientGender());
                 att.setPosition(pos++);
@@ -435,12 +448,29 @@ public class BookingService {
         BigDecimal orderTotal = itemsSubtotal.add(roomChargeTotal);
         String orderRoomType = roomTypes.size() == 1 ? roomTypes.iterator().next() : "MIXED";
 
+        List<List<String>> assignedLockers = new java.util.ArrayList<>();
+        if (publicReservation) {
+            java.util.Set<String> takenLockers = lockerAssignmentService.takenLockersForDay(organizationId, request.scheduledAt());
+            for (List<PublicAttendeeRequest> group : normalisedAttendees) {
+                List<String> groupLockers = new java.util.ArrayList<>();
+                for (PublicAttendeeRequest a : group) {
+                    String attendeeGender = a.clientGender() != null ? a.clientGender() : request.clientGender();
+                    groupLockers.add(lockerAssignmentService.assign(attendeeGender, takenLockers));
+                }
+                assignedLockers.add(groupLockers);
+            }
+        }
+        String bookingLocker = request.lockerNumber();
+        if (publicReservation) {
+            bookingLocker = assignedLockers.stream().flatMap(List::stream).findFirst().orElse(null);
+        }
+
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(resolvedClientId);
         booking.setClientNickname(request.clientNickname());
         booking.setClientEmail(request.clientEmail());
-        booking.setLockerNumber(publicReservation ? null : request.lockerNumber());
+        booking.setLockerNumber(bookingLocker);
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
         booking.setScheduledAt(request.scheduledAt());
@@ -505,7 +535,7 @@ public class BookingService {
                 att.setOrganizationId(organizationId);
                 att.setServiceId(resolvedServiceId);
                 att.setPackageTierId(tierId);
-                att.setLockerNumber(publicReservation ? null : a.lockerNumber());
+                att.setLockerNumber(publicReservation ? assignedLockers.get(i).get(attPos) : a.lockerNumber());
                 att.setClientGender(a.clientGender() != null ? a.clientGender() : request.clientGender());
                 att.setPosition(attPos++);
                 attendeeRepository.save(att);

@@ -42,7 +42,10 @@
                             class="w-full py-2.5 bg-[var(--sumi-primary)] text-white rounded-sm text-sm font-medium hover:opacity-95 disabled:opacity-50">
                         {{ busy() ? 'Verifying...' : 'Verify' }}
                     </button>
-                    <button type="button" (click)="restart()" class="w-full text-xs text-[var(--ink)]/60 hover:underline">Start over</button>
+                    <div class="flex items-center justify-between">
+                        <button type="button" (click)="resendCode()" [disabled]="busy()" class="text-xs text-[var(--sumi-primary)] hover:underline disabled:opacity-50">Resend code</button>
+                        <button type="button" (click)="restart()" class="text-xs text-[var(--ink)]/60 hover:underline">Start over</button>
+                    </div>
                 }
                 @case ('review') {
                     @if (details(); as d) {

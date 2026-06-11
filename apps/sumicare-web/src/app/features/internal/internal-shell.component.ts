@@ -70,7 +70,8 @@ export class InternalShellComponent implements OnInit, OnDestroy {
       title: 'Finance',
       items: [
         { label: 'Reports', route: 'reports', roles: MANAGER_PLUS },
-        { label: 'Ledger', route: 'ledger', roles: MANAGER_PLUS }
+        { label: 'Ledger', route: 'ledger', roles: MANAGER_PLUS },
+        { label: 'Analytics', route: 'analytics', roles: MANAGER_PLUS }
       ]
     },
     {

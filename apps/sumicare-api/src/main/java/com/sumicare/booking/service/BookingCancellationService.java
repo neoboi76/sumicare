@@ -8,6 +8,7 @@ import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.cashier.domain.Order;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.service.OrderService;
+import com.sumicare.common.util.BookingReference;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,9 +54,9 @@ public class BookingCancellationService {
             return;
         }
         String code = codeService.issue(booking.getId(), email);
-        emailService.sendCancellationCodeEmail(email, booking.getClientNickname(), code);
+        boolean emailSent = emailService.sendCancellationCodeEmail(email, booking.getClientNickname(), code);
         auditService.record(organizationId, null, "PUBLIC", "BOOKING_CANCEL_REQUESTED", "BOOKING",
-                booking.getId().toString(), "{\"email\":\"" + email + "\"}", ipAddress);
+                booking.getId().toString(), "{\"email\":\"" + email + "\",\"emailSent\":" + emailSent + "}", ipAddress);
     }
 
     public CancellationDetailsResponse verify(UUID organizationId, String reference, String email, String code) {
@@ -125,6 +126,6 @@ public class BookingCancellationService {
     }
 
     private String reference(Booking booking) {
-        return booking.getId().toString().substring(0, 8).toUpperCase();
+        return BookingReference.of(booking.getId());
     }
 }

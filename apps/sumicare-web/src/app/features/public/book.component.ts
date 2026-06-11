@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { QRCodeComponent } from 'angularx-qrcode';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { PaymentDetailsModalComponent } from '../../shared/components/payment-details/payment-details-modal.component';
 import { PaymentDetails, PaymentDetailsService } from '../../shared/components/payment-details/payment-details.service';
@@ -87,7 +87,7 @@ interface AppliedVoucher {
 @Component({
   selector: 'sumi-book',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, QRCodeComponent, PaymentDetailsModalComponent],
+  imports: [FormsModule, DecimalPipe, QRCodeComponent, PaymentDetailsModalComponent, RouterLink],
   templateUrl: './book.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

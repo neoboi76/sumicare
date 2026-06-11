@@ -6,6 +6,8 @@ import com.sumicare.auth.email.EmailSender;
 import com.sumicare.auth.email.InlineImage;
 import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.common.util.QrCodeUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +18,8 @@ import java.util.List;
 
 @Service
 public class EmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     private final EmailSender emailSender;
     private final BaseUrlResolver baseUrlResolver;
@@ -119,10 +123,18 @@ public class EmailService {
         sendHtml(to, subject, body);
     }
 
-    @Async
-    public void sendCancellationCodeEmail(String to, String displayName, String code) {
-        String subject = "Your New Lasema Spa Jjimjilbang cancellation code";
-        String body = """
+    public boolean sendCancellationCodeEmail(String to, String displayName, String code) {
+        try {
+            sendHtml(to, "Your New Lasema Spa Jjimjilbang cancellation code", cancellationCodeBody(displayName, code));
+            return true;
+        } catch (Exception e) {
+            log.error("Cancellation code email failed for {}: {}", maskRecipient(to), e.getMessage());
+            return false;
+        }
+    }
+
+    private String cancellationCodeBody(String displayName, String code) {
+        return """
                 <html>
                 <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
                   <h2 style="color: #c42441;">Confirm your cancellation</h2>
@@ -135,7 +147,14 @@ public class EmailService {
                 </body>
                 </html>
                 """.formatted(displayName == null ? "there" : displayName, code);
-        sendHtml(to, subject, body);
+    }
+
+    private String maskRecipient(String to) {
+        if (to == null) {
+            return "(none)";
+        }
+        int at = to.indexOf('@');
+        return at >= 0 ? "***" + to.substring(at) : "***";
     }
 
     @Async

@@ -15,6 +15,7 @@ interface OrderItem {
 interface Order {
   id: string;
   bookingId: string | null;
+  bookingReference: string | null;
   treatmentSlipId: string | null;
   clientNickname: string | null;
   transactorName: string | null;

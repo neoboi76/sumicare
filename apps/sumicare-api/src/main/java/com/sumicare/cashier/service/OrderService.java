@@ -21,6 +21,7 @@ import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
+import com.sumicare.common.util.BookingReference;
 import com.sumicare.pos.domain.PosTransaction;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.repository.PosTransactionRepository;
@@ -1441,6 +1442,7 @@ public class OrderService {
         return new OrderResponse(
                 order.getId(),
                 order.getBookingId(),
+                BookingReference.of(order.getBookingId()),
                 order.getTreatmentSlipId(),
                 order.getCashierUserId(),
                 cashierDisplayName,

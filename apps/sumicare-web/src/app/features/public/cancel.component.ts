@@ -66,6 +66,11 @@ export class CancelComponent {
         });
     }
 
+    resendCode(): void {
+        this.code = '';
+        this.requestCode();
+    }
+
     verifyCode(): void {
         if (!this.code.trim()) {
             this.error.set('Enter the code we sent to your email.');

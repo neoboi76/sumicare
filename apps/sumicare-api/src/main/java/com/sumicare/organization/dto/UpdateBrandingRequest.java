@@ -7,5 +7,11 @@ public record UpdateBrandingRequest(
         String secondaryColor,
         String accentColor,
         String theme,
-        String fontFamily
+        String fontFamily,
+        String loginBackgroundUrl,
+        String faviconUrl,
+        String instagramUrl,
+        String contactPhone,
+        String contactEmail,
+        String footerNote
 ) {}

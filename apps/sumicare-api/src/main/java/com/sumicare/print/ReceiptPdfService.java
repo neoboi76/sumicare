@@ -12,6 +12,7 @@ import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
 import com.sumicare.cashier.service.PackageService;
 import com.sumicare.common.util.BaseUrlResolver;
+import com.sumicare.common.util.BookingReference;
 import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.organization.domain.Organization;
 import com.sumicare.organization.repository.OrganizationRepository;
@@ -188,13 +189,14 @@ public class ReceiptPdfService {
             </style></head><body>
               <div class="center bold">%s</div>
               <div class="center small">Owned and Operated by %s</div>
-              <div class="center small">SumiCare POS — Powered by SumiCare</div>
+              <div class="center small">Powered by SumiCare</div>
               <hr/>
               <table class="small">
                 <tr><td>Cashier:</td><td>%s</td></tr>
                 <tr><td>Date / Time:</td><td>%s</td></tr>
                 <tr><td>Schedule:</td><td>%s</td></tr>
                 <tr><td>OR #:</td><td>%s</td></tr>
+                <tr><td>Reference:</td><td>%s</td></tr>
                 <tr><td>Customer:</td><td>%s</td></tr>
                 <tr><td>Transacted by:</td><td>%s</td></tr>
                 <tr><td>Payment method:</td><td>%s</td></tr>
@@ -225,6 +227,7 @@ public class ReceiptPdfService {
                 now,
                 esc(scheduleStr),
                 esc(order.getOrNumber() == null ? "" : order.getOrNumber()),
+                esc(BookingReference.of(order.getBookingId()) == null ? "" : BookingReference.of(order.getBookingId())),
                 esc(order.getTransactorName() == null ? "" : order.getTransactorName()),
                 esc(transactedByName),
                 esc(describePaymentMethods(orderId)),

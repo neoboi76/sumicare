@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0048-1-organization-login-background" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="organizations" columnName="login_background_url"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="organizations">
+            <column name="login_background_url" type="VARCHAR(512)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0048-2-organization-favicon" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="organizations" columnName="favicon_url"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="organizations">
+            <column name="favicon_url" type="VARCHAR(512)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0048-3-organization-instagram" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="organizations" columnName="instagram_url"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="organizations">
+            <column name="instagram_url" type="VARCHAR(512)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0048-4-organization-contact-phone" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="organizations" columnName="contact_phone"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="organizations">
+            <column name="contact_phone" type="VARCHAR(64)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0048-5-organization-contact-email" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="organizations" columnName="contact_email"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="organizations">
+            <column name="contact_email" type="VARCHAR(255)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0048-6-organization-footer-note" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="organizations" columnName="footer_note"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="organizations">
+            <column name="footer_note" type="VARCHAR(512)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>
