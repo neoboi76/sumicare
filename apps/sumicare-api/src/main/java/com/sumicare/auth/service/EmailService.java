@@ -196,6 +196,41 @@ public class EmailService {
     }
 
     @Async
+    public void sendPaymentConfirmationEmail(String to, String displayName, String reference, String orNumber,
+                                             String paymentMethod, BigDecimal amountPaid, BigDecimal total) {
+        String subject = "Payment received for your New Lasema Spa Jjimjilbang booking";
+        String paid = (amountPaid == null ? BigDecimal.ZERO : amountPaid).setScale(2, RoundingMode.HALF_UP).toPlainString();
+        String due = (total == null ? BigDecimal.ZERO : total).subtract(amountPaid == null ? BigDecimal.ZERO : amountPaid)
+                .max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP).toPlainString();
+        String body = """
+                <html>
+                <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
+                  <h2 style="color: #0F766E;">Payment received</h2>
+                  <p>Hello %s,</p>
+                  <p>We have received your payment. Your booking is now fully settled.</p>
+                  <table style="border-collapse: collapse; margin-top: 16px;">
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">Reference</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">OR #</td><td style="padding: 6px 12px; font-family: monospace;">%s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">Payment method</td><td style="padding: 6px 12px;">%s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">Amount paid</td><td style="padding: 6px 12px;">&#8369; %s</td></tr>
+                    <tr><td style="padding: 6px 12px; color: #6b7280;">Balance</td><td style="padding: 6px 12px;">&#8369; %s</td></tr>
+                  </table>
+                  <p style="margin-top: 24px;">Keep this for your records. We look forward to your visit.</p>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+                  <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
+                </body>
+                </html>
+                """.formatted(
+                        displayName == null ? "there" : displayName,
+                        reference == null ? "" : reference,
+                        orNumber == null || orNumber.isBlank() ? "To be issued" : orNumber,
+                        paymentMethod == null || paymentMethod.isBlank() ? "" : paymentMethod,
+                        paid,
+                        due);
+        sendHtml(to, subject, body);
+    }
+
+    @Async
     public void sendBookingConfirmationEmail(String to, String displayName, BookingEmailPayload payload) {
         String subject = "Your New Lasema Spa Jjimjilbang booking is confirmed";
         StringBuilder packagesHtml = new StringBuilder();

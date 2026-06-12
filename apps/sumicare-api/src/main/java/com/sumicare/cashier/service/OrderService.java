@@ -5,6 +5,8 @@ import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.audit.service.AuditService;
+import com.sumicare.auth.service.EmailService;
 import com.sumicare.booking.service.BookingService;
 import com.sumicare.cashier.domain.Order;
 import com.sumicare.cashier.domain.OrderItem;
@@ -16,27 +18,40 @@ import com.sumicare.cashier.dto.CreateOrderRequest;
 import com.sumicare.cashier.dto.OrderItemAttendeeResponse;
 import com.sumicare.cashier.dto.OrderItemResponse;
 import com.sumicare.cashier.dto.OrderResponse;
+import com.sumicare.cashier.dto.PayMongoConfirmRequest;
+import com.sumicare.cashier.dto.PayMongoInitiateResponse;
 import com.sumicare.cashier.dto.RecordPaymentRequest;
+import com.sumicare.cashier.dto.RefundRequest;
 import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
 import com.sumicare.common.util.BookingReference;
+import com.sumicare.common.util.IdSequenceService;
+import com.sumicare.notification.service.NotificationService;
 import com.sumicare.pos.domain.PosTransaction;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.repository.PosTransactionRepository;
 import com.sumicare.pos.repository.TransactionLedgerRepository;
 import com.sumicare.room.service.RoomOccupancyService;
+import com.sumicare.service_catalogue.domain.Service;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
+import com.sumicare.transaction.domain.Commission;
 import com.sumicare.transaction.domain.TreatmentSlip;
+import com.sumicare.transaction.repository.CommissionRepository;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import com.sumicare.transaction.service.TreatmentSlipService;
 import com.sumicare.user.repository.UserRepository;
+import com.sumicare.voucher.service.VoucherService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sumicare.pos.service.PayMongoService;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -51,6 +66,8 @@ import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
 public class OrderService {
+
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     private static final Map<String, BigDecimal> ROOM_SURCHARGE = Map.of(
             "COMMON", BigDecimal.ZERO,
@@ -72,12 +89,13 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final OrderItemAttendeeRepository attendeeRepository;
     private final PackageRepository packageRepository;
-    private final com.sumicare.voucher.service.VoucherService voucherService;
-    private final com.sumicare.transaction.repository.CommissionRepository commissionRepository;
-    private final com.sumicare.pos.service.PayMongoService payMongoService;
-    private final com.sumicare.notification.service.NotificationService notificationService;
-    private final com.sumicare.common.util.IdSequenceService idSequenceService;
-    private final com.sumicare.auth.service.EmailService emailService;
+    private final VoucherService voucherService;
+    private final CommissionRepository commissionRepository;
+    private final PayMongoService payMongoService;
+    private final NotificationService notificationService;
+    private final IdSequenceService idSequenceService;
+    private final EmailService emailService;
+    private final AuditService auditService;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -93,12 +111,13 @@ public class OrderService {
                         OrderItemRepository orderItemRepository,
                         OrderItemAttendeeRepository attendeeRepository,
                         PackageRepository packageRepository,
-                        com.sumicare.voucher.service.VoucherService voucherService,
-                        com.sumicare.transaction.repository.CommissionRepository commissionRepository,
-                        com.sumicare.pos.service.PayMongoService payMongoService,
-                        com.sumicare.notification.service.NotificationService notificationService,
-                        com.sumicare.common.util.IdSequenceService idSequenceService,
-                        com.sumicare.auth.service.EmailService emailService) {
+                        VoucherService voucherService,
+                        CommissionRepository commissionRepository,
+                        PayMongoService payMongoService,
+                        NotificationService notificationService,
+                        IdSequenceService idSequenceService,
+                        EmailService emailService,
+                        AuditService auditService) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -119,6 +138,7 @@ public class OrderService {
         this.notificationService = notificationService;
         this.idSequenceService = idSequenceService;
         this.emailService = emailService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -142,7 +162,7 @@ public class OrderService {
         BigDecimal primaryShare = tandem
                 ? base.divide(BigDecimal.valueOf(2), 2, java.math.RoundingMode.HALF_UP)
                 : base;
-        com.sumicare.transaction.domain.Commission primaryComm = new com.sumicare.transaction.domain.Commission();
+        Commission primaryComm = new Commission();
         primaryComm.setOrganizationId(organizationId);
         primaryComm.setSessionId(session.getId());
         primaryComm.setTherapistId(session.getPrimaryTherapistId());
@@ -153,7 +173,7 @@ public class OrderService {
         commissionRepository.save(primaryComm);
 
         if (session.getSecondaryTherapistId() != null && tandem) {
-            com.sumicare.transaction.domain.Commission secondaryComm = new com.sumicare.transaction.domain.Commission();
+            Commission secondaryComm = new Commission();
             secondaryComm.setOrganizationId(organizationId);
             secondaryComm.setSessionId(session.getId());
             secondaryComm.setTherapistId(session.getSecondaryTherapistId());
@@ -244,11 +264,22 @@ public class OrderService {
             }
         }
         BigDecimal requestDiscount = request.discount() != null ? request.discount() : BigDecimal.ZERO;
-        BigDecimal discount = requestDiscount.add(attendeeDiscountTotal);
+        BigDecimal manualDiscount = requestDiscount.add(attendeeDiscountTotal);
         BigDecimal tax = request.tax() != null ? request.tax() : BigDecimal.ZERO;
-        BigDecimal total = request.total() != null
-                ? request.total()
-                : subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
+        BigDecimal discount;
+        BigDecimal total;
+        if (request.voucherId() != null) {
+            if (manualDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                throw new IllegalArgumentException("A voucher and a manual discount cannot be applied to the same order.");
+            }
+            discount = voucherService.discountForVoucher(organizationId, request.voucherId(), subtotalFromRequest);
+            total = subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
+        } else {
+            discount = manualDiscount;
+            total = request.total() != null
+                    ? request.total()
+                    : subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
+        }
 
         String nickname = request.clientNickname() != null ? request.clientNickname() : request.transactorName();
         if (nickname == null || nickname.isBlank()) nickname = "Walk-in";
@@ -376,8 +407,8 @@ public class OrderService {
                 throw new IllegalArgumentException("Payment amount exceeds order total");
             }
             String initialReference = request.initialPayment().referenceNumber();
-            if (com.sumicare.pos.service.PayMongoService.supports(request.initialPayment().paymentMethod())) {
-                com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
+            if (PayMongoService.supports(request.initialPayment().paymentMethod())) {
+                PayMongoService.ChargeResult result = payMongoService.charge(
                         order, payAmount, request.initialPayment().paymentMethod(),
                         initialReference, request.initialPayment().paymentDetails());
                 initialReference = result.intentId();
@@ -423,6 +454,7 @@ public class OrderService {
         notificationService.broadcastOrderEvent(order.getOrganizationId(), "ORDER_CREATED", order.getId(),
                 order.getOrNumber() != null ? "New order " + order.getOrNumber() : "New order");
 
+        notifyOrderPaid(order);
         return toResponse(order, booking);
     }
 
@@ -488,11 +520,22 @@ public class OrderService {
             }
         }
         BigDecimal requestDiscount = request.discount() != null ? request.discount() : BigDecimal.ZERO;
-        BigDecimal discount = requestDiscount.add(attendeeDiscountTotal);
+        BigDecimal manualDiscount = requestDiscount.add(attendeeDiscountTotal);
         BigDecimal tax = request.tax() != null ? request.tax() : BigDecimal.ZERO;
-        BigDecimal total = request.total() != null
-                ? request.total()
-                : subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
+        BigDecimal discount;
+        BigDecimal total;
+        if (request.voucherId() != null) {
+            if (manualDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                throw new IllegalArgumentException("A voucher and a manual discount cannot be applied to the same order.");
+            }
+            discount = voucherService.discountForVoucher(organizationId, request.voucherId(), subtotalFromRequest);
+            total = subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
+        } else {
+            discount = manualDiscount;
+            total = request.total() != null
+                    ? request.total()
+                    : subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
+        }
 
         orderItemRepository.deleteAllByOrderId(order.getId());
         attendeeRepository.deleteAllByOrderId(order.getId());
@@ -596,8 +639,8 @@ public class OrderService {
             }
             UUID paymentActor = actorUserId != null ? actorUserId : order.getCashierUserId();
             String initialReference = request.initialPayment().referenceNumber();
-            if (com.sumicare.pos.service.PayMongoService.supports(request.initialPayment().paymentMethod())) {
-                com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
+            if (PayMongoService.supports(request.initialPayment().paymentMethod())) {
+                PayMongoService.ChargeResult result = payMongoService.charge(
                         order, payAmount, request.initialPayment().paymentMethod(),
                         initialReference, request.initialPayment().paymentDetails());
                 initialReference = result.intentId();
@@ -612,6 +655,7 @@ public class OrderService {
             orderRepository.save(order);
         }
 
+        notifyOrderPaid(order);
         return toResponse(order, booking);
     }
 
@@ -639,8 +683,8 @@ public class OrderService {
                 .map(Session::getId).orElse(null);
 
         String referenceNumber = request.referenceNumber();
-        if (com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod())) {
-            com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.charge(
+        if (PayMongoService.supports(request.paymentMethod())) {
+            PayMongoService.ChargeResult result = payMongoService.charge(
                     order, request.amount(), request.paymentMethod(), referenceNumber, request.paymentDetails());
             referenceNumber = result.intentId();
         }
@@ -657,6 +701,7 @@ public class OrderService {
         }
         orderRepository.save(order);
         bookingService.resendBookingConfirmation(order);
+        notifyOrderPaid(order);
 
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
@@ -668,7 +713,7 @@ public class OrderService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
-    public com.sumicare.cashier.dto.PayMongoInitiateResponse initiatePayMongo(
+    public PayMongoInitiateResponse initiatePayMongo(
             UUID organizationId, UUID orderId, UUID actorUserId, RecordPaymentRequest request) {
         Order order = requireOrder(organizationId, orderId);
         if ("CANCELLED".equals(order.getStatus())) {
@@ -680,7 +725,7 @@ public class OrderService {
         if (order.getTotal().compareTo(BigDecimal.ZERO) == 0) {
             throw new IllegalArgumentException("Cannot record a payment on an order with a zero total");
         }
-        if (!com.sumicare.pos.service.PayMongoService.supports(request.paymentMethod())) {
+        if (!PayMongoService.supports(request.paymentMethod())) {
             throw new IllegalArgumentException("PayMongo does not support payment method: " + request.paymentMethod());
         }
         BigDecimal amount = request.amount();
@@ -694,7 +739,7 @@ public class OrderService {
 
         String returnPath = request.returnPath() == null || request.returnPath().isBlank()
                 ? "/app/cashier" : request.returnPath();
-        com.sumicare.pos.service.PayMongoService.ChargeResult result = payMongoService.initiate(
+        PayMongoService.ChargeResult result = payMongoService.initiate(
                 order, amount, request.paymentMethod(), request.referenceNumber(), request.paymentDetails(), returnPath);
 
         if ("succeeded".equalsIgnoreCase(result.status())) {
@@ -708,17 +753,17 @@ public class OrderService {
             }
             orderRepository.save(order);
             bookingService.resendBookingConfirmation(order);
-            return new com.sumicare.cashier.dto.PayMongoInitiateResponse("succeeded", result.intentId(), null);
+            return new PayMongoInitiateResponse("succeeded", result.intentId(), null);
         }
 
-        return new com.sumicare.cashier.dto.PayMongoInitiateResponse(
+        return new PayMongoInitiateResponse(
                 result.status(), result.intentId(), result.nextActionUrl());
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
     public OrderResponse confirmPayMongo(UUID organizationId, UUID orderId, UUID actorUserId,
-                                         com.sumicare.cashier.dto.PayMongoConfirmRequest request) {
+                                         PayMongoConfirmRequest request) {
         Order order = requireOrder(organizationId, orderId);
         Booking paidBooking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
@@ -766,6 +811,7 @@ public class OrderService {
         }
         orderRepository.save(order);
         bookingService.resendBookingConfirmation(order);
+        notifyOrderPaid(order);
         return true;
     }
 
@@ -777,7 +823,7 @@ public class OrderService {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     @Transactional
     public OrderResponse refundOrder(UUID organizationId, UUID orderId, UUID actorUserId,
-                                     com.sumicare.cashier.dto.RefundRequest request) {
+                                     RefundRequest request) {
         Order order = requireOrder(organizationId, orderId);
         if (!"PAID".equals(order.getStatus())) {
             throw new IllegalStateException("Only a paid order can be refunded");
@@ -785,7 +831,7 @@ public class OrderService {
 
         List<PosTransaction> gatewayTransactions = transactionRepository.findAllByOrderId(order.getId()).stream()
                 .filter(t -> "COMPLETED".equals(t.getStatus()))
-                .filter(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()))
+                .filter(t -> PayMongoService.supports(t.getPaymentMethod()))
                 .toList();
         if (gatewayTransactions.isEmpty()) {
             throw new IllegalStateException("This order has no PayMongo (card or GCash) payment to refund");
@@ -808,7 +854,7 @@ public class OrderService {
                 throw new IllegalStateException("Payment " + tx.getReceiptNumber() + " has no gateway reference and cannot be refunded");
             }
             BigDecimal portion = remaining.min(tx.getTotal());
-            com.sumicare.pos.service.PayMongoService.RefundResult result = payMongoService.refund(
+            PayMongoService.RefundResult result = payMongoService.refund(
                     tx.getReferenceNumber(), portion, request.reason(), request.notes(), order.getId().toString());
 
             TransactionLedgerEntry entry = new TransactionLedgerEntry();
@@ -829,7 +875,7 @@ public class OrderService {
 
         boolean anyGatewayRemaining = transactionRepository.findAllByOrderId(order.getId()).stream()
                 .filter(t -> "COMPLETED".equals(t.getStatus()))
-                .anyMatch(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()));
+                .anyMatch(t -> PayMongoService.supports(t.getPaymentMethod()));
         if (!anyGatewayRemaining) {
             order.setStatus("REFUNDED");
         }
@@ -860,6 +906,7 @@ public class OrderService {
         materialiseAttendeeSessions(order);
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
+        notifyOrderPaid(order);
         return toResponse(order, booking);
     }
 
@@ -1040,10 +1087,127 @@ public class OrderService {
     }
 
     @Transactional
+    public void notifyOrderPaid(UUID orderId) {
+        orderRepository.findById(orderId).ifPresent(this::notifyOrderPaid);
+    }
+
+    private void notifyOrderPaid(Order order) {
+        if (order == null || !"PAID".equals(order.getStatus())) {
+            return;
+        }
+        if (order.getPaymentEmailSentAt() != null) {
+            return;
+        }
+        if (order.getAmountPaid() == null || order.getAmountPaid().compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        if (order.getBookingId() == null) {
+            return;
+        }
+        Booking booking = bookingRepository.findById(order.getBookingId()).orElse(null);
+        if (booking == null) {
+            return;
+        }
+        String email = booking.getClientEmail();
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        String reference = booking.getReference() != null ? booking.getReference() : BookingReference.of(booking.getId());
+        emailService.sendPaymentConfirmationEmail(email, booking.getClientNickname(), reference,
+                order.getOrNumber(), paymentMethodsLabel(order), order.getAmountPaid(), order.getTotal());
+        order.setPaymentEmailSentAt(OffsetDateTime.now());
+        orderRepository.save(order);
+    }
+
+    private String paymentMethodsLabel(Order order) {
+        LinkedHashSet<String> labels = new LinkedHashSet<>();
+        for (PosTransaction tx : transactionRepository.findAllByOrderId(order.getId())) {
+            if (tx.getPaymentMethod() == null || tx.getPaymentMethod().isBlank()) {
+                continue;
+            }
+            if ("REVERSED".equals(tx.getStatus()) || "REFUNDED".equals(tx.getStatus())) {
+                continue;
+            }
+            labels.add(humanisePaymentMethod(tx.getPaymentMethod()));
+        }
+        return String.join(", ", labels);
+    }
+
+    private String humanisePaymentMethod(String method) {
+        return switch (method == null ? "" : method.toUpperCase()) {
+            case "CASH" -> "Cash";
+            case "GCASH" -> "GCash";
+            case "CREDIT" -> "Credit card";
+            case "DEBIT" -> "Debit card";
+            default -> method;
+        };
+    }
+
+    @Transactional
+    public int autoCancelElapsedOrders(UUID organizationId) {
+        LocalDate today = LocalDate.now(MANILA);
+        OffsetDateTime cutoff = today.atStartOfDay(MANILA).toOffsetDateTime();
+        int cancelled = 0;
+        for (Booking booking : bookingRepository
+                .findAllByOrganizationIdAndStatusAndScheduledAtBefore(organizationId, "PENDING", cutoff)) {
+            Order order = orderRepository.findByBookingId(booking.getId()).orElse(null);
+            if (order == null || (!"OPEN".equals(order.getStatus()) && !"PAID".equals(order.getStatus()))) {
+                continue;
+            }
+            boolean hadCashPayment = hasCashPayment(order);
+            cancelInternal(organizationId, order.getId(), "Auto-cancelled: scheduled date elapsed without a started session");
+            if (hadCashPayment) {
+                flagManualCashRefund(order);
+            }
+            recordAutoCancelAudit(organizationId, booking, order, today, hadCashPayment);
+            cancelled++;
+        }
+        return cancelled;
+    }
+
+    private boolean hasCashPayment(Order order) {
+        for (PosTransaction tx : transactionRepository.findAllByOrderId(order.getId())) {
+            if ("REVERSED".equals(tx.getStatus()) || "REFUNDED".equals(tx.getStatus())) {
+                continue;
+            }
+            if (!PayMongoService.supports(tx.getPaymentMethod())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void flagManualCashRefund(Order order) {
+        for (PosTransaction tx : transactionRepository.findAllByOrderId(order.getId())) {
+            if (PayMongoService.supports(tx.getPaymentMethod())) {
+                continue;
+            }
+            TransactionLedgerEntry entry = new TransactionLedgerEntry();
+            entry.setOrganizationId(order.getOrganizationId());
+            entry.setTransactionId(tx.getId());
+            entry.setEntryType("MANUAL_REFUND_REQUIRED");
+            entry.setAmount(tx.getTotal());
+            entry.setPaymentMethod(tx.getPaymentMethod());
+            entry.setStatus("PENDING");
+            entry.setMetadata("{\"orderId\":\"" + order.getId() + "\",\"reason\":\"auto_cancel_cash_refund\"}");
+            ledgerRepository.save(entry);
+        }
+    }
+
+    private void recordAutoCancelAudit(UUID organizationId, Booking booking, Order order, LocalDate scheduledDate,
+                                       boolean manualCashRefund) {
+        String reference = booking.getReference() != null ? booking.getReference() : BookingReference.of(booking.getId());
+        String metadata = "{\"reference\":\"" + reference + "\",\"scheduledDate\":\"" + scheduledDate
+                + "\",\"manualCashRefund\":" + manualCashRefund + "}";
+        auditService.record(organizationId, null, "SYSTEM", "ORDER_AUTO_CANCELLED", "ORDER",
+                order.getId().toString(), metadata, null);
+    }
+
+    @Transactional
     public boolean reconcileRefund(Order order, BigDecimal amount, String refundId) {
         List<PosTransaction> gatewayTransactions = transactionRepository.findAllByOrderId(order.getId()).stream()
                 .filter(t -> "COMPLETED".equals(t.getStatus()))
-                .filter(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()))
+                .filter(t -> PayMongoService.supports(t.getPaymentMethod()))
                 .toList();
         if (gatewayTransactions.isEmpty()) {
             return false;
@@ -1071,7 +1235,7 @@ public class OrderService {
         }
         boolean anyGatewayRemaining = transactionRepository.findAllByOrderId(order.getId()).stream()
                 .filter(t -> "COMPLETED".equals(t.getStatus()))
-                .anyMatch(t -> com.sumicare.pos.service.PayMongoService.supports(t.getPaymentMethod()));
+                .anyMatch(t -> PayMongoService.supports(t.getPaymentMethod()));
         if (!anyGatewayRemaining) {
             order.setStatus("REFUNDED");
         }
@@ -1080,13 +1244,13 @@ public class OrderService {
     }
 
     private String refundGatewayTransaction(PosTransaction tx, String reason, UUID orderId) {
-        if (!com.sumicare.pos.service.PayMongoService.supports(tx.getPaymentMethod())) {
+        if (!PayMongoService.supports(tx.getPaymentMethod())) {
             return null;
         }
         if (tx.getReferenceNumber() == null || tx.getReferenceNumber().isBlank()) {
             return null;
         }
-        com.sumicare.pos.service.PayMongoService.RefundResult result = payMongoService.refund(
+        PayMongoService.RefundResult result = payMongoService.refund(
                 tx.getReferenceNumber(), tx.getTotal(), reason, null, orderId.toString());
         return result.refundId();
     }
@@ -1193,7 +1357,7 @@ public class OrderService {
             return;
         }
         int duration = serviceRepository.findById(serviceId)
-                .map(com.sumicare.service_catalogue.domain.Service::getDurationMinutes)
+                .map(Service::getDurationMinutes)
                 .orElse(0);
         if (duration > 120) {
             throw new IllegalArgumentException("VIP massages may not exceed 120 minutes");

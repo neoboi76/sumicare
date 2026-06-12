@@ -57,6 +57,16 @@ public class VoucherService {
         return BigDecimal.ZERO;
     }
 
+    public BigDecimal discountForVoucher(UUID organizationId, UUID voucherId, BigDecimal subtotal) {
+        if (voucherId == null) {
+            return BigDecimal.ZERO;
+        }
+        return repository.findById(voucherId)
+                .filter(v -> organizationId.equals(v.getOrganizationId()))
+                .map(v -> computeDiscount(v, subtotal == null ? BigDecimal.ZERO : subtotal))
+                .orElse(BigDecimal.ZERO);
+    }
+
     @Transactional
     public void markRedeemed(UUID voucherId, UUID clientId) {
         Voucher v = repository.findById(voucherId).orElseThrow();

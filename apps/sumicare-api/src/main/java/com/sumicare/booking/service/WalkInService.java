@@ -8,6 +8,7 @@ import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
 import com.sumicare.cashier.repository.OrderRepository;
+import com.sumicare.common.util.IdSequenceService;
 import com.sumicare.notification.service.NotificationService;
 import com.sumicare.room.domain.Bed;
 import com.sumicare.room.exception.RoomGenderConflictException;
@@ -43,7 +44,7 @@ public class WalkInService {
     private final DeckingService deckingService;
     private final NotificationService notificationService;
     private final OrderRepository orderRepository;
-    private final com.sumicare.common.util.IdSequenceService idSequenceService;
+    private final IdSequenceService idSequenceService;
 
     public WalkInService(BookingRepository bookingRepository,
                          SessionRepository sessionRepository,
@@ -56,7 +57,7 @@ public class WalkInService {
                          DeckingService deckingService,
                          NotificationService notificationService,
                          OrderRepository orderRepository,
-                         com.sumicare.common.util.IdSequenceService idSequenceService) {
+                         IdSequenceService idSequenceService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;

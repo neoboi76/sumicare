@@ -81,6 +81,9 @@ public class ReceiptPdfService {
 
     public byte[] renderReceipt(UUID orderId) {
         Order order = orderRepository.findById(orderId).orElseThrow();
+        if (!"PAID".equals(order.getStatus())) {
+            throw new IllegalStateException("An official receipt is only available once the order is paid.");
+        }
         Organization org = organizationRepository.findById(order.getOrganizationId()).orElse(null);
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);

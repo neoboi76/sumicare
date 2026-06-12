@@ -8,8 +8,8 @@
       voucher</button>
   </header>
 
-  <section class="bg-white rounded-xl shadow overflow-hidden">
-    <table class="w-full text-sm">
+  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+    <table class="w-full min-w-[760px] text-sm">
       <thead class="bg-slate-100">
         <tr>
           <th class="text-left p-3" [sumiSortable]="'code'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
@@ -34,7 +34,7 @@
         <tr class="border-t hover:bg-slate-50">
           <td class="p-3 font-mono">{{ v.code }}</td>
           <td class="p-3">{{ v.name ?? '-' }}</td>
-          <td class="p-3">
+          <td class="p-3 whitespace-nowrap">
             @if (v.discountAmount) { &#8369; {{ v.discountAmount | number:'1.2-2' }} }
             @if (v.discountPercent) { {{ v.discountPercent }}% }
           </td>

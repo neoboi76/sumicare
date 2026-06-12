@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0053-1-seed-vouchers" author="sumicare">
+        <sql>
+            INSERT INTO vouchers (organization_id, code, name, discount_amount, discount_percent, valid_from, valid_until, is_active)
+            SELECT o.id, 'SAVE200', 'P200 Off', 200.00, NULL, CURRENT_DATE, CURRENT_DATE + 365, true
+            FROM organizations o WHERE o.slug='lasema'
+            AND NOT EXISTS (SELECT 1 FROM vouchers v WHERE v.organization_id=o.id AND v.code='SAVE200');
+
+            INSERT INTO vouchers (organization_id, code, name, discount_amount, discount_percent, valid_from, valid_until, is_active)
+            SELECT o.id, 'SAVE500', 'P500 Off', 500.00, NULL, CURRENT_DATE, CURRENT_DATE + 365, true
+            FROM organizations o WHERE o.slug='lasema'
+            AND NOT EXISTS (SELECT 1 FROM vouchers v WHERE v.organization_id=o.id AND v.code='SAVE500');
+
+            INSERT INTO vouchers (organization_id, code, name, discount_amount, discount_percent, valid_from, valid_until, is_active)
+            SELECT o.id, 'SAVE10', '10 percent off', NULL, 10, CURRENT_DATE, CURRENT_DATE + 365, true
+            FROM organizations o WHERE o.slug='lasema'
+            AND NOT EXISTS (SELECT 1 FROM vouchers v WHERE v.organization_id=o.id AND v.code='SAVE10');
+
+            INSERT INTO vouchers (organization_id, code, name, discount_amount, discount_percent, valid_from, valid_until, is_active)
+            SELECT o.id, 'WELCOME15', 'Welcome 15 percent', NULL, 15, CURRENT_DATE, CURRENT_DATE + 365, true
+            FROM organizations o WHERE o.slug='lasema'
+            AND NOT EXISTS (SELECT 1 FROM vouchers v WHERE v.organization_id=o.id AND v.code='WELCOME15');
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

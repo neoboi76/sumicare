@@ -26,21 +26,34 @@ export class BrandingService {
     readonly branding = signal<OrganizationBranding | null>(null);
 
     loadPublicBranding(slug: string = environment.defaultOrganizationSlug): void {
+        this.resetToDefault();
         this.http
             .get<OrganizationBranding>(`${environment.apiBaseUrl}/api/public/branding/${slug}`)
             .subscribe({
                 next: (value) => this.applyTheme(value),
-                error: () => undefined
+                error: () => this.resetToDefault()
             });
     }
 
     loadCurrentBranding(): void {
+        this.resetToDefault();
         this.http
             .get<OrganizationBranding>(`${environment.apiBaseUrl}/api/organization/branding`)
             .subscribe({
                 next: (value) => this.applyTheme(value),
-                error: () => undefined
+                error: () => this.resetToDefault()
             });
+    }
+
+    resetToDefault(): void {
+        this.branding.set(null);
+        const root = document.documentElement;
+        root.style.removeProperty('--sumi-primary');
+        root.style.removeProperty('--sumi-secondary');
+        root.style.removeProperty('--sumi-accent');
+        root.style.removeProperty('--sumi-app-font-display');
+        root.style.removeProperty('--sumi-app-font-body');
+        root.style.removeProperty('--sumi-login-bg');
     }
 
     applyTheme(branding: OrganizationBranding): void {

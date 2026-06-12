@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0052-1-seed-private-rooms" author="sumicare">
+        <sql>
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier)
+            SELECT o.id, 'Private 2', 2, 'PRIVATE', false, true, NULL FROM organizations o
+            WHERE o.slug='lasema'
+            AND NOT EXISTS (SELECT 1 FROM rooms r WHERE r.organization_id=o.id AND r.room_number='Private 2');
+
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier)
+            SELECT o.id, 'Private 3', 2, 'PRIVATE', false, true, NULL FROM organizations o
+            WHERE o.slug='lasema'
+            AND NOT EXISTS (SELECT 1 FROM rooms r WHERE r.organization_id=o.id AND r.room_number='Private 3');
+
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier)
+            SELECT o.id, 'Private 4', 2, 'PRIVATE', false, true, NULL FROM organizations o
+            WHERE o.slug='lasema'
+            AND NOT EXISTS (SELECT 1 FROM rooms r WHERE r.organization_id=o.id AND r.room_number='Private 4');
+
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier)
+            SELECT o.id, 'Private 5', 2, 'PRIVATE', false, true, NULL FROM organizations o
+            WHERE o.slug='lasema'
+            AND NOT EXISTS (SELECT 1 FROM rooms r WHERE r.organization_id=o.id AND r.room_number='Private 5');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0052-2-seed-private-room-beds" author="sumicare">
+        <sql>
+            INSERT INTO beds (room_id, bed_label, is_active)
+            SELECT r.id, b.label, true
+            FROM rooms r
+            CROSS JOIN (VALUES ('1'),('2')) AS b(label)
+            WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema')
+            AND r.room_number IN ('Private 2','Private 3','Private 4','Private 5')
+            AND NOT EXISTS (SELECT 1 FROM beds bd WHERE bd.room_id = r.id AND bd.bed_label = b.label);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

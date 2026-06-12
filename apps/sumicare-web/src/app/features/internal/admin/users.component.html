@@ -16,7 +16,8 @@
     <p class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-3 py-2">{{ ok }}</p>
   }
 
-  <table class="bg-white rounded-xl shadow overflow-hidden w-full text-sm">
+  <div class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+  <table class="w-full min-w-[820px] text-sm">
     <thead class="bg-slate-100">
       <tr>
         <th class="text-left p-3" [sumiSortable]="'username'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
@@ -72,11 +73,13 @@
       }
     </tbody>
   </table>
+  </div>
 
   @if (deactivated().length > 0) {
     <section>
       <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-2">Deactivated</h2>
-      <table class="bg-white rounded-xl shadow overflow-hidden w-full text-sm opacity-60">
+      <div class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto opacity-60">
+      <table class="w-full min-w-[640px] text-sm">
         <thead class="bg-slate-100">
           <tr>
             <th class="text-left p-3">Username</th>
@@ -103,6 +106,7 @@
           }
         </tbody>
       </table>
+      </div>
     </section>
   }
 
