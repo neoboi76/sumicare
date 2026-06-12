@@ -33,7 +33,8 @@
     </div>
   </form>
 
-  <table class="bg-white rounded-xl shadow overflow-hidden w-full text-sm">
+  <div class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+  <table class="w-full min-w-[860px] text-sm">
     <thead class="bg-slate-100">
       <tr>
         <th class="text-left p-3" [sumiSortable]="'occurredAt'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
@@ -71,6 +72,7 @@
       }
     </tbody>
   </table>
+  </div>
 
   <div class="flex items-center justify-between text-sm text-slate-600">
     <button (click)="prevPage()" [disabled]="page() === 0"

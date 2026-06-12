@@ -10,7 +10,7 @@
       <button (click)="editOrder()"
               class="text-sm rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1 hover:bg-slate-50">Edit order</button>
       }
-      @if (order()) {
+      @if (order()?.status === 'PAID') {
       <button (click)="downloadReceipt()"
               class="text-sm rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">Download receipt PDF</button>
       }
@@ -108,32 +108,32 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
       <div>
         <div class="text-xs uppercase tracking-wide text-slate-500">Subtotal</div>
-        <div>&#8369; {{ o.subtotal | number:'1.2-2' }}</div>
+        <div class="whitespace-nowrap">&#8369; {{ o.subtotal | number:'1.2-2' }}</div>
       </div>
       <div>
         <div class="text-xs uppercase tracking-wide text-slate-500">Discount</div>
-        <div>&#8369; {{ o.discount | number:'1.2-2' }}</div>
+        <div class="whitespace-nowrap">&#8369; {{ o.discount | number:'1.2-2' }}</div>
       </div>
       @if (o.tax > 0) {
         <div>
           <div class="text-xs uppercase tracking-wide text-slate-500">Tax</div>
-          <div>&#8369; {{ o.tax | number:'1.2-2' }}</div>
+          <div class="whitespace-nowrap">&#8369; {{ o.tax | number:'1.2-2' }}</div>
         </div>
       }
       @if (o.extensionMinutes > 0) {
         <div>
           <div class="text-xs uppercase tracking-wide text-slate-500">Extension (+{{ o.extensionMinutes }} min)</div>
-          <div>&#8369; {{ o.extensionAmount | number:'1.2-2' }}</div>
+          <div class="whitespace-nowrap">&#8369; {{ o.extensionAmount | number:'1.2-2' }}</div>
         </div>
       }
       <div>
         <div class="text-xs uppercase tracking-wide text-slate-500">Total</div>
-        <div class="font-semibold">&#8369; {{ o.total | number:'1.2-2' }}</div>
+        <div class="font-semibold whitespace-nowrap">&#8369; {{ o.total | number:'1.2-2' }}</div>
       </div>
       <div>
         <div class="text-xs uppercase tracking-wide text-slate-500">Paid / Balance</div>
-        <div class="text-emerald-700">&#8369; {{ o.amountPaid | number:'1.2-2' }}</div>
-        <div class="text-rose-700">&#8369; {{ o.balance | number:'1.2-2' }}</div>
+        <div class="text-emerald-700 whitespace-nowrap">&#8369; {{ o.amountPaid | number:'1.2-2' }}</div>
+        <div class="text-rose-700 whitespace-nowrap">&#8369; {{ o.balance | number:'1.2-2' }}</div>
       </div>
     </div>
 

@@ -22,4 +22,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     boolean existsByOrganizationIdAndClientNicknameIgnoreCaseAndStatusIn(UUID organizationId, String clientNickname, List<String> statuses);
 
     List<Booking> findAllByOrganizationIdAndClientEmailIgnoreCase(UUID organizationId, String clientEmail);
+
+    List<Booking> findAllByOrganizationIdAndStatusAndScheduledAtBefore(UUID organizationId, String status, OffsetDateTime cutoff);
 }

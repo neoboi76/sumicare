@@ -5,11 +5,13 @@ import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.cashier.domain.Order;
+import com.sumicare.cashier.domain.OrderItemAttendee;
 import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
 import com.sumicare.client.repository.ClientRepository;
+import com.sumicare.common.util.IdSequenceService;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
 import com.sumicare.therapist.repository.TherapistRepository;
@@ -40,7 +42,7 @@ public class TreatmentSlipService {
     private final OrderItemAttendeeRepository attendeeRepository;
     private final OrderItemRepository orderItemRepository;
     private final PackageRepository packageRepository;
-    private final com.sumicare.common.util.IdSequenceService idSequenceService;
+    private final IdSequenceService idSequenceService;
 
     public TreatmentSlipService(TreatmentSlipRepository slipRepository,
                                 BookingRepository bookingRepository,
@@ -53,7 +55,7 @@ public class TreatmentSlipService {
                                 OrderItemAttendeeRepository attendeeRepository,
                                 OrderItemRepository orderItemRepository,
                                 PackageRepository packageRepository,
-                                com.sumicare.common.util.IdSequenceService idSequenceService) {
+                                IdSequenceService idSequenceService) {
         this.slipRepository = slipRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -73,7 +75,7 @@ public class TreatmentSlipService {
     public TreatmentSlip generateForSession(UUID organizationId, UUID sessionId) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
 
-        com.sumicare.cashier.domain.OrderItemAttendee attendee = session.getAttendeeId() != null
+        OrderItemAttendee attendee = session.getAttendeeId() != null
                 ? attendeeRepository.findById(session.getAttendeeId()).orElse(null)
                 : null;
 

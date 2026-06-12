@@ -8,6 +8,7 @@ import com.sumicare.therapist.domain.Therapist;
 import com.sumicare.therapist.dto.CreateTherapistRequest;
 import com.sumicare.therapist.dto.TherapistResponse;
 import com.sumicare.therapist.repository.TherapistRepository;
+import com.sumicare.therapist.scheduler.LineupShiftSyncJob;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +24,12 @@ public class TherapistService {
     private final TherapistRepository therapistRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
     private final ShiftRepository shiftRepository;
-    private final com.sumicare.therapist.scheduler.LineupShiftSyncJob lineupShiftSyncJob;
+    private final LineupShiftSyncJob lineupShiftSyncJob;
 
     public TherapistService(TherapistRepository therapistRepository,
                             ShiftAssignmentRepository shiftAssignmentRepository,
                             ShiftRepository shiftRepository,
-                            com.sumicare.therapist.scheduler.LineupShiftSyncJob lineupShiftSyncJob) {
+                            LineupShiftSyncJob lineupShiftSyncJob) {
         this.therapistRepository = therapistRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
         this.shiftRepository = shiftRepository;

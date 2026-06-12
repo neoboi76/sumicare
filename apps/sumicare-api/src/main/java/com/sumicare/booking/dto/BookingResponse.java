@@ -15,6 +15,10 @@ public record BookingResponse(
         OffsetDateTime projectedEndAt,
         String status,
         UUID orderId,
+        String orderStatus,
+        UUID treatmentSlipId,
+        Integer pax,
+        boolean sessionExtended,
         String nationality,
         String remarks
 ) {}

@@ -3,6 +3,7 @@ package com.sumicare.feedback.controller;
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.feedback.domain.Feedback;
 import com.sumicare.feedback.repository.FeedbackRepository;
+import com.sumicare.notification.service.NotificationService;
 import com.sumicare.organization.repository.OrganizationRepository;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -32,10 +33,10 @@ public class FeedbackController {
 
     private final FeedbackRepository repository;
     private final OrganizationRepository organizationRepository;
-    private final com.sumicare.notification.service.NotificationService notificationService;
+    private final NotificationService notificationService;
 
     public FeedbackController(FeedbackRepository repository, OrganizationRepository organizationRepository,
-                              com.sumicare.notification.service.NotificationService notificationService) {
+                              NotificationService notificationService) {
         this.repository = repository;
         this.organizationRepository = organizationRepository;
         this.notificationService = notificationService;

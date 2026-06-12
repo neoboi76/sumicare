@@ -30,7 +30,8 @@
     } @else if (orders().length === 0) {
     <p class="p-6 text-center text-sm text-slate-500">No orders yet.</p>
     } @else {
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto">
+    <table class="w-full min-w-[1000px] text-sm">
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
         <tr>
           <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('createdAt')">Created{{
@@ -82,9 +83,9 @@
             <span class="inline-block rounded px-2 py-0.5 text-[11px] font-semibold" [class]="statusClass(o.status)">{{
               o.status }}</span>
           </td>
-          <td class="px-3 py-2 text-right">&#8369; {{ o.total | number:'1.2-2' }}</td>
-          <td class="px-3 py-2 text-right">&#8369; {{ o.amountPaid | number:'1.2-2' }}</td>
-          <td class="px-3 py-2 text-right">&#8369; {{ o.balance | number:'1.2-2' }}</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">&#8369; {{ o.total | number:'1.2-2' }}</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">&#8369; {{ o.amountPaid | number:'1.2-2' }}</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">&#8369; {{ o.balance | number:'1.2-2' }}</td>
           <td class="px-3 py-2">
             @if (slipId(o); as sid) {
             <a [routerLink]="['/app/treatment-slips', sid]"
@@ -101,8 +102,9 @@
         }
       </tbody>
     </table>
-    
-    <sumi-paginator 
+    </div>
+
+    <sumi-paginator
       [totalElements]="sortedOrders().length"
       [pageSize]="pageSize()"
       [currentPage]="currentPage()"

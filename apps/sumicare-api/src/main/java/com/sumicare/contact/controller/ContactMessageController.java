@@ -4,6 +4,7 @@ import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.contact.domain.ContactMessage;
 import com.sumicare.contact.dto.ContactMessageRequest;
 import com.sumicare.contact.repository.ContactMessageRepository;
+import com.sumicare.notification.service.NotificationService;
 import com.sumicare.organization.repository.OrganizationRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -29,11 +30,11 @@ public class ContactMessageController {
 
     private final ContactMessageRepository repository;
     private final OrganizationRepository organizationRepository;
-    private final com.sumicare.notification.service.NotificationService notificationService;
+    private final NotificationService notificationService;
 
     public ContactMessageController(ContactMessageRepository repository,
                                     OrganizationRepository organizationRepository,
-                                    com.sumicare.notification.service.NotificationService notificationService) {
+                                    NotificationService notificationService) {
         this.repository = repository;
         this.organizationRepository = organizationRepository;
         this.notificationService = notificationService;

@@ -1,5 +1,6 @@
 package com.sumicare.booking.dto;
 
+import com.sumicare.cashier.dto.PaymentDetailsRequest;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -23,7 +24,7 @@ public record CreateBookingRequest(
         String nationality,
         String roomType,
         String paymentMethod,
-        com.sumicare.cashier.dto.PaymentDetailsRequest paymentDetails,
+        PaymentDetailsRequest paymentDetails,
         List<PublicAttendeeRequest> attendees,
         List<CreateBookingItemRequest> items,
         String voucherCode,

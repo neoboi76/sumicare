@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0054-1-assign-shift-to-unassigned-therapists" author="sumicare">
+        <sql>
+            INSERT INTO shift_assignments (shift_id, therapist_id, effective_date)
+            SELECT s.id, t.id, CURRENT_DATE
+            FROM therapists t
+            JOIN shifts s ON s.organization_id = t.organization_id AND s.label = 'Shift 1'
+            WHERE t.is_active = true
+            AND NOT EXISTS (SELECT 1 FROM shift_assignments sa WHERE sa.therapist_id = t.id);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

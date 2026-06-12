@@ -6,8 +6,7 @@ import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
 import { StompService } from '../../../core/realtime/stomp.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Subscription, forkJoin, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
 import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
 import { SortState, sortRows } from '../../../shared/utils/compare-by';
@@ -25,6 +24,10 @@ interface BookingResponse {
   status: string;
   clientGender?: string | null;
   orderId?: string | null;
+  orderStatus?: string | null;
+  treatmentSlipId?: string | null;
+  pax?: number | null;
+  sessionExtended?: boolean;
   remarks?: string | null;
 }
 
@@ -133,17 +136,16 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private bookingsSubscription: Subscription | null = null;
   private roomsSubscription: Subscription | null = null;
-  private bookingsPollTimer: ReturnType<typeof setInterval> | null = null;
+  private ordersSubscription: Subscription | null = null;
+  private lineupSubscription: Subscription | null = null;
   private reloadDebounce: ReturnType<typeof setTimeout> | null = null;
   private roomsReloadDebounce: ReturnType<typeof setTimeout> | null = null;
-  private therapistRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
   bookings = signal<BookingResponse[]>([]);
   services = signal<ServiceItem[]>([]);
   lineup = signal<LineupTherapist[]>([]);
   rooms = signal<RoomItem[]>([]);
-  orderStatuses = signal<Map<string, string>>(new Map());
   ordersByBooking = signal<Map<string, OrderLite>>(new Map());
   expandedBookingId = signal<string | null>(null);
 
@@ -267,19 +269,13 @@ export class BookingsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.reload();
     this.loadReference();
-    this.therapistRefreshTimer = setInterval(() => this.refreshLineup(), 30000);
     this.subscribeBookingsFeed();
     this.subscribeRoomsFeed();
-    this.bookingsPollTimer = setInterval(() => this.reload(), 60000);
+    this.subscribeOrdersFeed();
+    this.subscribeLineupFeed();
   }
 
   ngOnDestroy(): void {
-    if (this.therapistRefreshTimer) {
-      clearInterval(this.therapistRefreshTimer);
-    }
-    if (this.bookingsPollTimer) {
-      clearInterval(this.bookingsPollTimer);
-    }
     if (this.reloadDebounce) {
       clearTimeout(this.reloadDebounce);
     }
@@ -288,6 +284,8 @@ export class BookingsComponent implements OnInit, OnDestroy {
     }
     this.bookingsSubscription?.unsubscribe();
     this.roomsSubscription?.unsubscribe();
+    this.ordersSubscription?.unsubscribe();
+    this.lineupSubscription?.unsubscribe();
   }
 
   private subscribeBookingsFeed(): void {
@@ -316,6 +314,32 @@ export class BookingsComponent implements OnInit, OnDestroy {
     }
   }
 
+  private subscribeOrdersFeed(): void {
+    const orgId = this.auth.organizationId();
+    if (!orgId) return;
+    try {
+      this.ordersSubscription = this.stomp.watch<unknown>('/topic/orders/' + orgId).subscribe({
+        next: () => this.scheduleReload(),
+        error: () => undefined
+      });
+    } catch {
+      this.ordersSubscription = null;
+    }
+  }
+
+  private subscribeLineupFeed(): void {
+    const orgId = this.auth.organizationId();
+    if (!orgId) return;
+    try {
+      this.lineupSubscription = this.stomp.watch<unknown>('/topic/decking-updates/' + orgId).subscribe({
+        next: () => this.refreshLineup(),
+        error: () => undefined
+      });
+    } catch {
+      this.lineupSubscription = null;
+    }
+  }
+
   private scheduleReload(): void {
     if (this.reloadDebounce) clearTimeout(this.reloadDebounce);
     this.reloadDebounce = setTimeout(() => this.reload(), 300);
@@ -338,34 +362,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
       next: (b) => {
         this.bookings.set(b);
         this.currentPage.set(0);
-        this.loadOrderStatuses(b);
+        this.ordersByBooking.set(new Map());
+        this.expandedBookingId.set(null);
       },
       error: () => this.bookings.set([])
-    });
-  }
-
-  private loadOrderStatuses(bookings: BookingResponse[]): void {
-    const withOrders = bookings.filter(b => b.orderId);
-    if (withOrders.length === 0) {
-      this.orderStatuses.set(new Map());
-      this.ordersByBooking.set(new Map());
-      return;
-    }
-    forkJoin(withOrders.map(b =>
-      this.http.get<OrderLite>(`${environment.apiBaseUrl}/api/cashier/orders/${b.orderId}`).pipe(
-        map(order => ({ bookingId: b.id, order })),
-        catchError(() => of(null))
-      )
-    )).subscribe(results => {
-      const statuses = new Map<string, string>();
-      const orders = new Map<string, OrderLite>();
-      for (const result of results) {
-        if (!result) continue;
-        statuses.set(result.bookingId, result.order.status);
-        orders.set(result.bookingId, result.order);
-      }
-      this.orderStatuses.set(statuses);
-      this.ordersByBooking.set(orders);
     });
   }
 
@@ -375,8 +375,10 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   attendeeCount(bookingId: string): number {
     const order = this.ordersByBooking().get(bookingId);
-    if (!order || !order.items) return 0;
-    return order.items.reduce((sum, it) => sum + (it.attendees ? it.attendees.length : 0), 0);
+    if (order && order.items) {
+      return order.items.reduce((sum, it) => sum + (it.attendees ? it.attendees.length : 0), 0);
+    }
+    return this.bookings().find(b => b.id === bookingId)?.pax ?? 1;
   }
 
   private singleAttendee(bookingId: string): OrderAttendee | null {
@@ -388,11 +390,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
   singleSlipId(b: BookingResponse): string | null {
     const single = this.singleAttendee(b.id);
     if (single?.treatmentSlipId) return single.treatmentSlipId;
-    return this.ordersByBooking().get(b.id)?.treatmentSlipId ?? null;
+    return this.ordersByBooking().get(b.id)?.treatmentSlipId ?? b.treatmentSlipId ?? null;
   }
 
   bookingSessionExtended(b: BookingResponse): boolean {
-    return this.singleAttendee(b.id)?.sessionExtended ?? false;
+    return this.singleAttendee(b.id)?.sessionExtended ?? b.sessionExtended ?? false;
   }
 
   attendeeHasLocker(a: OrderAttendee): boolean {
@@ -431,7 +433,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private statusForBooking(booking: BookingResponse | undefined): string {
     if (!booking) return 'PENDING';
     if (booking.status === 'CANCELLED') return 'CANCELLED';
-    return this.orderStatuses().get(booking.id) ?? 'PENDING';
+    return booking.orderStatus ?? 'PENDING';
   }
 
   isOrderPaid(bookingId: string): boolean {

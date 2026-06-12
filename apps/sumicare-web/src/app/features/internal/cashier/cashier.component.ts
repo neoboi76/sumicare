@@ -183,6 +183,9 @@ export class CashierComponent implements OnInit {
   activeTemplate = signal<string>('Custom');
   discountSummary = signal<{ name: string; amount: number }[]>([]);
 
+  hasVoucherApplied = computed(() => this.voucherId() !== null);
+  hasManualDiscount = computed(() => this.discountSummary().some(d => !d.name.startsWith('Voucher ')));
+
   submitting = signal(false);
   error = signal<string | null>(null);
   tax = signal(0);
@@ -372,25 +375,32 @@ export class CashierComponent implements OnInit {
   }
 
   selectClient(c: ClientLite): void {
+    const previous = this.selectedClient();
     this.selectedClient.set(c);
     this.searchResults.set([]);
     this.searchTerm = '';
-    if (!this.transactorName.trim()) this.transactorName = c.nickname;
-    if (c.gender === 'M' || c.gender === 'F') {
-      this.cart.update(items => {
-        if (items.length === 0 || items[0].attendees.length === 0) return items;
-        const first = { ...items[0] };
-        const attendees = first.attendees.slice();
-        attendees[0] = { ...attendees[0], clientGender: c.gender as 'M' | 'F' };
-        first.attendees = attendees;
-        return [first, ...items.slice(1)];
-      });
+    if (!previous || previous.id !== c.id) {
+      this.transactorName = c.nickname;
+      this.applyClientGenderToFirstAttendee(c.gender);
     }
   }
 
   clearClient(): void {
     if (this.clientLocked()) return;
     this.selectedClient.set(null);
+    this.transactorName = '';
+  }
+
+  private applyClientGenderToFirstAttendee(gender: string | null | undefined): void {
+    if (gender !== 'M' && gender !== 'F') return;
+    this.cart.update(items => {
+      if (items.length === 0 || items[0].attendees.length === 0) return items;
+      const first = { ...items[0] };
+      const attendees = first.attendees.slice();
+      attendees[0] = { ...attendees[0], clientGender: gender };
+      first.attendees = attendees;
+      return [first, ...items.slice(1)];
+    });
   }
 
   openRegister(): void {
@@ -521,8 +531,16 @@ export class CashierComponent implements OnInit {
   }
 
   applyVoucher(): void {
-    const code = this.voucherCode.trim();
     this.voucherError.set(null);
+    if (this.hasManualDiscount()) {
+      this.voucherError.set('Remove the manual discount first. A voucher and a manual discount cannot be combined.');
+      return;
+    }
+    if (this.hasVoucherApplied()) {
+      this.voucherError.set('A voucher is already applied to this order.');
+      return;
+    }
+    const code = this.voucherCode.trim();
     if (!code) {
       this.voucherError.set('Enter a voucher code.');
       return;
@@ -545,6 +563,10 @@ export class CashierComponent implements OnInit {
   }
 
   openDiscountModal(): void {
+    if (this.hasVoucherApplied()) {
+      this.error.set('Remove the applied voucher before adding a manual discount.');
+      return;
+    }
     const cfg = this.discountConfig();
     cfg.appliedItemIndices = this.cart().map((_, i) => i);
     this.discountConfig.set({ ...cfg });
@@ -756,7 +778,9 @@ export class CashierComponent implements OnInit {
       notes: this.notes || null,
       voucherId: this.voucherId(),
       subtotal: this.subtotal(),
-      discount: this.discountSummary().reduce((sum, d) => sum + d.amount, 0),
+      discount: this.discountSummary()
+        .filter(d => !d.name.startsWith('Voucher '))
+        .reduce((sum, d) => sum + d.amount, 0),
       tax: this.tax(),
       total: this.total(),
       items: this.cart().map((c, i) => ({

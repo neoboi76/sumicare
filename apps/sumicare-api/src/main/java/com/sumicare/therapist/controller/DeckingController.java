@@ -3,6 +3,7 @@ package com.sumicare.therapist.controller;
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.shift.domain.Shift;
+import com.sumicare.shift.domain.ShiftAssignment;
 import com.sumicare.shift.repository.ShiftAssignmentRepository;
 import com.sumicare.shift.repository.ShiftRepository;
 import com.sumicare.therapist.dto.DeckingEntry;
@@ -138,7 +139,7 @@ public class DeckingController {
         deckingService.appendToBack(orgId, therapistId, shiftId);
         if (shiftId != null) {
             if (!shiftAssignmentRepository.existsByShiftIdAndTherapistId(shiftId, therapistId)) {
-                com.sumicare.shift.domain.ShiftAssignment sa = new com.sumicare.shift.domain.ShiftAssignment();
+                ShiftAssignment sa = new ShiftAssignment();
                 sa.setShiftId(shiftId);
                 sa.setTherapistId(therapistId);
                 shiftAssignmentRepository.save(sa);

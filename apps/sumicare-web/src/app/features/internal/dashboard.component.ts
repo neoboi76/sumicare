@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -29,7 +29,7 @@ interface RevenuePoint {
   templateUrl: './dashboard.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DashboardComponent implements OnInit, OnDestroy {
+export class DashboardComponent implements OnInit {
   private http = inject(HttpClient);
   protected auth = inject(AuthService);
   protected branding = inject(BrandingService);
@@ -42,8 +42,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   dailyRevenue = signal(0);
   revenueSeries = signal<number[]>([]);
   loading = signal(true);
-
-  private pollHandle: ReturnType<typeof setInterval> | null = null;
 
   readonly role = computed(() => this.auth.session()?.role ?? '');
 
@@ -75,11 +73,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.reload();
-    this.pollHandle = setInterval(() => this.reload(), 30_000);
-  }
-
-  ngOnDestroy(): void {
-    if (this.pollHandle) clearInterval(this.pollHandle);
   }
 
   reload(): void {

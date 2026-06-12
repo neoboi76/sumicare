@@ -53,4 +53,9 @@
     <include file="changes/0047-booking-remarks.xml" relativeToChangelogFile="true"/>
     <include file="changes/0048-organization-branding-extras.xml" relativeToChangelogFile="true"/>
     <include file="changes/0049-booking-reference.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0050-order-payment-email-flag.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0051-performance-indexes.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0052-seed-private-rooms.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0053-seed-vouchers.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0054-seed-all-therapist-shifts.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0051-1-idx-oia-order" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_oia_order"/>
+            </not>
+        </preConditions>
+        <createIndex tableName="order_item_attendees" indexName="idx_oia_order">
+            <column name="order_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0051-2-idx-sessions-booking" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_sessions_booking"/>
+            </not>
+        </preConditions>
+        <createIndex tableName="sessions" indexName="idx_sessions_booking">
+            <column name="booking_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0051-3-idx-bookings-org-status" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_bookings_org_status"/>
+            </not>
+        </preConditions>
+        <createIndex tableName="bookings" indexName="idx_bookings_org_status">
+            <column name="organization_id"/>
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
