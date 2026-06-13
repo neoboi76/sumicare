@@ -82,7 +82,8 @@ public class SecurityConfig {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(List.of(
             "http://localhost:4200",
-            "https://frontend-production-1b53.up.railway.app"
+            "https://frontend-production-1b53.up.railway.app",
+            "https://newlasemaspa.up.railway.app"
         ));
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-Biometrics-Key"));
