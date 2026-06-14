@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0011-ledger-status" author="sumicare">
+        <addColumn tableName="transaction_ledger">
+            <column name="status" type="VARCHAR(20)" defaultValue="COMPLETED">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <sql>
+            UPDATE transaction_ledger 
+            SET status = 'REFUND' 
+            WHERE entry_type IN ('PAYMENT_REVERSED', 'ORDER_CANCELLED_REVERSAL')
+        </sql>
+    </changeSet>
+
+    <changeSet id="0011-password-reset-tokens" author="sumicare">
+        <createTable tableName="password_reset_tokens">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_prt_user" references="users(id)" deleteCascade="true"/>
+            </column>
+            <column name="token" type="varchar(128)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="expires_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consumed_at" type="timestamptz"/>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0011-test-users-seed" author="sumicare">
+        <sql>
+            -- All passwords are pre-hashed with BCrypt cost 12
+            -- superadmin: ChangeMe!12345
+            -- testadmin: TestAdmin!12345
+            -- testmanager: TestManager!12345
+            -- testreceptionist: TestReceptionist!12345
+            -- teststaff: TestStaff!12345
+
+            INSERT INTO users (organization_id, username, email, password_hash, role_id, display_name, is_active, email_verified)
+            SELECT o.id, 'superadmin', 'superadmin@lasema.test', '$2a$12$oc/zZUQy1PS6YZvMO/HxDOhafDn1Iv0eleMajMLVhiZe5clZ6xZhW', r.id, 'Super Admin', true, true
+            FROM organizations o, roles r WHERE o.slug='lasema' AND r.code='SUPERADMIN'
+            ON CONFLICT (username) DO NOTHING;
+
+            INSERT INTO users (organization_id, username, email, password_hash, role_id, display_name, is_active, email_verified)
+            SELECT o.id, 'testadmin', 'testadmin@lasema.test', '$2a$12$eeJ/NcAMyOebL82HkGUN6.UbQw.pFZuByWmnxdMXS5.Sn3XHWUZwq', r.id, 'Test Admin', true, true
+            FROM organizations o, roles r WHERE o.slug='lasema' AND r.code='ADMIN'
+            ON CONFLICT (username) DO NOTHING;
+
+            INSERT INTO users (organization_id, username, email, password_hash, role_id, display_name, is_active, email_verified)
+            SELECT o.id, 'testmanager', 'testmanager@lasema.test', '$2a$12$Lo3ajIeRN6T7QXYdMG2fGOortG1aDsccINiZqhSLatmlkbYrDu2sO', r.id, 'Test Manager', true, true
+            FROM organizations o, roles r WHERE o.slug='lasema' AND r.code='MANAGER'
+            ON CONFLICT (username) DO NOTHING;
+
+            INSERT INTO users (organization_id, username, email, password_hash, role_id, display_name, is_active, email_verified)
+            SELECT o.id, 'testreceptionist', 'testreceptionist@lasema.test', '$2a$12$3Nie2ZHG7xs5w20oK7fB6uTyuCSCaFnqMmZteMMXp8kmq0Hzd4XMC', r.id, 'Test Receptionist', true, true
+            FROM organizations o, roles r WHERE o.slug='lasema' AND r.code='RECEPTIONIST'
+            ON CONFLICT (username) DO NOTHING;
+
+            INSERT INTO users (organization_id, username, email, password_hash, role_id, display_name, is_active, email_verified)
+            SELECT o.id, 'teststaff', 'teststaff@lasema.test', '$2a$12$7X5frEh4/OM2Y5BpC00JT.c2I1e4p0JdD0tOhtahTnUdp1.Aes7ha', r.id, 'Test Staff', true, true
+            FROM organizations o, roles r WHERE o.slug='lasema' AND r.code='STAFF'
+            ON CONFLICT (username) DO NOTHING;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,266 @@
+<div class="max-w-md mx-auto">
+  <div class="flex justify-between items-baseline mb-2 no-print">
+    <a routerLink="/sumicare/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
+    <div class="flex gap-2">
+      @if (slip()?.status === 'DRAFT' && !editing()) {
+        <button (click)="startEdit()" class="rounded border border-slate-300 px-4 py-1.5 text-sm">Edit</button>
+      }
+      <button (click)="downloadPdf()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Download PDF</button>
+    </div>
+  </div>
+  <p class="no-print text-xs text-slate-500 mb-3">PDF download produces a clean A6-sized slip with no browser headers.</p>
+
+  @if (editing() && slip(); as s) {
+    <div class="no-print bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4 space-y-3">
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Edit slip (DRAFT)</h3>
+      @if (saveError(); as e) { <p class="text-sm text-red-600">{{ e }}</p> }
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="block col-span-2">TS #
+          <input [(ngModel)]="edit.tsn" name="etsn" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">Locker
+          <input [(ngModel)]="edit.lockerNumber" name="elocker" maxlength="16" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">Room
+          <input [(ngModel)]="edit.roomNumber" name="eroom" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">OR#
+          <input [(ngModel)]="edit.orNumber" name="eor" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">Add-on OR#
+          <input [(ngModel)]="edit.addOnOrNumber" name="eaor" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block col-span-2">Others / Add-on
+          <input [(ngModel)]="edit.othersAddOn" name="eothers" maxlength="500" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block col-span-2">Remarks
+          <textarea [(ngModel)]="edit.remarks" name="eremarks" maxlength="1000" rows="2" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"></textarea>
+        </label>
+        <label class="block">Total amount
+          <input [(ngModel)]="edit.totalAmount" name="etotal" type="number" min="0" step="0.01" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">Start time
+          <input [(ngModel)]="edit.startTime" name="estart" type="datetime-local"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">End time
+          <input [(ngModel)]="edit.endTime" name="eend" type="datetime-local"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        @if (s.vip) {
+          <label class="block">Jacuzzi (min)
+            <input [(ngModel)]="edit.jacuzziMinutes" name="ejacuzzi" type="number" min="0" max="120" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+          </label>
+          <label class="block">Massage (min)
+            <input [(ngModel)]="edit.massageMinutes" name="emassage" type="number" min="0" max="120" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+          </label>
+          <label class="flex items-center gap-2">
+            <input [(ngModel)]="edit.wineIncluded" name="ewine" type="checkbox" />
+            Wine included
+          </label>
+        }
+      </div>
+      <div class="flex justify-end gap-2">
+        <button (click)="cancelEdit()" class="px-3 py-1.5 text-sm text-slate-600">Cancel</button>
+        <button (click)="saveEdit()" class="px-3 py-1.5 text-sm bg-[var(--sumi-primary)] text-white rounded">Save</button>
+      </div>
+    </div>
+  }
+
+  <div class="print-area-wrapper">
+  @if (slip(); as s) {
+    <article class="slip" [class.vip]="s.vip">
+      @if (s.vip) {
+        <div class="vip-tag">VIP TREATMENT SLIP</div>
+      }
+
+      @if (s.vip) {
+        <div class="vip-top-block">
+          <div class="vip-row">
+            <span class="vip-label">JACUZZI TIME</span>
+            <span class="vip-value">{{ s.jacuzziMinutes != null ? s.jacuzziMinutes + ' min' : '' }}</span>
+          </div>
+          <div class="vip-row">
+            <span class="vip-label">MASSAGE TIME</span>
+            <span class="vip-value">{{ s.massageMinutes != null ? s.massageMinutes + ' min' : '' }}</span>
+          </div>
+          <div class="vip-row">
+            <span class="vip-label">ROOM</span>
+            <span class="vip-value">{{ s.roomNumber || '' }}</span>
+          </div>
+          <div class="vip-row">
+            <span class="vip-label">WINE</span>
+            <span class="vip-value vip-wine">
+              <span [class.vip-choice-active]="s.wineIncluded === true">Yes</span>
+              <span class="vip-choice-sep">/</span>
+              <span [class.vip-choice-active]="s.wineIncluded === false">No</span>
+            </span>
+          </div>
+        </div>
+      } @else {
+        <div class="row top-meta">
+          <div class="cell">
+            <span class="label">Treatment Time</span>
+            <div class="value">{{ s.treatmentMinutes != null ? s.treatmentMinutes + ' min' : '' }}</div>
+          </div>
+          <div class="cell">
+            <span class="label">Pax</span>
+            <div class="value">{{ s.pax ?? 1 }}</div>
+          </div>
+        </div>
+      }
+
+      <div class="brand">LASEMA</div>
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">Customer Name</span>
+          <div class="value">{{ s.clientNickname }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">Nationality</span>
+          <div class="value">{{ s.nationality || '' }}</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">TS #</span>
+          <div class="value">{{ s.tsn }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">Date</span>
+          <div class="value">{{ formatDate(s.createdAt) }}</div>
+        </div>
+      </div>
+
+      @if (s.vip) {
+        <div class="row">
+          <div class="cell" style="grid-column: span 2;">
+            <span class="label">Locker Key #</span>
+            <div class="value">{{ s.lockerNumber | lockerLabel:s.clientGender:false }}</div>
+          </div>
+        </div>
+      } @else {
+        <div class="row row-2">
+          <div class="cell">
+            <span class="label">Locker Key #</span>
+            <div class="value">{{ s.lockerNumber | lockerLabel:s.clientGender:false }}</div>
+          </div>
+          <div class="cell">
+            <span class="label">Room</span>
+            <div class="value">{{ s.roomNumber || '' }}</div>
+          </div>
+        </div>
+      }
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">Start Time</span>
+          <div class="value">{{ formatTimeOnly(s.startTime) }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">End Time</span>
+          <div class="value">{{ formatTimeOnly(s.endTime) }}</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="cell">
+          <span class="label">Therapist</span>
+          <div class="value">
+            {{ s.primaryTherapistNickname || '' }}@if (s.secondaryTherapistNickname) { / {{ s.secondaryTherapistNickname }} }
+          </div>
+        </div>
+        <div class="cell">
+          <span class="label">Signature</span>
+          <div class="value">&nbsp;</div>
+        </div>
+      </div>
+
+      @if (s.requestedTherapistNickname) {
+        <div class="row">
+          <div class="cell" style="grid-column: span 2;">
+            <span class="label">Requested Therapist</span>
+            <div class="value">{{ s.requestedTherapistNickname }}</div>
+          </div>
+        </div>
+      }
+
+      <div class="row" style="grid-template-columns: 2fr 1fr;">
+        <div class="cell treatment-cell">
+          <span class="label">Treatment</span>
+          <div class="value">{{ s.serviceName }}</div>
+        </div>
+        <div class="cell treatment-cell">
+          <span class="label">OR #</span>
+          <div class="value">{{ s.orNumber || '' }}</div>
+        </div>
+      </div>
+
+      <div class="row row-2">
+        <div class="cell" style="grid-column: span 2;">
+          <span class="label">Others / Add On</span>
+          <div class="value">
+            Extension: {{ s.extensionMinutes && s.extensionMinutes > 0 ? '+' + s.extensionMinutes + ' min' : 'None' }}
+            @if (s.othersAddOn && !s.othersAddOn.startsWith('Massage extension')) { &middot; {{ s.othersAddOn }} }
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="grid-template-columns: 2fr 1fr;">
+        <div class="cell">
+          <span class="label">Remarks</span>
+          <div class="value">{{ s.remarks || '' }}</div>
+        </div>
+        <div class="cell">
+          <span class="label">Total</span>
+          <div class="value">@if (s.totalAmount != null) { ₱ {{ s.totalAmount | number:'1.2-2' }} }</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="cell" style="grid-column: span 2;">
+          <span class="label">Waiver</span>
+          <div class="value">{{ s.waiverAccepted ? 'Accepted' : 'Pending' }}</div>
+        </div>
+      </div>
+
+      <div class="waiver-title">WAIVER</div>
+      <div class="waiver">
+        I understand that the massage or body scrub received is provided for the basic purpose of relaxation and relief of MUSCULAR TENSION.
+        If I experience any pain or discomfort during the session, I will immediately inform the practitioner so that the pressure and/or
+        strokes may be adjusted to my level of comfort. I further understand that the massage or body scrub should not be construed as a
+        substitute for medical examination, diagnosis or treatment and that I should see physician, chiropractor, dermatologist or other
+        qualified for any physical/mental ailment that I am aware of. I understand that the massage/body scrub practitioners are not
+        qualified to perform spinal or skeletal adjustment, diagnose, prescribe or treat any skin disorders or any physical or mental
+        illness, and that nothing said in the course of the session given should be construed as such, because massage or body scrub
+        should not be performed under certain conditions. I affirm that I have stated all my known medical conditions especially in my
+        physical and skin conditions, and answered all questions honestly. I will declare my skin condition prior to body scrub so that
+        my practitioner will be aware and able to use strokes that will fit my level of comfort upon session. I agree to keep the
+        practitioner update as to any changes in my medical profile/skin condition and understand that THERE SHALL BE NO LIABILITY ON
+        THE PRACTITIONER'S PART OR THE LASEMA Management if I fail to do so. It is also understood that any illicit or sexually
+        suggestive remarks or advances made by me will result in immediate termination of the session, and I will be liable for payment
+        of the scheduled appointment. The Management of LASEMA accepts no responsibility for any loss or damage to any personal items of
+        money or any refund brought into the LASEMA PREMISES.
+      </div>
+
+      <div class="signature-line">Signature over printed name</div>
+
+      <div class="qr-block no-print-hide">
+        <div>
+          <div style="font-weight: 700;">Generated:</div>
+          <div>{{ formatTime(s.createdAt) }}</div>
+          @if (s.signedAt) {
+            <div>Signed: {{ formatTime(s.signedAt) }}</div>
+          }
+        </div>
+        <div style="text-align: center;">
+          <qrcode [qrdata]="feedbackUrl(s.tsn)" [width]="56" [errorCorrectionLevel]="'M'"></qrcode>
+          <div style="font-size: 5pt; margin-top: 0.5mm;">Leave feedback</div>
+        </div>
+      </div>
+    </article>
+  }
+  </div>
+</div>

@@ -1,0 +1,9 @@
+@if (loadingService.isLoading()) {
+    <div class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-white/70 backdrop-blur-sm sumi-fade-in" role="status" aria-live="polite" aria-busy="true">
+        <img src="/assets/logos/sumicare-colored-compact.svg" alt="SumiCare" class="w-16 h-16" />
+        <div class="sumi-spinner w-10 h-10 border-4"></div>
+        <span class="sr-only">Loading…</span>
+    </div>
+}
+<router-outlet></router-outlet>
+<sumi-confirm-dialog></sumi-confirm-dialog>

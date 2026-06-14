@@ -1,0 +1,102 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: sumicare-api
+  jackson:
+    time-zone: Asia/Manila
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/sumicare}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      keepalive-time: 60000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: ${HIBERNATE_TIME_ZONE:Asia/Manila}
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 2s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 0
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+sumicare:
+  jwt:
+    secret: ${JWT_SECRET}
+    accessExpiryMs: ${JWT_EXPIRY_MS:900000}
+    refreshExpiryMs: ${JWT_REFRESH_EXPIRY_MS:604800000}
+  cors:
+    allowedOrigins: ${CORS_ALLOWED_ORIGINS:*}
+  biometrics:
+    mode: ${BIOMETRICS_MODE:webhook}
+    sharedKey: ${BIOMETRICS_SHARED_KEY}
+    pollingUrl: ${BIOMETRICS_POLLING_URL:}
+    pollingApiKey: ${BIOMETRICS_POLLING_API_KEY:}
+    databaseUrl: ${BIOMETRICS_DATABASE_URL:}
+    databaseUsername: ${BIOMETRICS_DATABASE_USERNAME:}
+    databasePassword: ${BIOMETRICS_DATABASE_PASSWORD:}
+    databaseQuery: ${BIOMETRICS_DATABASE_QUERY:SELECT staff_number, event_time, device_id FROM clock_in_events WHERE event_time > ?}
+  anthropic:
+    apiKey: ${ANTHROPIC_API_KEY:}
+  bcrypt:
+    cost: 12
+  rateLimit:
+    loginPerMinute: 10
+  app:
+    publicBaseUrl: ${APP_PUBLIC_BASE_URL:https://newlasemaspa.up.railway.app}
+    emailFrom: ${EMAIL_FROM:noreply@sumicare.app}
+  email:
+    provider: ${EMAIL_PROVIDER:smtp}
+    fromName: ${EMAIL_FROM_NAME:New Lasema Spa Jjimjilbang}
+    brevoApiKey: ${BREVO_API_KEY:}
+  payment:
+    paymongo:
+      secretKey: ${PAYMONGO_SECRET_KEY}
+      publicKey: ${PAYMONGO_PUBLIC_KEY:}
+      webhookSecret: ${PAYMONGO_WEBHOOK_SECRET}
+      mockMode: ${PAYMONGO_MOCK_MODE:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    mail:
+      enabled: false
+
+logging:
+  level:
+    root: INFO
+    com.sumicare: INFO

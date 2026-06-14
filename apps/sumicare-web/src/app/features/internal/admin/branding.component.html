@@ -1,0 +1,140 @@
+<div class="space-y-6 anim-slide-down">
+    <header>
+        <h1 class="text-2xl font-semibold text-slate-900">Branding</h1>
+        <p class="text-slate-500">Customize your organization's logo, display name, color scheme, and font. The internal app picks this up immediately; the public site keeps its own editorial chrome.</p>
+    </header>
+    @if (form(); as f) {
+        <form (submit)="save($event)" class="bg-white rounded-xl shadow p-6 space-y-5 max-w-2xl transition-shadow duration-300 hover:shadow-md">
+            <label class="block">
+                <span class="text-sm font-medium text-slate-700">Organization name</span>
+                <input [(ngModel)]="f.displayName" name="displayName"
+                       (ngModelChange)="previewLocally()"
+                       class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                <span class="block text-xs text-slate-500 mt-1">Shown in the header and on every outgoing email.</span>
+            </label>
+            <label class="block">
+                <span class="text-sm font-medium text-slate-700">Logo URL</span>
+                <input [(ngModel)]="f.logoUrl" name="logoUrl"
+                       (ngModelChange)="previewLocally()"
+                       placeholder="https://..."
+                       class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                <span class="block text-xs text-slate-500 mt-1">Leave blank to use the SumiCare default.</span>
+            </label>
+            <div class="grid grid-cols-3 gap-3">
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-700">Primary</span>
+                    <input [(ngModel)]="f.primaryColor" name="primaryColor"
+                           (ngModelChange)="previewLocally()"
+                           type="color"
+                           class="mt-1.5 w-full h-10 rounded-lg border border-slate-300 cursor-pointer" />
+                </label>
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-700">Secondary</span>
+                    <input [(ngModel)]="f.secondaryColor" name="secondaryColor"
+                           (ngModelChange)="previewLocally()"
+                           type="color"
+                           class="mt-1.5 w-full h-10 rounded-lg border border-slate-300 cursor-pointer" />
+                </label>
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-700">Accent</span>
+                    <input [(ngModel)]="f.accentColor" name="accentColor"
+                           (ngModelChange)="previewLocally()"
+                           type="color"
+                           class="mt-1.5 w-full h-10 rounded-lg border border-slate-300 cursor-pointer" />
+                </label>
+            </div>
+            <label class="block">
+                <span class="text-sm font-medium text-slate-700">Font family</span>
+                <select name="fontFamily"
+                        [ngModel]="selectedFontValue()"
+                        (ngModelChange)="onFontFamilyChange($event)"
+                        class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors">
+                    @for (opt of fontOptions; track opt.value) {
+                        <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                </select>
+                @if (isCustomFont() || selectedFontValue() === '__custom__') {
+                    <input [ngModel]="customFont()"
+                           (ngModelChange)="onCustomFontInput($event)"
+                           name="customFont"
+                           placeholder="e.g. Roboto Mono, ui-monospace, monospace"
+                           class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors anim-slide-down" />
+                }
+                <span class="block text-xs text-slate-500 mt-1">Used across the internal app. The public site keeps the Lasema editorial chrome and is unaffected.</span>
+            </label>
+
+            <fieldset class="space-y-4 border-t border-slate-200 pt-5">
+                <legend class="text-sm font-semibold text-slate-700">Public site and sign-in</legend>
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-700">Sign-in background image URL</span>
+                    <input [(ngModel)]="f.loginBackgroundUrl" name="loginBackgroundUrl"
+                           (ngModelChange)="previewLocally()"
+                           placeholder="https://..."
+                           class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    <span class="block text-xs text-slate-500 mt-1">Shown behind the login screen. Leave blank for the default backdrop.</span>
+                </label>
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-700">Favicon URL</span>
+                    <input [(ngModel)]="f.faviconUrl" name="faviconUrl"
+                           (ngModelChange)="previewLocally()"
+                           placeholder="https://.../favicon.png"
+                           class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    <span class="block text-xs text-slate-500 mt-1">The icon shown in the browser tab.</span>
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label class="block">
+                        <span class="text-sm font-medium text-slate-700">Instagram URL</span>
+                        <input [(ngModel)]="f.instagramUrl" name="instagramUrl"
+                               placeholder="https://instagram.com/..."
+                               class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-slate-700">Contact phone</span>
+                        <input [(ngModel)]="f.contactPhone" name="contactPhone"
+                               placeholder="+63 ..."
+                               class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-slate-700">Contact email</span>
+                        <input [(ngModel)]="f.contactEmail" name="contactEmail" type="email"
+                               placeholder="hello@example.com"
+                               class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-medium text-slate-700">Footer note</span>
+                        <input [(ngModel)]="f.footerNote" name="footerNote"
+                               placeholder="Manila's Korean Bathhouse"
+                               class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                    </label>
+                </div>
+                <span class="block text-xs text-slate-500">Social and contact details surface in the public site footer.</span>
+            </fieldset>
+
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 transition-all duration-300">
+                <div class="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Live preview</div>
+                <div class="text-2xl text-slate-900" [style.fontFamily]="'var(--sumi-app-font-display)'">{{ f.displayName || 'Your organization' }}</div>
+                <div class="text-sm text-slate-700 mt-1" [style.fontFamily]="'var(--sumi-app-font-body)'">The quick brown fox jumps over the lazy dog &mdash; 0123456789.</div>
+                <div class="mt-3 flex gap-2">
+                    <span class="inline-block w-8 h-8 rounded" [style.background]="f.primaryColor"></span>
+                    <span class="inline-block w-8 h-8 rounded" [style.background]="f.secondaryColor"></span>
+                    <span class="inline-block w-8 h-8 rounded" [style.background]="f.accentColor"></span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+                <button [disabled]="saving()"
+                        class="rounded-lg bg-[var(--sumi-primary)] text-white px-5 py-2 text-sm font-medium hover:opacity-90 hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                    @if (saving()) {
+                        Saving...
+                    } @else {
+                        Save changes
+                    }
+                </button>
+                @if (savedAt(); as t) {
+                    <span class="text-xs text-emerald-700 anim-slide-down">Saved at {{ t | date:'shortTime' }}</span>
+                }
+            </div>
+        </form>
+    } @else {
+        <div class="flex justify-center py-12"><div class="sumi-spinner"></div></div>
+    }
+</div>

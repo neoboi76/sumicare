@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0025-1-backfill-slip-attendee-id" author="sumicare">
+        <sql>
+            UPDATE treatment_slips ts
+            SET attendee_id = oia.id
+            FROM order_item_attendees oia
+            WHERE ts.attendee_id IS NULL
+              AND ts.session_id IS NOT NULL
+              AND oia.session_id = ts.session_id;
+        </sql>
+    </changeSet>
+
+    <changeSet id="0025-2-backfill-slip-locker-from-attendee" author="sumicare">
+        <sql>
+            UPDATE treatment_slips ts
+            SET locker_number = oia.locker_number
+            FROM order_item_attendees oia
+            WHERE ts.attendee_id = oia.id
+              AND oia.locker_number IS NOT NULL
+              AND oia.locker_number &lt;&gt; '';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

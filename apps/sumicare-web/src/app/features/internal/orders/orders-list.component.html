@@ -1,0 +1,120 @@
+<section class="max-w-6xl mx-auto p-4 space-y-4">
+  <header class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold text-slate-900">Orders</h1>
+    <a routerLink="/sumicare/app/cashier" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm">+ New order</a>
+  </header>
+
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div class="flex flex-wrap gap-2 text-xs">
+      @for (
+      f of [
+      { k: 'OPEN', label: 'Open' },
+      { k: 'PAID', label: 'Paid' },
+      { k: 'CANCELLED', label: 'Cancelled' },
+      { k: 'ALL', label: 'All' }
+      ];
+      track f.k
+      ) {
+      <button (click)="setFilter(f.k)" class="px-3 py-1.5 rounded border"
+        [style.backgroundColor]="filter() === f.k ? 'var(--sumi-primary)' : null" [class.text-white]="filter() === f.k"
+        [class.border-slate-300]="filter() !== f.k" [class.text-slate-700]="filter() !== f.k">
+        {{ f.label }}
+      </button>
+      }
+    </div>
+    <input type="search" [ngModel]="searchTerm()" (ngModelChange)="onSearch($event)" name="orderSearch"
+      placeholder="Search OR#, name, reference, status"
+      class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-72" />
+  </div>
+
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    @if (loading()) {
+    <div class="flex justify-center py-8">
+      <div class="sumi-spinner"></div>
+    </div>
+    } @else if (filteredOrders().length === 0) {
+    <p class="p-6 text-center text-sm text-slate-500">No orders match your search.</p>
+    } @else {
+    <div class="overflow-x-auto">
+    <table class="w-full min-w-[1000px] text-sm">
+      <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('createdAt')">Created{{
+            sortIcon('createdAt') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('scheduledAt')">Schedule{{
+            sortIcon('scheduledAt') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('orNumber')">OR#{{
+            sortIcon('orNumber') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('clientNickname')">Client{{
+            sortIcon('clientNickname') }}</th>
+          <th class="text-left px-3 py-2">Items</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('cashierDisplayName')">Transacted By{{
+            sortIcon('cashierDisplayName') }}</th>
+          <th class="text-left px-3 py-2 cursor-pointer select-none" (click)="toggleSort('status')">Status{{
+            sortIcon('status') }}</th>
+          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('total')">Total{{
+            sortIcon('total') }}</th>
+          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('amountPaid')">Paid{{
+            sortIcon('amountPaid') }}</th>
+          <th class="text-right px-3 py-2 cursor-pointer select-none" (click)="toggleSort('balance')">Balance{{
+            sortIcon('balance') }}</th>
+          <th class="text-left px-3 py-2">Slip</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        @for (o of paginatedOrders(); track o.id) {
+        <tr>
+          <td class="px-3 py-2 text-xs">{{ formatDate(o.createdAt) }}</td>
+          <td class="px-3 py-2 text-xs">{{ formatSchedule(o.scheduledAt) }}</td>
+          <td class="px-3 py-2 font-mono text-xs">
+            {{ o.orNumber || '\u2014' }}
+            @if (o.bookingReference) {
+              <div class="text-[10px] text-slate-400">Ref {{ o.bookingReference }}</div>
+            }
+          </td>
+          <td class="px-3 py-2">
+            {{ o.transactorName || o.clientNickname || '\u2014' }}
+            @if (isReservation(o)) {
+            <span class="ml-1 inline-block rounded bg-sky-100 text-sky-700 text-[10px] uppercase tracking-wide px-1.5 py-0.5">Reservation</span>
+            }
+            @if (o.groupBooking) {
+            <span class="ml-1 inline-block rounded bg-violet-100 text-violet-700 text-[10px] uppercase tracking-wide px-1.5 py-0.5">Group</span>
+            }
+          </td>
+          <td class="px-3 py-2 text-xs text-slate-600">{{ itemSummary(o) }}</td>
+          <td class="px-3 py-2 text-slate-500">{{ o.lastEditedByDisplayName || o.cashierDisplayName || '\u2014' }}</td>
+          <td class="px-3 py-2">
+            <span class="inline-block rounded px-2 py-0.5 text-[11px] font-semibold" [class]="statusClass(o.status)">{{
+              o.status }}</span>
+          </td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">&#8369; {{ o.total | number:'1.2-2' }}</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">&#8369; {{ o.amountPaid | number:'1.2-2' }}</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">&#8369; {{ o.balance | number:'1.2-2' }}</td>
+          <td class="px-3 py-2">
+            @if (slipId(o); as sid) {
+            <a [routerLink]="['/sumicare/app/treatment-slips', sid]"
+              class="text-xs text-[var(--sumi-primary)] hover:underline">View</a>
+            } @else {
+            <span class="text-xs text-slate-400">&mdash;</span>
+            }
+          </td>
+          <td class="px-3 py-2 text-right">
+            <a [routerLink]="['/sumicare/app/orders', o.id]"
+              class="text-xs text-[var(--sumi-primary)] hover:underline">Details</a>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+    </div>
+
+    <sumi-paginator
+      [totalElements]="sortedOrders().length"
+      [pageSize]="pageSize()"
+      [currentPage]="currentPage()"
+      (pageChange)="currentPage.set($event)">
+    </sumi-paginator>
+    }
+  </div>
+</section>

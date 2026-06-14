@@ -1,0 +1,30 @@
+{
+  "name": "sumicare-api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/sumicare-api/src",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/sumicare-api",
+        "command": "mvn -B -ntp -DskipTests package"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/sumicare-api",
+        "command": "mvn -B -ntp spring-boot:run"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/sumicare-api",
+        "command": "mvn -B -ntp test"
+      }
+    }
+  },
+  "tags": ["scope:api", "type:app"]
+}

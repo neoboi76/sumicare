@@ -1,0 +1,128 @@
+<div class="sumi-app-shell min-h-screen flex flex-col lg:flex-row">
+    <section class="flex-1 flex items-center justify-center px-6 py-12 bg-white">
+        <div class="w-full max-w-md anim-fade-up">
+            <div class="flex items-center gap-3 mb-8">
+                <img src="/assets/logos/sumicare-colored-compact.svg" alt="SumiCare" class="h-11 w-11 transition-transform duration-500 hover:rotate-6 hover:scale-110" />
+                <div>
+                    <div class="sumi-brand-mark text-xl text-[var(--sumi-primary)]">SumiCare</div>
+                    <div class="text-[10px] uppercase tracking-[0.28em] text-slate-500">Spa Operations</div>
+                </div>
+            </div>
+            <h1 class="text-3xl font-semibold text-slate-900 leading-tight">Welcome back</h1>
+            <p class="mt-2 text-sm text-slate-500">Sign in to your SumiCare workspace.</p>
+
+            @if (verifiedBanner() === 'success') {
+                <div class="mt-6 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800 anim-slide-down">
+                    Your email has been verified. You can now sign in.
+                </div>
+            }
+            @if (verifiedBanner() === 'expired') {
+                <div class="mt-6 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 anim-slide-down">
+                    Your verification link has expired. Please contact an administrator to resend it.
+                </div>
+            }
+            @if (idleBanner()) {
+                <div class="mt-6 rounded-lg bg-slate-100 border border-slate-200 px-4 py-3 text-sm text-slate-700 anim-slide-down">
+                    You were signed out for inactivity. Sign in again to continue.
+                </div>
+            }
+
+            <div class="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 transition-shadow duration-300 hover:shadow-md">
+                @if (!mfaRequired()) {
+                    <form (submit)="submit($event)" class="space-y-5">
+                        <label class="block">
+                            <span class="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Username</span>
+                            <input [(ngModel)]="username" name="username" autocomplete="username" required
+                                class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                        </label>
+                        <div class="block">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Password</span>
+                                <button type="button" (click)="openContactModal()" class="text-xs text-[var(--sumi-primary)] hover:underline">Contact administrator</button>
+                            </div>
+                            <sumi-password-input
+                                [(value)]="password"
+                                name="password"
+                                autocomplete="current-password"
+                                [required]="true">
+                            </sumi-password-input>
+                        </div>
+                        <button type="submit" [disabled]="busy()"
+                                class="w-full rounded-lg bg-[var(--sumi-primary)] text-white font-medium py-3 text-sm tracking-wide hover:opacity-95 hover:scale-[1.01] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            @if (busy()) {
+                                <span class="sumi-spinner sumi-spinner-sm" style="border-color: rgba(255,255,255,0.3); border-top-color: #fff;"></span>
+                                Signing in...
+                            } @else {
+                                Sign in
+                            }
+                        </button>
+                        @if (error(); as msg) {
+                            <p class="text-sm text-red-600 mt-2 anim-slide-down">{{ msg }}</p>
+                        }
+                    </form>
+                } @else {
+                    <form (submit)="verify($event)" class="space-y-5 anim-fade-up">
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            We sent a six-digit verification code to
+                            <span class="font-semibold text-slate-800">{{ maskedEmail() }}</span>.
+                            Enter it below to finish signing in. The code expires in 15 minutes.
+                        </p>
+                        <label class="block">
+                            <span class="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">Verification code</span>
+                            <input [(ngModel)]="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required
+                                class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-3 tracking-[0.5em] text-center text-xl focus:border-[var(--sumi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]/30 transition-colors" />
+                        </label>
+                        <button type="submit" [disabled]="busy()"
+                                class="w-full rounded-lg bg-[var(--sumi-primary)] text-white font-medium py-3 text-sm tracking-wide hover:opacity-95 hover:scale-[1.01] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                            {{ busy() ? 'Verifying...' : 'Verify and sign in' }}
+                        </button>
+                        <div class="flex items-center justify-between text-xs">
+                            <button type="button" (click)="backToSignIn()" class="text-slate-500 hover:text-slate-700 transition-colors">Back to sign in</button>
+                            <button type="button" (click)="resend()" [disabled]="busy()" class="text-[var(--sumi-primary)] hover:underline disabled:opacity-60">Resend code</button>
+                        </div>
+                        @if (resendNotice()) {
+                            <p class="text-sm text-emerald-700 anim-slide-down">A new code has been sent.</p>
+                        }
+                        @if (error(); as msg) {
+                            <p class="text-sm text-red-600 mt-2 anim-slide-down">{{ msg }}</p>
+                        }
+                    </form>
+                }
+            </div>
+
+            <p class="mt-8 text-[10px] uppercase tracking-[0.28em] text-slate-400 text-center">Powered by SumiCare</p>
+        </div>
+    </section>
+
+    <aside class="hidden lg:flex flex-1 relative overflow-hidden text-white p-12 items-center justify-center"
+           style="background: linear-gradient(135deg, var(--sumi-primary) 0%, var(--sumi-secondary) 55%, var(--sumi-accent) 100%);">
+        <div class="absolute inset-0 bg-cover bg-center" style="background-image: var(--sumi-login-bg);"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.25),transparent_55%)]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_80%_70%,rgba(0,0,0,0.15),transparent_55%)]"></div>
+        <div class="relative max-w-md anim-fade-in">
+            <img src="/assets/logos/sumicare-allwhite-compact.svg" alt="SumiCare" class="h-14 w-14 mb-8 transition-transform duration-700 hover:scale-110" />
+            <div class="sumi-brand-mark text-4xl tracking-wider mb-3">SumiCare</div>
+            <p class="text-white/90 text-lg leading-relaxed mb-10">Spa operations, computerised end-to-end.</p>
+            <ul class="space-y-3">
+                <li class="flex items-center gap-3 anim-fade-up anim-delay-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white/90"></span>
+                    <span class="text-sm uppercase tracking-[0.22em] text-white/85">Bookings &middot; treatment slips</span>
+                </li>
+                <li class="flex items-center gap-3 anim-fade-up anim-delay-300">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white/90"></span>
+                    <span class="text-sm uppercase tracking-[0.22em] text-white/85">Cashier &middot; ledger</span>
+                </li>
+                <li class="flex items-center gap-3 anim-fade-up anim-delay-500">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white/90"></span>
+                    <span class="text-sm uppercase tracking-[0.22em] text-white/85">Reports &middot; analytics</span>
+                </li>
+                <li class="flex items-center gap-3 anim-fade-up anim-delay-700">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white/90"></span>
+                    <span class="text-sm uppercase tracking-[0.22em] text-white/85">Decking &middot; room map</span>
+                </li>
+            </ul>
+        </div>
+    </aside>
+
+    <sumi-contact-admin-modal [show]="showContactModal()" (closed)="closeContactModal()"></sumi-contact-admin-modal>
+</div>

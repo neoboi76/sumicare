@@ -1,0 +1,260 @@
+<section class="relative h-[88vh] min-h-[560px] flex items-end overflow-hidden">
+    <div class="absolute inset-0 overflow-hidden">
+        <div class="absolute inset-0 -inset-y-24 bg-cover bg-center will-change-transform"
+            [style.backgroundImage]="'url(' + heroImage + ')'" [sumiParallax]="0.25"></div>
+    </div>
+    <div class="absolute inset-0 hero-overlay"></div>
+    <div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pb-48 sm:pb-32 w-full">
+        <div class="max-w-3xl">
+            <p class="editorial-label editorial-label-on-dark anim-fade-up editorial-hero-shadow">San Antonio Village
+                &middot; Makati City &middot; Korean Jjimjilbang &middot; Open 24 Hours</p>
+            <div class="mt-6 anim-rule anim-delay-200 h-px bg-[var(--gold)]/80 w-24"></div>
+            <h1 class="editorial-hero-title editorial-hero-shadow mt-6 anim-fade-up anim-delay-200">New Lasema</h1>
+            <p class="editorial-sub mt-3 anim-fade-up anim-delay-400">Manila's Gateway to the Korean Bath</p>
+            <p
+                class="mt-6 text-[var(--cream)] editorial-hero-shadow leading-relaxed max-w-2xl font-[var(--lasema-font-body)] text-[15px] anim-fade-up anim-delay-500">
+                Five herbal soaking pools, kiln saunas, an ice room, sleeping caves, body scrubs, and twelve hours of
+                unhurried time &mdash; the Philippines' original jjimjilbang, inside a full Korean wellness complex in
+                Makati.
+            </p>
+            <div class="mt-8 flex flex-wrap items-center gap-3 anim-fade-up anim-delay-700">
+                <a routerLink="/book"
+                    class="btn-editorial bg-[var(--cream)] text-[var(--forest)] hover:bg-[var(--gold)] hover:text-[var(--ink)] hover:scale-105 transition-all duration-300">Book
+                    Your Visit</a>
+                <a routerLink="/packages"
+                    class="btn-editorial bg-transparent border border-[var(--cream)]/70 text-[var(--cream)] hover:bg-[var(--cream)] hover:text-[var(--forest)] hover:scale-105 transition-all duration-300">Browse
+                    Packages</a>
+            </div>
+        </div>
+    </div>
+    <div class="absolute bottom-0 inset-x-0 z-10 backdrop-blur-sm border-t border-[var(--gold)]/30" style="background: rgba(14, 24, 20, 0.85);">
+        <div
+            class="max-w-7xl mx-auto px-5 sm:px-8 py-4 grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-6 text-center sm:text-left font-[var(--lasema-font-label)] text-[var(--cream)]">
+            <div class="flex flex-col gap-1">
+                <span class="text-[10px] uppercase tracking-[0.22em] text-[var(--gold)]">Rating</span>
+                <span class="text-2xl font-[var(--lasema-font-display)]"><span [sumiCounter]="4.5"
+                        [decimals]="1"></span> <span class="text-sm text-[var(--cream)]/70">/ 5</span></span>
+            </div>
+            <div class="flex flex-col gap-1">
+                <span class="text-[10px] uppercase tracking-[0.22em] text-[var(--gold)]">Sauna from</span>
+                <span class="text-2xl font-[var(--lasema-font-display)]">&#8369;<span [sumiCounter]="650"></span></span>
+            </div>
+            <div class="flex flex-col gap-1">
+                <span class="text-[10px] uppercase tracking-[0.22em] text-[var(--gold)]">Hours</span>
+                <span class="text-2xl font-[var(--lasema-font-display)]"><span [sumiCounter]="24"></span> / 7</span>
+            </div>
+            <div class="flex flex-col gap-1">
+                <span class="text-[10px] uppercase tracking-[0.22em] text-[var(--gold)]">Max stay</span>
+                <span class="text-2xl font-[var(--lasema-font-display)]"><span [sumiCounter]="12"></span> hrs</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="chapter-band" sumiReveal>
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row md:items-center gap-6">
+        <div class="md:w-1/3">
+            <div class="chapter-num">Chapter One</div>
+            <div class="chapter-rule"></div>
+        </div>
+        <div class="md:w-2/3">
+            <h2 class="chapter-text">The K-Drama You Can Step Into</h2>
+            <p class="chapter-strap">Sliding doors · brick saunas · cotton uniforms · the smell of yuja tea</p>
+        </div>
+    </div>
+</section>
+
+<section class="editorial-pull-quote" sumiReveal>
+    <div class="max-w-4xl mx-auto px-5 sm:px-8 text-center">
+        <span class="quote-mark">&ldquo;</span>
+        <p class="quote-text">The onsen pools and steam sauna were exactly what my body needed. Familiar, comforting
+            &mdash; the kind of experience that leaves a lasting impression long after you leave.</p>
+        <div class="quote-source">&mdash; Pinayhakawati, Wellness Travel Blog · 2025</div>
+    </div>
+</section>
+
+<section class="bg-[var(--cream)] py-20">
+    <div class="max-w-7xl mx-auto px-5 sm:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <figure class="lg:col-span-8 relative overflow-hidden rounded-sm group" sumiReveal>
+                <img [src]="mosaicLarge.src" [alt]="mosaicLarge.alt"
+                    class="w-full h-[420px] lg:h-[640px] object-cover transition-transform duration-1000 group-hover:scale-105"
+                    loading="lazy" />
+                <figcaption class="absolute inset-0 tile-overlay p-6 flex flex-col justify-end text-[var(--cream)]">
+                    <div class="editorial-label editorial-label-on-dark">{{ mosaicLarge.label }}</div>
+                    <div class="mt-1 font-[var(--lasema-font-italic)] italic text-base">{{ mosaicLarge.caption }}</div>
+                </figcaption>
+            </figure>
+            <div class="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-4">
+                @for (tile of mosaicSmall; track tile.label) {
+                <figure class="relative overflow-hidden rounded-sm group h-full min-h-[152px]" sumiReveal>
+                    <img [src]="tile.src" [alt]="tile.alt"
+                        class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        loading="lazy" />
+                    <figcaption class="absolute inset-0 tile-overlay p-3 flex flex-col justify-end text-[var(--cream)]">
+                        <div class="editorial-label editorial-label-on-dark text-[9.5px]">{{ tile.label }}</div>
+                        <div class="font-[var(--lasema-font-italic)] italic text-xs leading-snug">{{ tile.caption }}
+                        </div>
+                    </figcaption>
+                </figure>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="chapter-band" sumiReveal>
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row md:items-center gap-6">
+        <div class="md:w-1/3">
+            <div class="chapter-num">Chapter Two</div>
+            <div class="chapter-rule"></div>
+        </div>
+        <div class="md:w-2/3">
+            <h2 class="chapter-text">The Thermal Journey</h2>
+            <p class="chapter-strap">Five pools · Four saunas · Ice room · Caves · Twelve-hour stays</p>
+        </div>
+    </div>
+</section>
+
+<section class="bg-[var(--cream)] py-20">
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+        <div sumiReveal>
+            <p class="editorial-label">The Experience</p>
+            <h2 class="mt-3 font-[var(--lasema-font-display)] text-3xl sm:text-4xl leading-tight">Hot, Cold, and
+                Everything Between</h2>
+            <div class="mt-8 editorial-body editorial-drop">
+                <p>You start at the herbal pools &mdash; five of them, each at a different temperature, each scented
+                    with something different. Jasmine is the gentlest. Ginseng wakes you up. Hinoki smells like a cedar
+                    forest after rain. The Robust pool is where the regulars head first, and you will know why thirty
+                    seconds in.</p>
+            </div>
+            <h3 class="mt-10 font-[var(--lasema-font-display)] italic text-2xl text-[var(--jade)]">The Thermal Pools
+            </h3>
+            <div class="mt-3 editorial-body">
+                <p>Soak, cool down in the ice room, soak again. The cycle is the point. It loosens what office hours and
+                    Manila traffic tighten, and after a few rounds the steam sauna stops feeling severe and starts
+                    feeling necessary.</p>
+            </div>
+            <h3 class="mt-10 font-[var(--lasema-font-display)] italic text-2xl text-[var(--jade)]">The Kiln &amp; the
+                Ice</h3>
+            <div class="mt-3 editorial-body">
+                <p>Five kilns line the corridor on the second floor &mdash; ice room, amethyst, Himalayan salt, ochre,
+                    and pine tree. Each one is a small clay-brick room you crawl into and sit in for ten minutes. The
+                    walls hold the warmth long after you leave.</p>
+            </div>
+        </div>
+        <div sumiReveal class="lg:sticky lg:top-24">
+            <figure class="overflow-hidden rounded-sm group">
+                <img src="https://images.unsplash.com/photo-1545205597-3d9d02c29597?auto=format&fit=crop&w=1400&q=75"
+                    alt="Stone and clay corridor between saunas"
+                    class="w-full aspect-[4/5] object-cover transition-transform duration-1000 group-hover:scale-105"
+                    loading="lazy" />
+            </figure>
+            <p class="editorial-label mt-4">Signature Therapy &middot; Solo or paired</p>
+        </div>
+    </div>
+</section>
+
+<section class="bg-[var(--parch)] py-20" sumiReveal>
+    <div class="max-w-6xl mx-auto px-5 sm:px-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-center gap-2 md:gap-6 mb-12 text-center">
+            <span class="hidden md:block h-px w-24 bg-[var(--rule)]"></span>
+            <span class="editorial-label">A Few Pointers</span>
+            <span class="hidden md:block h-px w-24 bg-[var(--rule)]"></span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <article
+                class="bg-[var(--mist)] p-8 rounded-sm border border-[var(--rule)] transition-all duration-500 hover:-translate-y-1 hover:shadow-lg"
+                sumiReveal>
+                <h3 class="editorial-label mb-4">Best Times to Visit</h3>
+                <div class="editorial-body editorial-drop">
+                    <p>Best times to visit: weekday mornings, before noon on Saturdays. The spa fills up in the late
+                        afternoon as office hours end. For couples, ask about private massage rooms &mdash; the shared
+                        setup in the standard area is fine for those comfortable with it, but privacy is available at a
+                        premium.</p>
+                </div>
+            </article>
+            <article
+                class="bg-[var(--mist)] p-8 rounded-sm border border-[var(--rule)] transition-all duration-500 hover:-translate-y-1 hover:shadow-lg"
+                sumiReveal>
+                <h3 class="editorial-label mb-4">What to Bring</h3>
+                <div class="editorial-body editorial-drop">
+                    <p>What to bring: shampoo, conditioner, body wash, facial wash, lotion in a small shower caddy. The
+                        jjimjilbang uniform is provided. Bring cash &mdash; not all services accept cards. Try the
+                        shikye (Korean rice beverage) and the boiled eggs from the snack bar: both have earned their
+                        cult status among regulars.</p>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="chapter-band" sumiReveal>
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row md:items-center gap-6">
+        <div class="md:w-1/3">
+            <div class="chapter-num">Chapter Three</div>
+            <div class="chapter-rule"></div>
+        </div>
+        <div class="md:w-2/3">
+            <h2 class="chapter-text">The Twelve-Hour Stay</h2>
+            <p class="chapter-strap">Why people stay all day &mdash; and sometimes overnight</p>
+        </div>
+    </div>
+</section>
+
+<section class="bg-[var(--cream)] py-16">
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        @for (tile of stripImages; track tile.label) {
+        <figure class="relative overflow-hidden rounded-sm group h-72 md:h-96" sumiReveal>
+            <img [src]="tile.src" [alt]="tile.alt"
+                class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                loading="lazy" />
+            <figcaption class="absolute inset-0 tile-overlay p-5 flex flex-col justify-end text-[var(--cream)]">
+                <div class="editorial-label editorial-label-on-dark">{{ tile.label }}</div>
+                <div class="font-[var(--lasema-font-italic)] italic text-sm mt-1">{{ tile.caption }}</div>
+            </figcaption>
+        </figure>
+        }
+    </div>
+</section>
+
+<section class="bg-[var(--ink)] py-20 text-[var(--cream)]" sumiReveal>
+    <div class="max-w-5xl mx-auto px-5 sm:px-8">
+        <div class="flex items-center gap-3 mb-6">
+            <span class="h-px w-12 bg-[var(--gold)]"></span>
+            <span class="editorial-label editorial-label-on-dark">Watch</span>
+        </div>
+        <h2 class="font-[var(--lasema-font-display)] text-3xl sm:text-4xl text-[var(--cream)] mb-8">Lasema in Motion
+        </h2>
+        <div class="w-full relative rounded-sm overflow-hidden border border-[var(--gold)]/40 transition-all duration-500 hover:border-[var(--gold)] hover:scale-[1.01]"
+            style="padding-bottom: 56.25%;">
+            <iframe src="https://www.youtube-nocookie.com/embed/r5jsPz7t-tg?si=80-xQLx6D2o_3Otk"
+                title="YouTube video player" frameborder="0" width="100%" height="100%"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerpolicy="strict-origin-when-cross-origin" allowfullscreen
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+            </iframe>
+        </div>
+    </div>
+</section>
+
+<section class="bg-[var(--parch)] py-24" sumiReveal>
+    <div class="max-w-4xl mx-auto px-5 sm:px-8 text-center">
+        <p class="editorial-label">Plan Your Visit</p>
+        <div class="anim-rule anim-delay-200 h-px bg-[var(--jade)] w-24 mx-auto mt-4"></div>
+        <h2 class="mt-6 font-[var(--lasema-font-display)] text-4xl sm:text-5xl">Reserve your slot</h2>
+        <p class="mt-4 editorial-body max-w-2xl mx-auto">
+            We honour online reservations first and hold a fifteen-minute room-prep buffer between sessions. Walk-ins
+            are welcome around the clock, though weekends fill quickly after 3 PM.
+        </p>
+        <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <a routerLink="/book" class="btn-editorial hover:scale-105 transition-transform duration-300">Book Now</a>
+            <a routerLink="/recommendation"
+                class="btn-editorial btn-editorial-ghost hover:scale-105 transition-transform duration-300">Take Our
+                Quiz</a>
+        </div>
+        <p class="mt-10 text-xs text-[var(--ink)]/60 font-[var(--lasema-font-italic)] italic">
+            Services are for relaxation purposes only and do not constitute medical treatment.
+        </p>
+    </div>
+</section>

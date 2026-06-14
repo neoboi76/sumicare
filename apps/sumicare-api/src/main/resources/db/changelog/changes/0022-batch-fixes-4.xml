@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0022-1-package-service-tier-fanout" author="sumicare">
+        <sql>
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id,
+                   COALESCE(s.price, 0),
+                   COALESCE(s.price, 0) + CASE WHEN COALESCE(s.price, 0) &gt; 0 THEN 100 ELSE 0 END
+            FROM packages p
+            JOIN services_catalogue s ON s.organization_id = p.organization_id
+            WHERE p.is_active = true
+              AND s.category = 'MASSAGE'
+              AND s.is_active = true
+              AND NOT EXISTS (
+                  SELECT 1 FROM package_tiers pt
+                  WHERE pt.package_id = p.id AND pt.service_id = s.id
+              );
+        </sql>
+    </changeSet>
+
+    <changeSet id="0022-2-attendee-discount" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="order_item_attendees" columnName="discount"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="order_item_attendees">
+            <column name="discount" type="NUMERIC(12,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0022-3-massage-default-duration" author="sumicare">
+        <sql>
+            UPDATE services_catalogue
+            SET duration_minutes = 60
+            WHERE category = 'MASSAGE'
+              AND duration_minutes &lt; 60;
+        </sql>
+    </changeSet>
+
+    <changeSet id="0022-4-booking-nationality" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="bookings" columnName="nationality"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="bookings">
+            <column name="nationality" type="VARCHAR(80)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0022-5-attendee-provided-tsn" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="order_item_attendees" columnName="provided_tsn"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="order_item_attendees">
+            <column name="provided_tsn" type="VARCHAR(64)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

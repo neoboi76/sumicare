@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0016-1-reactivate-lasema-couple" author="sumicare">
+        <sql>
+            UPDATE packages
+            SET is_active = true, is_couple = true, default_pax = 2, requires_vip_room = false
+            WHERE code = 'PKG_LASEMA_COUPLE'
+              AND organization_id = (SELECT id FROM organizations WHERE slug = 'lasema');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0016-2-discount-templates" author="sumicare">
+        <createTable tableName="discount_templates">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount_type" type="VARCHAR(16)" defaultValue="PERCENT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="percent" type="NUMERIC(6,2)"/>
+            <column name="fixed_amount" type="NUMERIC(12,2)"/>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="discount_templates" indexName="idx_discount_templates_org">
+            <column name="organization_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0016-3-orders-voucher-id" author="sumicare">
+        <addColumn tableName="orders">
+            <column name="voucher_id" type="UUID"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,112 @@
+<div class="lasema-shell min-h-screen flex flex-col">
+    <header class="fixed top-0 inset-x-0 z-30 header-on-light">
+        <div class="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-6">
+            <a routerLink="/" class="flex items-center gap-3 group">
+                <img src="/assets/logos/lasema-logo.png" alt="Lasema Jjimjilbang Spa"
+                     class="h-12 w-12 object-contain logo-blend transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110" />
+                <span class="hidden sm:flex flex-col leading-tight">
+                    <span class="font-[var(--lasema-font-display)] text-lg tracking-tight text-[var(--ink)]">New Lasema Spa</span>
+                    <span class="text-[10px] tracking-[0.32em] uppercase font-[var(--lasema-font-label)] text-[var(--jade)]">Jjimjilbang &middot; Estd. 2005</span>
+                </span>
+            </a>
+            <nav class="hidden xl:flex items-center gap-5">
+                <a routerLink="/services" routerLinkActive="is-active" class="nav-link nav-on-light">Services</a>
+                <a routerLink="/packages" routerLinkActive="is-active" class="nav-link nav-on-light">Packages</a>
+                <a routerLink="/about" routerLinkActive="is-active" class="nav-link nav-on-light">About</a>
+                <a routerLink="/visit" routerLinkActive="is-active" class="nav-link nav-on-light">Plan Your Visit</a>
+                <a routerLink="/recommendation" routerLinkActive="is-active" class="nav-link nav-on-light">Quiz</a>
+                <a routerLink="/contact" routerLinkActive="is-active" class="nav-link nav-on-light">Contact</a>
+                <a routerLink="/feedback" routerLinkActive="is-active" class="nav-link nav-on-light">Feedback</a>
+                <a routerLink="/book" class="btn-editorial btn-editorial-sm">Book Now</a>
+            </nav>
+            <button (click)="toggleMenu()" type="button"
+                class="xl:hidden p-2 rounded-full hover:scale-110 transition-transform duration-200 text-[var(--forest)]"
+                [attr.aria-expanded]="menuOpen()"
+                aria-controls="public-mobile-nav"
+                aria-label="Toggle menu">
+                <span class="relative block w-5 h-5">
+                    <span class="absolute left-0 right-0 top-1 h-0.5 bg-current transition-transform duration-300 origin-center"
+                          [class.translate-y-1.5]="menuOpen()"
+                          [class.rotate-45]="menuOpen()"></span>
+                    <span class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-current transition-opacity duration-300"
+                          [class.opacity-0]="menuOpen()"></span>
+                    <span class="absolute left-0 right-0 bottom-1 h-0.5 bg-current transition-transform duration-300 origin-center"
+                          [class.-translate-y-1.5]="menuOpen()"
+                          [class.-rotate-45]="menuOpen()"></span>
+                </span>
+            </button>
+        </div>
+        <nav id="public-mobile-nav"
+             class="xl:hidden absolute inset-x-0 top-16 bg-[var(--cream)] border-t border-[var(--rule)] overflow-hidden transition-all duration-300 origin-top shadow-lg"
+             [class.max-h-[600px]]="menuOpen()"
+             [class.max-h-0]="!menuOpen()"
+             [class.opacity-100]="menuOpen()"
+             [class.opacity-0]="!menuOpen()"
+             [attr.aria-hidden]="!menuOpen()">
+            <div class="max-w-7xl mx-auto px-5 py-6 flex flex-col gap-4 transition-transform duration-300"
+                 [class.translate-y-0]="menuOpen()"
+                 [class.-translate-y-4]="!menuOpen()">
+                <a routerLink="/services" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Services</a>
+                <a routerLink="/packages" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Packages</a>
+                <a routerLink="/about" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">About</a>
+                <a routerLink="/visit" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Plan Your Visit</a>
+                <a routerLink="/recommendation" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Quiz</a>
+                <a routerLink="/contact" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Contact</a>
+                <a routerLink="/feedback" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Feedback</a>
+                <a routerLink="/terms" routerLinkActive="is-active" (click)="closeMenu()" class="nav-link nav-on-light">Terms</a>
+                <a routerLink="/book" (click)="closeMenu()" class="btn-editorial mt-2 self-start">Book Now</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="flex-1 pt-16 overflow-x-hidden">
+        <div [@routeFade]="routeToken()">
+            <router-outlet></router-outlet>
+        </div>
+    </main>
+
+    <footer>
+        <div class="bg-[var(--parch)] text-[var(--ink)] pt-16 pb-10">
+            <div class="max-w-7xl mx-auto px-5 sm:px-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+                <div class="transition-transform duration-500 hover:-translate-y-0.5">
+                    <div class="editorial-label mb-3">Address</div>
+                    <p class="text-sm leading-relaxed">8846 Sampaloc St<br/>corner Estrella St<br/>Makati City, 1203<br/>Metro Manila</p>
+                </div>
+                <div class="transition-transform duration-500 hover:-translate-y-0.5">
+                    @let b = branding.branding();
+                    <div class="editorial-label mb-3">Hours &amp; Contact</div>
+                    <p class="text-sm leading-relaxed">Open 24 Hours<br/>7 Days a Week<br/><a [href]="'tel:' + (b?.contactPhone || '+639957830094')" class="hover:text-[var(--jade)] transition-colors">{{ b?.contactPhone || '+63 995 783 0094' }}</a><br/><a [href]="'mailto:' + (b?.contactEmail || 'lasema.reservation@gmail.com')" class="hover:text-[var(--jade)] transition-colors">{{ b?.contactEmail || 'lasema.reservation@gmail.com' }}</a><br/><a [href]="b?.instagramUrl || 'https://www.instagram.com/lasemajimjilbangspa/'" target="_blank" rel="noopener" class="hover:text-[var(--jade)] transition-colors">Instagram</a></p>
+                </div>
+                <div class="transition-transform duration-500 hover:-translate-y-0.5">
+                    <div class="editorial-label mb-3">Key Packages</div>
+                    <ul class="text-sm leading-relaxed space-y-1">
+                        <li><a routerLink="/packages" class="hover:text-[var(--jade)] transition-colors">3-hr Sauna &middot; &#8369;700</a></li>
+                        <li><a routerLink="/packages" class="hover:text-[var(--jade)] transition-colors">Massage Package &middot; &#8369;1,600</a></li>
+                        <li><a routerLink="/packages" class="hover:text-[var(--jade)] transition-colors">Lasema Full &middot; &#8369;2,000</a></li>
+                        <li><a routerLink="/packages" class="hover:text-[var(--jade)] transition-colors">Couple Suite &middot; &#8369;7,500</a></li>
+                        <li><a routerLink="/packages" class="hover:text-[var(--jade)] transition-colors">12-hr stay available</a></li>
+                    </ul>
+                </div>
+                <div class="transition-transform duration-500 hover:-translate-y-0.5">
+                    <div class="editorial-label mb-3">Bring</div>
+                    <ul class="text-sm leading-relaxed space-y-1">
+                        <li>Own toiletries</li>
+                        <li>Cash</li>
+                        <li>Towel (optional)</li>
+                        <li>Appetite for shikye</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="max-w-7xl mx-auto px-5 sm:px-8 mt-10 pt-6 border-t border-[var(--rule)] flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+                <span class="italic font-[var(--lasema-font-italic)] text-[var(--ink)]/70">New Lasema Spa Jjimjilbang &middot; {{ branding.branding()?.footerNote || 'Manila\'s Korean Bathhouse' }}</span>
+                <span class="text-[var(--ink)]/60">&copy; {{ currentYear }} New Lasema Spa Jjimjilbang &middot; <a routerLink="/cancel" class="hover:text-[var(--jade)] underline-offset-2 hover:underline">Cancel a booking</a> &middot; <a routerLink="/terms" class="hover:text-[var(--jade)] underline-offset-2 hover:underline">Terms of Service</a></span>
+            </div>
+        </div>
+        <div class="bg-[var(--forest)] text-[var(--cream)] py-5">
+            <div class="max-w-7xl mx-auto px-5 sm:px-8 text-center text-[11px] uppercase tracking-[0.32em] font-[var(--lasema-font-label)] text-[var(--steam)]">
+                Powered by SumiCare
+            </div>
+        </div>
+    </footer>
+    <sumi-toast-host></sumi-toast-host>
+</div>

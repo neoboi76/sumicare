@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0015-widen-ledger-entry-type" author="sumicare">
+        <modifyDataType tableName="transaction_ledger" columnName="entry_type" newDataType="VARCHAR(40)"/>
+    </changeSet>
+
+</databaseChangeLog>

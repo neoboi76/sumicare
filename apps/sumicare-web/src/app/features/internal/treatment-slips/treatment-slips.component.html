@@ -1,0 +1,77 @@
+<div class="space-y-6">
+  <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Treatment slips</h1>
+      <p class="text-slate-500">Digitized slips. All identification by nickname only.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <input type="search" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" name="slipSearch"
+             placeholder="Search TSN, nickname, therapist, service"
+             class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-72" />
+      <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="date"
+             class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
+      <button (click)="exportCsv()"
+              class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">
+        Export CSV
+      </button>
+    </div>
+  </header>
+
+  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+    <table class="w-full text-sm min-w-[720px]">
+      <thead class="bg-slate-100">
+        <tr>
+          <th class="text-left p-3" [sumiSortable]="'tsn'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            TSN <sumi-sort-icon [active]="sortState().key === 'tsn'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'clientNickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Client <sumi-sort-icon [active]="sortState().key === 'clientNickname'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'serviceName'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Service <sumi-sort-icon [active]="sortState().key === 'serviceName'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'roomNumber'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Room <sumi-sort-icon [active]="sortState().key === 'roomNumber'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'primaryTherapistNickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Therapist <sumi-sort-icon [active]="sortState().key === 'primaryTherapistNickname'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'startTime'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            Start <sumi-sort-icon [active]="sortState().key === 'startTime'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'endTime'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            End <sumi-sort-icon [active]="sortState().key === 'endTime'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-left p-3" [sumiSortable]="'vip'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+            VIP <sumi-sort-icon [active]="sortState().key === 'vip'" [direction]="sortState().direction" />
+          </th>
+          <th class="text-right p-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of sortedSlips(); track s.id) {
+          <tr class="border-t hover:bg-slate-50">
+            <td class="p-3 font-mono text-xs">{{ s.tsn }}</td>
+            <td class="p-3 font-medium">{{ s.clientNickname }}</td>
+            <td class="p-3">{{ s.serviceName }}</td>
+            <td class="p-3">{{ s.roomNumber || '-' }}</td>
+            <td class="p-3">
+              {{ s.primaryTherapistNickname || '-' }}
+              @if (s.secondaryTherapistNickname) { / {{ s.secondaryTherapistNickname }} }
+            </td>
+            <td class="p-3 font-mono text-xs">{{ s.startTime ? formatTime(s.startTime) : '-' }}</td>
+            <td class="p-3 font-mono text-xs">{{ s.endTime ? formatTime(s.endTime) : '-' }}</td>
+            <td class="p-3">{{ s.vip ? 'Yes' : '' }}</td>
+            <td class="p-3 text-right">
+              <a [routerLink]="['/sumicare/app/treatment-slips', s.id]" class="text-[var(--sumi-primary)] hover:underline">Open</a>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="9" class="p-6 text-center text-slate-500">No slips for this date.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+</div>

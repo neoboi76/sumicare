@@ -1,0 +1,64 @@
+{
+  "name": "sumicare-web",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/sumicare-web/src",
+  "prefix": "sumi",
+  "targets": {
+    "build": {
+      "executor": "@angular-devkit/build-angular:application",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/sumicare-web",
+        "index": "apps/sumicare-web/src/index.html",
+        "browser": "apps/sumicare-web/src/main.ts",
+        "polyfills": ["zone.js"],
+        "tsConfig": "apps/sumicare-web/tsconfig.app.json",
+        "assets": ["apps/sumicare-web/src/favicon.ico", "apps/sumicare-web/src/assets"],
+        "styles": ["apps/sumicare-web/src/styles.css"],
+        "scripts": []
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            { "type": "initial", "maximumWarning": "1mb", "maximumError": "2mb" }
+          ],
+          "outputHashing": "all",
+          "fileReplacements": [
+            {
+              "replace": "apps/sumicare-web/src/environments/environment.ts",
+              "with": "apps/sumicare-web/src/environments/environment.production.ts"
+            }
+          ]
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "executor": "@angular-devkit/build-angular:dev-server",
+      "options": {
+        "buildTarget": "sumicare-web:build:development",
+        "port": 4200,
+        "proxyConfig": "apps/sumicare-web/proxy.conf.json"
+      },
+      "configurations": {
+        "production": { "buildTarget": "sumicare-web:build:production" }
+      }
+    },
+    "test": {
+      "executor": "@angular-devkit/build-angular:karma",
+      "options": {
+        "polyfills": ["zone.js", "zone.js/testing"],
+        "tsConfig": "apps/sumicare-web/tsconfig.spec.json",
+        "styles": ["apps/sumicare-web/src/styles.css"],
+        "assets": ["apps/sumicare-web/src/favicon.ico", "apps/sumicare-web/src/assets"]
+      }
+    }
+  },
+  "tags": ["scope:web", "type:app"]
+}

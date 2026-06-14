@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0019-1-email-token-type" author="sumicare">
+        <addColumn tableName="email_verification_tokens">
+            <column name="token_type" type="VARCHAR(20)" defaultValue="VERIFY_EMAIL">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <createIndex tableName="email_verification_tokens" indexName="idx_email_tokens_user_type">
+            <column name="user_id"/>
+            <column name="token_type"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0019-2-users-password-nullable" author="sumicare">
+        <dropNotNullConstraint tableName="users" columnName="password_hash" columnDataType="VARCHAR(255)"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <include file="changes/0001-init-schema.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0002-seed-reference-data.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0003-email-verification-and-sessions.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0004-walkin-and-slip-fields.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0005-client-gender.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0006-client-gender-varchar.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0007-orders-and-slip-status.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0008-contact-messages.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0009-transaction-order-id.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0010-commission-service-tracking.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0011-ledger-and-users.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0012-packages-and-order-items.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0013-package-seed.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0014-vip-packages-and-room-seed.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0015-widen-ledger-entry-type.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0016-batch-fixes.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0017-voucher-name.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0018-treatment-slip-nationality.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0019-batch-fixes-2.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0020-batch-fixes-3.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0021-booking-email.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0022-batch-fixes-4.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0023-batch-fixes-5.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0024-batch-fixes-7.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0025-batch-fixes-8.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0026-batch-fixes-8-refunds.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0027-account-lockout.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0028-order-extension-charge.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0029-couple-package-prices.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0030-service-prices.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0031-order-item-room-type.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0032-seed-more-therapists.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0033-order-completion-email.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0034-remove-vip-massage-service.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0035-treatment-slip-extension-gender.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0036-feedback-or-number.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0037-ledger-accounts.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0038-voucher-target-package.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0039-organization-font-family.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0040-payment-status-and-locker-index.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0041-ledger-gateway-reference.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0042-drop-decking-state.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0043-id-sequences.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0044-feedback-read-state.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0045-clients-soft-delete.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0046-clients-drop-nickname-unique.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0047-booking-remarks.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0048-organization-branding-extras.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0049-booking-reference.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0050-order-payment-email-flag.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0051-performance-indexes.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0052-seed-private-rooms.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0053-seed-vouchers.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0054-seed-all-therapist-shifts.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0055-voucher-redemptions.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0056-remove-seeded-test-users.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0057-session-status-index.xml" relativeToChangelogFile="true"/>
+</databaseChangeLog>

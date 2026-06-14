@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0014-1-packages-requires-vip-room" author="sumicare">
+        <addColumn tableName="packages">
+            <column name="requires_vip_room" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0014-2-deactivate-obsolete-packages" author="sumicare">
+        <sql>
+            UPDATE packages SET is_active = false
+            WHERE organization_id = (SELECT id FROM organizations WHERE slug='lasema')
+              AND code IN ('PKG_LASEMA_COUPLE','PKG_MASSAGE_COUPLE','PKG_SAUNA','PKG_JJIMJILBANG');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0014-3-vip-packages-seed" author="sumicare">
+        <sql>
+            INSERT INTO packages (organization_id, code, name, description, max_stay_hours, default_pax, is_couple, includes_massage, bundles_private_room, requires_vip_room)
+            SELECT id, 'PKG_VIP_MASSAGE', 'VIP Massage Package', 'VIP room + 1 hr jacuzzi + 1 hr massage + 1 hr wet sauna, 3 hr stay', 3, 1, false, true, false, true FROM organizations WHERE slug='lasema';
+
+            INSERT INTO packages (organization_id, code, name, description, max_stay_hours, default_pax, is_couple, includes_massage, bundles_private_room, requires_vip_room)
+            SELECT id, 'PKG_VIP_FULL', 'VIP Full Package', 'VIP room + jacuzzi + massage + wet and dry sauna + full facility, 12 hr stay', 12, 1, false, true, false, true FROM organizations WHERE slug='lasema';
+        </sql>
+    </changeSet>
+
+    <changeSet id="0014-3b-vip-package-tiers-seed" author="sumicare">
+        <sql>
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 5000, 5000
+            FROM packages p
+            JOIN services_catalogue s ON s.organization_id = p.organization_id
+            WHERE p.code = 'PKG_VIP_MASSAGE'
+              AND p.organization_id = (SELECT id FROM organizations WHERE slug='lasema')
+              AND s.code IN ('FOOT_REFLEX','SHIATSU','SWEDISH','DEEP_TISSUE','LOMI_LOMI','LYMPHATIC','COMBINATION','SALT_GLOW_SCRUB','MILK_BATH_SCRUB','DAEMIDI','THAI','AROMA_REFLEX','VENTOSA','TANDEM');
+
+            INSERT INTO package_tiers (package_id, service_id, weekday_price, weekend_price)
+            SELECT p.id, s.id, 6800, 6800
+            FROM packages p
+            JOIN services_catalogue s ON s.organization_id = p.organization_id
+            WHERE p.code = 'PKG_VIP_FULL'
+              AND p.organization_id = (SELECT id FROM organizations WHERE slug='lasema')
+              AND s.code IN ('FOOT_REFLEX','SHIATSU','SWEDISH','DEEP_TISSUE','LOMI_LOMI','LYMPHATIC','COMBINATION','SALT_GLOW_SCRUB','MILK_BATH_SCRUB','DAEMIDI','THAI','AROMA_REFLEX','VENTOSA','TANDEM');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0014-4-rooms-and-beds-seed" author="sumicare">
+        <sql splitStatements="true">
+            UPDATE rooms SET is_active = false WHERE organization_id = (SELECT id FROM organizations WHERE slug='lasema');
+
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'Room 1', 1, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'Room 2', 1, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'Room 3', 1, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'Room 4', 1, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'Room A', 1, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'Room B', 1, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'Private Room', 1, 'PRIVATE', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, '4F Section 1', 4, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, '4F Section 2', 4, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, '4F Section 3', 4, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, '4F Section 4', 4, 'COMMON', false, true, NULL FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'VIP - Diamond', 1, 'VIP', false, true, 'DIAMOND' FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'VIP - Ruby', 1, 'VIP', false, true, 'RUBY' FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'VIP - Emerald', 1, 'VIP', false, true, 'EMERALD' FROM organizations WHERE slug='lasema';
+            INSERT INTO rooms (organization_id, room_number, floor, room_type, row_segmented, is_active, vip_tier) SELECT id, 'VIP - Rosegold', 1, 'VIP', false, true, 'ROSEGOLD' FROM organizations WHERE slug='lasema';
+
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3'),('4')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'Room 1';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'Room 2';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'Room 3';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3'),('4')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'Room 4';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'Room A';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'Room B';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'Private Room';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = '4F Section 1';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = '4F Section 2';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = '4F Section 3';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2'),('3')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = '4F Section 4';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'VIP - Diamond';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'VIP - Ruby';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'VIP - Emerald';
+            INSERT INTO beds (room_id, bed_label, is_active) SELECT r.id, b.label, true FROM rooms r CROSS JOIN (VALUES ('1'),('2')) AS b(label) WHERE r.organization_id = (SELECT id FROM organizations WHERE slug='lasema') AND r.room_number = 'VIP - Rosegold';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

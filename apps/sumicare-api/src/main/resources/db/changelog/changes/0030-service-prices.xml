@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0030-1-service-prices" author="sumicare">
+        <sql>
+            UPDATE services_catalogue SET price = CASE code
+                WHEN 'FOOT_REFLEX' THEN 900
+                WHEN 'SHIATSU' THEN 900
+                WHEN 'SWEDISH' THEN 900
+                WHEN 'DEEP_TISSUE' THEN 900
+                WHEN 'LOMI_LOMI' THEN 900
+                WHEN 'LYMPHATIC' THEN 900
+                WHEN 'COMBINATION' THEN 900
+                WHEN 'SALT_GLOW_SCRUB' THEN 1000
+                WHEN 'DAEMIDI' THEN 1150
+                WHEN 'THAI' THEN 1150
+                WHEN 'MILK_BATH_SCRUB' THEN 1200
+                WHEN 'AROMA_REFLEX' THEN 1350
+                WHEN 'VENTOSA' THEN 1650
+                WHEN 'TANDEM' THEN 1900
+                ELSE price
+            END
+            WHERE organization_id = (SELECT id FROM organizations WHERE slug = 'lasema')
+              AND code IN ('FOOT_REFLEX','SHIATSU','SWEDISH','DEEP_TISSUE','LOMI_LOMI','LYMPHATIC','COMBINATION',
+                           'SALT_GLOW_SCRUB','DAEMIDI','THAI','MILK_BATH_SCRUB','AROMA_REFLEX','VENTOSA','TANDEM');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0030-2-daemidi-duration" author="sumicare">
+        <sql>
+            UPDATE services_catalogue SET duration_minutes = 30
+            WHERE organization_id = (SELECT id FROM organizations WHERE slug = 'lasema')
+              AND code = 'DAEMIDI';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
