@@ -10,6 +10,7 @@ import com.sumicare.cashier.service.OrderService;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.gateway.PayMongoGateway;
 import com.sumicare.pos.repository.TransactionLedgerRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,8 +49,8 @@ public class WebhookController {
             @RequestBody String payload,
             @RequestHeader(value = "Paymongo-Signature", required = false) String signature) {
 
-        if (signature != null && !payMongoGateway.verifyWebhook(payload, signature)) {
-            return ResponseEntity.badRequest().body("Invalid signature");
+        if (signature == null || !payMongoGateway.verifyWebhook(payload, signature)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid signature");
         }
 
         try {

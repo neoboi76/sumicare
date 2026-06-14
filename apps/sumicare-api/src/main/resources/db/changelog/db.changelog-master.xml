@@ -59,4 +59,6 @@
     <include file="changes/0053-seed-vouchers.xml" relativeToChangelogFile="true"/>
     <include file="changes/0054-seed-all-therapist-shifts.xml" relativeToChangelogFile="true"/>
     <include file="changes/0055-voucher-redemptions.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0056-remove-seeded-test-users.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0057-session-status-index.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

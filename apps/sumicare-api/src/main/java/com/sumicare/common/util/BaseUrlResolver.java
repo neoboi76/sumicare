@@ -1,11 +1,12 @@
 package com.sumicare.common.util;
 
 import com.sumicare.common.config.AppProperties;
-import com.sumicare.common.web.RequestBaseUrlContext;
 import org.springframework.stereotype.Component;
 
 @Component
 public class BaseUrlResolver {
+
+    private static final String DEFAULT_PUBLIC_BASE_URL = "https://newlasemaspa.up.railway.app";
 
     private final AppProperties appProperties;
 
@@ -18,7 +19,6 @@ public class BaseUrlResolver {
         if (configured != null && !configured.isBlank()) {
             return configured.replaceAll("/+$", "");
         }
-        String fromRequest = RequestBaseUrlContext.get();
-        return fromRequest == null ? "" : fromRequest;
+        return DEFAULT_PUBLIC_BASE_URL;
     }
 }
