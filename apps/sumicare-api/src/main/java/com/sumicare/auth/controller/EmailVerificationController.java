@@ -2,16 +2,17 @@ package com.sumicare.auth.controller;
 
 import com.sumicare.auth.domain.EmailVerificationToken;
 import com.sumicare.auth.repository.EmailVerificationTokenRepository;
-import com.sumicare.common.config.AppProperties;
+import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.user.domain.User;
 import com.sumicare.user.repository.UserRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -19,22 +20,25 @@ public class EmailVerificationController {
 
     private final EmailVerificationTokenRepository tokenRepository;
     private final UserRepository userRepository;
-    private final AppProperties appProperties;
+    private final BaseUrlResolver baseUrlResolver;
 
     public EmailVerificationController(EmailVerificationTokenRepository tokenRepository,
                                        UserRepository userRepository,
-                                       AppProperties appProperties) {
+                                       BaseUrlResolver baseUrlResolver) {
         this.tokenRepository = tokenRepository;
         this.userRepository = userRepository;
-        this.appProperties = appProperties;
+        this.baseUrlResolver = baseUrlResolver;
     }
 
     @GetMapping("/verify")
     @Transactional
-    public org.springframework.http.ResponseEntity<Void> verify(@RequestParam("token") String token) {
-        EmailVerificationToken evToken = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invalid token"));
+    public ResponseEntity<Void> verify(@RequestParam("token") String token) {
+        Optional<EmailVerificationToken> found = tokenRepository.findByToken(token);
+        if (found.isEmpty()) {
+            return redirect("/sumicare/login?verified=invalid");
+        }
 
+        EmailVerificationToken evToken = found.get();
         if (evToken.isConsumed()) {
             return redirect("/sumicare/login?verified=already");
         }
@@ -45,18 +49,20 @@ public class EmailVerificationController {
         evToken.setConsumedAt(OffsetDateTime.now());
         tokenRepository.save(evToken);
 
-        User user = userRepository.findById(evToken.getUserId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        user.setEmailVerified(true);
-        userRepository.save(user);
+        Optional<User> user = userRepository.findById(evToken.getUserId());
+        if (user.isEmpty()) {
+            return redirect("/sumicare/login?verified=invalid");
+        }
+        user.get().setEmailVerified(true);
+        userRepository.save(user.get());
 
         return redirect("/sumicare/login?verified=1");
     }
 
-    private org.springframework.http.ResponseEntity<Void> redirect(String path) {
-        return org.springframework.http.ResponseEntity
+    private ResponseEntity<Void> redirect(String path) {
+        return ResponseEntity
                 .status(HttpStatus.FOUND)
-                .location(URI.create(appProperties.app().publicBaseUrl() + path))
+                .location(URI.create(baseUrlResolver.resolve() + path))
                 .build();
     }
 }

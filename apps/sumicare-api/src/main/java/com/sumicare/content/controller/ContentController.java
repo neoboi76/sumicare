@@ -30,6 +30,12 @@ public class ContentController {
 
     private static final String UPLOAD_DIR = "uploads";
 
+    private static final Map<String, String> ALLOWED_IMAGE_TYPES = Map.of(
+            "image/jpeg", "jpg",
+            "image/png", "png",
+            "image/gif", "gif",
+            "image/webp", "webp");
+
     public ContentController(WebsiteContentBlockRepository repository,
                              OrganizationRepository organizationRepository,
                              BaseUrlResolver baseUrlResolver) {
@@ -80,14 +86,27 @@ public class ContentController {
     @PostMapping(value = "/api/content/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("isAuthenticated()")
     public Map<String, String> upload(@RequestParam("file") MultipartFile file) throws IOException {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("The uploaded file is empty.");
+        }
+        String extension = resolveImageExtension(file);
+
         Path uploadPath = Paths.get(UPLOAD_DIR);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
-        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+        String filename = UUID.randomUUID() + "." + extension;
         Path dest = uploadPath.resolve(filename);
         file.transferTo(dest.toFile());
         String url = baseUrlResolver.resolve() + "/uploads/" + filename;
         return Map.of("url", url);
+    }
+
+    private String resolveImageExtension(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.containsKey(contentType.toLowerCase())) {
+            throw new IllegalArgumentException("Only JPEG, PNG, GIF, and WebP images may be uploaded.");
+        }
+        return ALLOWED_IMAGE_TYPES.get(contentType.toLowerCase());
     }
 }
