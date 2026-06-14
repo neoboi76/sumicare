@@ -44,6 +44,7 @@ interface Order {
   lastEditedByDisplayName: string | null;
   clientNickname: string | null;
   clientId: string | null;
+  clientEmail: string | null;
   serviceName: string | null;
   orNumber: string | null;
   referenceNumber: string | null;
@@ -433,13 +434,13 @@ export class OrderDetailComponent implements OnInit {
   }
 
   back(): void {
-    this.router.navigate(['/app/orders']);
+    this.router.navigate(['/sumicare/app/orders']);
   }
 
   editOrder(): void {
     const o = this.order();
     if (!o) return;
-    this.router.navigate(['/app/cashier'], { queryParams: { orderId: o.id } });
+    this.router.navigate(['/sumicare/app/cashier'], { queryParams: { orderId: o.id } });
   }
 
   downloadReceipt(): void {

@@ -180,8 +180,10 @@ export class BookComponent implements OnInit {
       this.appliedVoucher.set(null);
       return;
     }
+    const email = this.clientEmail.trim();
+    const emailParam = email ? `&email=${encodeURIComponent(email)}` : '';
     this.http
-      .get<AppliedVoucher>(`${environment.apiBaseUrl}/api/public/vouchers/${environment.defaultOrganizationSlug}/check?code=${encodeURIComponent(code)}`)
+      .get<AppliedVoucher>(`${environment.apiBaseUrl}/api/public/vouchers/${environment.defaultOrganizationSlug}/check?code=${encodeURIComponent(code)}${emailParam}`)
       .subscribe({
         next: (v) => {
           this.appliedVoucher.set({ ...v, code });
@@ -189,9 +191,9 @@ export class BookComponent implements OnInit {
             this.voucherError.set('This voucher does not apply to the selected packages.');
           }
         },
-        error: () => {
+        error: (err) => {
           this.appliedVoucher.set(null);
-          this.voucherError.set('Voucher invalid or already redeemed.');
+          this.voucherError.set(err?.error?.message || 'Voucher is not valid or has expired.');
         }
       });
   }

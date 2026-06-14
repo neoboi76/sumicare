@@ -49,7 +49,7 @@ export class PaymongoAuthorizeComponent implements OnInit {
     }
 
     private appendStatus(url: string, status: string): string {
-        if (!url) return '/app/cashier';
+        if (!url) return '/sumicare/app/cashier';
         const separator = url.includes('?') ? '&' : '?';
         return `${url}${separator}status=${status}`;
     }

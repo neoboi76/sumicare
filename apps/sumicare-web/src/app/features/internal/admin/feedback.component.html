@@ -16,8 +16,12 @@
     </div>
   </header>
 
+  <input type="search" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" name="feedbackSearch"
+    placeholder="Search OR#, nickname, comment"
+    class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-80" />
+
   <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    @for (f of feedback(); track f.id) {
+    @for (f of filteredFeedback(); track f.id) {
       <article class="bg-white rounded-xl shadow transition-shadow duration-200 hover:shadow-md">
         <button type="button" (click)="toggle(f.id)"
           class="w-full text-left p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sumi-primary)] rounded-xl">

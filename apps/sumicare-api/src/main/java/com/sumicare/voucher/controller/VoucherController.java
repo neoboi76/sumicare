@@ -42,10 +42,12 @@ public class VoucherController {
     @GetMapping("/check")
     public VoucherCheckResponse check(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                       @RequestParam String code,
-                                      @RequestParam BigDecimal subtotal) {
+                                      @RequestParam BigDecimal subtotal,
+                                      @RequestParam(required = false) UUID clientId) {
         UUID organizationId = UUID.fromString(principal.organizationId());
         Voucher voucher = voucherService.findValid(organizationId, code)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Voucher invalid or already redeemed"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Voucher is not valid or has expired."));
+        voucherService.assertRedeemableBy(organizationId, voucher.getId(), clientId);
         BigDecimal discount = voucherService.computeDiscount(voucher, subtotal);
         return new VoucherCheckResponse(voucher.getId(), voucher.getCode(), voucher.getName(), discount);
     }

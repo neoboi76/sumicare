@@ -1,0 +1,8 @@
+<div class="fixed top-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0">
+  @for (toast of toastService.toasts(); track toast.id) {
+    <div class="flex items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg sumi-fade-in" [class]="classFor(toast.kind)">
+      <span class="flex-1">{{ toast.message }}</span>
+      <button (click)="toastService.dismiss(toast.id)" class="text-current opacity-60 hover:opacity-100" aria-label="Dismiss">&times;</button>
+    </div>
+  }
+</div>

@@ -6,7 +6,7 @@ export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   if (auth.isAuthenticated()) return true;
-  router.navigate(['/login']);
+  router.navigate(['/sumicare/login']);
   return false;
 };
 
@@ -15,7 +15,7 @@ export const roleGuard = (allowedRoles: string[]): CanActivateFn => {
     const auth = inject(AuthService);
     const router = inject(Router);
     if (auth.isAuthenticated() && auth.hasRole(allowedRoles)) return true;
-    router.navigate(['/login']);
+    router.navigate(['/sumicare/login']);
     return false;
   };
 };

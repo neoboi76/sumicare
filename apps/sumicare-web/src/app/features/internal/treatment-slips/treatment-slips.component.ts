@@ -36,10 +36,21 @@ export class TreatmentSlipsComponent implements OnInit {
   slips = signal<TreatmentSlip[]>([]);
 
   sortState = signal<SortState>({ key: 'tsn', direction: 'asc' });
+  searchTerm = signal('');
+
+  filteredSlips = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) return this.slips();
+    return this.slips().filter(s =>
+      [s.tsn, s.clientNickname, s.serviceName,
+        s.primaryTherapistNickname ?? '', s.secondaryTherapistNickname ?? '']
+        .join(' ').toLowerCase().includes(term)
+    );
+  });
 
   sortedSlips = computed(() => {
     const state = this.sortState();
-    return sortRows(this.slips(), state, (s) => {
+    return sortRows(this.filteredSlips(), state, (s) => {
       switch (state.key) {
         case 'tsn': return s.tsn;
         case 'clientNickname': return s.clientNickname;

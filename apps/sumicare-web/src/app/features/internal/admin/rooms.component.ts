@@ -86,17 +86,19 @@ export class RoomsAdminComponent implements OnInit, OnDestroy {
   }
 
   reload(): void {
-    this.http.get<Room[]>(`${environment.apiBaseUrl}/api/admin/rooms`).subscribe({
-      next: (r) => {
-        this.rooms.set(r);
+    this.http.get<{ room: Room; beds: Bed[] }[]>(`${environment.apiBaseUrl}/api/admin/rooms/with-beds?includeInactive=true`).subscribe({
+      next: (rows) => {
+        this.rooms.set(rows.map(r => r.room));
+        const next = new Map<string, Bed[]>();
+        for (const r of rows) next.set(r.room.id, r.beds);
+        this.beds.set(next);
         this.currentPage.set(0);
-        r.forEach(room => this.loadBeds(room.id));
       }
     });
   }
 
   loadBeds(roomId: string): void {
-    this.http.get<Bed[]>(`${environment.apiBaseUrl}/api/admin/rooms/${roomId}/beds`).subscribe({
+    this.http.get<Bed[]>(`${environment.apiBaseUrl}/api/admin/rooms/${roomId}/beds?includeInactive=true`).subscribe({
       next: (b) => {
         const next = new Map(this.beds());
         next.set(roomId, b);
@@ -219,6 +221,12 @@ export class RoomsAdminComponent implements OnInit, OnDestroy {
     });
   }
 
+  reactivateRoom(r: Room): void {
+    this.http.patch(`${environment.apiBaseUrl}/api/admin/rooms/${r.id}/reactivate`, {}).subscribe({
+      next: () => this.reload()
+    });
+  }
+
   openBedForm(r: Room): void {
     this.formBedLabel = '';
     this.formBedRow = 0;
@@ -244,6 +252,12 @@ export class RoomsAdminComponent implements OnInit, OnDestroy {
     });
     if (!confirmed) return;
     this.http.delete(`${environment.apiBaseUrl}/api/admin/beds/${b.id}`).subscribe({
+      next: () => this.loadBeds(b.roomId)
+    });
+  }
+
+  reactivateBed(b: Bed): void {
+    this.http.patch(`${environment.apiBaseUrl}/api/admin/beds/${b.id}/reactivate`, {}).subscribe({
       next: () => this.loadBeds(b.roomId)
     });
   }

@@ -2,9 +2,9 @@ package com.sumicare.content.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.content.domain.WebsiteContentBlock;
+import com.sumicare.common.util.BaseUrlResolver;
 import com.sumicare.content.repository.WebsiteContentBlockRepository;
 import com.sumicare.organization.repository.OrganizationRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,15 +26,16 @@ public class ContentController {
 
     private final WebsiteContentBlockRepository repository;
     private final OrganizationRepository organizationRepository;
-
-    @Value("${sumicare.app.publicBaseUrl:http://localhost:8080}")
-    private String publicBaseUrl;
+    private final BaseUrlResolver baseUrlResolver;
 
     private static final String UPLOAD_DIR = "uploads";
 
-    public ContentController(WebsiteContentBlockRepository repository, OrganizationRepository organizationRepository) {
+    public ContentController(WebsiteContentBlockRepository repository,
+                             OrganizationRepository organizationRepository,
+                             BaseUrlResolver baseUrlResolver) {
         this.repository = repository;
         this.organizationRepository = organizationRepository;
+        this.baseUrlResolver = baseUrlResolver;
     }
 
     @GetMapping("/api/public/content/{slug}")
@@ -86,7 +87,7 @@ public class ContentController {
         String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
         Path dest = uploadPath.resolve(filename);
         file.transferTo(dest.toFile());
-        String url = publicBaseUrl + "/uploads/" + filename;
+        String url = baseUrlResolver.resolve() + "/uploads/" + filename;
         return Map.of("url", url);
     }
 }

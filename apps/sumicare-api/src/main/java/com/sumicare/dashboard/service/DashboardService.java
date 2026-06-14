@@ -1,5 +1,6 @@
 package com.sumicare.dashboard.service;
 
+import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.service.BookingService;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.dashboard.dto.DashboardSummary;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -31,6 +33,12 @@ public class DashboardService {
         this.sessionRepository = sessionRepository;
         this.deckingService = deckingService;
         this.roomOccupancyService = roomOccupancyService;
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public List<BookingResponse> recentReservations(UUID organizationId, int limit) {
+        int capped = Math.min(Math.max(limit, 1), 25);
+        return bookingService.recentReservations(organizationId, capped);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../../environments/environment';
@@ -25,11 +25,20 @@ export class MessagesComponent implements OnInit {
 
   messages = signal<ContactMessage[]>([]);
   filter = signal<'all' | 'unread'>('unread');
+  searchTerm = signal('');
   selected = signal<ContactMessage | null>(null);
   loading = signal(false);
   exportFrom = '';
   exportTo = '';
   exporting = signal(false);
+
+  filteredMessages = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) return this.messages();
+    return this.messages().filter(m =>
+      [m.name, m.email, m.message].join(' ').toLowerCase().includes(term)
+    );
+  });
 
   ngOnInit(): void { this.load(); }
 

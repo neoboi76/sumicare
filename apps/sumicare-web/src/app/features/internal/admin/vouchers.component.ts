@@ -15,7 +15,7 @@ interface Voucher {
   discountPercent: number | null;
   validFrom: string | null;
   validUntil: string | null;
-  redeemedAt: string | null;
+  usageLimit: number | null;
   active: boolean;
   targetPackageId: number | null;
 }
@@ -45,6 +45,7 @@ export class VouchersAdminComponent implements OnInit {
   formPercent: number | null = null;
   formFrom = '';
   formUntil = '';
+  formUsageLimit: number | null = null;
   formActive = true;
   formTargetPackageId: number | null = null;
 
@@ -82,7 +83,6 @@ export class VouchersAdminComponent implements OnInit {
   }
 
   status(v: Voucher): string {
-    if (v.redeemedAt) return 'Redeemed';
     if (!v.active) return 'Inactive';
     return 'Active';
   }
@@ -95,6 +95,7 @@ export class VouchersAdminComponent implements OnInit {
       discountPercent: this.formPercent ? Number(this.formPercent) : null,
       validFrom: this.formFrom || null,
       validUntil: this.formUntil || null,
+      usageLimit: this.formUsageLimit != null && this.formUsageLimit !== 0 ? Number(this.formUsageLimit) : null,
       active: this.formActive,
       targetPackageId: this.formTargetPackageId != null ? Number(this.formTargetPackageId) : null
     };
@@ -118,6 +119,7 @@ export class VouchersAdminComponent implements OnInit {
     this.formPercent = v.discountPercent;
     this.formFrom = v.validFrom || '';
     this.formUntil = v.validUntil || '';
+    this.formUsageLimit = v.usageLimit;
     this.formActive = v.active;
     this.formTargetPackageId = v.targetPackageId;
     this.showForm.set(true);
@@ -132,6 +134,7 @@ export class VouchersAdminComponent implements OnInit {
     this.formPercent = null;
     this.formFrom = '';
     this.formUntil = '';
+    this.formUsageLimit = null;
     this.formActive = true;
     this.formTargetPackageId = null;
   }

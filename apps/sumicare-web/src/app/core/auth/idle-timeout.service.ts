@@ -102,8 +102,8 @@ export class IdleTimeoutService {
         this.stop();
         this.zone.run(() => {
             this.auth.logout().subscribe({
-                next: () => this.router.navigate(['/login'], { queryParams: { reason: 'idle' } }),
-                error: () => this.router.navigate(['/login'], { queryParams: { reason: 'idle' } })
+                next: () => this.router.navigate(['/sumicare/login'], { queryParams: { reason: 'idle' } }),
+                error: () => this.router.navigate(['/sumicare/login'], { queryParams: { reason: 'idle' } })
             });
         });
     }

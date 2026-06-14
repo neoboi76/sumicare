@@ -49,12 +49,28 @@ export class OrdersListComponent implements OnInit {
 
   sortColumn = signal<string>('createdAt');
   sortDirection = signal<'asc' | 'desc'>('desc');
+  searchTerm = signal('');
 
   currentPage = signal(0);
   pageSize = signal(15);
 
+  filteredOrders = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) return this.orders();
+    return this.orders().filter(o => {
+      const haystack = [
+        o.orNumber ?? '',
+        o.clientNickname ?? '',
+        o.transactorName ?? '',
+        o.bookingReference ?? '',
+        o.status
+      ].join(' ').toLowerCase();
+      return haystack.includes(term);
+    });
+  });
+
   sortedOrders = computed(() => {
-    const data = [...this.orders()];
+    const data = [...this.filteredOrders()];
     const col = this.sortColumn() as keyof Order;
     const dir = this.sortDirection();
     const norm = (value: Order[keyof Order]): string | number => {
@@ -105,6 +121,11 @@ export class OrdersListComponent implements OnInit {
     this.filter.set(f);
     this.currentPage.set(0);
     this.load();
+  }
+
+  onSearch(value: string): void {
+    this.searchTerm.set(value);
+    this.currentPage.set(0);
   }
 
   toggleSort(col: string): void {

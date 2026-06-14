@@ -55,6 +55,7 @@ import com.sumicare.auth.service.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -251,6 +252,9 @@ public class BookingService {
         if (selectedPackage != null && selectedPackage.isRequiresVipRoom()) {
             resolvedRoomType = "VIP";
             resolvedRoomCharge = BigDecimal.ZERO;
+        } else if (selectedPackage != null && selectedPackage.isBundlesPrivateRoom()) {
+            resolvedRoomType = "PRIVATE";
+            resolvedRoomCharge = BigDecimal.ZERO;
         } else if ("PRIVATE".equalsIgnoreCase(request.roomType())) {
             resolvedRoomType = "PRIVATE";
             resolvedRoomCharge = new BigDecimal("500");
@@ -371,6 +375,9 @@ public class BookingService {
         if (voucherCode == null || voucherCode.isBlank()) return;
         var voucher = voucherService.findValid(order.getOrganizationId(), voucherCode).orElse(null);
         if (voucher == null) return;
+        if (!voucherService.isRedeemableBy(voucher, booking.getClientId())) {
+            throw new IllegalStateException("This voucher has already been used or has reached its usage limit.");
+        }
         BigDecimal base;
         if (voucher.getTargetPackageId() != null) {
             base = orderItemRepository.findAllByOrderIdOrderByPosition(order.getId()).stream()
@@ -388,7 +395,7 @@ public class BookingService {
         order.setTotal((order.getTotal() == null ? BigDecimal.ZERO : order.getTotal()).subtract(discount).max(BigDecimal.ZERO));
         order.setVoucherId(voucher.getId());
         orderRepository.save(order);
-        voucherService.markRedeemed(voucher.getId(), booking.getClientId());
+        voucherService.markRedeemed(voucher.getId(), booking.getClientId(), order.getId());
     }
 
     private String resolveClientEmail(CreateBookingRequest request) {
@@ -463,7 +470,7 @@ public class BookingService {
             List<PublicAttendeeRequest> attendees = padAttendees(ci.attendees(), pkg, coupleOrVip, request.clientGender());
 
             String roomType = resolveRoomType(pkg, ci.roomType());
-            BigDecimal roomCharge = resolveRoomCharge(roomType);
+            BigDecimal roomCharge = resolveRoomCharge(pkg, roomType);
             BigDecimal lineTotal = computeLineTotal(ci, attendees, coupleOrVip);
 
             if (firstPackage == null) firstPackage = pkg;
@@ -621,11 +628,15 @@ public class BookingService {
 
     private String resolveRoomType(Package pkg, String requestedRoomType) {
         if (pkg.isRequiresVipRoom()) return "VIP";
+        if (pkg.isBundlesPrivateRoom()) return "PRIVATE";
         if ("PRIVATE".equalsIgnoreCase(requestedRoomType)) return "PRIVATE";
         return "COMMON";
     }
 
-    private BigDecimal resolveRoomCharge(String roomType) {
+    private BigDecimal resolveRoomCharge(Package pkg, String roomType) {
+        if (pkg != null && (pkg.isRequiresVipRoom() || pkg.isBundlesPrivateRoom())) {
+            return BigDecimal.ZERO;
+        }
         return "PRIVATE".equalsIgnoreCase(roomType) ? new BigDecimal("500") : BigDecimal.ZERO;
     }
 
@@ -1313,8 +1324,16 @@ public class BookingService {
     }
 
     public List<BookingResponse> listBookingsForDay(UUID organizationId, OffsetDateTime dayStart, OffsetDateTime dayEnd) {
-        List<Booking> bookings = bookingRepository
-                .findAllByOrganizationIdAndEffectiveDateBetween(organizationId, dayStart, dayEnd);
+        return buildResponses(bookingRepository
+                .findAllByOrganizationIdAndEffectiveDateBetween(organizationId, dayStart, dayEnd));
+    }
+
+    public List<BookingResponse> recentReservations(UUID organizationId, int limit) {
+        return buildResponses(bookingRepository
+                .findAllByOrganizationIdOrderByCreatedAtDesc(organizationId, PageRequest.of(0, limit)));
+    }
+
+    private List<BookingResponse> buildResponses(List<Booking> bookings) {
         if (bookings.isEmpty()) {
             return List.of();
         }

@@ -5,9 +5,9 @@
       <p class="text-slate-500">Clients who registered through the booking site or were linked at the cashier.</p>
     </div>
     <div class="flex flex-wrap gap-2">
-      <input [(ngModel)]="searchTerm" (keyup.enter)="load()" name="searchTerm" placeholder="Search by nickname"
-        class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
-      <button (click)="load()" class="rounded border border-slate-300 text-slate-700 px-3 py-1.5 text-sm hover:bg-slate-50">Search</button>
+      <input type="search" [ngModel]="searchTerm()" (ngModelChange)="onSearch($event)" name="searchTerm"
+        placeholder="Search by nickname or email"
+        class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-64" />
       <button (click)="openAdd()" class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm hover:opacity-90 transition-opacity">Add client</button>
     </div>
   </header>
@@ -43,9 +43,9 @@
         </tbody>
       </table>
     </div>
-    @if (clients().length > pageSize()) {
+    @if (filteredClients().length > pageSize()) {
     <sumi-paginator
-      [totalElements]="clients().length"
+      [totalElements]="filteredClients().length"
       [pageSize]="pageSize()"
       [currentPage]="currentPage()"
       (pageChange)="currentPage.set($event)">

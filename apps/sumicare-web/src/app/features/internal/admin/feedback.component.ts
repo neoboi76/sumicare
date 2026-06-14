@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../../environments/environment';
@@ -25,10 +25,19 @@ export class FeedbackAdminComponent implements OnInit {
   private http = inject(HttpClient);
   private feed = inject(NotificationFeedService);
   feedback = signal<Feedback[]>([]);
+  searchTerm = signal('');
   expandedId = signal<string | null>(null);
   exportFrom = '';
   exportTo = '';
   exporting = signal(false);
+
+  filteredFeedback = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) return this.feedback();
+    return this.feedback().filter(f =>
+      [f.orNumber ?? '', f.nickname ?? '', f.comment ?? ''].join(' ').toLowerCase().includes(term)
+    );
+  });
 
   toggle(id: string): void {
     this.expandedId.update(current => current === id ? null : id);

@@ -54,7 +54,7 @@ export class LoginComponent implements OnInit {
           this.mfaRequired.set(true);
           return;
         }
-        this.router.navigate(['/app/dashboard']);
+        this.router.navigate(['/sumicare/app/dashboard']);
       },
       error: (err) => {
         this.busy.set(false);
@@ -71,7 +71,7 @@ export class LoginComponent implements OnInit {
     this.auth.verifyMfa(this.challengeId, this.code.trim()).subscribe({
       next: () => {
         this.busy.set(false);
-        this.router.navigate(['/app/dashboard']);
+        this.router.navigate(['/sumicare/app/dashboard']);
       },
       error: (err) => {
         this.busy.set(false);

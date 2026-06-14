@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
+import { ToastService } from '../../../shared/components/toast/toast.service';
 
 interface LedgerEntry {
   id: number;
@@ -48,6 +49,7 @@ interface CustomLedger {
 })
 export class LedgerComponent implements OnInit {
   private http = inject(HttpClient);
+  private toast = inject(ToastService);
 
   readonly methods = ['CASH', 'GCASH', 'CREDIT', 'DEBIT'] as const;
 
@@ -224,7 +226,7 @@ export class LedgerComponent implements OnInit {
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(objUrl);
       },
-      error: () => alert('Export failed.')
+      error: () => this.toast.error('Export failed.')
     });
   }
 

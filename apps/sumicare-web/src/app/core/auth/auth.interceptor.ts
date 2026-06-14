@@ -24,7 +24,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
             return next(retried);
           }),
           catchError(() => {
-            router.navigate(['/login']);
+            router.navigate(['/sumicare/login']);
             return throwError(() => error);
           })
         );

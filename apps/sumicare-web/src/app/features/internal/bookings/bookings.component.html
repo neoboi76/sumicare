@@ -6,6 +6,9 @@
         preparation.</p>
     </div>
     <div class="flex flex-wrap gap-2">
+      <input type="search" [ngModel]="searchTerm()" (ngModelChange)="onSearch($event)" name="bookingSearch"
+        placeholder="Search name, reference, service, status"
+        class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-64" />
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate"
         class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
       <button (click)="exportCsv()"
@@ -51,6 +54,9 @@
           <td class="p-3 font-mono text-xs">{{ formatTime(b.scheduledAt) }}</td>
           <td class="p-3 font-medium">
             {{ b.clientNickname }}
+            @if (b.clientEmail) {
+            <span class="block text-xs font-normal text-slate-400">{{ b.clientEmail }}</span>
+            }
             @if (attendeeCount(b.id) > 1) {
             <button (click)="toggleExpand(b.id)" class="ml-1 text-xs text-[var(--sumi-primary)] hover:underline">
               {{ expandedBookingId() === b.id ? '▾' : '▸' }} {{ attendeeCount(b.id) }} pax
@@ -77,7 +83,7 @@
           <td class="p-3">{{ b.status }}</td>
           <td class="p-3">
             @if (b.orderId) {
-            <a [routerLink]="['/app/orders', b.orderId]" class="hover:underline">
+            <a [routerLink]="['/sumicare/app/orders', b.orderId]" class="hover:underline">
               <span [class]="
                     'rounded-full px-2 py-0.5 text-xs ' +
                     (
@@ -136,13 +142,13 @@
                 <button (click)="extendSession(b)" class="text-amber-700 hover:underline">+1 hr</button>
               }
               @if (singleSlipId(b); as slipId) {
-                <a [routerLink]="['/app/treatment-slips', slipId]" class="text-[var(--sumi-primary)] hover:underline">View slip</a>
+                <a [routerLink]="['/sumicare/app/treatment-slips', slipId]" class="text-[var(--sumi-primary)] hover:underline">View slip</a>
               }
               }
             }
             @if (b.status === 'COMPLETED' && attendeeCount(b.id) <= 1) {
               @if (singleSlipId(b); as slipId) {
-              <a [routerLink]="['/app/treatment-slips', slipId]" class="text-[var(--sumi-primary)] hover:underline">View slip</a>
+              <a [routerLink]="['/sumicare/app/treatment-slips', slipId]" class="text-[var(--sumi-primary)] hover:underline">View slip</a>
               }
             }
           </td>
@@ -181,7 +187,7 @@
                     </td>
                     <td class="py-1">
                       @if (a.treatmentSlipId) {
-                      <a [routerLink]="['/app/treatment-slips', a.treatmentSlipId]"
+                      <a [routerLink]="['/sumicare/app/treatment-slips', a.treatmentSlipId]"
                         class="text-[var(--sumi-primary)] hover:underline">View slip</a>
                       } @else { — }
                     </td>

@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { QRCodeComponent } from 'angularx-qrcode';
 import { environment } from '../../../../environments/environment';
 import { LockerLabelPipe } from '../../../shared/pipes/locker-label.pipe';
+import { ToastService } from '../../../shared/components/toast/toast.service';
 
 interface TreatmentSlip {
   id: string;
@@ -51,6 +52,7 @@ interface TreatmentSlip {
 export class TreatmentSlipDetailComponent implements OnInit {
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
+  private toast = inject(ToastService);
   slip = signal<TreatmentSlip | null>(null);
   editing = signal(false);
   saveError = signal<string | null>(null);
@@ -178,7 +180,7 @@ export class TreatmentSlipDetailComponent implements OnInit {
       next: (response) => {
         const blob = response.body;
         if (!blob) {
-          alert('No PDF returned.');
+          this.toast.error('No PDF returned.');
           return;
         }
         const url = URL.createObjectURL(blob);
@@ -190,7 +192,7 @@ export class TreatmentSlipDetailComponent implements OnInit {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       },
-      error: () => alert('Failed to download slip PDF.')
+      error: () => this.toast.error('Failed to download slip PDF.')
     });
   }
 }

@@ -26,7 +26,7 @@ export class RegisteredClientsComponent implements OnInit {
 
   clients = signal<RegisteredClient[]>([]);
   loading = signal(false);
-  searchTerm = '';
+  searchTerm = signal('');
   currentPage = signal(0);
   pageSize = signal(15);
 
@@ -35,9 +35,17 @@ export class RegisteredClientsComponent implements OnInit {
   addError = signal<string | null>(null);
   newClient = { nickname: '', email: '', gender: 'F', nationality: '' };
 
+  filteredClients = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) return this.clients();
+    return this.clients().filter(c =>
+      [c.nickname, c.email ?? '', c.nationality ?? ''].join(' ').toLowerCase().includes(term)
+    );
+  });
+
   paginatedClients = computed(() => {
     const start = this.currentPage() * this.pageSize();
-    return this.clients().slice(start, start + this.pageSize());
+    return this.filteredClients().slice(start, start + this.pageSize());
   });
 
   ngOnInit(): void {
@@ -46,11 +54,15 @@ export class RegisteredClientsComponent implements OnInit {
 
   load(): void {
     this.loading.set(true);
-    const q = this.searchTerm ? `?q=${encodeURIComponent(this.searchTerm)}` : '';
-    this.http.get<RegisteredClient[]>(`${environment.apiBaseUrl}/api/clients${q}`).subscribe({
+    this.http.get<RegisteredClient[]>(`${environment.apiBaseUrl}/api/clients`).subscribe({
       next: (c) => { this.clients.set(c); this.currentPage.set(0); this.loading.set(false); },
       error: () => { this.clients.set([]); this.loading.set(false); }
     });
+  }
+
+  onSearch(value: string): void {
+    this.searchTerm.set(value);
+    this.currentPage.set(0);
   }
 
   genderLabel(gender: string | null): string {

@@ -3,11 +3,12 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter } from 'rxjs/operators';
 import { BrandingService } from '../../core/branding/branding.service';
 import { routeFade } from '../../shared/animations/route-fade';
+import { ToastHostComponent } from '../../shared/components/toast/toast-host.component';
 
 @Component({
     selector: 'sumi-public-shell',
     standalone: true,
-    imports: [RouterOutlet, RouterLink, RouterLinkActive],
+    imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastHostComponent],
     templateUrl: './public-shell.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
     animations: [routeFade]

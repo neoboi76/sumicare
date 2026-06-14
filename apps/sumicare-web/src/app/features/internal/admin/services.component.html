@@ -15,8 +15,8 @@
     </div>
   </header>
 
-  <section class="bg-white rounded-xl shadow overflow-hidden">
-    <table class="w-full text-sm">
+  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+    <table class="w-full min-w-[920px] text-sm">
       <thead class="bg-slate-100">
         <tr>
           <th class="text-left p-3" [sumiSortable]="'code'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">

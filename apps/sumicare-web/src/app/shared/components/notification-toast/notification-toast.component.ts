@@ -33,10 +33,10 @@ export class NotificationToastComponent implements OnInit, OnDestroy {
     };
 
     private static readonly ROUTES: Record<NotificationKey, string> = {
-        bookings: '/app/bookings',
-        orders: '/app/orders',
-        messages: '/app/messages',
-        feedback: '/app/admin/feedback'
+        bookings: '/sumicare/app/bookings',
+        orders: '/sumicare/app/orders',
+        messages: '/sumicare/app/messages',
+        feedback: '/sumicare/app/admin/feedback'
     };
 
     ngOnInit(): void {

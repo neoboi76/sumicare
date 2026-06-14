@@ -2,11 +2,11 @@
   <header class="flex items-center justify-between">
     <h1 class="text-2xl font-semibold text-slate-900">Cashier</h1>
     <nav class="flex gap-2 text-xs">
-      <a routerLink="/app/orders"
+      <a routerLink="/sumicare/app/orders"
         class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Orders</a>
-      <a routerLink="/app/ledger"
+      <a routerLink="/sumicare/app/ledger"
         class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Ledger</a>
-      <a routerLink="/app/reports"
+      <a routerLink="/sumicare/app/reports"
         class="rounded border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50">Reports</a>
     </nav>
   </header>
@@ -129,6 +129,9 @@
               <span class="text-xs text-slate-500">Room</span>
               @if (it.requiresVipRoom) {
                 <input value="VIP — included with package" disabled
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500" />
+              } @else if (it.bundlesPrivateRoom) {
+                <input value="Private — included with package" disabled
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 bg-slate-100 text-slate-500" />
               } @else {
                 <select [ngModel]="it.roomType" name="room{{itemIdx}}" (ngModelChange)="setItemRoom(itemIdx, $event)"
@@ -479,7 +482,8 @@
         @if (cart().length > 0) {
         <div>
           <div class="font-semibold text-slate-900 mb-2">Apply to packages:</div>
-          <table class="w-full text-sm">
+          <div class="overflow-x-auto">
+          <table class="w-full min-w-[360px] text-sm">
             <thead class="text-xs text-slate-500">
               <tr>
                 <th class="text-left py-1">Apply</th>
@@ -501,6 +505,7 @@
               }
             </tbody>
           </table>
+          </div>
         </div>
         }
       </div>

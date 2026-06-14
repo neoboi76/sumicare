@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -37,11 +36,8 @@ public class Voucher {
     @Column(name = "valid_until")
     private LocalDate validUntil;
 
-    @Column(name = "redeemed_at")
-    private OffsetDateTime redeemedAt;
-
-    @Column(name = "redeemed_by_client_id", columnDefinition = "uuid")
-    private UUID redeemedByClientId;
+    @Column(name = "usage_limit")
+    private Integer usageLimit;
 
     @Column(name = "is_active")
     private boolean active = true;
@@ -65,10 +61,8 @@ public class Voucher {
     public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
     public LocalDate getValidUntil() { return validUntil; }
     public void setValidUntil(LocalDate validUntil) { this.validUntil = validUntil; }
-    public OffsetDateTime getRedeemedAt() { return redeemedAt; }
-    public void setRedeemedAt(OffsetDateTime redeemedAt) { this.redeemedAt = redeemedAt; }
-    public UUID getRedeemedByClientId() { return redeemedByClientId; }
-    public void setRedeemedByClientId(UUID redeemedByClientId) { this.redeemedByClientId = redeemedByClientId; }
+    public Integer getUsageLimit() { return usageLimit; }
+    public void setUsageLimit(Integer usageLimit) { this.usageLimit = usageLimit; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public Long getTargetPackageId() { return targetPackageId; }

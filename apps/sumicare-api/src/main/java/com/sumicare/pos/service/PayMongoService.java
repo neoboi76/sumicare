@@ -52,7 +52,7 @@ public class PayMongoService {
 
     public ChargeResult charge(Order order, BigDecimal amount, String paymentMethod,
                                String referenceNumber, PaymentDetailsRequest details) {
-        return runCharge(order, amount, paymentMethod, referenceNumber, details, false, "/app/cashier");
+        return runCharge(order, amount, paymentMethod, referenceNumber, details, false, "/sumicare/app/cashier");
     }
 
     public ChargeResult initiate(Order order, BigDecimal amount, String paymentMethod,
@@ -204,7 +204,7 @@ public class PayMongoService {
             if (base == null || base.isBlank()) {
                 base = requestOrigin();
             }
-            path = returnPath == null || returnPath.isBlank() ? "/app/cashier" : returnPath;
+            path = returnPath == null || returnPath.isBlank() ? "/sumicare/app/cashier" : returnPath;
         }
         StringBuilder url = new StringBuilder(base).append(path)
                 .append("?paymongoReturn=1")

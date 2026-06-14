@@ -200,7 +200,8 @@
           CSV</button>
       </div>
       @if (commissionShiftReport(); as r) {
-      <table class="w-full text-sm">
+      <div class="overflow-x-auto">
+      <table class="w-full min-w-[420px] text-sm">
         <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
           <tr>
             <th class="text-left px-3 py-2">Therapist</th>
@@ -222,6 +223,7 @@
           </tr>
         </tfoot>
       </table>
+      </div>
       }
     </div>
     }
@@ -237,7 +239,8 @@
           CSV</button>
       </div>
       @if (commissionDailyReport(); as r) {
-      <table class="w-full text-sm">
+      <div class="overflow-x-auto">
+      <table class="w-full min-w-[420px] text-sm">
         <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
           <tr>
             <th class="text-left px-3 py-2">Therapist</th>
@@ -259,6 +262,7 @@
           </tr>
         </tfoot>
       </table>
+      </div>
       }
     </div>
     }
@@ -363,7 +367,8 @@
     <div class="text-xs text-slate-400 mt-2 mb-1 px-1">Legend: ♥ = requested &middot; ★ = scrub &middot; (★ &amp; ♥) = requested scrub &middot; | = ordinary
     </div>
 
-    <table class="w-full text-sm mt-3 border-separate border-spacing-0">
+    <div class="overflow-x-auto">
+    <table class="w-full min-w-[640px] text-sm mt-3 border-separate border-spacing-0">
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
         <tr>
           <th class="text-left px-3 py-2.5">Name</th>
@@ -405,6 +410,7 @@
         }
       </tbody>
     </table>
+    </div>
     }
   </div>
   }

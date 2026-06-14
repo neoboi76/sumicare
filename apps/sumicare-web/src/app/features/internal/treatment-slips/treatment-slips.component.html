@@ -5,6 +5,9 @@
       <p class="text-slate-500">Digitized slips. All identification by nickname only.</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+      <input type="search" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" name="slipSearch"
+             placeholder="Search TSN, nickname, therapist, service"
+             class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-72" />
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="date"
              class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
       <button (click)="exportCsv()"
@@ -60,7 +63,7 @@
             <td class="p-3 font-mono text-xs">{{ s.endTime ? formatTime(s.endTime) : '-' }}</td>
             <td class="p-3">{{ s.vip ? 'Yes' : '' }}</td>
             <td class="p-3 text-right">
-              <a [routerLink]="['/app/treatment-slips', s.id]" class="text-[var(--sumi-primary)] hover:underline">Open</a>
+              <a [routerLink]="['/sumicare/app/treatment-slips', s.id]" class="text-[var(--sumi-primary)] hover:underline">Open</a>
             </td>
           </tr>
         } @empty {
