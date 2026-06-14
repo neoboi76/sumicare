@@ -922,7 +922,7 @@ export class CashierComponent implements OnInit {
         amount: payment.amount,
         referenceNumber: payment.referenceNumber || null,
         paymentDetails: payment.paymentDetails || null,
-        returnPath: `${window.location.origin}/app/cashier`
+        returnPath: `${window.location.origin}/sumicare/app/cashier`
       }
     ).subscribe({
       next: (res) => {
@@ -932,7 +932,7 @@ export class CashierComponent implements OnInit {
           return;
         }
         const origin = window.location.origin;
-        const returnUrl = `${origin}/app/cashier?paymongoReturn=1&orderId=${orderId}`
+        const returnUrl = `${origin}/sumicare/app/cashier?paymongoReturn=1&orderId=${orderId}`
           + `&intent=${encodeURIComponent(res.intentId)}`
           + `&paymentMethod=${encodeURIComponent(payment.paymentMethod)}`
           + `&amount=${payment.amount}`;

@@ -202,7 +202,7 @@ export class OrderDetailComponent implements OnInit {
         amount,
         referenceNumber: reference || null,
         paymentDetails: details,
-        returnPath: `/app/orders/${orderId}`
+        returnPath: `/sumicare/app/orders/${orderId}`
       }
     ).subscribe({
       next: (res) => {
@@ -212,7 +212,7 @@ export class OrderDetailComponent implements OnInit {
           return;
         }
         const origin = window.location.origin;
-        const returnUrl = `${origin}/app/orders/${orderId}?paymongoReturn=1&orderId=${orderId}`
+        const returnUrl = `${origin}/sumicare/app/orders/${orderId}?paymongoReturn=1&orderId=${orderId}`
           + `&intent=${encodeURIComponent(res.intentId)}`
           + `&paymentMethod=${encodeURIComponent(method)}`
           + `&amount=${amount}`;
