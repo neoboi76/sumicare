@@ -126,8 +126,8 @@
     } @else if (entries().length === 0) {
       <p class="text-sm text-slate-500 text-center py-8">No ledger entries for this period.</p>
     } @else {
-      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <table class="w-full text-sm">
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden overflow-x-auto">
+        <table class="w-full min-w-[720px] text-sm">
           <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th class="text-left px-3 py-2">Created at</th>
@@ -159,7 +159,7 @@
                 <td class="px-3 py-2 text-right font-medium" [class.text-emerald-700]="e.amount >= 0" [class.text-rose-600]="e.amount < 0">{{ formatCurrency(e.amount) }}</td>
                 <td class="px-3 py-2">
                   @if (e.orderId) {
-                    <a [routerLink]="['/app/orders', e.orderId]" class="text-xs text-[var(--sumi-primary)] hover:underline">View</a>
+                    <a [routerLink]="['/sumicare/app/orders', e.orderId]" class="text-xs text-[var(--sumi-primary)] hover:underline">View</a>
                   } @else { <span class="text-xs text-slate-400">-</span> }
                 </td>
               </tr>

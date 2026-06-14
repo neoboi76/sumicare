@@ -1,6 +1,7 @@
 package com.sumicare.booking.repository;
 
 import com.sumicare.booking.domain.Booking;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,4 +25,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     List<Booking> findAllByOrganizationIdAndClientEmailIgnoreCase(UUID organizationId, String clientEmail);
 
     List<Booking> findAllByOrganizationIdAndStatusAndScheduledAtBefore(UUID organizationId, String status, OffsetDateTime cutoff);
+
+    List<Booking> findAllByOrganizationIdOrderByCreatedAtDesc(UUID organizationId, Pageable pageable);
 }

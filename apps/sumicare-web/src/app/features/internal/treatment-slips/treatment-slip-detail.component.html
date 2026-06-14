@@ -1,6 +1,6 @@
 <div class="max-w-md mx-auto">
   <div class="flex justify-between items-baseline mb-2 no-print">
-    <a routerLink="/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
+    <a routerLink="/sumicare/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
     <div class="flex gap-2">
       @if (slip()?.status === 'DRAFT' && !editing()) {
         <button (click)="startEdit()" class="rounded border border-slate-300 px-4 py-1.5 text-sm">Edit</button>

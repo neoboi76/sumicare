@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0055-1-create-voucher-redemptions" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="voucher_redemptions"/>
+            </not>
+        </preConditions>
+        <createTable tableName="voucher_redemptions">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="voucher_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="order_id" type="uuid"/>
+            <column name="redeemed_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0055-2-uq-voucher-client" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="uq_voucher_redemption_client"/>
+            </not>
+        </preConditions>
+        <createIndex tableName="voucher_redemptions" indexName="uq_voucher_redemption_client" unique="true">
+            <column name="voucher_id"/>
+            <column name="client_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0055-3-idx-voucher-redemption-voucher" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_voucher_redemption_voucher"/>
+            </not>
+        </preConditions>
+        <createIndex tableName="voucher_redemptions" indexName="idx_voucher_redemption_voucher">
+            <column name="voucher_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0055-4-voucher-usage-limit" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="vouchers" columnName="usage_limit"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="vouchers">
+            <column name="usage_limit" type="int"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0055-5-drop-voucher-single-use-columns" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="vouchers" columnName="redeemed_at"/>
+        </preConditions>
+        <dropColumn tableName="vouchers" columnName="redeemed_at"/>
+        <dropColumn tableName="vouchers" columnName="redeemed_by_client_id"/>
+    </changeSet>
+
+</databaseChangeLog>

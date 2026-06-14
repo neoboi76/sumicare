@@ -272,6 +272,7 @@ public class OrderService {
             if (manualDiscount.compareTo(BigDecimal.ZERO) > 0) {
                 throw new IllegalArgumentException("A voucher and a manual discount cannot be applied to the same order.");
             }
+            voucherService.assertRedeemableBy(organizationId, request.voucherId(), request.clientId());
             discount = voucherService.discountForVoucher(organizationId, request.voucherId(), subtotalFromRequest);
             total = subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
         } else {
@@ -313,6 +314,8 @@ public class OrderService {
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
         Booking booking = bookingRepository.findById(bookingResponse.id()).orElseThrow();
+        booking.setPax(request.pax() == null ? Math.max(1, totalAttendees) : request.pax());
+        bookingRepository.save(booking);
 
         Order order = orderRepository.findByBookingId(booking.getId()).orElseGet(() -> {
             Order o = new Order();
@@ -344,7 +347,7 @@ public class OrderService {
         orderRepository.save(order);
 
         if (request.voucherId() != null) {
-            voucherService.markRedeemed(request.voucherId(), request.clientId());
+            voucherService.markRedeemed(request.voucherId(), request.clientId(), order.getId());
         }
 
         if (hasItems) {
@@ -528,6 +531,7 @@ public class OrderService {
             if (manualDiscount.compareTo(BigDecimal.ZERO) > 0) {
                 throw new IllegalArgumentException("A voucher and a manual discount cannot be applied to the same order.");
             }
+            voucherService.assertRedeemableBy(organizationId, request.voucherId(), request.clientId());
             discount = voucherService.discountForVoucher(organizationId, request.voucherId(), subtotalFromRequest);
             total = subtotalFromRequest.subtract(discount).add(tax).max(BigDecimal.ZERO);
         } else {
@@ -564,7 +568,7 @@ public class OrderService {
         orderRepository.save(order);
 
         if (request.voucherId() != null) {
-            voucherService.markRedeemed(request.voucherId(), request.clientId());
+            voucherService.markRedeemed(request.voucherId(), request.clientId(), order.getId());
         }
 
         AtomicInteger itemPos = new AtomicInteger(0);
@@ -738,7 +742,7 @@ public class OrderService {
         }
 
         String returnPath = request.returnPath() == null || request.returnPath().isBlank()
-                ? "/app/cashier" : request.returnPath();
+                ? "/sumicare/app/cashier" : request.returnPath();
         PayMongoService.ChargeResult result = payMongoService.initiate(
                 order, amount, request.paymentMethod(), request.referenceNumber(), request.paymentDetails(), returnPath);
 
@@ -1289,6 +1293,9 @@ public class OrderService {
         if (pkg != null && pkg.isRequiresVipRoom()) {
             return new ItemRoom("VIP", BigDecimal.ZERO);
         }
+        if (pkg != null && pkg.isBundlesPrivateRoom()) {
+            return new ItemRoom("PRIVATE", BigDecimal.ZERO);
+        }
         String rt = requested != null ? requested.toUpperCase() : "COMMON";
         if (!ROOM_SURCHARGE.containsKey(rt) || "VIP".equals(rt)) {
             rt = "COMMON";
@@ -1653,6 +1660,7 @@ public class OrderService {
                 cashierDisplayName,
                 booking != null ? booking.getClientNickname() : null,
                 booking != null ? booking.getClientId() : null,
+                booking != null ? booking.getClientEmail() : null,
                 serviceName,
                 order.getOrNumber(),
                 order.getReferenceNumber(),

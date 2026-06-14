@@ -1,130 +1,159 @@
-<div class="space-y-5">
+<div>
   <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Rooms and beds</h1>
-      <p class="text-slate-500">Common rooms enforce single-gender occupancy. Row-segmented rooms apply that rule per row. Bed states update live.</p>
+      <p class="text-slate-500">Common rooms enforce single-gender occupancy. Row-segmented rooms apply that rule per
+        row. Bed states update live.</p>
     </div>
     <button (click)="showRoomForm.set(true)"
-      class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm hover:opacity-90 transition-opacity self-start">Add room</button>
+      class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm hover:opacity-90 transition-opacity self-start">Add
+      room</button>
   </header>
 
   <div class="flex flex-wrap gap-4 text-xs text-slate-600">
-    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded border border-emerald-200 bg-emerald-50"></span>Available</span>
-    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded border border-slate-300 bg-slate-100"></span>Male occupied</span>
-    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded border border-pink-200 bg-pink-50"></span>Female occupied</span>
-    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded border border-slate-200 bg-slate-50"></span>Inactive</span>
+    <span class="inline-flex items-center gap-1.5"><span
+        class="w-3 h-3 rounded border border-emerald-200 bg-emerald-50"></span>Available</span>
+    <span class="inline-flex items-center gap-1.5"><span
+        class="w-3 h-3 rounded border border-slate-300 bg-slate-100"></span>Male occupied</span>
+    <span class="inline-flex items-center gap-1.5"><span
+        class="w-3 h-3 rounded border border-pink-200 bg-pink-50"></span>Female occupied</span>
+    <span class="inline-flex items-center gap-1.5"><span
+        class="w-3 h-3 rounded border border-slate-200 bg-slate-50"></span>Inactive</span>
   </div>
 
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     @for (r of pagedRooms(); track r.id) {
-      <article class="bg-white rounded-xl shadow p-5 sumi-fade-in transition-shadow duration-300 hover:shadow-md">
-        <header class="flex items-start justify-between gap-3">
-          <div>
-            <h3 class="font-semibold text-slate-900">Room {{ r.roomNumber }}
-              <span class="text-sm font-normal text-slate-500">({{ r.roomType }}{{ r.rowSegmented ? ' · row-segmented' : '' }})</span>
-            </h3>
-            <p class="text-xs text-slate-500">Floor {{ r.floor ?? '-' }}</p>
-          </div>
-          <div class="flex items-center gap-2">
-            @if (roomGenderLock(r.id); as lock) {
-              <span class="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide"
-                [class]="lock === 'F' ? 'bg-pink-100 text-pink-700' : 'bg-slate-200 text-slate-700'">
-                {{ lock === 'F' ? 'Female only' : 'Male only' }}
-              </span>
-            }
-            <button (click)="openBedForm(r)" class="rounded border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50">Add bed</button>
-            <button (click)="deactivateRoom(r)" class="rounded border border-red-200 text-red-700 px-3 py-1 text-xs hover:bg-red-50">Deactivate</button>
-          </div>
-        </header>
-        <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          @for (b of bedsFor(r.id); track b.id) {
-            <div [class]="bedClass(b)">
-              <div class="flex items-center justify-between">
-                <span class="font-medium">{{ b.bedLabel }}</span>
-                <button (click)="deactivateBed(b)" class="text-red-600/80 hover:text-red-700" title="Deactivate bed">&times;</button>
-              </div>
-              <div class="mt-0.5 text-[10px] uppercase tracking-wide opacity-80">{{ bedStateLabel(b) }}</div>
-              @if (occupantNickname(b); as nickname) {
-                <div class="mt-1 text-[11px] truncate" [title]="nickname">{{ nickname }}</div>
-                @if (occupantLocker(b); as locker) {
-                  <div class="text-[10px] opacity-70">Locker {{ locker | lockerLabel:occupantGender(b) }}</div>
-                }
-              }
-            </div>
-          } @empty {
-            <p class="col-span-full text-xs text-slate-500">No beds yet.</p>
+    <article class="bg-white rounded-xl shadow p-5 sumi-fade-in transition-shadow duration-300 hover:shadow-md"
+      [class.opacity-60]="!r.active">
+      <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h3 class="font-semibold text-slate-900">Room {{ r.roomNumber }}
+            <span class="text-sm font-normal text-slate-500">({{ r.roomType }}{{ r.rowSegmented ? ' · row-segmented' :
+              '' }})</span>
+          </h3>
+          <p class="text-xs text-slate-500">Floor {{ r.floor ?? '-' }}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          @if (!r.active) {
+          <span
+            class="rounded-full bg-slate-200 text-slate-600 px-2 py-0.5 text-[10px] uppercase tracking-wide">Deactivated</span>
+          } @else if (roomGenderLock(r.id); as lock) {
+          <span class="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide"
+            [class]="lock === 'F' ? 'bg-pink-100 text-pink-700' : 'bg-slate-200 text-slate-700'">
+            {{ lock === 'F' ? 'Female only' : 'Male only' }}
+          </span>
+          }
+          @if (r.active) {
+          <button (click)="openBedForm(r)"
+            class="rounded border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50">Add bed</button>
+          <button (click)="deactivateRoom(r)"
+            class="rounded border border-red-200 text-red-700 px-3 py-1 text-xs hover:bg-red-50">Deactivate</button>
+          } @else {
+          <button (click)="reactivateRoom(r)"
+            class="rounded border border-emerald-200 text-emerald-700 px-3 py-1 text-xs hover:bg-emerald-50">Reactivate</button>
           }
         </div>
-      </article>
+      </header>
+      <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        @for (b of bedsFor(r.id); track b.id) {
+        <div [class]="bedClass(b)">
+          <div class="flex items-center justify-between">
+            <span class="font-medium">{{ b.bedLabel }}</span>
+            @if (b.active) {
+            <button (click)="deactivateBed(b)" class="text-red-600/80 hover:text-red-700"
+              title="Deactivate bed">&times;</button>
+            } @else {
+            <button (click)="reactivateBed(b)" class="text-[10px] text-emerald-700 hover:underline"
+              title="Reactivate bed">Restore</button>
+            }
+          </div>
+          <div class="mt-0.5 text-[10px] uppercase tracking-wide opacity-80">{{ bedStateLabel(b) }}</div>
+          @if (occupantNickname(b); as nickname) {
+          <div class="mt-1 text-[11px] truncate" [title]="nickname">{{ nickname }}</div>
+          @if (occupantLocker(b); as locker) {
+          <div class="text-[10px] opacity-70">Locker {{ locker | lockerLabel:occupantGender(b) }}</div>
+          }
+          }
+        </div>
+        } @empty {
+        <p class="col-span-full text-xs text-slate-500">No beds yet.</p>
+        }
+      </div>
+    </article>
     } @empty {
-      <p class="col-span-full text-center text-slate-500">No rooms.</p>
+    <p class="col-span-full text-center text-slate-500">No rooms.</p>
     }
   </section>
 
   @if (rooms().length > pageSize()) {
-    <sumi-paginator
-      [totalElements]="rooms().length"
-      [pageSize]="pageSize()"
-      [currentPage]="currentPage()"
-      (pageChange)="currentPage.set($event)">
-    </sumi-paginator>
+  <sumi-paginator [totalElements]="rooms().length" [pageSize]="pageSize()" [currentPage]="currentPage()"
+    (pageChange)="currentPage.set($event)">
+  </sumi-paginator>
   }
 
   @if (showRoomForm()) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 sumi-fade-in" (click)="showRoomForm.set(false)">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 anim-pop" (click)="$event.stopPropagation()">
-        <h2 class="text-xl font-semibold">New room</h2>
-        <label class="block">
-          <span class="text-sm text-slate-700">Room number</span>
-          <input [(ngModel)]="formRoomNumber" name="roomNumber"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Floor</span>
-          <input [(ngModel)]="formFloor" name="floor" type="number" min="1"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Room type</span>
-          <select [(ngModel)]="formRoomType" name="roomType"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
-            <option value="COMMON">Common</option>
-            <option value="PRIVATE">Private</option>
-            <option value="VIP">VIP</option>
-            <option value="MULTI_BED">Multi-bed (row segmented)</option>
-          </select>
-        </label>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" [(ngModel)]="formRowSegmented" name="rowSegmented" />
-          <span class="text-sm">Apply gender rule per row</span>
-        </label>
-        <div class="flex justify-end gap-2 pt-2">
-          <button (click)="showRoomForm.set(false)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-          <button (click)="submitRoom()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
-        </div>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 sumi-fade-in"
+    (click)="showRoomForm.set(false)">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 anim-pop"
+      (click)="$event.stopPropagation()">
+      <h2 class="text-xl font-semibold">New room</h2>
+      <label class="block">
+        <span class="text-sm text-slate-700">Room number</span>
+        <input [(ngModel)]="formRoomNumber" name="roomNumber"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Floor</span>
+        <input [(ngModel)]="formFloor" name="floor" type="number" min="1"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Room type</span>
+        <select [(ngModel)]="formRoomType" name="roomType"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+          <option value="COMMON">Common</option>
+          <option value="PRIVATE">Private</option>
+          <option value="VIP">VIP</option>
+          <option value="MULTI_BED">Multi-bed (row segmented)</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2">
+        <input type="checkbox" [(ngModel)]="formRowSegmented" name="rowSegmented" />
+        <span class="text-sm">Apply gender rule per row</span>
+      </label>
+      <div class="flex justify-end gap-2 pt-2">
+        <button (click)="showRoomForm.set(false)"
+          class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+        <button (click)="submitRoom()"
+          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
       </div>
     </div>
+  </div>
   }
 
   @if (bedFormForRoomId(); as roomId) {
-    <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 sumi-fade-in" (click)="bedFormForRoomId.set(null)">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 anim-pop" (click)="$event.stopPropagation()">
-        <h2 class="text-xl font-semibold">Add bed</h2>
-        <label class="block">
-          <span class="text-sm text-slate-700">Bed label</span>
-          <input [(ngModel)]="formBedLabel" name="bedLabel"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-700">Row index (for multi-bed rooms)</span>
-          <input [(ngModel)]="formBedRow" name="bedRow" type="number" min="0"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
-        </label>
-        <div class="flex justify-end gap-2 pt-2">
-          <button (click)="bedFormForRoomId.set(null)" class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-          <button (click)="submitBed(roomId)" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
-        </div>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 sumi-fade-in"
+    (click)="bedFormForRoomId.set(null)">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 anim-pop"
+      (click)="$event.stopPropagation()">
+      <h2 class="text-xl font-semibold">Add bed</h2>
+      <label class="block">
+        <span class="text-sm text-slate-700">Bed label</span>
+        <input [(ngModel)]="formBedLabel" name="bedLabel"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <label class="block">
+        <span class="text-sm text-slate-700">Row index (for multi-bed rooms)</span>
+        <input [(ngModel)]="formBedRow" name="bedRow" type="number" min="0"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+      </label>
+      <div class="flex justify-end gap-2 pt-2">
+        <button (click)="bedFormForRoomId.set(null)"
+          class="rounded border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+        <button (click)="submitBed(roomId)"
+          class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm">Save</button>
       </div>
     </div>
+  </div>
   }
 </div>

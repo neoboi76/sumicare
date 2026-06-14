@@ -4,6 +4,7 @@ import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
 
 interface ServiceLine { serviceId: number | null; serviceName: string; qty: number; unitPrice: number; lineTotal: number; }
 interface CutoffServicesReport { from: string; to: string; lines: ServiceLine[]; grandTotal: number; }
@@ -42,6 +43,7 @@ type CommissionTab = 'shift' | 'daily' | 'cutoff' | 'monthly';
 })
 export class ReportsComponent implements OnInit {
   private http = inject(HttpClient);
+  private toast = inject(ToastService);
 
   tab = signal<Tab>('services');
   commissionTab = signal<CommissionTab>('cutoff');
@@ -249,7 +251,7 @@ export class ReportsComponent implements OnInit {
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(obj);
       },
-      error: () => alert('Export failed.')
+      error: () => this.toast.error('Export failed.')
     });
   }
 }

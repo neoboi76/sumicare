@@ -12,10 +12,13 @@ import { SortIconComponent } from '../../../shared/components/sort-icon/sort-ico
 import { SortState, sortRows } from '../../../shared/utils/compare-by';
 import { LockerLabelPipe } from '../../../shared/pipes/locker-label.pipe';
 import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
 
 interface BookingResponse {
   id: string;
+  reference?: string | null;
   clientNickname: string;
+  clientEmail?: string | null;
   lockerNumber: string | null;
   serviceId: number;
   reservationType: string;
@@ -82,13 +85,6 @@ interface RoomItem {
   beds: BedItem[];
 }
 
-
-
-interface OrderStatus {
-  id: string;
-  status: string;
-}
-
 interface OrderAttendee {
   id: string;
   serviceId: number | null;
@@ -134,6 +130,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private confirmService = inject(ConfirmService);
   private stomp = inject(StompService);
   private auth = inject(AuthService);
+  private toast = inject(ToastService);
   private bookingsSubscription: Subscription | null = null;
   private roomsSubscription: Subscription | null = null;
   private ordersSubscription: Subscription | null = null;
@@ -169,9 +166,26 @@ export class BookingsComponent implements OnInit, OnDestroy {
   extendError = signal<string | null>(null);
 
   sortState = signal<SortState>({ key: 'scheduledAt', direction: 'asc' });
+  searchTerm = signal('');
+
+  filteredBookings = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) return this.bookings();
+    return this.bookings().filter(b => {
+      const haystack = [
+        b.clientNickname,
+        b.clientEmail ?? '',
+        b.reference ?? '',
+        this.serviceName(b.serviceId),
+        b.reservationType,
+        this.statusForBooking(b)
+      ].join(' ').toLowerCase();
+      return haystack.includes(term);
+    });
+  });
 
   sortedBookings = computed(() => {
-    const rows = this.bookings();
+    const rows = this.filteredBookings();
     const state = this.sortState();
     return sortRows(rows, state, (b) => {
       switch (state.key) {
@@ -353,6 +367,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
   onDateChange(value: string): void {
     this.selectedDate.set(value);
     this.reload();
+  }
+
+  onSearch(value: string): void {
+    this.searchTerm.set(value);
+    this.currentPage.set(0);
   }
 
   reload(): void {
@@ -616,7 +635,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
         this.reloadRooms();
       },
       error: (err) => {
-        alert(err?.error?.message || 'Could not start session.');
+        this.toast.error(err?.error?.message || 'Could not start session.');
       }
     });
   }
@@ -737,7 +756,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (response) => {
         const blob = response.body;
-        if (!blob) { alert('Export returned no data.'); return; }
+        if (!blob) { this.toast.error('Export returned no data.'); return; }
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -750,9 +769,9 @@ export class BookingsComponent implements OnInit, OnDestroy {
       error: (err) => {
         const status = err?.status ?? 0;
         if (status === 401 || status === 403) {
-          alert('You do not have permission to export bookings, or your session has expired.');
+          this.toast.error('You do not have permission to export bookings, or your session has expired.');
         } else {
-          alert('Export failed (status ' + status + '). Please try again.');
+          this.toast.error('Export failed (status ' + status + '). Please try again.');
         }
       }
     });

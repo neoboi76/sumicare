@@ -14,6 +14,7 @@ public record OrderResponse(
         String cashierDisplayName,
         String clientNickname,
         UUID clientId,
+        String clientEmail,
         String serviceName,
         String orNumber,
         String referenceNumber,

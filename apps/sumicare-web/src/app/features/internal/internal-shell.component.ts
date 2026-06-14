@@ -10,6 +10,7 @@ import { routeFade } from '../../shared/animations/route-fade';
 import { StompService } from '../../core/realtime/stomp.service';
 import { NotificationFeedService, NotificationKey } from '../../core/notifications/notification-feed.service';
 import { NotificationToastComponent } from '../../shared/components/notification-toast/notification-toast.component';
+import { ToastHostComponent } from '../../shared/components/toast/toast-host.component';
 
 interface NavItem {
   label: string;
@@ -29,7 +30,7 @@ const ADMIN_PLUS = ['ADMIN', 'SUPERADMIN'];
 @Component({
   selector: 'sumi-internal-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationToastComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NotificationToastComponent, ToastHostComponent],
   templateUrl: './internal-shell.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   animations: [routeFade]
@@ -139,10 +140,10 @@ export class InternalShellComponent implements OnInit, OnDestroy {
   }
 
   private clearUnreadFor(url: string): void {
-    if (url.includes('/app/bookings')) this.feed.markRead('bookings');
-    else if (url.includes('/app/orders')) this.feed.markRead('orders');
-    else if (url.includes('/app/messages')) this.feed.markRead('messages');
-    else if (url.includes('/app/admin/feedback')) this.feed.markRead('feedback');
+    if (url.includes('/sumicare/app/bookings')) this.feed.markRead('bookings');
+    else if (url.includes('/sumicare/app/orders')) this.feed.markRead('orders');
+    else if (url.includes('/sumicare/app/messages')) this.feed.markRead('messages');
+    else if (url.includes('/sumicare/app/admin/feedback')) this.feed.markRead('feedback');
   }
 
   toggleSidebar(): void {
@@ -161,8 +162,8 @@ export class InternalShellComponent implements OnInit, OnDestroy {
     });
     if (!confirmed) return;
     this.auth.logout().subscribe({
-      next: () => this.router.navigate(['/login']),
-      error: () => this.router.navigate(['/login'])
+      next: () => this.router.navigate(['/sumicare/login']),
+      error: () => this.router.navigate(['/sumicare/login'])
     });
   }
 }

@@ -42,9 +42,7 @@
           <td class="p-3">{{ v.validUntil ?? '-' }}</td>
           <td class="p-3">{{ status(v) }}</td>
           <td class="p-3 text-right">
-            @if (!v.redeemedAt) {
             <button (click)="startEdit(v)" class="text-[var(--sumi-primary)] hover:underline text-sm">Edit</button>
-            }
           </td>
         </tr>
         } @empty {
@@ -91,6 +89,12 @@
             class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
         </label>
       </div>
+      <label class="block text-sm mt-2">
+        <span class="text-slate-700">Total redemption limit</span>
+        <input [(ngModel)]="formUsageLimit" name="usageLimit" type="number" min="0" placeholder="Unlimited"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
+        <span class="mt-1 block text-xs text-slate-500">Leave blank for unlimited. Each client may redeem a voucher only once.</span>
+      </label>
       <label class="block text-sm mt-2">
         <span class="text-slate-700">Applies to</span>
         <select [(ngModel)]="formTargetPackageId" name="targetPackage"

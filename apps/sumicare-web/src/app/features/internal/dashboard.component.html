@@ -48,6 +48,48 @@
   </section>
 
   @if (isReceptionist()) {
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-medium text-gray-600">Recent reservations</h2>
+        <a routerLink="../bookings" class="text-xs text-[var(--sumi-primary)] hover:underline">View bookings</a>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[640px] text-sm">
+            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="px-4 py-2">Client</th>
+                <th class="px-4 py-2">Reference</th>
+                <th class="px-4 py-2">Source</th>
+                <th class="px-4 py-2">Schedule</th>
+                <th class="px-4 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of recentReservations(); track r.id) {
+                <tr class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-4 py-2">
+                    <a [routerLink]="r.orderId ? ['../orders', r.orderId] : ['../bookings']" class="font-medium text-slate-900 hover:underline">{{ r.clientNickname }}</a>
+                    @if (r.clientEmail) {
+                      <span class="block text-xs text-slate-400">{{ r.clientEmail }}</span>
+                    }
+                  </td>
+                  <td class="px-4 py-2 font-mono text-xs">{{ r.reference || '-' }}</td>
+                  <td class="px-4 py-2">{{ reservationSource(r) }}</td>
+                  <td class="px-4 py-2 whitespace-nowrap">{{ formatReservationTime(r.scheduledAt) }}</td>
+                  <td class="px-4 py-2">{{ reservationStatus(r) }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="px-4 py-6 text-center text-slate-500">No recent reservations.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <div>
       <h2 class="text-sm font-medium text-gray-600 mb-3">Quick actions</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

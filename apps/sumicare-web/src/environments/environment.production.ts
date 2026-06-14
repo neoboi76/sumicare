@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  apiBaseUrl: '/api',
+  apiBaseUrl: '',
   wsUrl: '/ws',
   defaultOrganizationSlug: 'lasema'
 };

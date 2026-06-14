@@ -36,10 +36,10 @@ public class EmailVerificationController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invalid token"));
 
         if (evToken.isConsumed()) {
-            return redirect("/login?verified=already");
+            return redirect("/sumicare/login?verified=already");
         }
         if (evToken.isExpired()) {
-            return redirect("/login?verified=expired");
+            return redirect("/sumicare/login?verified=expired");
         }
 
         evToken.setConsumedAt(OffsetDateTime.now());
@@ -50,7 +50,7 @@ public class EmailVerificationController {
         user.setEmailVerified(true);
         userRepository.save(user);
 
-        return redirect("/login?verified=1");
+        return redirect("/sumicare/login?verified=1");
     }
 
     private org.springframework.http.ResponseEntity<Void> redirect(String path) {

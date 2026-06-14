@@ -3,7 +3,7 @@
     <button (click)="back()" class="text-sm text-slate-600 hover:underline">&larr; Orders</button>
     <div class="flex items-center gap-3">
       @if (order()?.treatmentSlipId) {
-      <a [routerLink]="['/app/treatment-slips', order()!.treatmentSlipId]"
+      <a [routerLink]="['/sumicare/app/treatment-slips',order()!.treatmentSlipId]"
         class="text-sm text-[var(--sumi-primary)] hover:underline">View treatment slip</a>
       }
       @if (order()?.status === 'OPEN') {
@@ -35,6 +35,9 @@
       <div>
         <div class="text-xs uppercase tracking-wide text-slate-500">Order</div>
         <div class="text-xl font-semibold">{{ o.transactorName || o.clientNickname || 'Walk-in' }}</div>
+        @if (o.clientEmail) {
+        <div class="text-xs text-slate-500">{{ o.clientEmail }}</div>
+        }
         <div class="text-xs text-slate-500">OR# {{ o.orNumber || '—' }} &middot; Ref {{ o.bookingReference || '—' }}
           &middot; Created {{ formatDate(o.createdAt) }}</div>
         @if (o.scheduledAt) {
@@ -74,7 +77,8 @@
               }
             </div>
             @if (it.attendees && it.attendees.length > 0) {
-              <table class="w-full mt-2 text-xs">
+              <div class="mt-2 overflow-x-auto">
+              <table class="w-full min-w-[420px] text-xs">
                 <thead class="text-slate-500 uppercase tracking-wide">
                   <tr><th class="text-left py-1">#</th><th class="text-left py-1">Massage</th><th class="text-left py-1">Locker</th><th class="text-left py-1">Sex</th><th class="text-left py-1">Slip</th></tr>
                 </thead>
@@ -87,13 +91,14 @@
                     <td class="py-1">{{ a.clientGender || '—' }}</td>
                     <td class="py-1">
                       @if (a.treatmentSlipId) {
-                        <a [routerLink]="['/app/treatment-slips', a.treatmentSlipId]" class="text-[var(--sumi-primary)] hover:underline">View</a>
+                        <a [routerLink]="['/sumicare/app/treatment-slips',a.treatmentSlipId]" class="text-[var(--sumi-primary)] hover:underline">View</a>
                       } @else { — }
                     </td>
                   </tr>
                 }
                 </tbody>
               </table>
+              </div>
             }
           </div>
         }

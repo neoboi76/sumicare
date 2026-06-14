@@ -60,6 +60,7 @@ interface CartItem {
   packageName: string;
   includesMassage: boolean;
   requiresVipRoom: boolean;
+  bundlesPrivateRoom: boolean;
   couple: boolean;
   defaultPax: number;
   tiers: PackageTier[];
@@ -191,7 +192,8 @@ export class CashierComponent implements OnInit {
   tax = signal(0);
 
   roomSurcharge = computed(() =>
-    this.cart().reduce((sum, c) => sum + (!c.requiresVipRoom && c.roomType === 'PRIVATE' ? 500 : 0), 0));
+    this.cart().reduce((sum, c) =>
+      sum + (!c.requiresVipRoom && !c.bundlesPrivateRoom && c.roomType === 'PRIVATE' ? 500 : 0), 0));
 
   totalAttendees = computed(() => this.cart().reduce((sum, c) => sum + c.attendees.length, 0));
   itemsSubtotal = computed(() => this.cart().reduce((sum, c) => sum + Number(c.lineTotal || 0), 0));
@@ -236,17 +238,17 @@ export class CashierComponent implements OnInit {
     const paymentMethod = params.get('paymentMethod');
     const amount = params.get('amount');
     if (!orderId) {
-      this.router.navigate(['/app/cashier']);
+      this.router.navigate(['/sumicare/app/cashier']);
       return;
     }
     const intent = params.get('intent') ?? sessionStorage.getItem('paymongoIntent:' + orderId);
     sessionStorage.removeItem('paymongoIntent:' + orderId);
     if (status === 'cancelled' || status === 'failed') {
-      this.router.navigate(['/app/orders', orderId], { queryParams: { paymentError: 'cancelled' } });
+      this.router.navigate(['/sumicare/app/orders', orderId], { queryParams: { paymentError: 'cancelled' } });
       return;
     }
     if (!intent) {
-      this.router.navigate(['/app/orders', orderId], { queryParams: { paymentError: 'confirm_failed' } });
+      this.router.navigate(['/sumicare/app/orders', orderId], { queryParams: { paymentError: 'confirm_failed' } });
       return;
     }
     this.submitting.set(true);
@@ -257,11 +259,11 @@ export class CashierComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.submitting.set(false);
-        this.router.navigate(['/app/orders', orderId]);
+        this.router.navigate(['/sumicare/app/orders', orderId]);
       },
       error: (e) => {
         this.submitting.set(false);
-        this.router.navigate(['/app/orders', orderId], {
+        this.router.navigate(['/sumicare/app/orders', orderId], {
           queryParams: { paymentError: e?.error?.message || 'confirm_failed' }
         });
       }
@@ -339,11 +341,12 @@ export class CashierComponent implements OnInit {
             packageName: it.packageName || pkg?.name || '',
             includesMassage: pkg?.includesMassage ?? false,
             requiresVipRoom: pkg?.requiresVipRoom ?? false,
+            bundlesPrivateRoom: pkg?.bundlesPrivateRoom ?? false,
             couple: pkg?.couple ?? false,
             defaultPax: pkg?.defaultPax ?? 1,
             tiers: pkg?.tiers || [],
             inclusions: pkg?.inclusions || [],
-            roomType: (pkg?.requiresVipRoom ? 'VIP' : (it.roomType === 'PRIVATE' ? 'PRIVATE' : 'COMMON')) as RoomType,
+            roomType: (pkg?.requiresVipRoom ? 'VIP' : ((pkg?.bundlesPrivateRoom || it.roomType === 'PRIVATE') ? 'PRIVATE' : 'COMMON')) as RoomType,
             unitPrice: Number(it.unitPrice || 0),
             lineTotal: Number(it.lineTotal || 0),
             attendees: attendees.length > 0 ? attendees : [this.blankAttendee()]
@@ -450,11 +453,12 @@ export class CashierComponent implements OnInit {
       packageName: pkg.name,
       includesMassage: pkg.includesMassage,
       requiresVipRoom: pkg.requiresVipRoom,
+      bundlesPrivateRoom: pkg.bundlesPrivateRoom,
       couple: pkg.couple,
       defaultPax: pax,
       tiers: pkg.tiers,
       inclusions: pkg.inclusions || [],
-      roomType: pkg.requiresVipRoom ? 'VIP' : 'COMMON',
+      roomType: pkg.requiresVipRoom ? 'VIP' : (pkg.bundlesPrivateRoom ? 'PRIVATE' : 'COMMON'),
       unitPrice: 0,
       lineTotal: 0,
       attendees
@@ -545,8 +549,10 @@ export class CashierComponent implements OnInit {
       this.voucherError.set('Enter a voucher code.');
       return;
     }
+    const clientId = this.selectedClient()?.id;
+    const clientParam = clientId ? `&clientId=${encodeURIComponent(clientId)}` : '';
     this.http.get<{ id: string; code: string; name: string | null; discount: number }>(
-      `${environment.apiBaseUrl}/api/vouchers/check?code=${encodeURIComponent(code)}&subtotal=${this.subtotal()}`
+      `${environment.apiBaseUrl}/api/vouchers/check?code=${encodeURIComponent(code)}&subtotal=${this.subtotal()}${clientParam}`
     ).subscribe({
       next: (v) => {
         if (!v || !v.discount || v.discount <= 0) {
@@ -855,7 +861,7 @@ export class CashierComponent implements OnInit {
           const queued = this.payments();
           if (queued.length === 0) {
             this.submitting.set(false);
-            this.router.navigate(['/app/orders', order.id]);
+            this.router.navigate(['/sumicare/app/orders', order.id]);
             return;
           }
           this.recordExtraPayments(order.id, queued, 0);
@@ -875,7 +881,7 @@ export class CashierComponent implements OnInit {
           const extra = this.payments().slice(1);
           if (extra.length === 0) {
             this.submitting.set(false);
-            this.router.navigate(['/app/orders', order.id]);
+            this.router.navigate(['/sumicare/app/orders', order.id]);
             return;
           }
           this.recordExtraPayments(order.id, extra, 0);
@@ -890,7 +896,7 @@ export class CashierComponent implements OnInit {
   private recordExtraPayments(orderId: string, list: AddedPayment[], idx: number): void {
     if (idx >= list.length) {
       this.submitting.set(false);
-      this.router.navigate(['/app/orders', orderId]);
+      this.router.navigate(['/sumicare/app/orders', orderId]);
       return;
     }
     const p = list[idx];
@@ -903,7 +909,7 @@ export class CashierComponent implements OnInit {
       next: () => this.recordExtraPayments(orderId, list, idx + 1),
       error: () => {
         this.submitting.set(false);
-        this.router.navigate(['/app/orders', orderId]);
+        this.router.navigate(['/sumicare/app/orders', orderId]);
       }
     });
   }
@@ -921,7 +927,7 @@ export class CashierComponent implements OnInit {
       next: (res) => {
         if (res.status === 'succeeded') {
           this.submitting.set(false);
-          this.router.navigate(['/app/orders', orderId]);
+          this.router.navigate(['/sumicare/app/orders', orderId]);
           return;
         }
         const origin = window.location.origin;
@@ -939,13 +945,13 @@ export class CashierComponent implements OnInit {
           window.location.href = res.redirectUrl;
         } else {
           this.submitting.set(false);
-          this.router.navigate(['/app/orders', orderId]);
+          this.router.navigate(['/sumicare/app/orders', orderId]);
         }
       },
       error: (err) => {
         this.submitting.set(false);
         this.error.set(err?.error?.message || 'Could not start the PayMongo payment.');
-        this.router.navigate(['/app/orders', orderId], {
+        this.router.navigate(['/sumicare/app/orders', orderId], {
           queryParams: { paymentError: err?.error?.message || 'paymongo_failed' }
         });
       }

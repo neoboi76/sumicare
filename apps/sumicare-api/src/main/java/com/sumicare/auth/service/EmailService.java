@@ -33,7 +33,7 @@ public class EmailService {
 
     @Async
     public void sendVerificationEmail(String to, String displayName, String token) {
-        String link = baseUrlResolver.resolve() + "/verify?token=" + token;
+        String link = baseUrlResolver.resolve() + "/sumicare/verify?token=" + token;
         String subject = "Confirm your New Lasema Spa Jjimjilbang account";
         String body = """
                 <html>
@@ -58,7 +58,7 @@ public class EmailService {
 
     @Async
     public void sendPasswordResetEmail(String to, String displayName, String token) {
-        String link = baseUrlResolver.resolve() + "/reset-password?token=" + token;
+        String link = baseUrlResolver.resolve() + "/sumicare/reset-password?token=" + token;
         String subject = "Reset your New Lasema Spa Jjimjilbang password";
         String body = """
                 <html>
@@ -83,7 +83,7 @@ public class EmailService {
 
     @Async
     public void sendInvitationEmail(String to, String displayName, String token) {
-        String link = baseUrlResolver.resolve() + "/invite?token=" + token;
+        String link = baseUrlResolver.resolve() + "/sumicare/invite?token=" + token;
         String subject = "You have been invited to New Lasema Spa Jjimjilbang";
         String body = """
                 <html>
