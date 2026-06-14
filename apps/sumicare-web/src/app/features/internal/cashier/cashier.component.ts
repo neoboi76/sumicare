@@ -931,7 +931,7 @@ export class CashierComponent implements OnInit {
           return;
         }
         const origin = window.location.origin;
-        const returnUrl = `${origin}/app/cashier?paymongoReturn=1&orderId=${orderId}`
+        const returnUrl = `${origin}/sumicare/app/cashier?paymongoReturn=1&orderId=${orderId}`
           + `&intent=${encodeURIComponent(res.intentId)}`
           + `&paymentMethod=${encodeURIComponent(payment.paymentMethod)}`
           + `&amount=${payment.amount}`;
