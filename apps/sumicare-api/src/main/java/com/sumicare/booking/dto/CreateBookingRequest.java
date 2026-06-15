@@ -28,5 +28,6 @@ public record CreateBookingRequest(
         List<PublicAttendeeRequest> attendees,
         List<CreateBookingItemRequest> items,
         String voucherCode,
-        @Size(max = 1000) String remarks
+        @Size(max = 1000) String remarks,
+        @Size(max = 120) String preferredTherapist
 ) {}

@@ -11,6 +11,8 @@ import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -84,7 +86,7 @@ public class AuthService {
         }
         resetFailedAttempts(user);
         if (SUPERADMIN.equalsIgnoreCase(user.getRole().getCode())) {
-            return LoginResponse.authenticated(completeLogin(user, response, clientIp(httpRequest)));
+            return LoginResponse.authenticated(completeLogin(user, httpRequest, response));
         }
         if (user.getEmail() == null || user.getEmail().isBlank()) {
             throw new AccessDeniedException("No email address is on file for verification. Please contact an administrator.");
@@ -98,7 +100,7 @@ public class AuthService {
         UUID userId = mfaService.verify(challengeId, code);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BadCredentialsException("Unknown user"));
-        return completeLogin(user, response, clientIp(httpRequest));
+        return completeLogin(user, httpRequest, response);
     }
 
     public void resendMfa(String challengeId) {
@@ -110,12 +112,12 @@ public class AuthService {
         });
     }
 
-    private TokenResponse completeLogin(User user, HttpServletResponse response, String ip) {
+    private TokenResponse completeLogin(User user, HttpServletRequest request, HttpServletResponse response) {
         String access = jwtService.issueAccessToken(user.getId(), user.getOrganizationId(), user.getRole().getCode());
         String refresh = jwtService.issueRefreshToken(user.getId(), user.getOrganizationId());
-        writeRefreshCookie(response, refresh);
+        writeRefreshCookie(request, response, refresh);
         auditService.record(user.getOrganizationId(), user.getId(), user.getRole().getCode(),
-                "USER.LOGIN", "USER", user.getId().toString(), null, ip);
+                "USER.LOGIN", "USER", user.getId().toString(), null, clientIp(request));
         return new TokenResponse(access, "Bearer", appProperties.jwt().accessExpiryMs() / 1000L, user.getRole().getCode());
     }
 
@@ -180,7 +182,7 @@ public class AuthService {
         jwtService.revoke(claims.getId(), Duration.ofMillis(ttl));
         String access = jwtService.issueAccessToken(user.getId(), user.getOrganizationId(), user.getRole().getCode());
         String newRefresh = jwtService.issueRefreshToken(user.getId(), user.getOrganizationId());
-        writeRefreshCookie(response, newRefresh);
+        writeRefreshCookie(request, response, newRefresh);
         return new TokenResponse(access, "Bearer", appProperties.jwt().accessExpiryMs() / 1000L, user.getRole().getCode());
     }
 
@@ -203,21 +205,31 @@ public class AuthService {
             } catch (Exception ignored) {
             }
         }
-        Cookie clear = new Cookie(REFRESH_COOKIE, "");
-        clear.setHttpOnly(true);
-        clear.setPath("/");
-        clear.setMaxAge(0);
-        response.addCookie(clear);
+        writeCookie(request, response, "", 0);
     }
 
-    private void writeRefreshCookie(HttpServletResponse response, String refresh) {
-        Cookie cookie = new Cookie(REFRESH_COOKIE, refresh);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge((int) (appProperties.jwt().refreshExpiryMs() / 1000L));
-        boolean isWildcardCors = "*".equals(appProperties.cors().allowedOrigins());
-        cookie.setSecure(!isWildcardCors);
-        response.addCookie(cookie);
+    private void writeRefreshCookie(HttpServletRequest request, HttpServletResponse response, String refresh) {
+        writeCookie(request, response, refresh, appProperties.jwt().refreshExpiryMs() / 1000L);
+    }
+
+    private void writeCookie(HttpServletRequest request, HttpServletResponse response, String value, long maxAgeSeconds) {
+        boolean secure = isSecureRequest(request);
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE, value)
+                .httpOnly(true)
+                .path("/")
+                .maxAge(maxAgeSeconds)
+                .secure(secure)
+                .sameSite(secure ? "None" : "Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private boolean isSecureRequest(HttpServletRequest request) {
+        if (request.isSecure()) {
+            return true;
+        }
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        return forwardedProto != null && "https".equalsIgnoreCase(forwardedProto.trim());
     }
 
     private String readRefreshCookie(HttpServletRequest request) {

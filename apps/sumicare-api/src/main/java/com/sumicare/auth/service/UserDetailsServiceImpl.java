@@ -26,7 +26,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (user.getPasswordHash() == null) {
             throw new UsernameNotFoundException("Account setup is not complete");
         }
-        String roleCode = user.getRole() == null ? "STAFF" : user.getRole().getCode();
+        if (user.getRole() == null || user.getRole().getCode() == null) {
+            throw new UsernameNotFoundException("Account has no role assigned");
+        }
+        String roleCode = user.getRole().getCode();
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
                 user.getPasswordHash(),

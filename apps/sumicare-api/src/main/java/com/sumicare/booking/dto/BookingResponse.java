@@ -20,5 +20,6 @@ public record BookingResponse(
         Integer pax,
         boolean sessionExtended,
         String nationality,
-        String remarks
+        String remarks,
+        String preferredTherapist
 ) {}

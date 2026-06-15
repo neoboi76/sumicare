@@ -124,6 +124,7 @@ export class BookComponent implements OnInit {
   clientEmail = '';
   nationality = '';
   remarks = '';
+  preferredTherapist = '';
   reservationType = 'SOFT';
   paymentMethod = signal<PayMethod>('GCASH');
   scheduledDate = '';
@@ -389,7 +390,8 @@ export class BookComponent implements OnInit {
       paymentMethod: this.reservationType === 'HARD' ? this.paymentMethod() : null,
       items: payloadItems,
       voucherCode: this.appliedVoucher() ? this.voucherCode.trim() : null,
-      remarks: this.remarks.trim() || null
+      remarks: this.remarks.trim() || null,
+      preferredTherapist: this.preferredTherapist.trim() || null
     };
 
     this.http
@@ -541,6 +543,7 @@ export class BookComponent implements OnInit {
     this.clientEmail = '';
     this.nationality = '';
     this.remarks = '';
+    this.preferredTherapist = '';
     this.scheduledDate = '';
     this.scheduledTime = '';
     this.consent = false;

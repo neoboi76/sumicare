@@ -36,6 +36,7 @@ public record CreateOrderRequest(
         @Size(max = 20) String roomType,
         @DecimalMin("0.00") BigDecimal roomTypeCharge,
         UUID voucherId,
+        @Size(max = 120) String preferredTherapist,
         List<CreateOrderItemRequest> items
 ) {
     public record InitialPayment(

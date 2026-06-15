@@ -310,7 +310,8 @@ public class OrderService {
                 null,
                 null,
                 null,
-                request.notes()
+                request.notes(),
+                request.preferredTherapist()
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
         Booking booking = bookingRepository.findById(bookingResponse.id()).orElseThrow();
@@ -331,6 +332,7 @@ public class OrderService {
         }
         order.setReferenceNumber(request.referenceNumber());
         order.setNotes(request.notes());
+        order.setPreferredTherapist(normalizePreferredTherapist(request.preferredTherapist()));
         order.setSubtotal(subtotalFromRequest);
         order.setDiscount(discount);
         order.setTax(tax);
@@ -551,6 +553,7 @@ public class OrderService {
         }
         order.setReferenceNumber(request.referenceNumber());
         order.setNotes(request.notes());
+        order.setPreferredTherapist(normalizePreferredTherapist(request.preferredTherapist()));
         order.setSubtotal(subtotalFromRequest);
         order.setDiscount(discount);
         order.setTax(tax);
@@ -1454,6 +1457,12 @@ public class OrderService {
         slip.setTotalAmount(order.getTotal());
         slip.setPax(booking.getPax());
         slip.setNationality(booking.getNationality());
+        if (slip.getRequestedTherapistNickname() == null || slip.getRequestedTherapistNickname().isBlank()) {
+            String preferred = order.getPreferredTherapist() != null ? order.getPreferredTherapist() : booking.getPreferredTherapist();
+            if (preferred != null && !preferred.isBlank()) {
+                slip.setRequestedTherapistNickname(preferred);
+            }
+        }
 
         if (isVip) {
             slip.setVip(true);
@@ -1564,6 +1573,17 @@ public class OrderService {
         return idSequenceService.nextTsn();
     }
 
+    private String normalizePreferredTherapist(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.length() > 120 ? trimmed.substring(0, 120) : trimmed;
+    }
+
     private OrderResponse toResponseWithBookingLookup(Order order) {
         Booking booking = order.getBookingId() == null ? null
                 : bookingRepository.findById(order.getBookingId()).orElse(null);
@@ -1665,6 +1685,7 @@ public class OrderService {
                 order.getOrNumber(),
                 order.getReferenceNumber(),
                 order.getNotes(),
+                order.getPreferredTherapist(),
                 order.getSubtotal(),
                 order.getDiscount(),
                 order.getTax(),

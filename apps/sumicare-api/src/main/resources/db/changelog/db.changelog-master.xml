@@ -61,4 +61,7 @@
     <include file="changes/0055-voucher-redemptions.xml" relativeToChangelogFile="true"/>
     <include file="changes/0056-remove-seeded-test-users.xml" relativeToChangelogFile="true"/>
     <include file="changes/0057-session-status-index.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0058-historical-seed-data.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0059-remove-staff-role.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0060-preferred-therapist.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

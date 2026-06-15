@@ -47,7 +47,7 @@ authentication and method-level authorization.
 As a thesis project, SumiCare targets a real operational gap: small and mid-sized spas that run on
 paper and cannot justify enterprise software. It keeps the walk-in-first reality of the business
 (client accounts are optional and sessions never require one) while adding online booking,
-recommendations, immutable audit logging, and remotely accessible Excel-exportable reports.
+recommendations, immutable audit logging, and remotely accessible CSV-exportable reports.
 
 ## Features
 
@@ -58,7 +58,7 @@ recommendations, immutable audit logging, and remotely accessible Excel-exportab
 - Live room and bed occupancy with gender-segregated common rooms, updated in real time over WebSocket.
 - Treatment-slip generation and digitization (clients identified by nickname only).
 - Point-of-sale and cashier module: cash, GCash, credit, and debit payments, refunds, receipts, discounts, vouchers, and an append-only transaction ledger.
-- Cutoff, end-of-day, monthly, commission, and decking reports, all exportable to Excel/CSV.
+- Cutoff, end-of-day, monthly, commission, and decking reports, all exportable to CSV (`text/csv`).
 - Therapist attendance with day-off, absence, and remarks tracking.
 - Per-organization branding and editable public website content (CMS).
 - Immutable audit logging of every authenticated state-changing action.
@@ -121,19 +121,27 @@ cd sumicare
 # 2. Create your local environment file
 cp .env.example .env        # then fill in the required values
 
-# 3. Start PostgreSQL, Redis, and the Spring Boot API
+# 3. Start Redis (the only service the compose file defines)
 docker compose up
 
-# 4. In a second terminal, install workspace dependencies
+# 4. Provide PostgreSQL and run the Spring Boot API separately
+#    - point DB_URL at your Postgres instance
+#    - run the API via Maven (mvn spring-boot:run in apps/sumicare-api)
+#      or the multi-stage apps/sumicare-api/Dockerfile, on :8080
+
+# 5. In a second terminal, install workspace dependencies
 npm install
 
-# 5. Start the Angular dev server (proxies /api and /ws to the backend)
+# 6. Start the Angular dev server (proxies /api and /ws to the backend)
 npm start                   # nx serve sumicare-web, http://localhost:4200
 ```
 
-The API listens on `http://localhost:8080`, and the dev server proxies `/api` and `/ws` to it via
-`apps/sumicare-web/proxy.conf.json`. Liquibase applies all schema migrations automatically on API
-startup. A helper script, `start-api.ps1`, is provided for running the backend on Windows.
+`docker compose up` starts Redis only; the compose file does not define a `db` (PostgreSQL) or
+`api` service. Provide a PostgreSQL instance yourself and run the API via Maven or the
+`apps/sumicare-api/Dockerfile`. The API listens on `http://localhost:8080`, and the dev server
+proxies `/api` and `/ws` to it via `apps/sumicare-web/proxy.conf.json`. Liquibase applies all schema
+migrations automatically on API startup. A helper script, `start-api.ps1`, is provided for running
+the backend on Windows.
 
 On first run, a default superadmin is seeded. Sign in to the internal system with:
 
@@ -196,7 +204,7 @@ sumicare/
 ├── libs/
 │   ├── shared-types/                  TypeScript DTOs/types shared with the web app
 │   └── ui/                            Reusable Angular UI primitives
-├── docker-compose.yml                 Local dev: db, redis, api
+├── docker-compose.yml                 Local dev: Redis only (provide Postgres and run the API separately)
 ├── nx.json                            NX workspace configuration
 └── .env.example                       Canonical environment variable list
 ```
@@ -214,7 +222,7 @@ sumicare/
 | `room` | Room and bed allocation, occupancy, gender-segregation rules. |
 | `transaction` | Treatment-slip creation and digitization, session records, commissions. |
 | `pos` / `cashier` | Payment processing, receipts, transaction ledger, cashier reconciliation. |
-| `report` | Cutoff, day, monthly, commission, and decking reports with Excel export. |
+| `report` | Cutoff, day, monthly, commission, and decking reports with CSV export. |
 | `attendance` | Therapist attendance, day-off, absence, and remarks reporting. |
 | `recommendation` | Weighted-scoring quiz engine for massage recommendations. |
 | `client` | Optional, non-critical client accounts for usage patterns and vouchers. |
@@ -224,15 +232,14 @@ sumicare/
 
 ## User Roles
 
-Access follows a strict hierarchy: `SUPERADMIN > ADMIN > MANAGER > RECEPTIONIST > STAFF`.
+Access follows a strict hierarchy: `SUPERADMIN > ADMIN > MANAGER > RECEPTIONIST`.
 
 | Role | Access and responsibilities |
 |---|---|
 | Superadmin | Full access, including managing Admin accounts. |
 | Admin | Everything plus user management and audit logs (cannot manage other Admins). |
-| Manager | Receptionist and staff functions plus reports, analytics, and user management below their level. |
+| Manager | Receptionist functions plus reports, analytics, and user management below their level. |
 | Receptionist | Booking, room and therapist assignment, treatment slips, and cashier operations. |
-| Staff | Passive display view only; no login required. |
 | Public User | Unauthenticated client using the public booking website (browse, book, recommend, cancel, feedback). |
 
 ## API Overview

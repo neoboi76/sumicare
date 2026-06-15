@@ -61,11 +61,11 @@
         } @else {
         <div class="space-y-2">
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Link a registered client (optional)</div>
-          <div class="flex gap-2">
+          <div class="flex flex-col sm:flex-row gap-2">
             <input [(ngModel)]="searchTerm" (input)="searchClients()" name="searchTerm" placeholder="Search by nickname"
               class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
             <button (click)="openRegister()"
-              class="rounded bg-[var(--sumi-primary)] text-white px-3 py-2 text-sm">Register client</button>
+              class="w-full sm:w-auto whitespace-nowrap rounded bg-[var(--sumi-primary)] text-white px-3 py-2 text-sm">Register client</button>
           </div>
           @if (searchResults().length > 0) {
           <ul class="border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white max-h-64 overflow-y-auto">
@@ -90,7 +90,7 @@
             Weekend / holiday pricing
           </label>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-col sm:flex-row gap-2">
           <select [(ngModel)]="selectedPackageId" name="selectedPackageId"
             class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
             <option [ngValue]="null" disabled>Select a package to add</option>
@@ -99,7 +99,7 @@
             }
           </select>
           <button (click)="addPackage()" [disabled]="selectedPackageId == null"
-            class="rounded bg-[var(--sumi-primary)] text-white px-4 text-sm disabled:opacity-50">Add package</button>
+            class="w-full sm:w-auto rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm disabled:opacity-50">Add package</button>
         </div>
 
         @if (cart().length === 0) {
@@ -252,6 +252,12 @@
             @if (voucherError(); as ve) { <span class="text-[11px] text-red-600">{{ ve }}</span> }
           </label>
           <label class="block md:col-span-2">
+            Preferred therapist
+            <input [(ngModel)]="preferredTherapist" name="preferredTherapist" maxlength="120"
+              placeholder="A preference only; does not allocate a therapist"
+              class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+          </label>
+          <label class="block md:col-span-2">
             Notes
             <textarea [(ngModel)]="notes" name="notes" maxlength="1000" rows="2"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"></textarea>
@@ -271,7 +277,7 @@
           </select>
         </label>
 
-        <div class="flex gap-2 items-end">
+        <div class="flex flex-col sm:flex-row gap-2 sm:items-end">
           <label class="block flex-1">
             <span class="text-xs text-slate-500">Amount</span>
             <input [(ngModel)]="paymentAmount" name="payAmount" type="number" min="0" step="0.01"
@@ -283,7 +289,7 @@
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
           </label>
           <button (click)="addPayment()" [disabled]="total() === 0"
-            class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2 disabled:opacity-50">Add
+            class="w-full sm:w-auto rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-2 disabled:opacity-50">Add
             payment</button>
         </div>
         @if (total() === 0) {
@@ -419,7 +425,7 @@
 
         <div>
           <div class="font-semibold text-slate-900 mb-2">Adjustment details:</div>
-          <div class="grid grid-cols-2 gap-3 text-sm">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div>
               <div class="text-xs text-slate-500 mb-1">Adjustment type</div>
               <div class="flex gap-1">
@@ -451,7 +457,7 @@
               </div>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3 mt-3 text-sm">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm">
             <label class="block">
               Details
               <input [(ngModel)]="discountConfig().name"
@@ -509,7 +515,7 @@
         </div>
         }
       </div>
-      <div class="px-6 py-4 border-t flex justify-between gap-2">
+      <div class="px-6 py-4 border-t flex flex-col sm:flex-row sm:justify-between gap-2">
         <button (click)="saveAsTemplate()"
           class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-4 py-2 text-sm">Save as
           template</button>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0060-1-bookings-preferred-therapist" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="bookings" columnName="preferred_therapist"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="bookings">
+            <column name="preferred_therapist" type="VARCHAR(120)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0060-2-orders-preferred-therapist" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="orders" columnName="preferred_therapist"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="orders">
+            <column name="preferred_therapist" type="VARCHAR(120)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

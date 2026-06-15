@@ -62,6 +62,9 @@
               {{ expandedBookingId() === b.id ? '▾' : '▸' }} {{ attendeeCount(b.id) }} pax
             </button>
             }
+            @if (b.preferredTherapist) {
+            <span class="block text-xs font-normal text-slate-500" title="Preferred therapist">Preferred therapist: {{ b.preferredTherapist }}</span>
+            }
             @if (b.remarks) {
             <span class="block text-xs font-normal text-slate-500" title="Remarks">{{ b.remarks }}</span>
             }
@@ -80,7 +83,9 @@
               }
             </div>
           </td>
-          <td class="p-3">{{ b.status }}</td>
+          <td class="p-3">
+            <span class="inline-block rounded px-2 py-0.5 text-[11px] font-semibold" [class]="statusClass(b.status)">{{ b.status }}</span>
+          </td>
           <td class="p-3">
             @if (b.orderId) {
             <a [routerLink]="['/sumicare/app/orders', b.orderId]" class="hover:underline">
@@ -233,7 +238,6 @@
     }
   </section>
 
-  <!-- Start Session Modal -->
   @if (startBooking(); as sb) {
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -323,7 +327,6 @@
   </div>
   }
 
-  <!-- Edit Booking Modal -->
   @if (editBooking(); as eb) {
   <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" (click)="cancelEdit()">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
