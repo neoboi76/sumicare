@@ -10,7 +10,7 @@
                 <sqlCheck expectedResult="1">SELECT COUNT(*) FROM users WHERE username = 'superadmin'</sqlCheck>
             </and>
         </preConditions>
-        <sql splitStatements="false" stripComments="false">
+        <sql splitStatements="false" stripComments="false"><![CDATA[
 DO $seed$
 DECLARE
     org_id UUID;
@@ -217,7 +217,7 @@ $seed$;
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="1">SELECT COUNT(*) FROM organizations WHERE slug = 'lasema'</sqlCheck>
         </preConditions>
-        <sql splitStatements="false" stripComments="false">
+        <sql splitStatements="false" stripComments="false"><![CDATA[
 DO $dayrep$
 DECLARE
     org_id UUID;
@@ -277,14 +277,14 @@ BEGIN
     END LOOP;
 END
 $dayrep$;
-        </sql>
+        ]]></sql>
     </changeSet>
 
     <changeSet id="0058-3-historical-monthly-reports" author="sumicare">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="1">SELECT COUNT(*) FROM organizations WHERE slug = 'lasema'</sqlCheck>
         </preConditions>
-        <sql splitStatements="false" stripComments="false">
+        <sql splitStatements="false" stripComments="false"><![CDATA[
 DO $monrep$
 DECLARE
     org_id UUID;
@@ -356,7 +356,7 @@ BEGIN
     END LOOP;
 END
 $monrep$;
-        </sql>
+        ]]></sql>
     </changeSet>
 
 </databaseChangeLog>
