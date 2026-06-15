@@ -146,6 +146,7 @@ export class CashierComponent implements OnInit {
   orNumber = '';
   tsNumber = '';
   notes = '';
+  preferredTherapist = '';
 
   editingOrderId = signal<string | null>(null);
 
@@ -313,6 +314,7 @@ export class CashierComponent implements OnInit {
         this.referenceNumber = o.referenceNumber || '';
         this.orNumber = o.orNumber || '';
         this.notes = o.notes || '';
+        this.preferredTherapist = o.preferredTherapist || '';
         if (o.scheduledAt) {
           const parts = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -782,6 +784,7 @@ export class CashierComponent implements OnInit {
       orNumber: this.orNumber || null,
       tsNumber: this.tsNumber || null,
       notes: this.notes || null,
+      preferredTherapist: this.preferredTherapist || null,
       voucherId: this.voucherId(),
       subtotal: this.subtotal(),
       discount: this.discountSummary()

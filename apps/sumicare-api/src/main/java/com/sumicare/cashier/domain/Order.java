@@ -54,6 +54,9 @@ public class Order {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "preferred_therapist", length = 120)
+    private String preferredTherapist;
+
     @Column(name = "subtotal", nullable = false)
     private BigDecimal subtotal = BigDecimal.ZERO;
 
@@ -120,6 +123,8 @@ public class Order {
     public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getPreferredTherapist() { return preferredTherapist; }
+    public void setPreferredTherapist(String preferredTherapist) { this.preferredTherapist = preferredTherapist; }
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
     public BigDecimal getDiscount() { return discount; }

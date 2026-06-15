@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0059-1-reassign-staff-users" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM roles WHERE code = 'STAFF'</sqlCheck>
+        </preConditions>
+        <sql>
+            UPDATE users
+            SET role_id = (SELECT id FROM roles WHERE code = 'RECEPTIONIST')
+            WHERE role_id = (SELECT id FROM roles WHERE code = 'STAFF');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0059-2-remove-staff-permission-overrides" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM roles WHERE code = 'STAFF'</sqlCheck>
+        </preConditions>
+        <sql>
+            DELETE FROM user_permission_overrides
+            WHERE user_id IN (
+                SELECT id FROM users WHERE role_id = (SELECT id FROM roles WHERE code = 'STAFF')
+            );
+        </sql>
+    </changeSet>
+
+    <changeSet id="0059-3-remove-staff-role-permissions" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM roles WHERE code = 'STAFF'</sqlCheck>
+        </preConditions>
+        <sql>
+            DELETE FROM role_permissions
+            WHERE role_id = (SELECT id FROM roles WHERE code = 'STAFF');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0059-4-remove-staff-role" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM roles WHERE code = 'STAFF'</sqlCheck>
+        </preConditions>
+        <sql>
+            DELETE FROM roles WHERE code = 'STAFF';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

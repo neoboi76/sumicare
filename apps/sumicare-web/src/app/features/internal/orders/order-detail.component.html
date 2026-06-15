@@ -142,10 +142,11 @@
       </div>
     </div>
 
-    @if (o.referenceNumber || o.notes) {
+    @if (o.referenceNumber || o.notes || o.preferredTherapist) {
     <div class="text-sm text-slate-700 border-t border-slate-100 pt-3 space-y-1">
       @if (o.referenceNumber) { <div><span class="text-xs uppercase text-slate-500">Reference:</span> {{
         o.referenceNumber }}</div> }
+      @if (o.preferredTherapist) { <div><span class="text-xs uppercase text-slate-500">Preferred therapist:</span> {{ o.preferredTherapist }}</div> }
       @if (o.notes) { <div><span class="text-xs uppercase text-slate-500">Notes:</span> {{ o.notes }}</div> }
     </div>
     }

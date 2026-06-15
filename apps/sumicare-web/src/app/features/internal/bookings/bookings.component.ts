@@ -32,6 +32,7 @@ interface BookingResponse {
   pax?: number | null;
   sessionExtended?: boolean;
   remarks?: string | null;
+  preferredTherapist?: string | null;
 }
 
 interface SessionResponse {
@@ -491,6 +492,16 @@ export class BookingsComponent implements OnInit, OnDestroy {
 
   sourceLabel(b: BookingResponse): string {
     return b.reservationType === 'WALK_IN' ? 'Walk-in' : 'Online';
+  }
+
+  statusClass(status: string): string {
+    switch (status) {
+      case 'OPEN': return 'bg-amber-100 text-amber-700';
+      case 'PAID': return 'bg-emerald-100 text-emerald-700';
+      case 'CANCELLED': return 'bg-rose-100 text-rose-700';
+      case 'REFUNDED': return 'bg-violet-100 text-violet-700';
+      default: return 'bg-slate-100 text-slate-700';
+    }
   }
 
   activeStartGender(): string | null {

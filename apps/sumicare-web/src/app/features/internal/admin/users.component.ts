@@ -58,13 +58,13 @@ export class UsersComponent implements OnInit {
   canManageUser(targetRole: string): boolean {
     const r = this.myRole();
     if (r === 'SUPERADMIN') return targetRole !== 'SUPERADMIN';
-    if (r === 'ADMIN') return ['MANAGER', 'RECEPTIONIST', 'STAFF'].includes(targetRole);
+    if (r === 'ADMIN') return ['MANAGER', 'RECEPTIONIST'].includes(targetRole);
     return false;
   }
 
   allowedRoles = computed<string[]>(() => {
-    if (this.myRole() === 'SUPERADMIN') return ['STAFF', 'RECEPTIONIST', 'MANAGER', 'ADMIN'];
-    return ['STAFF', 'RECEPTIONIST', 'MANAGER'];
+    if (this.myRole() === 'SUPERADMIN') return ['RECEPTIONIST', 'MANAGER', 'ADMIN'];
+    return ['RECEPTIONIST', 'MANAGER'];
   });
 
   formUsername = '';

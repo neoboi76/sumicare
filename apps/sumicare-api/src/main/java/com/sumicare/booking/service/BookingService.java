@@ -309,6 +309,7 @@ public class BookingService {
         booking.setClientGender(request.clientGender());
         booking.setNationality(request.nationality());
         booking.setRemarks(request.remarks());
+        booking.setPreferredTherapist(normalizePreferredTherapist(request.preferredTherapist()));
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
         booking.setReference(BookingReference.of(booking.getId()));
@@ -324,6 +325,7 @@ public class BookingService {
         order.setRoomType(resolvedRoomType);
         order.setRoomTypeCharge(resolvedRoomCharge);
         order.setNotes(request.remarks());
+        order.setPreferredTherapist(booking.getPreferredTherapist());
         order.setGroupBooking(resolvedPax > 1 || coupleOrVip);
         orderRepository.save(order);
 
@@ -409,6 +411,17 @@ public class BookingService {
                     .orElse(null);
         }
         return null;
+    }
+
+    private String normalizePreferredTherapist(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.length() > 120 ? trimmed.substring(0, 120) : trimmed;
     }
 
     private BookingResponse finalizeBooking(Order order, Booking booking, Service service, Package selectedPackage,
@@ -518,6 +531,7 @@ public class BookingService {
         booking.setClientGender(request.clientGender());
         booking.setNationality(request.nationality());
         booking.setRemarks(request.remarks());
+        booking.setPreferredTherapist(normalizePreferredTherapist(request.preferredTherapist()));
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
         booking.setReference(BookingReference.of(booking.getId()));
@@ -533,6 +547,7 @@ public class BookingService {
         order.setRoomType(orderRoomType);
         order.setRoomTypeCharge(roomChargeTotal);
         order.setNotes(request.remarks());
+        order.setPreferredTherapist(booking.getPreferredTherapist());
         order.setGroupBooking(totalAttendees > 1 || anyCoupleOrVip);
         orderRepository.save(order);
 
@@ -1417,7 +1432,7 @@ public class BookingService {
         return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(),
                 b.getLockerNumber(), b.getServiceId(), b.getReservationType(), effectiveStart, projectedEnd,
                 b.getStatus(), orderId, orderStatus, order == null ? null : order.getTreatmentSlipId(),
-                b.getPax(), sessionExtended, b.getNationality(), b.getRemarks());
+                b.getPax(), sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
     }
 
     public List<Session> findExpiredActiveSessions() {
@@ -1528,13 +1543,13 @@ public class BookingService {
             return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                     b.getServiceId(), b.getReservationType(), effectiveStart,
                     projectedEnd, b.getStatus(), orderId, orderStatus, treatmentSlipId, b.getPax(),
-                    sessionExtended, b.getNationality(), b.getRemarks());
+                    sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
         }
         OffsetDateTime projectedEnd = effectiveStart.plusMinutes(maxDuration);
         return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), effectiveStart,
                 projectedEnd, b.getStatus(), orderId, orderStatus, treatmentSlipId, b.getPax(),
-                sessionExtended, b.getNationality(), b.getRemarks());
+                sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
     }
 
     private SessionResponse toSessionResponse(Session s) {

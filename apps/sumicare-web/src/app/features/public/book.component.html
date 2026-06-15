@@ -265,6 +265,13 @@
         <span class="text-xs text-gray-400 -mt-2 block">Both date and time are required.</span>
 
         <label class="block text-sm text-gray-700">
+          Preferred therapist (optional)
+          <input [(ngModel)]="preferredTherapist" name="preferredTherapist" maxlength="120"
+                 placeholder="A preference only; the front desk assigns therapists"
+                 class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
+        </label>
+
+        <label class="block text-sm text-gray-700">
           Remarks
           <textarea [(ngModel)]="remarks" name="remarks" rows="2" maxlength="1000"
                     placeholder="Anything we should know (optional)"

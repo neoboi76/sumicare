@@ -19,6 +19,7 @@ public record OrderResponse(
         String orNumber,
         String referenceNumber,
         String notes,
+        String preferredTherapist,
         BigDecimal subtotal,
         BigDecimal discount,
         BigDecimal tax,

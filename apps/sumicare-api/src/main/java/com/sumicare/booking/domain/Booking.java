@@ -59,6 +59,9 @@ public class Booking {
     @Column(name = "remarks", columnDefinition = "text")
     private String remarks;
 
+    @Column(name = "preferred_therapist", length = 120)
+    private String preferredTherapist;
+
     @Column(name = "status", nullable = false)
     private String status = "PENDING";
 
@@ -103,6 +106,8 @@ public class Booking {
     public void setNationality(String nationality) { this.nationality = nationality; }
     public String getRemarks() { return remarks; }
     public void setRemarks(String remarks) { this.remarks = remarks; }
+    public String getPreferredTherapist() { return preferredTherapist; }
+    public void setPreferredTherapist(String preferredTherapist) { this.preferredTherapist = preferredTherapist; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getPaymentStatus() { return paymentStatus; }

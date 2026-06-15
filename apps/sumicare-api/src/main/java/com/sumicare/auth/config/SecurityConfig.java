@@ -47,7 +47,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/mfa/verify", "/api/auth/mfa/resend", "/api/auth/refresh", "/api/auth/logout", "/api/auth/verify", "/api/auth/reset-password", "/api/auth/contact-admin-reset", "/api/auth/invitations/redeem").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/api/biometrics/**").permitAll()
                         .requestMatchers("/api/webhooks/**").permitAll()
                         .requestMatchers("/api/content/upload").authenticated()
                         .requestMatchers("/uploads/**").permitAll()
@@ -92,7 +91,7 @@ public class SecurityConfig {
             "https://newlasemaspa.up.railway.app"
         ));
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-Biometrics-Key"));
+        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
         cors.setExposedHeaders(List.of("Authorization"));
         cors.setAllowCredentials(true);
 

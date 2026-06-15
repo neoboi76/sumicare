@@ -55,15 +55,6 @@ sumicare:
     refreshExpiryMs: ${JWT_REFRESH_EXPIRY_MS:604800000}
   cors:
     allowedOrigins: ${CORS_ALLOWED_ORIGINS:*}
-  biometrics:
-    mode: ${BIOMETRICS_MODE:webhook}
-    sharedKey: ${BIOMETRICS_SHARED_KEY}
-    pollingUrl: ${BIOMETRICS_POLLING_URL:}
-    pollingApiKey: ${BIOMETRICS_POLLING_API_KEY:}
-    databaseUrl: ${BIOMETRICS_DATABASE_URL:}
-    databaseUsername: ${BIOMETRICS_DATABASE_USERNAME:}
-    databasePassword: ${BIOMETRICS_DATABASE_PASSWORD:}
-    databaseQuery: ${BIOMETRICS_DATABASE_QUERY:SELECT staff_number, event_time, device_id FROM clock_in_events WHERE event_time > ?}
   anthropic:
     apiKey: ${ANTHROPIC_API_KEY:}
   bcrypt:

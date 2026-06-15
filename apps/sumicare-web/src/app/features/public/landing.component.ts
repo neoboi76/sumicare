@@ -11,6 +11,11 @@ interface MosaicTile {
     caption: string;
 }
 
+interface VisitHighlight {
+    label: string;
+    text: string;
+}
+
 @Component({
     selector: 'sumi-landing',
     standalone: true,
@@ -30,7 +35,7 @@ export class LandingComponent {
 
     readonly mosaicSmall: MosaicTile[] = [
         {
-            src: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=900&q=75',
+            src: '/assets/lasema/studio.jpg',
             alt: 'Studio interior',
             label: 'The Studio',
             caption: 'Where every session begins'
@@ -57,22 +62,29 @@ export class LandingComponent {
 
     readonly stripImages: MosaicTile[] = [
         {
-            src: '/assets/lasema/Lasema-package-1.jpg',
-            alt: 'Lasema 12-hour package menu',
-            label: 'Lasema Package',
-            caption: 'The 12-hour stay menu'
-        },
-        {
-            src: '/assets/lasema/Lasema-package-2.jpg',
-            alt: 'Lasema 3-hour massage package menu',
-            label: 'Massage Package',
-            caption: 'The 3-hour menu'
-        },
-        {
             src: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=75',
             alt: 'Lasema interior',
             label: 'San Antonio Village',
             caption: 'Sampaloc Street &middot; Makati'
+        }
+    ];
+
+    readonly visitHighlights: VisitHighlight[] = [
+        {
+            label: 'Jacuzzi & Sauna',
+            text: 'Warm soaking pools and dry heat to open the day or close a long shift.'
+        },
+        {
+            label: 'Kiln Rooms',
+            text: 'Mineral-lined heat chambers tuned to draw out tension at your own pace.'
+        },
+        {
+            label: 'Lounge & Sleeping Cave',
+            text: 'A dim, quiet recline space for resting between treatments or staying the night.'
+        },
+        {
+            label: 'Korean Photobooth',
+            text: 'A small keepsake corner to mark the visit before you head back out.'
         }
     ];
 }

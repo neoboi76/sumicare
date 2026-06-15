@@ -49,6 +49,7 @@ interface Order {
   orNumber: string | null;
   referenceNumber: string | null;
   notes: string | null;
+  preferredTherapist: string | null;
   subtotal: number;
   discount: number;
   tax: number;

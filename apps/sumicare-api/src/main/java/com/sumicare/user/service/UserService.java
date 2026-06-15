@@ -28,7 +28,7 @@ import java.util.UUID;
 @Service
 public class UserService {
 
-    private static final Set<String> ADMIN_EDITABLE_ROLES = Set.of("MANAGER", "RECEPTIONIST", "STAFF");
+    private static final Set<String> ADMIN_EDITABLE_ROLES = Set.of("MANAGER", "RECEPTIONIST");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -55,7 +55,7 @@ public class UserService {
         String targetRole = target.getRole() == null ? null : target.getRole().getCode();
         if ("ADMIN".equals(actorRole)) {
             if (targetRole == null || !ADMIN_EDITABLE_ROLES.contains(targetRole)) {
-                throw new AccessDeniedException("ADMIN can only manage MANAGER, RECEPTIONIST, and STAFF users");
+                throw new AccessDeniedException("ADMIN can only manage MANAGER and RECEPTIONIST users");
             }
         } else if ("SUPERADMIN".equals(actorRole)) {
             if ("SUPERADMIN".equals(targetRole)) {
