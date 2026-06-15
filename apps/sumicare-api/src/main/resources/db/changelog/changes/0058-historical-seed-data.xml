@@ -22,7 +22,9 @@ DECLARE
     svc_code TEXT;
     svc RECORD;
     primary_th RECORD;
-    secondary_th RECORD;
+    secondary_th_id UUID;
+    secondary_th_nickname TEXT;
+    secondary_th_gender TEXT;
     chosen_room RECORD;
     chosen_bed UUID;
     is_tandem BOOLEAN;
@@ -88,9 +90,11 @@ BEGIN
                 WHERE organization_id = org_id
                   AND staff_number = therapist_codes[((n - 1) % array_length(therapist_codes, 1)) + 1];
 
-            secondary_th := NULL;
+            secondary_th_id := NULL;
+            secondary_th_nickname := NULL;
+            secondary_th_gender := NULL;
             IF is_tandem THEN
-                SELECT id, nickname, gender INTO secondary_th
+                SELECT id, nickname, gender INTO secondary_th_id, secondary_th_nickname, secondary_th_gender
                     FROM therapists
                     WHERE organization_id = org_id
                       AND staff_number = therapist_codes[(n % array_length(therapist_codes, 1)) + 1];
@@ -133,7 +137,7 @@ BEGIN
                                   room_id, bed_id, is_specifically_requested, is_extension, extension_minutes,
                                   status, started_at, ended_at, created_at)
             VALUES (session_id, booking_id, org_id, primary_th.id,
-                    CASE WHEN secondary_th IS NULL THEN NULL ELSE secondary_th.id END,
+                    secondary_th_id,
                     chosen_room.id, chosen_bed, false, false, 0,
                     'ENDED', start_ts, end_ts, start_ts);
 
@@ -145,7 +149,7 @@ BEGIN
                                          signed_at, created_at)
             VALUES (slip_id, org_id, tsn_no, booking_id, session_id, nick,
                     locker, primary_th.nickname,
-                    CASE WHEN secondary_th IS NULL THEN NULL ELSE secondary_th.nickname END,
+                    secondary_th_nickname,
                     svc.name, chosen_room.room_number, start_ts, end_ts, false, 'FINALIZED',
                     1, svc_minutes, or_no, svc_price, true,
                     end_ts, start_ts);
@@ -185,11 +189,11 @@ BEGIN
                                             payment_method, status)
             VALUES (org_id, tx_id, 'PAYMENT_RECEIVED', svc_price, end_ts, pay_method, 'COMPLETED');
 
-            IF is_tandem AND secondary_th IS NOT NULL THEN
+            IF is_tandem AND secondary_th_id IS NOT NULL THEN
                 INSERT INTO commissions (organization_id, session_id, therapist_id, amount, is_extension, is_backup, created_at)
                 VALUES (org_id, session_id, primary_th.id, ROUND(commission_total / 2.0, 2), false, false, end_ts);
                 INSERT INTO commissions (organization_id, session_id, therapist_id, amount, is_extension, is_backup, created_at)
-                VALUES (org_id, session_id, secondary_th.id, commission_total - ROUND(commission_total / 2.0, 2), false, false, end_ts);
+                VALUES (org_id, session_id, secondary_th_id, commission_total - ROUND(commission_total / 2.0, 2), false, false, end_ts);
             ELSE
                 INSERT INTO commissions (organization_id, session_id, therapist_id, amount, is_extension, is_backup, created_at)
                 VALUES (org_id, session_id, primary_th.id, commission_total, false, false, end_ts);
