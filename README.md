@@ -14,11 +14,15 @@
 
 ## Authors
 
-SumiCare is an academic thesis project developed by:
+SumiCare is an academic thesis project developed at **Mapúa University** by:
 
-- De La Paz, Lance Gabriel C.
-- Pereira, Franz C.
-- Timbol, Dino Alfred T.
+| Name | Student No. | Email |
+|---|---|---|
+| De La Paz, Lance Gabriel C. | 2023103105 | [lgcdelapaz@mymail.mapua.edu.ph](mailto:lgcdelapaz@mymail.mapua.edu.ph) |
+| Pereira, Franz C. | 2023105242 | [fcpereira@mymail.mapua.edu.ph](mailto:fcpereira@mymail.mapua.edu.ph) |
+| Timbol, Dino Alfred T. (Group Leader) | 2021130744 | [dattimbol@mymail.mapua.edu.ph](mailto:dattimbol@mymail.mapua.edu.ph) |
+
+Group leader: Dino Alfred T. Timbol — [LinkedIn](https://www.linkedin.com/in/dino-alfred-timbol-3b949a248)
 
 The platform was designed and implemented against the operational reality of the partner
 organization, **New Lasema Spa Jjimjilbang**.
