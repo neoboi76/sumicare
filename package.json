@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "start": "nx serve sumicare-web",
-    "prebuild": "node scripts/set-env.js",
-    "build": "nx build sumicare-web",
+    "build": "node scripts/set-env.js && npx nx build sumicare-web",
     "test": "nx test sumicare-web",
     "api:start": "nx run sumicare-api:serve",
     "api:build": "nx run sumicare-api:build",
