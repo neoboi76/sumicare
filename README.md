@@ -59,7 +59,7 @@ recommendations, immutable audit logging, and remotely accessible Excel-exportab
 - Treatment-slip generation and digitization (clients identified by nickname only).
 - Point-of-sale and cashier module: cash, GCash, credit, and debit payments, refunds, receipts, discounts, vouchers, and an append-only transaction ledger.
 - Cutoff, end-of-day, monthly, commission, and decking reports, all exportable to Excel/CSV.
-- Therapist attendance with day-off, absence, and remarks tracking, backed by biometrics clock-in.
+- Therapist attendance with day-off, absence, and remarks tracking.
 - Per-organization branding and editable public website content (CMS).
 - Immutable audit logging of every authenticated state-changing action.
 
@@ -176,15 +176,6 @@ All variables are defined in `.env.example` (copy it to `.env`). Never commit re
 | `PAYMONGO_PUBLIC_KEY` | PayMongo public key. |
 | `PAYMONGO_WEBHOOK_SECRET` | Secret used to verify PayMongo webhook signatures (required). |
 | `PAYMONGO_MOCK_MODE` | When `true`, payments are mocked for local development. |
-| `BIOMETRICS_MODE` | Biometrics adapter mode (webhook, polling, or database). |
-| `BIOMETRICS_SHARED_KEY` | Shared key authenticating biometrics clock-in calls. |
-| `BIOMETRICS_POLLING_URL` | Vendor API URL for the polling adapter (optional). |
-| `BIOMETRICS_POLLING_API_KEY` | Vendor API key for the polling adapter (optional). |
-| `BIOMETRICS_DATABASE_URL` | JDBC URL for the database adapter (optional). |
-| `BIOMETRICS_DATABASE_USERNAME` | Username for the database adapter (optional). |
-| `BIOMETRICS_DATABASE_PASSWORD` | Password for the database adapter (optional). |
-| `BIOMETRICS_DATABASE_QUERY` | Query used by the database adapter (optional). |
-| `ANTHROPIC_API_KEY` | Anthropic API key for recommendation rationales (optional). |
 
 ## Project Structure
 
@@ -219,13 +210,13 @@ sumicare/
 | `organization` | Per-organization branding, colors, and fonts. |
 | `booking` | Appointment scheduling, reservation types, walk-ins, session time management. |
 | `therapist` | Therapist profiles, decking algorithm, skip and backup handling. |
-| `shift` | Shift definitions, shift-therapist assignments, biometrics clock-in. |
+| `shift` | Shift definitions and shift-therapist assignments. |
 | `room` | Room and bed allocation, occupancy, gender-segregation rules. |
 | `transaction` | Treatment-slip creation and digitization, session records, commissions. |
 | `pos` / `cashier` | Payment processing, receipts, transaction ledger, cashier reconciliation. |
 | `report` | Cutoff, day, monthly, commission, and decking reports with Excel export. |
 | `attendance` | Therapist attendance, day-off, absence, and remarks reporting. |
-| `recommendation` | Weighted-scoring quiz engine, with optional AI-generated rationale. |
+| `recommendation` | Weighted-scoring quiz engine for massage recommendations. |
 | `client` | Optional, non-critical client accounts for usage patterns and vouchers. |
 | `notification` | STOMP/WebSocket broker and topic broadcasting from Redis state. |
 | `audit` | Immutable audit logs per action per user for non-repudiation. |
@@ -272,16 +263,6 @@ the multi-stage `apps/sumicare-api/Dockerfile`, used for both local development 
 Production requires, at minimum, `APP_PUBLIC_BASE_URL` (the public site used for all generated
 links), `CORS_ALLOWED_ORIGINS`, `JWT_SECRET`, the `DB_*` and `REDIS_URL` connection settings, and the
 `PAYMONGO_*` keys (webhook signature verification is mandatory).
-
-## Coding Conventions
-
-- No comments in source files; code must be self-documenting through naming.
-- No emojis anywhere in the frontend, and no AI-tell design cues.
-- Java DTOs use `record` types with `Request`/`Response` suffixes; dedicated DTOs instead of entity serialization.
-- Angular uses standalone components with signals, `OnPush` change detection, and modern control flow (`@if`/`@for`/`@switch`), with templates in separate `.html` files.
-- Strict TypeScript (`strict: true`); avoid `any`; use shared types from `libs/shared-types`.
-- Styling via Tailwind utility classes; no inline styles.
-- Four-space indentation across all code files.
 
 ## Commit Convention
 
