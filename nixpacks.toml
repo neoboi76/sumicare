@@ -1,2 +1,5 @@
 [phases.install]
 cmds = ["npm install --legacy-peer-deps"]
+
+[phases.build]
+cmds = ["node scripts/set-env.js", "npx nx build sumicare-web --configuration=production"]
