@@ -214,7 +214,7 @@ BEGIN
     END LOOP;
 END
 $seed$;
-        </sql>
+        ]]></sql>
     </changeSet>
 
     <changeSet id="0058-2-historical-day-reports" author="sumicare">
