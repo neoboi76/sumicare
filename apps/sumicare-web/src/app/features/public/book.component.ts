@@ -444,7 +444,7 @@ export class BookComponent implements OnInit {
     this.http
       .post<PublicPaymentResult>(
         `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/initiate`,
-        { orderId: booking.orderId, paymentMethod: method, paymentDetails: details }
+        { orderId: booking.orderId, paymentMethod: method, paymentDetails: details, returnPath: `${window.location.origin}/book` }
       )
       .subscribe({
         next: (res) => this.onPaymentInitiated(booking, res, method),
