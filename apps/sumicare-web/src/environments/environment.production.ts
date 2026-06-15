@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://backend-production-5c82.up.railway.app',
+  apiBaseUrl: '${API_BASE_URL}',
   wsUrl: '/ws',
   defaultOrganizationSlug: 'lasema'
 };

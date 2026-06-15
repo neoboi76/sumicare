@@ -1,301 +1,280 @@
-# SumiCare
+<p align="center">
+  <img src="apps/sumicare-web/src/assets/logos/sumicare-colored-linear.svg" alt="SumiCare" width="360" />
+</p>
 
-**SumiCare: A Web-Based Spa Operations Management Platform for New Lasema Spa Jjimjilbang.**
+<h1 align="center">SumiCare</h1>
 
-SumiCare computerizes the previously paper-based operational workflows of wellness enterprises. It is composed of two surfaces sharing one backend and one database: a **public booking website** (open endpoints) and an **internal operations system** (role-restricted, JWT-authenticated). The platform was designed against New Lasema Spa Jjimjilbang's operational reality but ships as a generalized, multi-tenant product — every organization configures its own logo, color scheme, services, shifts, rooms, and recommendation weights.
+<p align="center">
+  A web-based spa operations management platform that computerizes the paper-based workflows of
+  wellness enterprises, pairing a public booking website with a role-restricted internal operations
+  system.
+</p>
 
 ---
 
-## Repository layout
+## Authors
+
+SumiCare is an academic thesis project developed at **Mapúa University** by:
+
+| Name | Student No. | Email |
+|---|---|---|
+| De La Paz, Lance Gabriel C. | 2023103105 | [lgcdelapaz@mymail.mapua.edu.ph](mailto:lgcdelapaz@mymail.mapua.edu.ph) |
+| Pereira, Franz C. | 2023105242 | [fcpereira@mymail.mapua.edu.ph](mailto:fcpereira@mymail.mapua.edu.ph) |
+| Timbol, Dino Alfred T. (Group Leader) | 2021130744 | [dattimbol@mymail.mapua.edu.ph](mailto:dattimbol@mymail.mapua.edu.ph) |
+
+Group leader: Dino Alfred T. Timbol — [LinkedIn](https://www.linkedin.com/in/dino-alfred-timbol-3b949a248)
+
+The platform was designed and implemented against the operational reality of the partner
+organization, **New Lasema Spa Jjimjilbang**.
+
+## Project Overview
+
+SumiCare is a web-based spa operations management platform that **computerizes** the previously
+paper-based operational workflows of wellness enterprises. It replaces manual booking sheets,
+treatment slips, therapist line-ups, cashiering, and reporting with a single, auditable system that
+spa staff and clients use through the browser. While it was built for New Lasema Spa Jjimjilbang, it
+ships as a generalized, multi-tenant product: every organization configures its own branding,
+services, shifts, rooms, vouchers, and recommendation weights.
+
+The system exposes two surfaces that share one backend and one database. The **public booking
+website** lets prospective clients browse services, receive personalized massage recommendations,
+make hard or soft reservations, manage or cancel a booking, and leave feedback — all through open,
+unauthenticated endpoints. The **internal operations system** is a role-restricted application for
+spa staff to manage therapist decking, client and room assignment, treatment-slip generation,
+point-of-sale and cashier operations, attendance, and report generation, protected by JWT
+authentication and method-level authorization.
+
+As a thesis project, SumiCare targets a real operational gap: small and mid-sized spas that run on
+paper and cannot justify enterprise software. It keeps the walk-in-first reality of the business
+(client accounts are optional and sessions never require one) while adding online booking,
+recommendations, immutable audit logging, and remotely accessible Excel-exportable reports.
+
+## Features
+
+### Internal Operations System
+
+- Therapist decking (ordered line-up) with latest-shift-first preemption, skip mode, requested-therapist handling, and manual backup insertion.
+- Booking and walk-in management, including automatic group/couple/VIP bookings with per-guest sessions.
+- Live room and bed occupancy with gender-segregated common rooms, updated in real time over WebSocket.
+- Treatment-slip generation and digitization (clients identified by nickname only).
+- Point-of-sale and cashier module: cash, GCash, credit, and debit payments, refunds, receipts, discounts, vouchers, and an append-only transaction ledger.
+- Cutoff, end-of-day, monthly, commission, and decking reports, all exportable to Excel/CSV.
+- Therapist attendance with day-off, absence, and remarks tracking.
+- Per-organization branding and editable public website content (CMS).
+- Immutable audit logging of every authenticated state-changing action.
+
+### Public Booking Website
+
+- Service catalogue and package browsing with per-organization branding.
+- Weighted-quiz massage recommendations (recreational only; disclaimer always shown).
+- Online booking with hard or soft reservations and automatic locker assignment.
+- Email-verified booking lookup and self-service cancellation.
+- Feedback submission and a public contact form.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Angular 21.2 (standalone components, signals, OnPush), TypeScript 5.9, Tailwind CSS 3.4 |
+| Backend | Spring Boot 3.2.5, Java 21 (modular monolith, layered architecture) |
+| Database | PostgreSQL 16 |
+| Cache / in-memory store | Redis 7 (Spring Data Redis) |
+| Real-time | STOMP over WebSocket (`@stomp/rx-stomp` 1.2 on the client) |
+| Auth | Spring Security, JWT (`jjwt` 0.12.5) with access + refresh tokens, BCrypt, MFA |
+| Migrations | Liquibase |
+| PDF / QR | openhtmltopdf-pdfbox 1.0.10, ZXing 3.5.3 |
+| Workspace | NX 22.6 integrated monorepo |
+| Payments | PayMongo (cash/GCash/card), with mock mode for local development |
+| Deployment | Railway (frontend, backend, Redis), managed PostgreSQL |
+
+## System Architecture
+
+The backend is a **modular monolith**: a single deployable Spring Boot application organized into
+bounded-context modules, each following a `Controller -> Service -> Repository -> Domain` layering
+with no business logic in controllers or repositories and no cross-module direct database access.
+Modules include `auth`, `user`, `organization`, `booking`, `therapist`, `shift`, `room`,
+`transaction`, `pos`/`cashier`, `report`, `attendance`, `recommendation`, `client`, `notification`,
+`audit`, and `content`. Both the public booking website and the internal operations system are
+served by this one backend and persist to one PostgreSQL database; public endpoints are exposed
+while internal endpoints are protected.
+
+The repository is an **NX integrated monorepo**: `apps/sumicare-web` (Angular) and
+`apps/sumicare-api` (Spring Boot) are the deployable applications, while `libs/shared-types` holds
+the TypeScript DTOs shared with the frontend and `libs/ui` holds reusable Angular UI primitives.
+
+## Prerequisites
+
+Install the following before running the project locally:
+
+- **Node.js** 20 LTS or newer (required by Angular 21 / NX 22)
+- **JDK 21**
+- **Maven 3.9+** (the backend uses a globally installed Maven; there is no wrapper)
+- **Docker** and **Docker Compose**
+
+## Getting Started (Local Development)
+
+```bash
+# 1. Clone and enter the repository
+git clone <repository-url> sumicare
+cd sumicare
+
+# 2. Create your local environment file
+cp .env.example .env        # then fill in the required values
+
+# 3. Start PostgreSQL, Redis, and the Spring Boot API
+docker compose up
+
+# 4. In a second terminal, install workspace dependencies
+npm install
+
+# 5. Start the Angular dev server (proxies /api and /ws to the backend)
+npm start                   # nx serve sumicare-web, http://localhost:4200
+```
+
+The API listens on `http://localhost:8080`, and the dev server proxies `/api` and `/ws` to it via
+`apps/sumicare-web/proxy.conf.json`. Liquibase applies all schema migrations automatically on API
+startup. A helper script, `start-api.ps1`, is provided for running the backend on Windows.
+
+On first run, a default superadmin is seeded. Sign in to the internal system with:
+
+- **Username:** `superadmin`
+- **Password:** `ChangeMe!12345`
+- **Organization:** `lasema`
+
+Change this password immediately in any shared or deployed environment.
+
+## Environment Variables
+
+All variables are defined in `.env.example` (copy it to `.env`). Never commit real values.
+
+| Variable | Description |
+|---|---|
+| `SERVER_PORT` | Internal port the Spring Boot app binds to. |
+| `API_PORT` | Host port mapped to the API container (default 8080). |
+| `DB_URL` | JDBC URL of the PostgreSQL database. |
+| `DB_USERNAME` | Database username. |
+| `DB_PASSWORD` | Database password. |
+| `HIBERNATE_TIME_ZONE` | JDBC time zone (e.g. `Asia/Manila`). |
+| `POSTGRES_DB` | Database name for the local Docker Postgres. |
+| `POSTGRES_USER` | Username for the local Docker Postgres. |
+| `POSTGRES_PASSWORD` | Password for the local Docker Postgres. |
+| `REDIS_URL` | Redis connection URL. |
+| `JWT_SECRET` | Signing secret for JWT access/refresh tokens. |
+| `JWT_EXPIRY_MS` | Access-token lifetime in milliseconds. |
+| `JWT_REFRESH_EXPIRY_MS` | Refresh-token lifetime in milliseconds. |
+| `CORS_ALLOWED_ORIGINS` | Allowed CORS origins (`*` in development). |
+| `EMAIL_PROVIDER` | Email transport to use (`smtp` or Brevo). |
+| `EMAIL_FROM` | From address for outbound email. |
+| `EMAIL_FROM_NAME` | Display name for outbound email. |
+| `BREVO_API_KEY` | Brevo API key (optional email provider). |
+| `SMTP_HOST` | SMTP host (optional). |
+| `SMTP_PORT` | SMTP port (optional). |
+| `SMTP_USERNAME` | SMTP username (optional). |
+| `SMTP_PASSWORD` | SMTP password (optional). |
+| `APP_PUBLIC_BASE_URL` | Public website base URL used for all email and QR links. |
+| `PAYMONGO_SECRET_KEY` | PayMongo secret key. |
+| `PAYMONGO_PUBLIC_KEY` | PayMongo public key. |
+| `PAYMONGO_WEBHOOK_SECRET` | Secret used to verify PayMongo webhook signatures (required). |
+| `PAYMONGO_MOCK_MODE` | When `true`, payments are mocked for local development. |
+
+## Project Structure
 
 ```
 sumicare/
 ├── apps/
-│   ├── sumicare-web/          Angular 17 frontend (standalone components, signals, Tailwind)
-│   └── sumicare-api/          Spring Boot 3.2 (Java 21) backend
+│   ├── sumicare-web/                  Angular 21 frontend (standalone components, signals, Tailwind)
+│   │   └── src/
+│   │       ├── app/features/          Public, auth, and internal feature modules (lazy-loaded)
+│   │       ├── app/core/              Guards, interceptors, auth, loading
+│   │       ├── app/shared/            Shared components and directives
+│   │       ├── assets/logos/          Brand assets (SumiCare and partner logos)
+│   │       └── environments/          Build-time configuration
+│   └── sumicare-api/                  Spring Boot 3.2 (Java 21) backend
+│       └── src/main/
+│           ├── java/com/sumicare/     Bounded-context modules (controller/service/repository/domain)
+│           └── resources/db/changelog/  Liquibase changelogs
 ├── libs/
-│   ├── shared-types/          TypeScript DTOs/types shared with the web app
-│   └── ui/                    Reusable Angular UI primitives
-├── docs/
-│   └── sumicare-erd.drawio.xml   Importable ERD (drag into draw.io / app.diagrams.net)
-├── reference/
-│   └── magic-patterns-react/  Original React Magic Patterns export, kept as a design reference
-├── docker-compose.yml         Local dev: PostgreSQL 16, Redis 7, API
-├── nx.json / package.json     NX workspace configuration
-├── .env.example               Copy to .env before running
-└── README.md
+│   ├── shared-types/                  TypeScript DTOs/types shared with the web app
+│   └── ui/                            Reusable Angular UI primitives
+├── docker-compose.yml                 Local dev: db, redis, api
+├── nx.json                            NX workspace configuration
+└── .env.example                       Canonical environment variable list
 ```
 
----
-
-## Quick start (local development)
-
-You need **Docker Desktop**, **Node 20+**, **Java 21**, and **Maven 3.9+** (or use the Maven inside the API container).
-
-1. **Clone and configure environment.**
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` if you want to override the JWT secret, database password, etc. The defaults work for local development.
-
-2. **Bring up the database, Redis, and API.**
-   ```bash
-   docker compose up -d db redis
-   docker compose up --build api
-   ```
-   On first boot, Liquibase runs every changeset in `apps/sumicare-api/src/main/resources/db/changelog/`, creating all tables and seeding roles, permissions, the default `lasema` organization, the 14 services, the 5 shifts, the recommendation quiz schema, and reference weights. A default Superadmin (`superadmin / ChangeMe!12345`) is created in code by `SuperadminBootstrap` on the first run.
-
-3. **Install web dependencies and serve the Angular app.**
-   ```bash
-   npm install
-   npm start            # runs nx serve sumicare-web on http://localhost:4200
-   ```
-
-4. **Sign in.**
-   - Public booking site: <http://localhost:4200>
-   - Staff sign-in: <http://localhost:4200/login>
-   - Default credentials: `superadmin / ChangeMe!12345` — **change this immediately** via the Users module.
-
-### Running outside Docker
-
-- API only: `cd apps/sumicare-api && ./mvnw spring-boot:run` (after `docker compose up -d db redis`)
-- Build a JAR: `cd apps/sumicare-api && ./mvnw -DskipTests package` → `apps/sumicare-api/target/sumicare-api.jar`
-
-### Production deployment (on-premise)
-
-Same `docker-compose.yml` is the production deployment vehicle. Set production values in `.env` — at minimum `JWT_SECRET`, `POSTGRES_PASSWORD`, `BIOMETRICS_SHARED_KEY`, and `CORS_ALLOWED_ORIGINS=https://your-domain.example`. Front the stack with nginx for HTTPS termination and WebSocket upgrade headers.
-
----
-
-## Environment variables (.env)
-
-| Variable | Purpose |
-|---|---|
-| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL connection from the API |
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Used by the `db` container |
-| `REDIS_URL` | e.g. `redis://redis:6379` |
-| `JWT_SECRET` | HS256 signing secret, min 32 chars |
-| `JWT_EXPIRY_MS` | Access token lifetime (default 900000 = 15 min) |
-| `JWT_REFRESH_EXPIRY_MS` | Refresh token lifetime (default 7 days) |
-| `CORS_ALLOWED_ORIGINS` | `*` during development; switch to a specific origin in prod |
-| `BIOMETRICS_SHARED_KEY` | Shared header secret for the biometrics webhook |
-| `ANTHROPIC_API_KEY` | Optional. Enables natural-language rationale on recommendations |
-| `API_PORT` | Host port for the API container (default 8080) |
-
-The `.env` file is git-ignored. Only `.env.example` is committed.
-
----
-
-## Default seed data
-
-| Resource | Default |
-|---|---|
-| Organization | `lasema` (display name *New Lasema Spa Jjimjilbang*) |
-| Roles | SUPERADMIN, ADMIN, MANAGER, RECEPTIONIST, STAFF |
-| Permissions | MANAGE_USERS, MANAGE_ADMINS, VIEW_AUDIT_LOGS, VIEW_REPORTS, EXPORT_REPORTS, OPERATE_POS, MANAGE_BOOKINGS, MANAGE_DECKING, MANAGE_CONTENT, MANAGE_BRANDING |
-| Shifts | 7am–5pm, 12n–10pm, 2:30pm–12:30am, 5pm–3am, 7:30pm–7:30am |
-| Services | All 14 from the catalogue plus a VIP package (jacuzzi + 1hr massage) |
-| Quiz | 5 questions with weighted mappings to several services |
-
----
-
-## System overview
-
-### High-level architecture
-
-```
-┌─ Angular SPA (apps/sumicare-web) ──────────────────────────────┐
-│  Public site: /, /services, /recommendation, /book             │
-│  Internal:    /app/dashboard, /reception, /decking, /pos,      │
-│               /reports, /users, /audit, /branding              │
-│  AuthInterceptor + AuthGuard + RoleGuard + StompService        │
-└────────────────────────────┬───────────────────────────────────┘
-                             │ HTTPS REST + STOMP/WS
-┌────────────────────────────▼───────────────────────────────────┐
-│  Spring Boot 3.2 API (apps/sumicare-api)                       │
-│  Modular monolith. Each module has controller/service/         │
-│  repository/domain layers under com.sumicare.<module>.         │
-│   auth · user · organization · therapist · shift · attendance  │
-│   biometrics · room · booking · service_catalogue              │
-│   transaction · pos · report · notification · recommendation   │
-│   client · audit · content                                     │
-└──────────┬───────────────────────────┬─────────────────────────┘
-           │                           │
-   PostgreSQL 16                  Redis 7
-   (durable: all entities)        (volatile operational state)
-   Liquibase-managed schema       decking ZSET, room HSET,
-                                  JWT deny-list, rate limit
-```
-
-### Backend modules
+## Module Overview
 
 | Module | Responsibility |
 |---|---|
-| `auth` | JWT issuance/refresh/logout, Spring Security config, CORS, BCrypt cost 12, JWT deny-list in Redis, login rate-limit in Redis |
-| `user` | Users, roles, permission overrides, role-seeded RBAC, default Superadmin bootstrap |
-| `organization` | Multi-tenant root: per-org slug, display name, logo, color scheme, theme |
-| `therapist` | Therapist profiles, decking algorithm (Redis Sorted Set), skip mode, requested-flag, backup insertion |
-| `shift` | 5-shift definitions, shift-therapist assignments, shift resolution by current time |
-| `attendance` | Clock-in/out, day-off, absence remarks |
-| `biometrics` | `BiometricsAdapter` interface + webhook implementation. Shared-key authenticated. On clock-in: resolve therapist, record attendance, find active shift, append to decking, broadcast |
-| `room` | Rooms, beds, gender lock per row, Redis-backed live occupancy hash |
-| `service_catalogue` | All 14 massage types and the VIP package, fixed-rate flags, tandem flag, per-org pricing |
-| `booking` | Public + internal booking, 15-minute prep buffer, hard/soft reservation, session start/end, manual time adjustment, extension |
-| `transaction` | Treatment slip generation per session, commission ledger |
-| `pos` | Payment processing (CASH/GCASH/CREDIT/DEBIT), receipt numbers, immutable `transaction_ledger` inserts, cashier shift open/close with variance |
-| `report` | Cutoff/day/monthly aggregation, Excel export via Apache POI |
-| `notification` | STOMP/WebSocket broker on `/ws`, topics `/topic/decking-updates/{orgId}` and `/topic/room-updates/{orgId}`, Redis WS session registry |
-| `recommendation` | Weighted scoring engine over `recommendation_weights`, optional Anthropic call for natural-language rationale, mandatory disclaimer |
-| `client` | Optional client accounts, nickname uniqueness check, consent flags |
-| `audit` | `AuditInterceptor` records every successful state-modifying request to `audit_logs` (immutable, async write) |
-| `content` | Editable public website content blocks per organization |
+| `auth` | JWT issuance, Spring Security config, login/logout/refresh, MFA. |
+| `user` | User CRUD, role assignment, permissions, password resets. |
+| `organization` | Per-organization branding, colors, and fonts. |
+| `booking` | Appointment scheduling, reservation types, walk-ins, session time management. |
+| `therapist` | Therapist profiles, decking algorithm, skip and backup handling. |
+| `shift` | Shift definitions and shift-therapist assignments. |
+| `room` | Room and bed allocation, occupancy, gender-segregation rules. |
+| `transaction` | Treatment-slip creation and digitization, session records, commissions. |
+| `pos` / `cashier` | Payment processing, receipts, transaction ledger, cashier reconciliation. |
+| `report` | Cutoff, day, monthly, commission, and decking reports with Excel export. |
+| `attendance` | Therapist attendance, day-off, absence, and remarks reporting. |
+| `recommendation` | Weighted-scoring quiz engine for massage recommendations. |
+| `client` | Optional, non-critical client accounts for usage patterns and vouchers. |
+| `notification` | STOMP/WebSocket broker and topic broadcasting from Redis state. |
+| `audit` | Immutable audit logs per action per user for non-repudiation. |
+| `content` | Editable public website content blocks (CMS). |
 
-### Frontend feature modules
+## User Roles
 
-Lazy-loaded standalone Angular components (signals + OnPush by default):
+Access follows a strict hierarchy: `SUPERADMIN > ADMIN > MANAGER > RECEPTIONIST > STAFF`.
 
-- **Public:** landing page (reads `website_content_blocks`), service catalogue, recommendation quiz, booking form with consent checkbox.
-- **Auth:** login form. Token returned by `/api/auth/login` is held in memory (`AuthService.session` signal). Refresh token lives in an httpOnly cookie.
-- **Internal shell:** sidebar nav, role-driven; sign-out clears the cookie.
-- **Reception:** room map. White available, gray male-occupied, pink female-occupied. Locker number, therapist nickname, elapsed time per occupied bed.
-- **Decking:** therapist lineup with the legend below.
-- **POS:** payment form for an active session.
-- **Reports:** date-range cutoff report viewer + Excel download.
-- **Users / Audit / Branding:** admin tools, role-guarded.
-
-### Decking legend (matches the paper logsheet)
-
-| Glyph | Meaning |
+| Role | Access and responsibilities |
 |---|---|
-| ♥ | Therapist was specifically requested by the client |
-| ★ | Scrub massage (Salt Glow, Milk Bath, Dae Mi DI) |
-| – | Ordinary massage |
-| ◯ | Backup therapist, manually inserted |
+| Superadmin | Full access, including managing Admin accounts. |
+| Admin | Everything plus user management and audit logs (cannot manage other Admins). |
+| Manager | Receptionist and staff functions plus reports, analytics, and user management below their level. |
+| Receptionist | Booking, room and therapist assignment, treatment slips, and cashier operations. |
+| Staff | Passive display view only; no login required. |
+| Public User | Unauthenticated client using the public booking website (browse, book, recommend, cancel, feedback). |
 
-The flag is set per-therapist via `POST /api/decking/{therapistId}/flag?flag=REQUESTED|SCRUB|ORDINARY|BACKUP` and rendered on `/app/decking`.
+## API Overview
 
-### Key business rules enforced in code
+The backend exposes a REST API over HTTP under the base path `/api`. Public endpoints live under
+`/api/public/**` and are open; all other endpoints require a JWT access token presented as a
+`Bearer` token, with method-level `@PreAuthorize` enforcing role-based authorization. Authentication
+returns a short-lived access token plus an httpOnly refresh-token cookie; unauthenticated requests
+receive `401` and forbidden ones `403`, with all errors flowing through a global exception handler.
+Real-time updates (room occupancy, decking, reservations) are delivered over a STOMP WebSocket
+endpoint at `/ws`.
 
-- **15-minute prep buffer.** `BookingService.toBookingResponse` always returns `effectiveStartAt = scheduledAt + 15min` and `projectedEndAt = effectiveStartAt + service.durationMinutes`.
-- **Latest-shift-first decking.** `DeckingService.prependShift` writes new-shift therapists with scores below the lowest existing score so they sort to the front of the ZSET.
-- **Requested therapist preserves position.** `servedRequested` does not rotate to the back; the requested service is counted as additional work.
-- **Skip mode caps at 30 minutes.** `DeckingController.skip` clamps the requested duration to 30 minutes max; cancel-skip removes the Redis key.
-- **Backup therapists never auto-enter the lineup.** Only `POST /api/decking/backup/{therapistId}?position=N` inserts them, and the `BACKUP` flag is set automatically.
-- **Treatment slips never carry the client's real name.** `TreatmentSlipService.generateForSession` only ever copies `Booking.clientNickname`.
-- **Immutable transaction ledger.** `PosService.processPayment` inserts a `PAYMENT_RECEIVED` row in `transaction_ledger` on every payment; the table has no update or delete endpoints.
-- **Tandem commission split.** `PosService.recordCommissions` halves the service commission between the two therapists when `requires_two_therapists` is true.
-- **Extension commission.** Half-hour blocks at half the hourly rate (₱60 per 30 min on top of the standard ₱120/hr).
-- **VIP fixed at 2 hours.** The VIP service in the catalogue is `duration_minutes=120` and cannot be extended through the standard rule.
-- **Recommendation disclaimer always rendered.** `RecommendationExplainerService.disclaimer()` is included unconditionally in every public response.
+## Database and Migrations
 
-### Multi-tenant customization (general version)
+The system uses **PostgreSQL 16** as its primary store, with the schema managed entirely by
+**Liquibase**; changelogs live under `apps/sumicare-api/src/main/resources/db/changelog/` and run
+automatically on API startup (`hibernate.ddl-auto=validate`, so the schema is never auto-generated).
+**Redis 7** holds live operational state: the therapist decking queue (sorted set), per-bed room
+occupancy (hashes), the JWT revocation deny-list (keys with TTL), login rate-limit counters, and the
+WebSocket session registry.
 
-Every operational table is scoped by `organization_id`. To onboard another spa:
+## Deployment
 
-1. Insert a new row in `organizations` (slug, display name, primary/secondary/accent colors, optional logo URL).
-2. Insert that org's services, shifts, rooms, beds, recommendation weights.
-3. Create a Superadmin user for that org.
+In the evaluation environment, SumiCare is deployed on **Railway** as separate services — the
+Angular frontend, the Spring Boot backend, and Redis — backed by a managed **PostgreSQL** host
+(Supabase historically; the project now also uses a Railway-hosted Postgres). The backend image is
+the multi-stage `apps/sumicare-api/Dockerfile`, used for both local development and production.
+Production requires, at minimum, `APP_PUBLIC_BASE_URL` (the public site used for all generated
+links), `CORS_ALLOWED_ORIGINS`, `JWT_SECRET`, the `DB_*` and `REDIS_URL` connection settings, and the
+`PAYMONGO_*` keys (webhook signature verification is mandatory).
 
-Inside the app:
+## Commit Convention
 
-- **`/app/branding`** — Manager+ can edit logo URL, display name, and the three colors live. The frontend reads `/api/public/branding/{slug}` on app startup and writes the values to CSS custom properties (`--sumi-primary`, `--sumi-secondary`, `--sumi-accent`), so all Tailwind utilities like `bg-[var(--sumi-primary)]` immediately reflect the change.
-- **`/app/users`** — Admin/Manager creates RECEPTIONIST/MANAGER/STAFF accounts.
-- **Public website content** — Manager+ can edit `website_content_blocks` per organization and they appear on the landing page.
+Commits follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
+specification (`type(scope): description`). For example:
 
-### Recommendation engine
+```
+feat(booking): add email-verified public booking cancellation
+```
 
-5 questions: pressure, focus area, texture (dry/oil), duration, primary goal. Each (question_code, option_code) pair maps to a list of (service_id, weight) entries in `recommendation_weights`. `RecommendationEngine.score(answers)` accumulates weights per service and returns them sorted descending. The top result is the primary recommendation; the next two are alternatives.
+## License
 
-If `ANTHROPIC_API_KEY` is set, `RecommendationExplainerService` calls the Anthropic Messages API with `claude-haiku-4-5` to generate a short relaxation-framed rationale. The API call **never** affects scoring — if it fails, the recommendation is returned without a rationale. The fixed disclaimer (*"SumiCare's recommendations are for relaxation purposes only and do not constitute medical advice."*) is rendered on every response.
-
-### Real-time via STOMP
-
-The API runs a SimpleBroker on `/topic` and `/user`, exposes `/ws` (with SockJS fallback). Subscribe per organization:
-
-- `/topic/decking-updates/{organizationId}` — every queue mutation
-- `/topic/room-updates/{organizationId}` — every bed occupy/release
-
-`WebSocketSessionRegistry` tracks active session IDs in Redis Sets so the registry survives across stateless API replicas.
-
-### Biometrics integration
-
-`POST /api/biometrics/clock-in` accepts `{ staffNumber, timestamp, deviceId }` with header `X-Biometrics-Key: <BIOMETRICS_SHARED_KEY>`. The webhook adapter resolves the staff number → therapist, records attendance, finds the currently active shift via `ShiftService.resolveActiveShiftFor`, and appends the therapist to the decking (which broadcasts on `/topic/decking-updates/{orgId}`). Polling and direct-DB adapters can be added by implementing `BiometricsAdapter`.
-
----
-
-## ERD
-
-The schema is documented in `docs/sumicare-erd.drawio.xml`. Open <https://app.diagrams.net> → File → Open from Device → pick the file. Or in Obsidian / VS Code with the draw.io extension.
-
-The diagram covers:
-
-- **Identity & access:** organizations, roles, users, permissions, role_permissions, user_permission_overrides, audit_logs.
-- **Therapist & shift:** therapists, shifts, shift_assignments, therapist_attendance, decking_state.
-- **Operations:** rooms, beds, clients, services_catalogue, bookings, sessions, treatment_slips.
-- **POS & financials:** transactions, transaction_ledger (immutable), commissions, cashier_shifts.
-- **Reports:** cutoff_reports, day_reports, monthly_reports.
-- **Public/recommendation:** recommendation_questions, recommendation_options, recommendation_weights, recommendations_log, feedback, vouchers, website_content_blocks.
-
----
-
-## Hard constraints applied throughout
-
-- **No comments** in any file (Java, TypeScript, HTML, XML, YAML). Code is self-documenting via naming.
-- **No emojis** anywhere in templates, strings, or UI copy.
-- **Never the word "automate"** — replaced everywhere with "computerize".
-- **All identifiers and UI copy in English.**
-- **CORS** defaults to `*` with `allowCredentials=false`. Switching to a specific domain automatically flips `allowCredentials=true` (in `SecurityConfig.corsConfigurationSource`).
-- **Clients identified only by nickname.** Real names are never stored in operational tables; the `clients` table holds nickname/email/Facebook handle only.
-- **Staff TV display:** out of scope. The `notification` module is structured so `/topic/staff-callout` can be added later without breaking existing clients.
-- **POS:** SumiCare's own `pos` module handles cashier operations. No integration with La Sema's external BIR-registered POS.
-
----
-
-## Common workflows
-
-### Receptionist takes a walk-in
-
-1. POST `/api/bookings` with the client's nickname and chosen service → returns a booking with `effectiveStartAt` already at +15 min.
-2. POST `/api/bookings/{bookingId}/sessions` with primaryTherapistId, roomId, bedId, and `specificallyRequested=true|false` → starts the session, marks the bed occupied in Redis, broadcasts `/topic/room-updates`.
-3. POST `/api/treatment-slips/from-session/{sessionId}` → generates a digital treatment slip with TSN.
-4. POST `/api/sessions/{sessionId}/end` → closes the session, releases the bed.
-5. POST `/api/pos/payments` with the session id, subtotal, payment method → records a transaction and an immutable ledger entry, computes commissions.
-
-### Shift change
-
-When the next shift's first therapist clocks in, the biometrics webhook calls `DeckingService.appendToBack`. To explicitly prepend an entire shift (the "latest shift first" rule), call `DeckingService.prependShift(orgId, shiftId, therapistIds)` from your scheduled task at the shift's start time.
-
-### End-of-day report
-
-Manager hits `/app/reports`, picks a date range, clicks Excel — `GET /api/reports/cutoff/export?from=...&to=...` streams an `.xlsx` built with Apache POI.
-
----
-
-## Notes on what is fully wired vs. scaffolded
-
-This repository is a complete project scaffold against the SumiCare spec. The following are **fully functional**:
-
-- Liquibase schema + seed data
-- Auth (login/refresh/logout, JWT, BCrypt, deny-list, rate limit, CORS)
-- User module + Superadmin bootstrap
-- Organization branding (CRUD + public read)
-- Therapist + decking (Redis ZSET, skip, requested, backup, flag, broadcast)
-- Booking + session lifecycle with 15-minute buffer
-- Treatment slip generation
-- POS payment + immutable ledger + cashier shift open/close
-- Cutoff report aggregation + Excel export
-- WebSocket broker + Redis session registry
-- Recommendation scoring engine + optional Anthropic rationale
-- Audit interceptor on every state-modifying API call
-- Biometrics webhook adapter
-- Angular: login, role-guarded routing, public landing/services/recommendation/booking, internal dashboard/reception/decking/POS/reports/users/audit/branding
-
-Areas **deliberately left as stubs** for the next iteration (the foundation is in place, the entities exist, the routes exist):
-
-- Bulk therapist/shift/room admin CRUD UIs (entities + repositories exist; only the read views are wired in the Angular app)
-- Day-report and monthly-report aggregation jobs (the tables exist; currently only the cutoff aggregation runs synchronously on demand)
-- Voucher redemption flow (table + entity in schema)
-- Polling and database biometrics adapter implementations (interface exists)
-- Tests beyond skeleton — JUnit + Testcontainers, and Karma/Jasmine — are configured in pom.xml/project.json but no specs are committed
-
-Add to taste; the seams are designed for it.
+No open-source license is currently distributed with this repository. SumiCare is an academic thesis
+project; all rights are reserved by the authors unless and until a `LICENSE` file is added to the
+repository root.
