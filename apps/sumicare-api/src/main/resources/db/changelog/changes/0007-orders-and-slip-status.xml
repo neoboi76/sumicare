@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
@@ -80,6 +87,8 @@
         </createIndex>
     </changeSet>
 
+    <!-- Backfills an order for every legacy booking; depends on the orders table created in
+         0007-1 and derives each order's status and total from the booking and its earliest slip. -->
     <changeSet id="0007-4-backfill-orders-from-bookings" author="sumicare">
         <sql>
             INSERT INTO orders (id, organization_id, booking_id, treatment_slip_id, status, subtotal, total, amount_paid, created_at, completed_at, finished_at)

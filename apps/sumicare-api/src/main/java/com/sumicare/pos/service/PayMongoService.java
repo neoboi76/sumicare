@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.pos.service;
 
 import com.sumicare.cashier.domain.Order;
@@ -153,6 +160,8 @@ public class PayMongoService {
 
     private ChargeResult cardCheckout(Order order, BigDecimal amount, String paymentMethod, String returnPath) {
         String successUrl = buildReturnUrl(order, null, paymentMethod, amount, returnPath);
+        // Cancel returns to the same page; the trailing status flag lets the frontend
+        // distinguish an abandoned checkout from a successful return.
         String cancelUrl = successUrl + "&status=cancelled";
         Map<String, String> metadata = new HashMap<>();
         metadata.put("orderId", order.getId().toString());
@@ -192,6 +201,9 @@ public class PayMongoService {
         return new ChargeResult(intentId, "awaiting_next_action", null);
     }
 
+    // Builds the URL PayMongo redirects the payer back to after the hosted checkout or
+    // 3DS step. The order, intent, method, and amount are carried as query params so the
+    // cashier (or public order) page can re-identify the order and confirm it on return.
     private String buildReturnUrl(Order order, String intentId, String paymentMethod, BigDecimal amount, String returnPath) {
         String base;
         String path;

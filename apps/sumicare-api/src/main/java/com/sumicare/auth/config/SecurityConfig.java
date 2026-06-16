@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.auth.config;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter;
@@ -65,6 +72,8 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
+        // BCrypt work factor (12 by default) is a deliberate cost/security trade-off:
+        // each step up doubles hashing time, slowing brute-force without harming login UX.
         return new BCryptPasswordEncoder(appProperties.bcrypt().cost());
     }
 

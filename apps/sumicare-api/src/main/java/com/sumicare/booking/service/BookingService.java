@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.booking.service;
 
 import com.sumicare.booking.domain.Booking;
@@ -807,6 +814,8 @@ public class BookingService {
         return startAttendeeSession(organizationId, attendees.get(0).getId(), request);
     }
 
+    // Starts one independent session per guest in a group/couple/VIP order, each with its
+    // own therapist, room/bed, and locker, and produces a separate treatment slip per guest.
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
     public SessionResponse startAttendeeSession(UUID organizationId, UUID attendeeId, StartSessionRequest request) {

@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.room.service;
 
 import com.sumicare.notification.service.NotificationService;
@@ -52,6 +59,9 @@ public class RoomOccupancyService {
         return "room:" + roomId + ":bed:" + bedId;
     }
 
+    // On session start the live bed state is written as one Redis hash so SSE/room-map reads
+    // never touch PostgreSQL. genderLock records the admitted gender, which the room-map layer
+    // uses to keep gender-segregated common rooms consistent across remaining beds.
     public void occupy(UUID organizationId, UUID roomId, UUID bedId, String clientNickname,
                        String lockerNumber, String therapistNickname, String genderLock, UUID ownerItemId) {
         Map<String, String> hash = new HashMap<>();
@@ -66,6 +76,8 @@ public class RoomOccupancyService {
         notificationService.broadcastRoomUpdate(organizationId, roomId, bedId, hash);
     }
 
+    // Session end invalidates the bed by deleting the whole hash; absence of the key is what
+    // marks the bed AVAILABLE again (the broadcast carries that status to live listeners).
     public void release(UUID organizationId, UUID roomId, UUID bedId) {
         redis.delete(key(roomId, bedId));
         notificationService.broadcastRoomUpdate(organizationId, roomId, bedId, Map.of("status", "AVAILABLE"));

@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.cashier.service;
 
 import com.sumicare.booking.domain.Booking;
@@ -315,6 +322,8 @@ public class OrderService {
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
         Booking booking = bookingRepository.findById(bookingResponse.id()).orElseThrow();
+        // Persist the guest count on the booking; the frontend relies on pax > 1 to expose
+        // the per-guest expander for group, couple, and VIP bookings.
         booking.setPax(request.pax() == null ? Math.max(1, totalAttendees) : request.pax());
         bookingRepository.save(booking);
 
@@ -796,6 +805,8 @@ public class OrderService {
     @Transactional
     public boolean settleGatewayPayment(Order order, UUID actorUserId, String intentId,
                                         String paymentMethod, BigDecimal amount) {
+        // Idempotent against duplicate webhook deliveries and confirm calls: an order that
+        // is already settled, cancelled, or fully paid yields no further payment.
         if ("PAID".equals(order.getStatus()) || "CANCELLED".equals(order.getStatus())) {
             return false;
         }

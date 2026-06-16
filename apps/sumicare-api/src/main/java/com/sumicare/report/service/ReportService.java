@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.report.service;
 
 import com.sumicare.booking.repository.SessionRepository;
@@ -25,6 +32,8 @@ public class ReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public ReportSummary buildCutoffReport(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
+        // Rolls commissions and sessions in the window up per therapist; cancelled
+        // sessions are excluded so they do not inflate session or requested counts.
         var sessions = sessionRepository.findAllByOrganizationIdAndStartedAtBetween(organizationId, from, to)
                 .stream().filter(s -> !"CANCELLED".equals(s.getStatus())).toList();
         var commissions = commissionRepository.findAllByOrganizationIdAndCreatedAtBetween(organizationId, from, to);

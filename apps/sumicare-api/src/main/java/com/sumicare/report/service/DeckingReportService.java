@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.report.service;
 
 import com.sumicare.booking.domain.Session;
@@ -97,6 +104,8 @@ public class DeckingReportService {
             BigDecimal total = BigDecimal.ZERO;
             int requested = 0;
 
+            // One glyph per non-extension commission, mirroring the paper tick-tack sheet:
+            // heart = specifically requested, star = scrub service, bar = ordinary turn.
             for (Commission c : tComms) {
                 if (c.isExtension()) continue;
                 boolean isRequested = c.isSpecificallyRequested();
@@ -116,6 +125,8 @@ public class DeckingReportService {
                 total = total.add(c.getAmount());
             }
 
+            // Extensions earn commission but are not a separate turn, so add their amount
+            // to the total without drawing a glyph for them.
             for (Commission c : tComms) {
                 if (c.isExtension()) {
                     total = total.add(c.getAmount());

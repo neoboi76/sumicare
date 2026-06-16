@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { Injectable } from '@angular/core';
 import { RxStomp } from '@stomp/rx-stomp';
 import { Observable, map } from 'rxjs';
@@ -21,6 +28,10 @@ export class StompService {
   private brokerUrl(): string {
     const path = environment.wsUrl || '/ws';
     const base = environment.apiBaseUrl;
+    // When apiBaseUrl is absolute (production), derive the WS endpoint from it so the
+    // socket targets the backend/proxy origin; http->ws and https->wss are preserved
+    // by only rewriting the leading "http". Otherwise (local dev, relative apiBaseUrl)
+    // fall back to the page origin so the socket stays same-origin.
     if (base && /^https?:\/\//i.test(base)) {
       return base.replace(/\/+$/, '').replace(/^http/i, 'ws') + path;
     }

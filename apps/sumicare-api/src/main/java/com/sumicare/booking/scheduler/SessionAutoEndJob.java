@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.booking.scheduler;
 
 import com.sumicare.booking.service.BookingService;
@@ -25,6 +32,8 @@ public class SessionAutoEndJob {
         this.bookingService = bookingService;
     }
 
+    // Polls every minute to end active sessions whose expected end time has passed,
+    // so an unattended session is closed promptly without manual receptionist action.
     @Scheduled(fixedDelay = 60_000, initialDelay = 10_000)
     public void sweep() {
         UsernamePasswordAuthenticationToken systemAuth = new UsernamePasswordAuthenticationToken(

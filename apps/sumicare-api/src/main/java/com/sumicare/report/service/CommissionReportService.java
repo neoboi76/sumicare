@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.report.service;
 
 import com.sumicare.booking.domain.Session;
@@ -58,6 +65,8 @@ public class CommissionReportService {
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public ShiftReport shift(UUID organizationId, Long shiftId, LocalDate date) {
         Shift shift = shiftRepository.findById(shiftId).orElseThrow();
+        // Build the shift window in Manila local time; if the shift ends earlier than it
+        // starts it crosses midnight, so the end boundary rolls into the following day.
         OffsetDateTime windowStart = date.atTime(shift.getStartTime()).atZone(MANILA).toOffsetDateTime();
         OffsetDateTime windowEnd = shift.getEndTime().isBefore(shift.getStartTime())
                 ? date.plusDays(1).atTime(shift.getEndTime()).atZone(MANILA).toOffsetDateTime()
@@ -151,6 +160,9 @@ public class CommissionReportService {
             cur = cur.plusDays(1);
         }
 
+        // Bucket each commission into a therapist-by-day grid, attributing it to the
+        // session's Manila start date (falling back to the commission's created date),
+        // so a commission lands on the day the service was actually performed.
         Map<UUID, Map<LocalDate, BigDecimal>> grid = new HashMap<>();
         for (Commission c : commissions) {
             Session s = sessionsById.get(c.getSessionId());

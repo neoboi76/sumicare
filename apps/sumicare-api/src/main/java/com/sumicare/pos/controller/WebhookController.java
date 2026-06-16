@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.pos.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -49,6 +56,8 @@ public class WebhookController {
             @RequestBody String payload,
             @RequestHeader(value = "Paymongo-Signature", required = false) String signature) {
 
+        // Reject before touching any state: an absent or forged signature must never
+        // reach the reconciliation logic that posts payments.
         if (signature == null || !payMongoGateway.verifyWebhook(payload, signature)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid signature");
         }
@@ -106,9 +115,13 @@ public class WebhookController {
             return;
         }
 
+        // No matching order: post a standalone ledger entry instead, but guard against
+        // PayMongo redelivering the same event by skipping if this gateway id is already recorded.
         if (gatewayId != null && !gatewayId.isBlank() && ledgerRepository.existsByGatewayReference(gatewayId)) {
             return;
         }
+        // Last-resort organization for an unmatched gateway event with no booking to
+        // attribute it to; keeps the payment recorded rather than silently dropped.
         UUID orgId = booking != null ? booking.getOrganizationId()
                 : UUID.fromString("00000000-0000-0000-0000-000000000000");
         TransactionLedgerEntry entry = new TransactionLedgerEntry();

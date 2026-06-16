@@ -1,3 +1,8 @@
+# Developed by the following authors:
+#     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+#     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+#     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+
 FROM maven:3.9.6-eclipse-temurin-21 AS builder
 WORKDIR /workspace
 COPY apps/sumicare-api/pom.xml ./pom.xml

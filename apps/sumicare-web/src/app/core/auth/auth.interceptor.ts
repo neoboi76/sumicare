@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, switchMap, throwError } from 'rxjs';
@@ -15,6 +22,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(authedRequest).pipe(
     catchError((error) => {
       if (error.status === 401 && session && !req.url.endsWith('/api/auth/refresh')) {
+        // auth.refresh() is single-flight, so concurrent 401s queue on one shared
+        // refresh rather than each firing its own; once it completes every queued
+        // request retries with the new token, and a refresh failure falls through
+        // to the catchError below which redirects to login.
         return auth.refresh().pipe(
           switchMap(() => {
             const refreshed = auth.session();

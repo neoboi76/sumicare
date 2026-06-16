@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
@@ -192,6 +199,9 @@ export class CashierComponent implements OnInit {
   error = signal<string | null>(null);
   tax = signal(0);
 
+  // P500 per item for upgrading to a private room, charged only when the room was
+  // chosen as an extra; packages that bundle a private room or require a VIP room
+  // already price that in, so they are excluded.
   roomSurcharge = computed(() =>
     this.cart().reduce((sum, c) =>
       sum + (!c.requiresVipRoom && !c.bundlesPrivateRoom && c.roomType === 'PRIVATE' ? 500 : 0), 0));
@@ -202,8 +212,12 @@ export class CashierComponent implements OnInit {
   attendeeDiscountTotal = computed(() =>
     this.cart().reduce((sum, c) =>
       sum + c.attendees.reduce((acc, a) => acc + Number(a.discount || 0), 0), 0));
+  // Combines order-level discounts (manual entries and any applied voucher, both held
+  // in discountSummary) with per-attendee discounts so vouchers and line discounts
+  // both feed the single total.
   totalDiscount = computed(() =>
     this.discountSummary().reduce((sum, d) => sum + d.amount, 0) + this.attendeeDiscountTotal());
+  // Clamped at zero so an over-large discount never produces a negative amount due.
   total = computed(() => Math.max(0, this.subtotal() - this.totalDiscount() + this.tax()));
   paid = computed(() => this.payments().reduce((sum, p) => sum + Number(p.amount || 0), 0));
   due = computed(() => Math.max(0, this.total() - this.paid()));

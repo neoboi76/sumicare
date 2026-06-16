@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.pos.gateway;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -272,6 +279,8 @@ public class PayMongoGateway implements PaymentGateway {
         try {
             String webhookSecret = appProperties.payment().paymongo().webhookSecret();
             MessageDigest hmac = MessageDigest.getInstance("HmacSHA256");
+            // PayMongo signs the secret joined to the raw body with a literal dot, so the
+            // separator is constant and must not be URL-decoded or otherwise altered.
             byte[] sigBytes = hmac.digest((webhookSecret + "." + payload).getBytes(StandardCharsets.UTF_8));
             String computed = Base64.getEncoder().encodeToString(sigBytes);
             return computed.equals(signature);

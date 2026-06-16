@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.report.service;
 
 import com.sumicare.booking.domain.Booking;
@@ -146,6 +153,8 @@ public class OperationsReportService {
             UUID orderItemId = slipToOrderItemId.get(s.getId());
             ServiceAccumulator acc = bucket.computeIfAbsent(key, k -> new ServiceAccumulator());
             if (orderItemId != null) {
+                // Several slips can map to one order item (group/couple guests); count the
+                // item's quantity and price only once, and add any extension charge once per order.
                 if (countedOrderItemIds.add(orderItemId)) {
                     OrderItem item = orderItemById.get(orderItemId);
                     int qty = item != null ? Math.max(1, item.getQuantity()) : 1;
@@ -222,6 +231,8 @@ public class OperationsReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public DailyReportResponse daily(UUID organizationId, LocalDate date) {
+        // Slips are timestamped in UTC; window the day against Asia/Manila so the report
+        // covers the spa's local calendar day.
         OffsetDateTime from = date.atStartOfDay(java.time.ZoneId.of("Asia/Manila")).toOffsetDateTime();
         OffsetDateTime to = from.plusDays(1);
         List<DailyRow> rows = collectRows(organizationId, from, to);
@@ -322,6 +333,8 @@ public class OperationsReportService {
             boolean includeExtension = item != null && o != null && o.getExtensionAmount() != null
                     && o.getExtensionAmount().signum() > 0
                     && extensionCountedOrderIds.add(o.getId());
+            // Each guest gets their own row, but the order item's amount (and extension) is
+            // attributed only to the first row so the grand total is not multiplied per guest.
             for (int i = 0; i < group.size(); i++) {
                 boolean countAmount = i == 0;
                 rows.add(buildRow(group.get(i), b, o, item, includeExtension && countAmount, countAmount,

@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.room.scheduler;
 
 import com.sumicare.booking.domain.Session;
@@ -70,6 +77,10 @@ public class RoomOccupancyReconcilerJob {
             }
         }
 
+        // Redis holds the live bed state but a missed session-end (crash, dropped event) can
+        // leave a bed marked OCCUPIED forever. SCAN walks every bed key so we can cross-check
+        // it against the DB's active sessions and release any orphan, using the non-blocking
+        // SCAN cursor rather than KEYS to avoid stalling Redis.
         List<String> redisKeys = new ArrayList<>();
         try (Cursor<String> cursor = redis.scan(ScanOptions.scanOptions().match("room:*:bed:*").count(200).build())) {
             while (cursor.hasNext()) redisKeys.add(cursor.next());
@@ -98,6 +109,7 @@ public class RoomOccupancyReconcilerJob {
                         .map(r -> orgId.equals(r.getOrganizationId())).orElse(false);
                 if (!roomBelongsToOrg) continue;
 
+                // An OCCUPIED bed with no backing active session is orphaned, so free it.
                 String bedKey = roomId + ":" + bedId;
                 if (!legitimatelyOccupied.contains(bedKey)) {
                     log.info("Reconciler: releasing orphaned Redis bed {}/{} with no matching active session", roomId, bedId);

@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.auth.filter;
 
 import com.sumicare.auth.service.JwtService;
@@ -40,6 +47,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         String token = header.substring(BEARER.length());
         try {
+            // Order matters: signature is verified first, then the per-jti deny-list and the
+            // per-user "tokens-since" watermark are checked BEFORE any Authentication is built,
+            // so a revoked or pre-watermark token never grants access.
             Claims claims = jwtService.parse(token);
             if (jwtService.isRevoked(claims.getId())) {
                 chain.doFilter(request, response);
@@ -71,6 +81,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(auth);
         } catch (JwtException ignored) {
+            // An invalid token is dropped silently so the request proceeds as anonymous and
+            // the 401 entry point (not a 500) handles it, which lets the client's refresh flow trigger.
         }
         chain.doFilter(request, response);
     }
