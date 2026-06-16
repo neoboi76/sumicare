@@ -1,60 +1,58 @@
-/**
- * Runtime startup script for Railway.
- *
- * This script runs at CONTAINER STARTUP (not build time) and:
- * 1. Reads API_BASE_URL from the runtime environment
- * 2. Replaces the placeholder in all built JS files
- * 3. Starts the static file server
- *
- * This approach is more robust than build-time injection because
- * Railway env vars are always available at runtime.
- */
-
-const { execSync } = require('child_process');
-const fs = require('fs');
+const express = require('express');
+const httpProxy = require('http-proxy');
+const http = require('http');
 const path = require('path');
 
 const DIST_DIR = path.join(__dirname, '..', 'dist', 'apps', 'sumicare-web', 'browser');
-const API_BASE_URL = process.env.API_BASE_URL || '';
+const BACKEND_URL = (process.env.API_BASE_URL || '').replace(/\/+$/, '');
 const PORT = process.env.PORT || 8080;
+const PROXIED_PREFIXES = ['/api', '/ws', '/uploads'];
 
-// Replace placeholder in all JS files in the dist folder
-function replaceInFiles(dir) {
-  if (!fs.existsSync(dir)) {
-    console.error(`[start] ERROR: dist directory not found: ${dir}`);
-    process.exit(1);
-  }
+const proxy = httpProxy.createProxyServer({ target: BACKEND_URL, changeOrigin: true });
 
-  const files = fs.readdirSync(dir);
-  let replacedCount = 0;
-
-  files.forEach((file) => {
-    const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
-
-    if (stat.isDirectory()) {
-      replacedCount += replaceInFiles(filePath);
-      return;
+proxy.on('error', (err, req, res) => {
+    console.error(`[start] proxy error for ${req.url}: ${err.message}`);
+    if (res && typeof res.writeHead === 'function' && !res.headersSent) {
+        res.writeHead(502);
+        res.end('Bad gateway');
+    } else if (res && typeof res.destroy === 'function') {
+        res.destroy();
     }
+});
 
-    if (!file.endsWith('.js')) return;
-
-    let content = fs.readFileSync(filePath, 'utf-8');
-    if (content.includes('${API_BASE_URL}')) {
-      content = content.replace(/\$\{API_BASE_URL\}/g, API_BASE_URL);
-      fs.writeFileSync(filePath, content, 'utf-8');
-      replacedCount++;
-      console.log(`[start] Replaced API_BASE_URL in ${file}`);
-    }
-  });
-
-  return replacedCount;
+function isProxied(url) {
+    return PROXIED_PREFIXES.some((prefix) =>
+        url === prefix || url.startsWith(`${prefix}/`) || url.startsWith(`${prefix}?`)
+    );
 }
 
-console.log(`[start] API_BASE_URL = ${API_BASE_URL || '(not set)'}`);
-const count = replaceInFiles(DIST_DIR);
-console.log(`[start] Replaced placeholder in ${count} file(s)`);
+const app = express();
 
-// Start the static file server
-console.log(`[start] Starting server on port ${PORT}...`);
-execSync(`npx serve ${DIST_DIR} -l ${PORT} -s`, { stdio: 'inherit' });
+app.use((req, res, next) => {
+    if (BACKEND_URL && isProxied(req.url)) {
+        proxy.web(req, res);
+        return;
+    }
+    next();
+});
+
+app.use(express.static(DIST_DIR, { index: false }));
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(DIST_DIR, 'index.html'));
+});
+
+const server = http.createServer(app);
+
+server.on('upgrade', (req, socket, head) => {
+    if (BACKEND_URL && req.url.startsWith('/ws')) {
+        proxy.ws(req, socket, head);
+        return;
+    }
+    socket.destroy();
+});
+
+server.listen(PORT, () => {
+    console.log(`[start] serving ${DIST_DIR} on port ${PORT}`);
+    console.log(`[start] proxying ${PROXIED_PREFIXES.join(', ')} -> ${BACKEND_URL || '(no backend configured)'}`);
+});
