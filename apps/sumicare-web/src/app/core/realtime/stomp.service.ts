@@ -11,13 +11,20 @@ export class StompService {
     if (this.rx?.active) return;
     this.rx = new RxStomp();
     this.rx.configure({
-      brokerURL: environment.wsUrl.startsWith('http')
-        ? environment.wsUrl.replace('http', 'ws')
-        : environment.wsUrl,
+      brokerURL: this.brokerUrl(),
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       reconnectDelay: 5000
     });
     this.rx.activate();
+  }
+
+  private brokerUrl(): string {
+    const path = environment.wsUrl || '/ws';
+    const base = environment.apiBaseUrl;
+    if (base && /^https?:\/\//i.test(base)) {
+      return base.replace(/\/+$/, '').replace(/^http/i, 'ws') + path;
+    }
+    return window.location.origin.replace(/^http/i, 'ws') + path;
   }
 
   watch<T>(destination: string): Observable<T> {
