@@ -70,4 +70,5 @@
     <include file="changes/0057-session-status-index.xml" relativeToChangelogFile="true"/>
     <include file="changes/0059-remove-staff-role.xml" relativeToChangelogFile="true"/>
     <include file="changes/0060-preferred-therapist.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0061-drop-deprecated-modules.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

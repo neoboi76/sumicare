@@ -7,6 +7,7 @@
 
 package com.sumicare.transaction.service;
 
+import com.sumicare.audit.service.AuditService;
 import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
@@ -21,6 +22,7 @@ import com.sumicare.client.repository.ClientRepository;
 import com.sumicare.common.util.IdSequenceService;
 import com.sumicare.room.repository.RoomRepository;
 import com.sumicare.service_catalogue.repository.ServiceRepository;
+import com.sumicare.therapist.domain.Therapist;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.dto.UpdateTreatmentSlipRequest;
@@ -32,8 +34,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class TreatmentSlipService {
@@ -50,6 +55,7 @@ public class TreatmentSlipService {
     private final OrderItemRepository orderItemRepository;
     private final PackageRepository packageRepository;
     private final IdSequenceService idSequenceService;
+    private final AuditService auditService;
 
     public TreatmentSlipService(TreatmentSlipRepository slipRepository,
                                 BookingRepository bookingRepository,
@@ -62,7 +68,8 @@ public class TreatmentSlipService {
                                 OrderItemAttendeeRepository attendeeRepository,
                                 OrderItemRepository orderItemRepository,
                                 PackageRepository packageRepository,
-                                IdSequenceService idSequenceService) {
+                                IdSequenceService idSequenceService,
+                                AuditService auditService) {
         this.slipRepository = slipRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -75,6 +82,7 @@ public class TreatmentSlipService {
         this.orderItemRepository = orderItemRepository;
         this.packageRepository = packageRepository;
         this.idSequenceService = idSequenceService;
+        this.auditService = auditService;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -274,7 +282,8 @@ public class TreatmentSlipService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
-    public TreatmentSlip update(UUID organizationId, UUID slipId, UpdateTreatmentSlipRequest request) {
+    public TreatmentSlip update(UUID organizationId, UUID slipId, UpdateTreatmentSlipRequest request,
+                                UUID actorUserId, String actorRole, String ipAddress) {
         TreatmentSlip slip = slipRepository.findById(slipId).orElseThrow();
         if (!slip.getOrganizationId().equals(organizationId)) {
             throw new IllegalArgumentException("Slip not in organization");
@@ -287,6 +296,20 @@ public class TreatmentSlipService {
             slip.setWaiverAcceptedAt(null);
         }
         validateUpdate(request);
+        validateReferences(organizationId, request);
+
+        String previousClientNickname = slip.getClientNickname();
+        String previousServiceName = slip.getServiceName();
+        String previousPrimaryTherapist = slip.getPrimaryTherapistNickname();
+        String previousSecondaryTherapist = slip.getSecondaryTherapistNickname();
+        String previousRequestedTherapist = slip.getRequestedTherapistNickname();
+
+        if (request.clientNickname() != null && !request.clientNickname().isBlank()) slip.setClientNickname(request.clientNickname().trim());
+        if (request.serviceName() != null && !request.serviceName().isBlank()) slip.setServiceName(request.serviceName().trim());
+        if (request.primaryTherapistNickname() != null && !request.primaryTherapistNickname().isBlank()) slip.setPrimaryTherapistNickname(request.primaryTherapistNickname().trim());
+        if (request.secondaryTherapistNickname() != null) slip.setSecondaryTherapistNickname(blankToNull(request.secondaryTherapistNickname()));
+        if (request.requestedTherapistNickname() != null) slip.setRequestedTherapistNickname(blankToNull(request.requestedTherapistNickname()));
+
         if (request.tsn() != null && !request.tsn().isBlank()) slip.setTsn(request.tsn());
         if (request.lockerNumber() != null) slip.setLockerNumber(request.lockerNumber());
         if (request.roomNumber() != null) slip.setRoomNumber(request.roomNumber());
@@ -314,7 +337,91 @@ public class TreatmentSlipService {
                 sessionRepository.save(session);
             });
         }
-        return slipRepository.save(slip);
+        TreatmentSlip saved = slipRepository.save(slip);
+
+        recordFieldEdits(organizationId, actorUserId, actorRole, ipAddress, slipId,
+                previousClientNickname, saved.getClientNickname(),
+                previousServiceName, saved.getServiceName(),
+                previousPrimaryTherapist, saved.getPrimaryTherapistNickname(),
+                previousSecondaryTherapist, saved.getSecondaryTherapistNickname(),
+                previousRequestedTherapist, saved.getRequestedTherapistNickname());
+
+        return saved;
+    }
+
+    private void validateReferences(UUID organizationId, UpdateTreatmentSlipRequest request) {
+        if (request.serviceName() != null && !request.serviceName().isBlank()) {
+            String target = request.serviceName().trim();
+            boolean serviceExists = serviceRepository.findAllByOrganizationIdAndActiveTrue(organizationId).stream()
+                    .anyMatch(s -> target.equals(s.getName()));
+            if (!serviceExists) {
+                throw new IllegalArgumentException("Service name does not match an active service");
+            }
+        }
+        if (!isPresent(request.primaryTherapistNickname())
+                && !isPresent(request.secondaryTherapistNickname())
+                && !isPresent(request.requestedTherapistNickname())) {
+            return;
+        }
+        Set<String> activeNicknames = therapistRepository.findAllByOrganizationIdAndActiveTrue(organizationId).stream()
+                .map(Therapist::getNickname)
+                .collect(Collectors.toSet());
+        requireKnownTherapist(activeNicknames, request.primaryTherapistNickname());
+        requireKnownTherapist(activeNicknames, request.secondaryTherapistNickname());
+        requireKnownTherapist(activeNicknames, request.requestedTherapistNickname());
+    }
+
+    private void requireKnownTherapist(Set<String> activeNicknames, String nickname) {
+        if (isPresent(nickname) && !activeNicknames.contains(nickname.trim())) {
+            throw new IllegalArgumentException("Therapist '" + nickname.trim() + "' does not match an active therapist");
+        }
+    }
+
+    private boolean isPresent(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private void recordFieldEdits(UUID organizationId, UUID actorUserId, String actorRole, String ipAddress, UUID slipId,
+                                  String oldClientNickname, String newClientNickname,
+                                  String oldServiceName, String newServiceName,
+                                  String oldPrimaryTherapist, String newPrimaryTherapist,
+                                  String oldSecondaryTherapist, String newSecondaryTherapist,
+                                  String oldRequestedTherapist, String newRequestedTherapist) {
+        StringBuilder changes = new StringBuilder();
+        appendChange(changes, "clientNickname", oldClientNickname, newClientNickname);
+        appendChange(changes, "serviceName", oldServiceName, newServiceName);
+        appendChange(changes, "primaryTherapistNickname", oldPrimaryTherapist, newPrimaryTherapist);
+        appendChange(changes, "secondaryTherapistNickname", oldSecondaryTherapist, newSecondaryTherapist);
+        appendChange(changes, "requestedTherapistNickname", oldRequestedTherapist, newRequestedTherapist);
+        if (changes.isEmpty()) {
+            return;
+        }
+        String metadata = "{" + changes + "}";
+        auditService.record(organizationId, actorUserId, actorRole,
+                "TREATMENT_SLIP.UPDATE", "TREATMENT_SLIP", slipId.toString(), metadata, ipAddress);
+    }
+
+    private void appendChange(StringBuilder changes, String field, String oldValue, String newValue) {
+        if (Objects.equals(oldValue, newValue)) {
+            return;
+        }
+        if (!changes.isEmpty()) {
+            changes.append(',');
+        }
+        changes.append('"').append(field).append("\":{\"old\":")
+                .append(jsonValue(oldValue)).append(",\"new\":").append(jsonValue(newValue)).append('}');
+    }
+
+    private String jsonValue(String value) {
+        if (value == null) {
+            return "null";
+        }
+        String escaped = value.replace("\\", "\\\\").replace("\"", "\\\"");
+        return "\"" + escaped + "\"";
     }
 
     private void validateUpdate(UpdateTreatmentSlipRequest request) {

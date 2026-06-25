@@ -5,16 +5,9 @@
  *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
  */
 
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
-
 export interface TokenResponse {
   accessToken: string;
   tokenType: string;
   expiresIn: number;
-  role: Role;
+  role: string;
 }
-
-export type Role = 'SUPERADMIN' | 'ADMIN' | 'MANAGER' | 'RECEPTIONIST' | 'STAFF';

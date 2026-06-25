@@ -73,9 +73,7 @@ public class AuditInterceptor implements HandlerInterceptor {
             case "vouchers" -> resolveCrud("VOUCHER", method, segs, "DELETE", fallback);
             case "clients" -> resolveCrud("CLIENT", method, segs, "DEACTIVATE", fallback);
             case "users" -> resolveUser(method, segs, fallback);
-            case "attendance" -> new ResolvedTarget("ATTENDANCE", null, "ATTENDANCE." + upper(seg(uri, 3)));
             case "organization" -> new ResolvedTarget("ORGANIZATION", null, "ORGANIZATION.BRANDING_UPDATE");
-            case "content" -> resolveContent(uri, fallback);
             case "feedback" -> new ResolvedTarget("FEEDBACK", null, "FEEDBACK.MARK_ALL_READ");
             case "contact-messages" -> new ResolvedTarget("CONTACT_MESSAGE", seg(uri, 3), "CONTACT_MESSAGE.MARK_READ");
             case "reports" -> new ResolvedTarget("REPORT", null, "REPORT." + upper(seg(uri, 3)) + "_REGENERATE");
@@ -195,16 +193,6 @@ public class AuditInterceptor implements HandlerInterceptor {
         };
         boolean selfScoped = "me".equals(userId);
         return new ResolvedTarget("USER", selfScoped ? null : userId, action);
-    }
-
-    private ResolvedTarget resolveContent(String uri, String fallback) {
-        if (uri.endsWith("/upload")) {
-            return new ResolvedTarget("CONTENT", null, "CONTENT.UPLOAD");
-        }
-        if (uri.contains("/blocks/")) {
-            return new ResolvedTarget("CONTENT", seg(uri, 4), "CONTENT.UPDATE");
-        }
-        return new ResolvedTarget("CONTENT", null, "CONTENT.CREATE");
     }
 
     private ResolvedTarget resolveAdmin(String method, String[] segs, String fallback) {

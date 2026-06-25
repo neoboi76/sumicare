@@ -6,11 +6,6 @@
  */
 
 export * from './lib/auth.types';
-export * from './lib/user.types';
 export * from './lib/organization.types';
-export * from './lib/therapist.types';
 export * from './lib/booking.types';
-export * from './lib/pos.types';
 export * from './lib/recommendation.types';
-export * from './lib/report.types';
-export * from './lib/decking.types';

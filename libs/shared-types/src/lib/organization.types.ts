@@ -14,13 +14,11 @@ export interface OrganizationBranding {
   secondaryColor: string;
   accentColor: string;
   theme: string;
-}
-
-export interface UpdateBrandingRequest {
-  displayName?: string;
-  logoUrl?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  accentColor?: string;
-  theme?: string;
+  fontFamily: string | null;
+  loginBackgroundUrl: string | null;
+  faviconUrl: string | null;
+  instagramUrl: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  footerNote: string | null;
 }
