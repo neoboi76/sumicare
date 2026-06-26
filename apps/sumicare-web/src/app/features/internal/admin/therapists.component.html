@@ -15,49 +15,72 @@
       therapist</button>
   </header>
 
-  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
-    <table class="w-full min-w-[640px] text-sm">
-      <thead class="bg-slate-100">
-        <tr>
-          <th class="text-left p-3" [sumiSortable]="'staffNumber'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-            Staff # <sumi-sort-icon [active]="sortState().key === 'staffNumber'" [direction]="sortState().direction" />
-          </th>
-          <th class="text-left p-3" [sumiSortable]="'nickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-            Nickname <sumi-sort-icon [active]="sortState().key === 'nickname'" [direction]="sortState().direction" />
-          </th>
-          <th class="text-left p-3" [sumiSortable]="'gender'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-            Gender <sumi-sort-icon [active]="sortState().key === 'gender'" [direction]="sortState().direction" />
-          </th>
-          <th class="text-left p-3" [sumiSortable]="'type'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-            Type <sumi-sort-icon [active]="sortState().key === 'type'" [direction]="sortState().direction" />
-          </th>
-          <th class="text-left p-3" [sumiSortable]="'shift'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-            Shift <sumi-sort-icon [active]="sortState().key === 'shift'" [direction]="sortState().direction" />
-          </th>
-          <th class="text-right p-3"></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (t of sortedTherapists(); track t.id) {
-        <tr class="border-t hover:bg-slate-50">
-          <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
-          <td class="p-3 font-medium">{{ t.nickname }}</td>
-          <td class="p-3">{{ t.gender }}</td>
-          <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
-          <td class="p-3 text-slate-500">{{ t.currentShiftLabel || 'Unassigned' }}</td>
-          <td class="p-3 text-right space-x-2">
-            <button (click)="openEdit(t)" class="text-[var(--sumi-primary)] hover:underline text-xs">Edit</button>
-            <button (click)="deactivate(t)" class="text-red-700 hover:underline text-xs">Deactivate</button>
-          </td>
-        </tr>
-        } @empty {
-        <tr>
-          <td colspan="6" class="p-6 text-center text-slate-500">No active therapists.</td>
-        </tr>
+  <div class="flex flex-wrap items-end gap-3">
+    <label class="block">
+      <span class="text-xs text-slate-500">Gender</span>
+      <select [ngModel]="genderFilter()" (ngModelChange)="genderFilter.set($event)" name="genderFilter"
+        class="mt-1 rounded border border-slate-300 px-3 py-2 text-sm">
+        <option value="ALL">All genders</option>
+        <option value="F">Female</option>
+        <option value="M">Male</option>
+      </select>
+    </label>
+    <label class="block">
+      <span class="text-xs text-slate-500">Shift</span>
+      <select [ngModel]="shiftFilter()" (ngModelChange)="shiftFilter.set($event)" name="shiftFilter"
+        class="mt-1 rounded border border-slate-300 px-3 py-2 text-sm">
+        <option [ngValue]="'ALL'">All shifts</option>
+        @for (s of shifts(); track s.id) {
+        <option [ngValue]="s.id">{{ s.label }}</option>
         }
-      </tbody>
-    </table>
+      </select>
+    </label>
+  </div>
+
+  @for (group of groupedByShift(); track group.label) {
+  <section class="space-y-2">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">{{ group.label }}
+      <span class="text-slate-400">({{ group.items.length }})</span>
+    </h2>
+    <div class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+      <table class="w-full min-w-[560px] text-sm">
+        <thead class="bg-slate-100">
+          <tr>
+            <th class="text-left p-3" [sumiSortable]="'staffNumber'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+              Staff # <sumi-sort-icon [active]="sortState().key === 'staffNumber'" [direction]="sortState().direction" />
+            </th>
+            <th class="text-left p-3" [sumiSortable]="'nickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+              Nickname <sumi-sort-icon [active]="sortState().key === 'nickname'" [direction]="sortState().direction" />
+            </th>
+            <th class="text-left p-3" [sumiSortable]="'gender'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+              Gender <sumi-sort-icon [active]="sortState().key === 'gender'" [direction]="sortState().direction" />
+            </th>
+            <th class="text-left p-3" [sumiSortable]="'type'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
+              Type <sumi-sort-icon [active]="sortState().key === 'type'" [direction]="sortState().direction" />
+            </th>
+            <th class="text-right p-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of group.items; track t.id) {
+          <tr class="border-t hover:bg-slate-50">
+            <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
+            <td class="p-3 font-medium">{{ t.nickname }}</td>
+            <td class="p-3">{{ t.gender }}</td>
+            <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
+            <td class="p-3 text-right space-x-2">
+              <button (click)="openEdit(t)" class="text-[var(--sumi-primary)] hover:underline text-xs">Edit</button>
+              <button (click)="deactivate(t)" class="text-red-700 hover:underline text-xs">Deactivate</button>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   </section>
+  } @empty {
+  <section class="bg-white rounded-xl shadow p-6 text-center text-slate-500">No therapists match the current filters.</section>
+  }
 
   @if (deactivated().length > 0) {
   <section>

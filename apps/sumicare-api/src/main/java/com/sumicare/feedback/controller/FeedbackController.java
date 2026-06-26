@@ -12,18 +12,21 @@ import com.sumicare.feedback.domain.Feedback;
 import com.sumicare.feedback.repository.FeedbackRepository;
 import com.sumicare.notification.service.NotificationService;
 import com.sumicare.organization.repository.OrganizationRepository;
+import com.sumicare.therapist.repository.TherapistRepository;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -41,12 +44,14 @@ public class FeedbackController {
     private final FeedbackRepository repository;
     private final OrganizationRepository organizationRepository;
     private final NotificationService notificationService;
+    private final TherapistRepository therapistRepository;
 
     public FeedbackController(FeedbackRepository repository, OrganizationRepository organizationRepository,
-                              NotificationService notificationService) {
+                              NotificationService notificationService, TherapistRepository therapistRepository) {
         this.repository = repository;
         this.organizationRepository = organizationRepository;
         this.notificationService = notificationService;
+        this.therapistRepository = therapistRepository;
     }
 
     @PostMapping("/api/public/feedback/{slug}")
@@ -102,12 +107,31 @@ public class FeedbackController {
         return Map.of("marked", updated);
     }
 
+    @PostMapping("/api/feedback/{id}/respond")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    @Transactional
+    public Feedback respond(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                            @PathVariable UUID id, @RequestBody RespondRequest request) {
+        UUID orgId = UUID.fromString(principal.organizationId());
+        Feedback feedback = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!feedback.getOrganizationId().equals(orgId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        feedback.setStaffResponse(request.response());
+        feedback.setRespondedByUserId(UUID.fromString(principal.userId()));
+        feedback.setRespondedAt(OffsetDateTime.now());
+        return repository.save(feedback);
+    }
+
     @GetMapping(value = "/api/feedback/export.csv", produces = "text/csv")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public ResponseEntity<byte[]> exportCsv(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
             @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to) {
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) UUID therapistId) {
         UUID orgId = UUID.fromString(principal.organizationId());
         OffsetDateTime start = from != null
                 ? LocalDate.parse(from).atStartOfDay(MANILA).toOffsetDateTime()
@@ -115,16 +139,30 @@ public class FeedbackController {
         OffsetDateTime end = to != null
                 ? LocalDate.parse(to).plusDays(1).atStartOfDay(MANILA).toOffsetDateTime()
                 : OffsetDateTime.now().plusDays(1);
-        List<Feedback> rows = repository.findAllByOrganizationIdAndSubmittedAtBetweenOrderBySubmittedAtAsc(orgId, start, end);
+        String orgName = organizationRepository.findById(orgId).map(o -> o.getDisplayName()).orElse("Organization");
+        List<Feedback> rows = repository.findAllByOrganizationIdAndSubmittedAtBetweenOrderBySubmittedAtAsc(orgId, start, end).stream()
+                .filter(f -> type == null || type.isBlank() || type.equalsIgnoreCase(f.getFeedbackType()))
+                .filter(f -> therapistId == null || therapistId.equals(f.getTherapistId()))
+                .toList();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        StringBuilder csv = new StringBuilder("Submitted at,Rating,Nickname,OR#,Session ID,Client ID,Comment\r\n");
+        String generated = OffsetDateTime.now().atZoneSameInstant(MANILA).format(fmt);
+        StringBuilder csv = new StringBuilder();
+        csv.append(csvVal(orgName)).append("\r\n");
+        csv.append("Feedback report").append("\r\n");
+        csv.append("Date range,").append(from == null ? "All" : from).append(" to ").append(to == null ? "All" : to).append("\r\n");
+        csv.append("Generated,").append(generated).append(" (Manila)\r\n");
+        csv.append("\r\n");
+        csv.append("Submitted at,Type,Rating,Nickname,Therapist,OR#,Staff response,Comment\r\n");
         for (Feedback f : rows) {
+            String therapistName = f.getTherapistId() == null ? "" : therapistRepository.findById(f.getTherapistId())
+                    .map(t -> t.getNickname()).orElse("");
             csv.append(csvVal(f.getSubmittedAt() != null ? f.getSubmittedAt().format(fmt) : "")).append(',');
+            csv.append(csvVal(f.getFeedbackType())).append(',');
             csv.append(f.getRatingStars()).append(',');
             csv.append(csvVal(f.getNickname())).append(',');
+            csv.append(csvVal(therapistName)).append(',');
             csv.append(csvVal(f.getOrNumber())).append(',');
-            csv.append(csvVal(f.getSessionId() != null ? f.getSessionId().toString() : "")).append(',');
-            csv.append(csvVal(f.getClientId() != null ? f.getClientId().toString() : "")).append(',');
+            csv.append(csvVal(f.getStaffResponse())).append(',');
             csv.append(csvVal(f.getComment())).append("\r\n");
         }
         byte[] bytes = csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -133,6 +171,8 @@ public class FeedbackController {
                 .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
                 .body(bytes);
     }
+
+    public record RespondRequest(@Size(max = 2000) String response) {}
 
     private String csvVal(String v) {
         if (v == null || v.isBlank()) return "";

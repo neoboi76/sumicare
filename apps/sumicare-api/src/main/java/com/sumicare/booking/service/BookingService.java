@@ -25,6 +25,7 @@ import com.sumicare.cashier.domain.OrderItemAttendee;
 import com.sumicare.cashier.domain.Package;
 import com.sumicare.cashier.domain.PackageTier;
 import com.sumicare.cashier.dto.PaymentDetailsRequest;
+import com.sumicare.cashier.dto.PendingPaymentResult;
 import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
@@ -59,6 +60,7 @@ import com.sumicare.voucher.service.VoucherService;
 import com.sumicare.print.ReceiptPdfService;
 import com.sumicare.print.TreatmentSlipPdfService;
 import com.sumicare.auth.service.EmailService;
+import com.sumicare.feedback.service.SurveyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -113,6 +115,7 @@ public class BookingService {
     private final TreatmentSlipPdfService treatmentSlipPdfService;
     private final PayMongoService payMongoService;
     private final LockerAssignmentService lockerAssignmentService;
+    private final SurveyService surveyService;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
@@ -137,7 +140,8 @@ public class BookingService {
                           ReceiptPdfService receiptPdfService,
                           TreatmentSlipPdfService treatmentSlipPdfService,
                           PayMongoService payMongoService,
-                          LockerAssignmentService lockerAssignmentService) {
+                          LockerAssignmentService lockerAssignmentService,
+                          SurveyService surveyService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -166,6 +170,7 @@ public class BookingService {
         this.treatmentSlipPdfService = treatmentSlipPdfService;
         this.payMongoService = payMongoService;
         this.lockerAssignmentService = lockerAssignmentService;
+        this.surveyService = surveyService;
     }
 
     @PreAuthorize("permitAll()")
@@ -176,9 +181,8 @@ public class BookingService {
         if (request.clientNickname() == null || request.clientNickname().isBlank()) {
             throw new IllegalArgumentException("Client nickname is required");
         }
-        if (!"WALK_IN".equalsIgnoreCase(request.reservationType())
-                && (request.clientEmail() == null || request.clientEmail().isBlank())) {
-            throw new IllegalArgumentException("Client email is required for online bookings");
+        if (request.clientEmail() == null || request.clientEmail().isBlank()) {
+            throw new IllegalArgumentException("Client email is required for all bookings");
         }
 
         if (request.scheduledAt() != null && !"WALK_IN".equals(request.reservationType())) {
@@ -195,6 +199,7 @@ public class BookingService {
         }
 
         UUID resolvedClientId = request.clientId();
+        String effectiveNickname = request.clientNickname();
         if (resolvedClientId == null && request.clientEmail() != null && !request.clientEmail().isBlank()) {
             Client existing = clientRepository.findByOrganizationIdAndEmailAndDeletedAtIsNull(organizationId, request.clientEmail()).orElse(null);
             if (existing == null) {
@@ -208,11 +213,7 @@ public class BookingService {
                 Client saved = clientRepository.save(created);
                 resolvedClientId = saved.getId();
             } else {
-                if (!request.clientNickname().equalsIgnoreCase(existing.getNickname())) {
-                    throw new org.springframework.web.server.ResponseStatusException(
-                            org.springframework.http.HttpStatus.CONFLICT,
-                            "That email is already registered to another nickname. Use a different email.");
-                }
+                effectiveNickname = existing.getNickname();
                 if (request.nationality() != null && (existing.getNationality() == null || existing.getNationality().isBlank())) {
                     existing.setNationality(request.nationality());
                     clientRepository.save(existing);
@@ -222,7 +223,7 @@ public class BookingService {
         }
 
         if (request.items() != null && !request.items().isEmpty()) {
-            return createMultiPackageBooking(organizationId, request, resolvedClientId, service);
+            return createMultiPackageBooking(organizationId, request, resolvedClientId, effectiveNickname, service);
         }
 
         Package selectedPackage = request.packageId() == null ? null
@@ -306,11 +307,14 @@ public class BookingService {
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(resolvedClientId);
-        booking.setClientNickname(request.clientNickname());
+        booking.setClientNickname(effectiveNickname);
         booking.setClientEmail(resolveClientEmail(request));
         booking.setLockerNumber(resolvedBookingLocker);
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
+        if (Boolean.TRUE.equals(request.termsAccepted())) {
+            booking.setTermsAcceptedAt(OffsetDateTime.now());
+        }
         booking.setScheduledAt(request.scheduledAt());
         booking.setPax(resolvedPax);
         booking.setClientGender(request.clientGender());
@@ -463,7 +467,7 @@ public class BookingService {
     }
 
     private BookingResponse createMultiPackageBooking(UUID organizationId, CreateBookingRequest request,
-                                                      UUID resolvedClientId, Service service) {
+                                                      UUID resolvedClientId, String effectiveNickname, Service service) {
         boolean publicReservation = !"WALK_IN".equalsIgnoreCase(request.reservationType());
         List<CreateBookingItemRequest> items = request.items();
 
@@ -528,11 +532,14 @@ public class BookingService {
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(resolvedClientId);
-        booking.setClientNickname(request.clientNickname());
+        booking.setClientNickname(effectiveNickname);
         booking.setClientEmail(resolveClientEmail(request));
         booking.setLockerNumber(bookingLocker);
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
+        if (Boolean.TRUE.equals(request.termsAccepted())) {
+            booking.setTermsAcceptedAt(OffsetDateTime.now());
+        }
         booking.setScheduledAt(request.scheduledAt());
         booking.setPax(totalAttendees);
         booking.setClientGender(request.clientGender());
@@ -738,6 +745,24 @@ public class BookingService {
         }
         orderService.settleGatewayPayment(order, null, intentId, paymentMethod, order.getTotal());
         return order.getOrNumber();
+    }
+
+    public boolean isHardPrepayRequired(String reservationType, String paymentMethod) {
+        return "HARD".equalsIgnoreCase(reservationType) && PayMongoService.supports(paymentMethod);
+    }
+
+    @Transactional
+    public PendingPaymentResult createPublicFromPending(
+            UUID organizationId, CreateBookingRequest request, String intentId, String paymentMethod, BigDecimal amount) {
+        BookingResponse created = createBooking(organizationId, request);
+        Booking booking = bookingRepository.findById(created.id()).orElseThrow();
+        Order order = orderRepository.findByBookingId(booking.getId()).orElseThrow();
+        settlePublicPayment(order, intentId, paymentMethod);
+        Booking settled = bookingRepository.findById(booking.getId()).orElse(booking);
+        String scheduledAt = settled.getScheduledAt() == null ? null : settled.getScheduledAt().toString();
+        return new PendingPaymentResult("succeeded", null, intentId, null,
+                order.getId().toString(), order.getOrNumber(), settled.getReference(),
+                settled.getClientNickname(), scheduledAt, settled.getReservationType());
     }
 
     public void resendBookingConfirmation(Order order) {
@@ -1135,6 +1160,7 @@ public class BookingService {
             OffsetDateTime scheduled = booking.getScheduledAt();
             String paymentMethod = describePaymentMethods(order);
             List<String> slipLines = buildSlipSummaryLines(booking.getId());
+            String surveyLink = surveyService.createInvitationLink(booking.getOrganizationId(), order.getId());
             EmailService.CompletionEmailPayload payload = new EmailService.CompletionEmailPayload(
                     booking.getId().toString(),
                     order.getOrNumber(),
@@ -1143,7 +1169,8 @@ public class BookingService {
                     formatManila(scheduled == null ? null : scheduled.plusMinutes(PREP_BUFFER_MINUTES)),
                     total.toPlainString(),
                     paymentMethod,
-                    slipLines);
+                    slipLines,
+                    surveyLink);
             emailService.sendCompletionEmail(email, booking.getClientNickname(), payload, receipt, slips);
             order.setCompletionEmailSentAt(OffsetDateTime.now());
             orderRepository.save(order);

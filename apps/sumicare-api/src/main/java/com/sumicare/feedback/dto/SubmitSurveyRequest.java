@@ -1,0 +1,32 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
+package com.sumicare.feedback.dto;
+
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
+
+public record SubmitSurveyRequest(
+        @Min(1) @Max(5) int lasemaRating,
+        @Size(max = 2000) String lasemaComment,
+        List<TherapistRating> therapists,
+        boolean tipGiven,
+        BigDecimal tipAmount,
+        UUID tipTherapistId
+) {
+
+    public record TherapistRating(
+            UUID therapistId,
+            @Min(1) @Max(5) int rating,
+            @Size(max = 2000) String comment
+    ) {}
+}

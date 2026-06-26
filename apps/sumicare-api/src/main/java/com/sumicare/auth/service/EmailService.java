@@ -276,6 +276,17 @@ public class EmailService {
                   </table>
                   <p style="margin-top: 24px;">Sessions begin 15 minutes after your scheduled time to allow room preparation. Please arrive a few minutes early.</p>
                   <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+                  <h3 style="color: #c42441; font-size: 14px;">Terms and Conditions</h3>
+                  <div style="font-size: 12px; color: #374151; line-height: 1.6;">
+                    <p><strong>Reservations.</strong> Hard reservations are paid in full and guarantee your time slot and a room; soft reservations record a preferred time and optional preferred therapist, take no upfront payment, reserve no room, and always yield to hard reservations.</p>
+                    <p><strong>Guaranteed slot &amp; late arrival.</strong> For hard reservations the end time is fixed; arriving late means you use only the remaining time and the full amount still applies. A preferred therapist is never guaranteed.</p>
+                    <p><strong>Cancellation.</strong> Soft reservations may be cancelled free at any time. Hard reservations cancelled at least 24 hours before the schedule are eligible for a refund; later cancellations may not be refundable.</p>
+                    <p><strong>Refunds.</strong> Eligible refunds return through the original payment method (card and GCash to the same account, cash at the front desk); payment-provider fees may be non-refundable.</p>
+                    <p><strong>Timeliness.</strong> Please arrive 15 minutes early. A slot forfeited by a client who is 10 to 20 minutes late may be offered to a waiting walk-in. Session durations are fixed per service.</p>
+                    <p><strong>Booking &amp; responsibilities.</strong> A nickname and email are required, and clients are identified by nickname and email only. Disclose any relevant medical or skin conditions; services are for relaxation and are not medical care; unsafe or abusive conduct ends the session without refund; the spa is not liable for belongings not secured in a provided locker.</p>
+                    <p>The full Terms and Conditions are available on <a href="%s/terms">our website</a>.</p>
+                  </div>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
                   <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
                 </body>
                 </html>
@@ -289,7 +300,8 @@ public class EmailService {
                         payload.effectiveStart(),
                         payload.roomType(),
                         payload.paymentMethod() == null || payload.paymentMethod().isBlank() ? "Pending" : payload.paymentMethod(),
-                        payload.total());
+                        payload.total(),
+                        baseUrlResolver.resolve());
         sendHtml(to, subject, body);
     }
 
@@ -314,7 +326,8 @@ public class EmailService {
             String effectiveStart,
             String total,
             String paymentMethod,
-            List<String> slipLines) {}
+            List<String> slipLines,
+            String surveyLink) {}
 
     public record EmailAttachment(String filename, byte[] content) {}
 
@@ -323,8 +336,9 @@ public class EmailService {
                                     byte[] receiptPdf, List<EmailAttachment> slipPdfs) {
         String subject = "Thanks for Choosing New Lasema Spa Jjimjilbang";
         String orForLink = payload.orNumber() == null ? "" : payload.orNumber();
-        String feedbackUrl = baseUrlResolver.resolve()
-                + "/feedback?or=" + URLEncoder.encode(orForLink, StandardCharsets.UTF_8);
+        String surveyUrl = payload.surveyLink() != null && !payload.surveyLink().isBlank()
+                ? payload.surveyLink()
+                : baseUrlResolver.resolve() + "/feedback?or=" + URLEncoder.encode(orForLink, StandardCharsets.UTF_8);
         StringBuilder availedRows = new StringBuilder();
         if (payload.availed() != null) {
             for (String line : payload.availed()) {
@@ -359,9 +373,9 @@ public class EmailService {
                     <tr><td style="padding: 6px 12px; color: #6b7280;">Total</td><td style="padding: 6px 12px;">&#8369; %s</td></tr>
                   </table>
                   %s
-                  <p style="margin-top: 24px;">A copy of your official receipt and treatment slips are attached. We would love your feedback &mdash; scan the code below:</p>
-                  <p style="margin: 8px 0;"><img src="cid:feedbackQr" alt="Feedback QR code" style="width: 160px; height: 160px;" /></p>
-                  <p style="font-size: 12px;"><a href="%s" style="color: #0F766E;">%s</a></p>
+                  <p style="margin-top: 24px;">A copy of your official receipt and treatment slips are attached. We would love your feedback on your overall experience and on each therapist who served you &mdash; scan the code or use the link below:</p>
+                  <p style="margin: 8px 0;"><img src="cid:feedbackQr" alt="Survey QR code" style="width: 160px; height: 160px;" /></p>
+                  <p style="font-size: 12px;"><a href="%s" style="color: #0F766E;">Rate your visit</a></p>
                   <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
                   <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
                   <p style="font-size: 11px; color: #9ca3af;">This email has been sent from an automated system. Please do not reply to it.</p>
@@ -379,9 +393,8 @@ public class EmailService {
                         slipRows.length() == 0 ? "" :
                                 "<h3 style=\"margin-top: 24px; color: #1a1a1a;\">Treatment slips</h3>" +
                                 "<table style=\"border-collapse: collapse; margin-top: 8px; width: 100%;\">" + slipRows + "</table>",
-                        feedbackUrl,
-                        feedbackUrl);
-        sendHtmlWithAttachments(to, subject, body, feedbackUrl, receiptPdf, slipPdfs);
+                        surveyUrl);
+        sendHtmlWithAttachments(to, subject, body, surveyUrl, receiptPdf, slipPdfs);
     }
 
     private void sendHtmlWithAttachments(String to, String subject, String body, String feedbackUrl,

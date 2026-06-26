@@ -15,6 +15,7 @@ import { environment } from '../../../environments/environment';
 import { PaymentDetailsModalComponent } from '../../shared/components/payment-details/payment-details-modal.component';
 import { PaymentDetails, PaymentDetailsService } from '../../shared/components/payment-details/payment-details.service';
 import { manilaToday, manilaNowTime, toManilaIso } from '../../shared/util/manila-time';
+import { TermsContentComponent } from './terms-content.component';
 
 interface ServiceItem {
   id: number;
@@ -71,6 +72,19 @@ interface PublicPaymentResult {
   reservationType: string | null;
 }
 
+interface HoldResult {
+  status: string;
+  token: string | null;
+  intentId: string | null;
+  redirectUrl: string | null;
+  orderId: string | null;
+  orNumber: string | null;
+  reference: string | null;
+  nickname: string | null;
+  scheduledAt: string | null;
+  reservationType: string | null;
+}
+
 interface AttendeeForm {
   packageTierId: number | null;
   lockerNumber: string;
@@ -96,7 +110,7 @@ interface AppliedVoucher {
 @Component({
   selector: 'sumi-book',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, QRCodeComponent, PaymentDetailsModalComponent, RouterLink],
+  imports: [FormsModule, DecimalPipe, QRCodeComponent, PaymentDetailsModalComponent, RouterLink, TermsContentComponent],
   templateUrl: './book.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -136,7 +150,9 @@ export class BookComponent implements OnInit {
   paymentMethod = signal<PayMethod>('GCASH');
   scheduledDate = '';
   scheduledTime = '';
-  consent = false;
+  showTerms = signal(false);
+  termsScrolledToEnd = signal(false);
+  termsAccepted = signal(false);
   bookingItems = signal<BookingItemForm[]>([this.blankItem()]);
 
   voucherCode = '';
@@ -209,7 +225,12 @@ export class BookComponent implements OnInit {
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
     if (params.get('paymongoReturn')) {
-      this.handlePaymentReturn(params.get('orderId'), params.get('intent'), params.get('paymentMethod'), params.get('status'));
+      const pendingToken = params.get('pendingToken');
+      if (pendingToken) {
+        this.handleHoldReturn(pendingToken, params.get('intent'), params.get('paymentMethod'), params.get('status'));
+      } else {
+        this.handlePaymentReturn(params.get('orderId'), params.get('intent'), params.get('paymentMethod'), params.get('status'));
+      }
     }
     this.http
       .get<ServiceItem[]>(`${environment.apiBaseUrl}/api/public/services/${environment.defaultOrganizationSlug}`)
@@ -328,6 +349,23 @@ export class BookComponent implements OnInit {
     });
   }
 
+  openTerms(): void {
+    this.termsScrolledToEnd.set(false);
+    this.showTerms.set(true);
+  }
+
+  onTermsScroll(event: Event): void {
+    const el = event.target as HTMLElement;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 12) {
+      this.termsScrolledToEnd.set(true);
+    }
+  }
+
+  acceptTerms(): void {
+    this.termsAccepted.set(true);
+    this.showTerms.set(false);
+  }
+
   submit(event: Event): void {
     event.preventDefault();
     if (this.submitting()) return;
@@ -343,7 +381,7 @@ export class BookComponent implements OnInit {
     });
     if (!this.scheduledDate) missing.push('date');
     if (!this.scheduledTime) missing.push('time');
-    if (!this.consent) missing.push('consent');
+    if (!this.termsAccepted()) missing.push('accept the Terms and Conditions');
     if (missing.length > 0) {
       this.error.set('Please complete: ' + missing.join(', ') + '.');
       return;
@@ -398,8 +436,14 @@ export class BookComponent implements OnInit {
       items: payloadItems,
       voucherCode: this.appliedVoucher() ? this.voucherCode.trim() : null,
       remarks: this.remarks.trim() || null,
-      preferredTherapist: this.preferredTherapist.trim() || null
+      preferredTherapist: this.preferredTherapist.trim() || null,
+      termsAccepted: this.termsAccepted()
     };
+
+    if (this.reservationType === 'HARD') {
+      this.startPublicHold(payload);
+      return;
+    }
 
     this.http
       .post<BookingCreated>(
@@ -408,10 +452,6 @@ export class BookComponent implements OnInit {
       )
       .subscribe({
         next: (booking) => {
-          if (this.reservationType === 'HARD' && booking.orderId) {
-            this.startPublicPayment(booking);
-            return;
-          }
           this.submitting.set(false);
           this.bookingRef.set(booking.reference);
           this.setConfirmationFromForm(booking);
@@ -422,6 +462,110 @@ export class BookComponent implements OnInit {
           this.error.set(this.extractErrorMessage(err));
         }
       });
+  }
+
+  private async startPublicHold(payload: Record<string, unknown>): Promise<void> {
+    const method = this.paymentMethod();
+    let details: PaymentDetails | null = null;
+    if (method === 'GCASH') {
+      details = await this.paymentDetailsService.open(method, this.estimatedTotal());
+      if (!details) {
+        this.submitting.set(false);
+        return;
+      }
+    }
+    this.http
+      .post<HoldResult>(
+        `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/initiate-hold`,
+        {
+          booking: payload,
+          paymentMethod: method,
+          amount: this.estimatedTotal(),
+          paymentDetails: details,
+          returnPath: `${window.location.origin}/book`
+        }
+      )
+      .subscribe({
+        next: (res) => this.onHoldInitiated(res, method),
+        error: (err) => {
+          this.submitting.set(false);
+          this.error.set(this.extractErrorMessage(err));
+        }
+      });
+  }
+
+  private onHoldInitiated(res: HoldResult, method: PayMethod): void {
+    if (res.status === 'succeeded') {
+      this.submitting.set(false);
+      this.applyHoldConfirmation(res);
+      return;
+    }
+    if (!res.token) {
+      this.submitting.set(false);
+      this.error.set('Could not start the payment. Please try again.');
+      return;
+    }
+    const origin = window.location.origin;
+    const returnUrl = `${origin}/book?paymongoReturn=1&pendingToken=${encodeURIComponent(res.token)}`
+      + `&intent=${encodeURIComponent(res.intentId ?? '')}`
+      + `&paymentMethod=${encodeURIComponent(method)}`;
+    if (res.intentId) {
+      sessionStorage.setItem('paymongoHold:' + res.token, res.intentId);
+    }
+    if (res.intentId && res.intentId.startsWith('mock_')) {
+      window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
+        + `&amount=${this.estimatedTotal()}`
+        + `&method=${encodeURIComponent(method)}`
+        + `&return=${encodeURIComponent(returnUrl)}`;
+    } else if (res.redirectUrl) {
+      window.location.href = res.redirectUrl;
+    } else {
+      this.submitting.set(false);
+      this.error.set('Could not start the payment. Please try again.');
+    }
+  }
+
+  private handleHoldReturn(token: string, intentId: string | null, method: string | null, status: string | null): void {
+    const resolvedIntent = intentId ?? sessionStorage.getItem('paymongoHold:' + token);
+    sessionStorage.removeItem('paymongoHold:' + token);
+    if (status === 'cancelled' || status === 'failed') {
+      this.error.set('The payment was cancelled. Your slot is not yet reserved. Please try again.');
+      this.router.navigate(['/book']);
+      return;
+    }
+    this.submitting.set(true);
+    this.http
+      .post<HoldResult>(
+        `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/confirm-hold`,
+        { token, intentId: resolvedIntent, paymentMethod: method }
+      )
+      .subscribe({
+        next: (res) => {
+          this.submitting.set(false);
+          this.applyHoldConfirmation(res);
+        },
+        error: () => {
+          this.submitting.set(false);
+          this.error.set('We could not confirm your payment. If you were charged, please contact the front desk with your reference.');
+        }
+      });
+  }
+
+  private applyHoldConfirmation(res: HoldResult): void {
+    this.bookingRef.set(res.reference);
+    this.orNumber.set(res.orNumber);
+    this.confirmNickname.set(res.nickname);
+    this.confirmReservationType.set(res.reservationType ?? 'HARD');
+    this.confirmScheduled.set(res.scheduledAt);
+    this.confirmation.set({
+      id: res.orderId ?? '',
+      reference: res.reference ?? '',
+      clientNickname: res.nickname ?? '',
+      reservationType: res.reservationType ?? 'HARD',
+      scheduledAt: res.scheduledAt ?? '',
+      serviceId: 0,
+      orderId: res.orderId
+    });
   }
 
   private setConfirmationFromForm(booking: BookingCreated): void {
@@ -440,58 +584,6 @@ export class BookComponent implements OnInit {
     this.confirmServiceName.set(res.serviceName);
   }
 
-  private async startPublicPayment(booking: BookingCreated): Promise<void> {
-    const method = this.paymentMethod();
-    let details: PaymentDetails | null = null;
-    if (method === 'GCASH') {
-      details = await this.paymentDetailsService.open(method, this.estimatedTotal());
-      if (!details) {
-        this.submitting.set(false);
-        return;
-      }
-    }
-    this.http
-      .post<PublicPaymentResult>(
-        `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/initiate`,
-        { orderId: booking.orderId, paymentMethod: method, paymentDetails: details, returnPath: `${window.location.origin}/book` }
-      )
-      .subscribe({
-        next: (res) => this.onPaymentInitiated(booking, res, method),
-        error: (err) => {
-          this.submitting.set(false);
-          this.error.set(this.extractErrorMessage(err));
-        }
-      });
-  }
-
-  private onPaymentInitiated(booking: BookingCreated, res: PublicPaymentResult, method: PayMethod): void {
-    if (res.status === 'succeeded') {
-      this.submitting.set(false);
-      this.bookingRef.set(res.reference ?? booking.reference);
-      this.orNumber.set(res.orNumber);
-      this.setConfirmationFromResponse(res);
-      this.confirmation.set(booking);
-      return;
-    }
-    const origin = window.location.origin;
-    const returnUrl = `${origin}/book?paymongoReturn=1&orderId=${booking.orderId}`
-      + `&intent=${encodeURIComponent(res.intentId ?? '')}`
-      + `&paymentMethod=${encodeURIComponent(method)}`;
-    if (booking.orderId && res.intentId) {
-      sessionStorage.setItem('paymongoIntent:' + booking.orderId, res.intentId);
-    }
-    if (res.intentId && res.intentId.startsWith('mock_')) {
-      window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
-        + `&amount=${this.estimatedTotal()}`
-        + `&method=${encodeURIComponent(method)}`
-        + `&return=${encodeURIComponent(returnUrl)}`;
-    } else if (res.redirectUrl) {
-      window.location.href = res.redirectUrl;
-    } else {
-      this.submitting.set(false);
-      this.error.set('Could not start the payment. Please try again.');
-    }
-  }
 
   private handlePaymentReturn(orderId: string | null, intentId: string | null, method: string | null, status: string | null): void {
     if (!orderId) return;
@@ -553,7 +645,8 @@ export class BookComponent implements OnInit {
     this.preferredTherapist = '';
     this.scheduledDate = '';
     this.scheduledTime = '';
-    this.consent = false;
+    this.termsAccepted.set(false);
+    this.termsScrolledToEnd.set(false);
     this.bookingItems.set([this.blankItem()]);
     this.voucherCode = '';
     this.appliedVoucher.set(null);

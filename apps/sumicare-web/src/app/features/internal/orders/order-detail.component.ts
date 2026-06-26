@@ -26,6 +26,7 @@ interface OrderItemAttendee {
   sessionId: string | null;
   treatmentSlipId: string | null;
   position: number;
+  preferredTherapist: string | null;
 }
 
 interface OrderItem {
@@ -119,9 +120,15 @@ export class OrderDetailComponent implements OnInit {
   refundNotes = '';
   showRefund = signal(false);
 
+  therapists = signal<{ id: string; nickname: string }[]>([]);
+  tipTherapistId = '';
+  tipAmount: number | null = null;
+  tipNotice = signal<string | null>(null);
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) return;
+    this.loadTherapists();
     const params = this.route.snapshot.queryParamMap;
     if (params.get('paymongoReturn')) {
       this.handlePayMongoReturn(id, params.get('intent'), params.get('paymentMethod'), params.get('amount'), params.get('status'));
@@ -155,6 +162,43 @@ export class OrderDetailComponent implements OnInit {
     this.http.get<AuditEntry[]>(`${environment.apiBaseUrl}/api/audit-logs/by-target?entity=ORDER&id=${id}`).subscribe({
       next: (a) => this.audits.set(a),
       error: () => this.audits.set([])
+    });
+  }
+
+  private loadTherapists(): void {
+    this.http.get<{ id: string; nickname: string }[]>(`${environment.apiBaseUrl}/api/therapists`).subscribe({
+      next: (t) => this.therapists.set(t),
+      error: () => this.therapists.set([])
+    });
+  }
+
+  recordTip(): void {
+    const o = this.order();
+    if (!o || this.busy()) return;
+    if (!this.tipTherapistId) {
+      this.error.set('Select which therapist received the tip.');
+      return;
+    }
+    if (!this.tipAmount || this.tipAmount <= 0) {
+      this.error.set('Enter a valid tip amount.');
+      return;
+    }
+    this.busy.set(true);
+    this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/tips`, {
+      therapistId: this.tipTherapistId,
+      amount: this.tipAmount
+    }).subscribe({
+      next: () => {
+        this.tipAmount = null;
+        this.tipTherapistId = '';
+        this.error.set(null);
+        this.tipNotice.set('Tip recorded.');
+        this.busy.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || 'Could not record the tip.');
+        this.busy.set(false);
+      }
     });
   }
 

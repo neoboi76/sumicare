@@ -5,12 +5,12 @@
  *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
  */
 
-package com.sumicare.recommendation.dto;
+package com.sumicare.client.dto;
 
-import java.util.List;
-import java.util.UUID;
+import jakarta.validation.constraints.Size;
 
-public record QuizSubmissionRequest(
-        UUID clientId,
-        List<QuizAnswer> answers
+public record UpdateClientRequest(
+        @Size(max = 120) String nickname,
+        @Size(max = 8) String gender,
+        @Size(max = 120) String nationality
 ) {}

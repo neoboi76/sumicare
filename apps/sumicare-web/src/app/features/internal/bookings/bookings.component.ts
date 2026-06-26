@@ -31,6 +31,22 @@ interface ServiceItem {
   fixedRate: boolean;
 }
 
+interface CalendarEntry {
+  bookingId: string;
+  reference: string | null;
+  clientNickname: string;
+  reservationType: string;
+  status: string;
+  scheduledAt: string;
+}
+
+interface CalendarCell {
+  date: string;
+  day: number;
+  inMonth: boolean;
+  entries: CalendarEntry[];
+}
+
 interface LineupTherapist {
   therapistId: string;
   nickname: string;
@@ -112,7 +128,34 @@ export class BookingsComponent implements OnInit, OnDestroy {
   private roomsReloadDebounce: ReturnType<typeof setTimeout> | null = null;
 
   selectedDate = signal(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()));
+  viewMode = signal<'list' | 'calendar'>('list');
+  calendarYear = signal(new Date().getFullYear());
+  calendarMonth = signal(new Date().getMonth());
+  calendarEntries = signal<CalendarEntry[]>([]);
   bookings = signal<BookingResponse[]>([]);
+
+  monthLabel = computed(() =>
+    new Date(this.calendarYear(), this.calendarMonth(), 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+
+  calendarGrid = computed<CalendarCell[]>(() => {
+    const year = this.calendarYear();
+    const month = this.calendarMonth();
+    const byDate = new Map<string, CalendarEntry[]>();
+    for (const entry of this.calendarEntries()) {
+      const key = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date(entry.scheduledAt));
+      const list = byDate.get(key) ?? [];
+      list.push(entry);
+      byDate.set(key, list);
+    }
+    const startDow = new Date(year, month, 1).getDay();
+    const cells: CalendarCell[] = [];
+    for (let i = 0; i < 42; i++) {
+      const dt = new Date(year, month, 1 - startDow + i);
+      const ds = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+      cells.push({ date: ds, day: dt.getDate(), inMonth: dt.getMonth() === month, entries: byDate.get(ds) ?? [] });
+    }
+    return cells;
+  });
   services = signal<ServiceItem[]>([]);
   lineup = signal<LineupTherapist[]>([]);
   rooms = signal<RoomItem[]>([]);
@@ -340,6 +383,57 @@ export class BookingsComponent implements OnInit, OnDestroy {
   onDateChange(value: string): void {
     this.selectedDate.set(value);
     this.reload();
+  }
+
+  setView(mode: 'list' | 'calendar'): void {
+    this.viewMode.set(mode);
+    if (mode === 'calendar') this.loadCalendar();
+  }
+
+  loadCalendar(): void {
+    const from = new Date(this.calendarYear(), this.calendarMonth(), 1).toISOString();
+    const to = new Date(this.calendarYear(), this.calendarMonth() + 1, 1).toISOString();
+    this.http.get<CalendarEntry[]>(
+      `${environment.apiBaseUrl}/api/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+    ).subscribe({
+      next: (entries) => this.calendarEntries.set(entries),
+      error: () => this.calendarEntries.set([])
+    });
+  }
+
+  prevMonth(): void {
+    if (this.calendarMonth() === 0) {
+      this.calendarMonth.set(11);
+      this.calendarYear.update(y => y - 1);
+    } else {
+      this.calendarMonth.update(m => m - 1);
+    }
+    this.loadCalendar();
+  }
+
+  nextMonth(): void {
+    if (this.calendarMonth() === 11) {
+      this.calendarMonth.set(0);
+      this.calendarYear.update(y => y + 1);
+    } else {
+      this.calendarMonth.update(m => m + 1);
+    }
+    this.loadCalendar();
+  }
+
+  openCalendarDay(date: string): void {
+    this.selectedDate.set(date);
+    this.viewMode.set('list');
+    this.reload();
+  }
+
+  calendarStatusColor(status: string): string {
+    switch (status) {
+      case 'COMPLETED': return 'bg-emerald-500';
+      case 'ACTIVE': return 'bg-blue-500';
+      case 'CANCELLED': return 'bg-rose-400';
+      default: return 'bg-amber-400';
+    }
   }
 
   onSearch(value: string): void {

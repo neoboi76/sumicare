@@ -12,6 +12,8 @@ import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.CreateWalkInRequest;
+import com.sumicare.booking.dto.PublicHoldConfirmRequest;
+import com.sumicare.booking.dto.PublicHoldInitiateRequest;
 import com.sumicare.booking.dto.PublicPaymentConfirmRequest;
 import com.sumicare.booking.dto.PublicPaymentInitiateRequest;
 import com.sumicare.booking.dto.PublicPaymentResponse;
@@ -22,6 +24,8 @@ import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.booking.service.BookingService;
 import com.sumicare.booking.service.WalkInService;
+import com.sumicare.cashier.dto.PendingPaymentResult;
+import com.sumicare.cashier.service.PendingReservationCoordinator;
 import com.sumicare.organization.repository.OrganizationRepository;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -43,17 +47,20 @@ public class BookingController {
     private final OrganizationRepository organizationRepository;
     private final SessionRepository sessionRepository;
     private final BookingRepository bookingRepository;
+    private final PendingReservationCoordinator pendingCoordinator;
 
     public BookingController(BookingService bookingService,
                              WalkInService walkInService,
                              OrganizationRepository organizationRepository,
                              SessionRepository sessionRepository,
-                             BookingRepository bookingRepository) {
+                             BookingRepository bookingRepository,
+                             PendingReservationCoordinator pendingCoordinator) {
         this.bookingService = bookingService;
         this.walkInService = walkInService;
         this.organizationRepository = organizationRepository;
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
+        this.pendingCoordinator = pendingCoordinator;
     }
 
     @PostMapping("/api/walk-in")
@@ -88,6 +95,21 @@ public class BookingController {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
         return bookingService.confirmPublicPayment(organizationId, request.orderId(),
                 request.intentId(), request.paymentMethod());
+    }
+
+    @PostMapping("/api/public/bookings/{slug}/payment/initiate-hold")
+    public PendingPaymentResult publicHoldInitiate(@PathVariable String slug,
+                                                   @Valid @RequestBody PublicHoldInitiateRequest request) {
+        UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
+        return pendingCoordinator.initiatePublicHold(organizationId, request.booking(), request.paymentMethod(),
+                request.amount(), request.paymentDetails(), request.returnPath());
+    }
+
+    @PostMapping("/api/public/bookings/{slug}/payment/confirm-hold")
+    public PendingPaymentResult publicHoldConfirm(@PathVariable String slug,
+                                                  @Valid @RequestBody PublicHoldConfirmRequest request) {
+        organizationRepository.findBySlug(slug).orElseThrow();
+        return pendingCoordinator.confirm(request.token(), request.intentId(), request.paymentMethod());
     }
 
     @GetMapping("/api/bookings")

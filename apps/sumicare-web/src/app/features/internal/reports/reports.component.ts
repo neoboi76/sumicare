@@ -5,260 +5,229 @@
  *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
  */
 
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import Chart from 'chart.js/auto';
 import { environment } from '../../../../environments/environment';
-import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
-import { ToastService } from '../../../shared/components/toast/toast.service';
 
-interface ServiceLine { serviceId: number | null; serviceName: string; qty: number; unitPrice: number; lineTotal: number; }
-interface CutoffServicesReport { from: string; to: string; lines: ServiceLine[]; grandTotal: number; }
-interface DailyRow {
-  checkInTime: string; orNumber: string; lockerNumber: string; treatment: string;
-  packageName: string | null; amount: number; tsn: string; therapist: string; room: string;
-  massageStart: string; massageEnd: string; status: string;
-  orderId: string | null; firstOfOrder: boolean;
+interface RevenuePoint {
+  date: string;
+  net: number;
+  inflow: number;
+  outflow: number;
+  count: number;
 }
-interface DailyReport { date: string; rows: DailyRow[]; grandTotal: number; }
-interface MonthlyReport { year: number; month: number; rows: DailyRow[]; grandTotal: number; }
 
-interface Therapist { id: string; nickname: string; }
-interface Shift { id: number; label: string; startTime: string; endTime: string; }
+interface Balance {
+  inflow: number;
+  outflow: number;
+  balance: number;
+  count: number;
+}
 
-interface CommissionTherapistRow { therapistId: string; nickname: string; total: number; }
-interface CommissionShiftReport { shiftId: number; shiftLabel: string; date: string; rows: CommissionTherapistRow[]; grandTotal: number; }
-interface CommissionDailyReport { date: string; rows: CommissionTherapistRow[]; grandTotal: number; }
-interface MatrixRow { therapistId: string; nickname: string; amounts: number[]; total: number; }
-interface MatrixReport { columnLabels: string[]; rows: MatrixRow[]; columnTotals: number[]; grandTotal: number; }
+interface MethodSlice {
+  method: string;
+  net: number;
+}
 
-interface DeckingGlyph { symbol: string; serviceType: string; }
-interface DeckingRow { therapistId: string; nickname: string; shiftId: number | null; shiftLabel: string | null; glyphs: DeckingGlyph[]; totalCommission: number; requestedCount: number; }
-interface DeckingShiftGroup { shiftId: number; shiftLabel: string; rows: DeckingRow[]; }
-interface DeckingDailyReport { date: string; shiftGroups: DeckingShiftGroup[]; }
+interface TopTherapist {
+  therapistId: string;
+  nickname: string;
+  averageRating: number;
+  ratingCount: number;
+  requestCount: number;
+  serviceCount: number;
+  score: number;
+}
 
-type Tab = 'services' | 'daily' | 'monthly' | 'commissions' | 'decking';
-type CommissionTab = 'shift' | 'daily' | 'cutoff' | 'monthly';
+const PAYMENT_METHODS = ['CASH', 'GCASH', 'CREDIT', 'DEBIT'];
 
 @Component({
   selector: 'sumi-reports',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, PaginatorComponent],
+  imports: [FormsModule, DecimalPipe],
   templateUrl: './reports.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ReportsComponent implements OnInit {
+export class ReportsComponent implements AfterViewInit, OnDestroy {
   private http = inject(HttpClient);
-  private toast = inject(ToastService);
 
-  tab = signal<Tab>('services');
-  commissionTab = signal<CommissionTab>('cutoff');
+  private trendCanvas = viewChild<ElementRef<HTMLCanvasElement>>('trendCanvas');
+  private methodCanvas = viewChild<ElementRef<HTMLCanvasElement>>('methodCanvas');
+  private trendChart: Chart | null = null;
+  private methodChart: Chart | null = null;
+
+  from = signal(this.dayOffset(-13));
+  to = signal(this.dayOffset(0));
+  method = signal('ALL');
   loading = signal(false);
+  points = signal<RevenuePoint[]>([]);
+  methodSlices = signal<MethodSlice[]>([]);
+  topTherapists = signal<TopTherapist[]>([]);
 
-  cutoffFrom = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
-  cutoffTo = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
-  cutoffShiftId: number | null = null;
-  servicesReport = signal<CutoffServicesReport | null>(null);
+  readonly methodOptions = ['ALL', ...PAYMENT_METHODS];
 
-  selectedShiftLabel = (): string => {
-    if (!this.cutoffShiftId) return 'All shifts';
-    const s = this.shifts().find(sh => sh.id === this.cutoffShiftId);
-    return s ? `${s.label} (${s.startTime} - ${s.endTime})` : 'All shifts';
-  };
-
-  dailyDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
-  dailyReport = signal<DailyReport | null>(null);
-
-  monthlyYear = new Date().getFullYear();
-  monthlyMonth = new Date().getMonth() + 1;
-  monthlyReport = signal<MonthlyReport | null>(null);
-
-  shifts = signal<Shift[]>([]);
-  commissionShiftId: number | null = null;
-  commissionShiftDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
-  commissionShiftReport = signal<CommissionShiftReport | null>(null);
-
-  commissionDailyDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
-  commissionDailyReport = signal<CommissionDailyReport | null>(null);
-
-  commissionCutoffYear = new Date().getFullYear();
-  commissionCutoffMonth = new Date().getMonth() + 1;
-  commissionCutoffHalf: 1 | 2 = new Date().getDate() <= 15 ? 1 : 2;
-  commissionCutoffReport = signal<MatrixReport | null>(null);
-
-  commissionMonthlyYear = new Date().getFullYear();
-  commissionMonthlyMonth = new Date().getMonth() + 1;
-  commissionMonthlyReport = signal<MatrixReport | null>(null);
-
-  deckingDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
-  deckingReport = signal<DeckingDailyReport | null>(null);
-
-  pageSize = signal(15);
-  dailyPage = signal(0);
-
-  pagedDailyRows = computed(() => {
-    const rows = this.dailyReport()?.rows ?? [];
-    const start = this.dailyPage() * this.pageSize();
-    return rows.slice(start, start + this.pageSize());
+  totalNet = computed(() => this.points().reduce((sum, p) => sum + p.net, 0));
+  totalInflow = computed(() => this.points().reduce((sum, p) => sum + p.inflow, 0));
+  totalOutflow = computed(() => this.points().reduce((sum, p) => sum + p.outflow, 0));
+  totalCount = computed(() => this.points().reduce((sum, p) => sum + p.count, 0));
+  bestDay = computed(() => {
+    const rows = this.points();
+    if (rows.length === 0) return null;
+    return rows.reduce((best, p) => (p.net > best.net ? p : best), rows[0]);
   });
 
-  ngOnInit(): void {
-    this.loadShifts();
+  ngAfterViewInit(): void {
+    this.load();
+    this.http.get<{ therapists: TopTherapist[] }>(`${environment.apiBaseUrl}/api/reports/top-therapists`)
+      .pipe(catchError(() => of({ therapists: [] as TopTherapist[] })))
+      .subscribe((res) => this.topTherapists.set(res.therapists));
   }
 
-  setTab(t: Tab): void { this.tab.set(t); }
-  setCommissionTab(t: CommissionTab): void { this.commissionTab.set(t); }
+  ngOnDestroy(): void {
+    this.trendChart?.destroy();
+    this.methodChart?.destroy();
+  }
 
-  private loadShifts(): void {
-    this.http.get<Shift[]>(`${environment.apiBaseUrl}/api/shifts`).subscribe({
-      next: (s) => this.shifts.set(s),
-      error: () => this.shifts.set([])
+  downloadSalesPdf(): void {
+    const url = `${environment.apiBaseUrl}/api/reports/sales-summary.pdf?from=${this.from()}&to=${this.to()}`;
+    this.http.get(url, { responseType: 'blob' }).subscribe((blob) => {
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `sales-report-${this.from()}-to-${this.to()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
     });
   }
 
-  loadServices(): void {
+  load(): void {
     this.loading.set(true);
-    const from = `${this.cutoffFrom}T00:00:00.000+08:00`;
-    const to = `${this.cutoffTo}T23:59:59.999+08:00`;
-    let url = `${environment.apiBaseUrl}/api/reports/cutoff/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-    if (this.cutoffShiftId) url += `&shiftId=${this.cutoffShiftId}`;
-    this.http.get<CutoffServicesReport>(url).subscribe({
-      next: (r) => { this.servicesReport.set(r); this.loading.set(false); },
-      error: () => { this.servicesReport.set(null); this.loading.set(false); }
-    });
-  }
+    const from = this.from();
+    const to = this.to();
+    const method = this.method();
+    const methodParam = method && method !== 'ALL' ? `&method=${encodeURIComponent(method)}` : '';
+    const trend$ = this.http.get<RevenuePoint[]>(
+      `${environment.apiBaseUrl}/api/cashier/ledger/daily-revenue?from=${from}&to=${to}${methodParam}`
+    ).pipe(catchError(() => of([] as RevenuePoint[])));
+    const breakdown$ = forkJoin(PAYMENT_METHODS.map(m =>
+      this.http.get<Balance>(
+        `${environment.apiBaseUrl}/api/cashier/ledger/balance?from=${from}&to=${to}&method=${m}`
+      ).pipe(catchError(() => of({ inflow: 0, outflow: 0, balance: 0, count: 0 } as Balance)))
+    ));
 
-  exportServicesCsv(): void {
-    const from = `${this.cutoffFrom}T00:00:00.000+08:00`;
-    const to = `${this.cutoffTo}T23:59:59.999+08:00`;
-    let url = `${environment.apiBaseUrl}/api/reports/cutoff/services/export.csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-    if (this.cutoffShiftId) url += `&shiftId=${this.cutoffShiftId}`;
-    this.downloadBlob(url, `cutoff-services-${this.cutoffFrom}-to-${this.cutoffTo}.csv`);
-  }
-
-  loadDaily(): void {
-    this.loading.set(true);
-    this.http.get<DailyReport>(`${environment.apiBaseUrl}/api/reports/daily?date=${this.dailyDate}`).subscribe({
-      next: (r) => { this.dailyReport.set(r); this.dailyPage.set(0); this.loading.set(false); },
-      error: () => { this.dailyReport.set(null); this.loading.set(false); }
-    });
-  }
-  exportDailyCsv(): void {
-    this.downloadBlob(
-      `${environment.apiBaseUrl}/api/reports/daily/export.csv?date=${this.dailyDate}`,
-      `daily-${this.dailyDate}.csv`
-    );
-  }
-
-  loadMonthly(): void {
-    this.loading.set(true);
-    this.http.get<MonthlyReport>(
-      `${environment.apiBaseUrl}/api/reports/monthly-detailed?year=${this.monthlyYear}&month=${this.monthlyMonth}`
-    ).subscribe({
-      next: (r) => { this.monthlyReport.set(r); this.loading.set(false); },
-      error: () => { this.monthlyReport.set(null); this.loading.set(false); }
-    });
-  }
-  exportMonthlyCsv(): void {
-    this.downloadBlob(
-      `${environment.apiBaseUrl}/api/reports/monthly-detailed/export.csv?year=${this.monthlyYear}&month=${this.monthlyMonth}`,
-      `monthly-${this.monthlyYear}-${String(this.monthlyMonth).padStart(2, '0')}.csv`
-    );
-  }
-
-  loadCommissionShift(): void {
-    if (!this.commissionShiftId) return;
-    this.loading.set(true);
-    this.http.get<CommissionShiftReport>(
-      `${environment.apiBaseUrl}/api/reports/commissions/shift?shiftId=${this.commissionShiftId}&date=${this.commissionShiftDate}`
-    ).subscribe({
-      next: (r) => { this.commissionShiftReport.set(r); this.loading.set(false); },
-      error: () => { this.commissionShiftReport.set(null); this.loading.set(false); }
-    });
-  }
-  exportCommissionShiftCsv(): void {
-    if (!this.commissionShiftId) return;
-    this.downloadBlob(
-      `${environment.apiBaseUrl}/api/reports/commissions/shift/export.csv?shiftId=${this.commissionShiftId}&date=${this.commissionShiftDate}`,
-      `commissions-shift-${this.commissionShiftId}-${this.commissionShiftDate}.csv`
-    );
-  }
-
-  loadCommissionDaily(): void {
-    this.loading.set(true);
-    this.http.get<CommissionDailyReport>(
-      `${environment.apiBaseUrl}/api/reports/commissions/daily?date=${this.commissionDailyDate}`
-    ).subscribe({
-      next: (r) => { this.commissionDailyReport.set(r); this.loading.set(false); },
-      error: () => { this.commissionDailyReport.set(null); this.loading.set(false); }
-    });
-  }
-  exportCommissionDailyCsv(): void {
-    this.downloadBlob(
-      `${environment.apiBaseUrl}/api/reports/commissions/daily/export.csv?date=${this.commissionDailyDate}`,
-      `commissions-daily-${this.commissionDailyDate}.csv`
-    );
-  }
-
-  loadCommissionCutoff(): void {
-    this.loading.set(true);
-    this.http.get<MatrixReport>(
-      `${environment.apiBaseUrl}/api/reports/commissions/cutoff?year=${this.commissionCutoffYear}&month=${this.commissionCutoffMonth}&half=${this.commissionCutoffHalf}`
-    ).subscribe({
-      next: (r) => { this.commissionCutoffReport.set(r); this.loading.set(false); },
-      error: () => { this.commissionCutoffReport.set(null); this.loading.set(false); }
-    });
-  }
-  exportCommissionCutoffCsv(): void {
-    this.downloadBlob(
-      `${environment.apiBaseUrl}/api/reports/commissions/cutoff/export.csv?year=${this.commissionCutoffYear}&month=${this.commissionCutoffMonth}&half=${this.commissionCutoffHalf}`,
-      `commissions-cutoff-${this.commissionCutoffYear}-${String(this.commissionCutoffMonth).padStart(2, '0')}-h${this.commissionCutoffHalf}.csv`
-    );
-  }
-
-  loadCommissionMonthly(): void {
-    this.loading.set(true);
-    this.http.get<MatrixReport>(
-      `${environment.apiBaseUrl}/api/reports/commissions/monthly?year=${this.commissionMonthlyYear}&month=${this.commissionMonthlyMonth}`
-    ).subscribe({
-      next: (r) => { this.commissionMonthlyReport.set(r); this.loading.set(false); },
-      error: () => { this.commissionMonthlyReport.set(null); this.loading.set(false); }
-    });
-  }
-  exportCommissionMonthlyCsv(): void {
-    this.downloadBlob(
-      `${environment.apiBaseUrl}/api/reports/commissions/monthly/export.csv?year=${this.commissionMonthlyYear}&month=${this.commissionMonthlyMonth}`,
-      `commissions-monthly-${this.commissionMonthlyYear}-${String(this.commissionMonthlyMonth).padStart(2, '0')}.csv`
-    );
-  }
-
-  loadDecking(): void {
-    this.loading.set(true);
-    this.http.get<DeckingDailyReport>(
-      `${environment.apiBaseUrl}/api/reports/decking/daily?date=${this.deckingDate}`
-    ).subscribe({
-      next: (r) => { this.deckingReport.set(r); this.loading.set(false); },
-      error: () => { this.deckingReport.set(null); this.loading.set(false); }
-    });
-  }
-  exportDeckingCsv(): void {
-    this.downloadBlob(
-      `${environment.apiBaseUrl}/api/reports/decking/daily/export.csv?date=${this.deckingDate}`,
-      `decking-${this.deckingDate}.csv`
-    );
-  }
-
-  private downloadBlob(url: string, filename: string): void {
-    this.http.get(url, { responseType: 'blob' }).subscribe({
-      next: (blob) => {
-        const obj = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = obj; a.download = filename;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(obj);
+    forkJoin({ trend: trend$, breakdown: breakdown$ }).subscribe({
+      next: ({ trend, breakdown }) => {
+        this.points.set(trend);
+        this.methodSlices.set(PAYMENT_METHODS.map((m, i) => ({ method: m, net: breakdown[i].balance })));
+        this.loading.set(false);
+        this.renderTrend();
+        this.renderMethods();
       },
-      error: () => this.toast.error('Export failed.')
+      error: () => this.loading.set(false)
     });
+  }
+
+  private renderTrend(): void {
+    const canvas = this.trendCanvas()?.nativeElement;
+    if (!canvas) return;
+    const rows = this.points();
+    const labels = rows.map(p => p.date.slice(5));
+    const data = rows.map(p => p.net);
+    const primary = this.cssVar('--sumi-primary', '#eda0d8');
+
+    if (this.trendChart) {
+      this.trendChart.data.labels = labels;
+      this.trendChart.data.datasets[0].data = data;
+      this.trendChart.update();
+      return;
+    }
+    this.trendChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Net revenue',
+          data,
+          borderColor: primary,
+          backgroundColor: this.withAlpha(primary, 0.18),
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: (value) => '₱' + Number(value).toLocaleString() } }
+        }
+      }
+    });
+  }
+
+  private renderMethods(): void {
+    const canvas = this.methodCanvas()?.nativeElement;
+    if (!canvas) return;
+    const slices = this.methodSlices();
+    const labels = slices.map(s => s.method);
+    const data = slices.map(s => s.net);
+    const palette = [
+      this.cssVar('--sumi-primary', '#eda0d8'),
+      this.cssVar('--sumi-secondary', '#e086c7'),
+      this.cssVar('--sumi-accent', '#b0d35d'),
+      '#94a3b8'
+    ];
+
+    if (this.methodChart) {
+      this.methodChart.data.labels = labels;
+      this.methodChart.data.datasets[0].data = data;
+      this.methodChart.update();
+      return;
+    }
+    this.methodChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'Net by method', data, backgroundColor: palette, borderRadius: 6 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: (value) => '₱' + Number(value).toLocaleString() } }
+        }
+      }
+    });
+  }
+
+  private cssVar(name: string, fallback: string): string {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+  }
+
+  private withAlpha(color: string, alpha: number): string {
+    const hex = color.replace('#', '');
+    if (hex.length !== 6) return color;
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  private dayOffset(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
   }
 }

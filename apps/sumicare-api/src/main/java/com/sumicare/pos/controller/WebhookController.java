@@ -14,6 +14,7 @@ import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.cashier.domain.Order;
 import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.service.OrderService;
+import com.sumicare.cashier.service.PendingReservationCoordinator;
 import com.sumicare.pos.domain.TransactionLedgerEntry;
 import com.sumicare.pos.gateway.PayMongoGateway;
 import com.sumicare.pos.repository.TransactionLedgerRepository;
@@ -35,6 +36,7 @@ public class WebhookController {
     private final BookingRepository bookingRepository;
     private final OrderRepository orderRepository;
     private final OrderService orderService;
+    private final PendingReservationCoordinator pendingCoordinator;
     private final ObjectMapper objectMapper;
 
     public WebhookController(PayMongoGateway payMongoGateway,
@@ -42,12 +44,14 @@ public class WebhookController {
                              BookingRepository bookingRepository,
                              OrderRepository orderRepository,
                              OrderService orderService,
+                             PendingReservationCoordinator pendingCoordinator,
                              ObjectMapper objectMapper) {
         this.payMongoGateway = payMongoGateway;
         this.ledgerRepository = ledgerRepository;
         this.bookingRepository = bookingRepository;
         this.orderRepository = orderRepository;
         this.orderService = orderService;
+        this.pendingCoordinator = pendingCoordinator;
         this.objectMapper = objectMapper;
     }
 
@@ -71,8 +75,13 @@ public class WebhookController {
                 String gatewayId = data.path("id").asText("");
                 JsonNode attributes = data.at("/attributes");
                 String method = resolveMethod(attributes);
-                String orderId = attributes.at("/metadata/orderId").asText("");
-                reconcile(orderId, amount, method, gatewayId);
+                String pendingToken = attributes.at("/metadata/pendingToken").asText("");
+                if (!pendingToken.isBlank()) {
+                    pendingCoordinator.finalizePaid(pendingToken, gatewayId, method, amount);
+                } else {
+                    String orderId = attributes.at("/metadata/orderId").asText("");
+                    reconcile(orderId, amount, method, gatewayId);
+                }
             } else if ("refund.updated".equals(type) || "payment.refunded".equals(type)) {
                 JsonNode data = event.at("/data/attributes/data");
                 JsonNode attributes = data.at("/attributes");

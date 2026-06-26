@@ -7,4 +7,4 @@
 
 package com.sumicare.recommendation.dto;
 
-public record QuizAnswer(String questionCode, String optionCode) {}
+public record RecommendationAnswer(String questionCode, String optionCode) {}

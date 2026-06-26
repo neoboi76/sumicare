@@ -5,7 +5,7 @@
  *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
  */
 
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, linkedSignal, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -59,6 +59,7 @@ interface CartAttendee {
   clientGender: 'M' | 'F';
   discount: number;
   providedTsn: string | null;
+  preferredTherapist?: string | null;
 }
 
 interface CartItem {
@@ -162,7 +163,7 @@ export class CashierComponent implements OnInit {
   voucherError = signal<string | null>(null);
 
   paymentMethod = signal<string>('CASH');
-  paymentAmount = 0;
+  paymentAmount = linkedSignal(() => this.due());
   paymentRef = '';
   payments = signal<AddedPayment[]>([]);
 
@@ -349,7 +350,8 @@ export class CashierComponent implements OnInit {
             packageTierId: a.packageTierId ?? null,
             serviceName: a.serviceName || '',
             lockerNumber: a.lockerNumber || '',
-            clientGender: (a.clientGender === 'M' ? 'M' : 'F') as 'M' | 'F'
+            clientGender: (a.clientGender === 'M' ? 'M' : 'F') as 'M' | 'F',
+            preferredTherapist: a.preferredTherapist || null
           }));
           return {
             packageId: it.packageId,
@@ -453,7 +455,7 @@ export class CashierComponent implements OnInit {
   }
 
   private blankAttendee(): CartAttendee {
-    return { serviceId: null, packageTierId: null, serviceName: '', lockerNumber: '', clientGender: 'F', discount: 0, providedTsn: null };
+    return { serviceId: null, packageTierId: null, serviceName: '', lockerNumber: '', clientGender: 'F', discount: 0, providedTsn: null, preferredTherapist: null };
   }
 
   addPackage(): void {
@@ -709,7 +711,7 @@ export class CashierComponent implements OnInit {
       this.error.set('No payment is required for a zero-total order.');
       return;
     }
-    const amt = Number(this.paymentAmount || 0);
+    const amt = Number(this.paymentAmount() || 0);
     if (amt <= 0) {
       this.error.set('Enter a payment amount greater than zero.');
       return;
@@ -734,7 +736,6 @@ export class CashierComponent implements OnInit {
       referenceNumber: this.paymentRef || undefined,
       paymentDetails
     }]);
-    this.paymentAmount = 0;
     this.paymentRef = '';
   }
 
@@ -820,7 +821,8 @@ export class CashierComponent implements OnInit {
           clientGender: a.clientGender,
           position: j,
           discount: a.discount || 0,
-          providedTsn: a.providedTsn || null
+          providedTsn: a.providedTsn || null,
+          preferredTherapist: a.preferredTherapist || null
         }))
       })),
       initialPayment: firstPayment ? {

@@ -16,7 +16,9 @@ import com.sumicare.shift.repository.ShiftRepository;
 import com.sumicare.therapist.domain.Therapist;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.Commission;
+import com.sumicare.transaction.domain.TherapistTip;
 import com.sumicare.transaction.repository.CommissionRepository;
+import com.sumicare.transaction.repository.TherapistTipRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.math.BigDecimal;
@@ -43,22 +45,27 @@ public class CommissionReportService {
     private final TherapistRepository therapistRepository;
     private final ShiftRepository shiftRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
+    private final TherapistTipRepository tipRepository;
 
     public CommissionReportService(CommissionRepository commissionRepository,
                                    SessionRepository sessionRepository,
                                    TherapistRepository therapistRepository,
                                    ShiftRepository shiftRepository,
-                                   ShiftAssignmentRepository shiftAssignmentRepository) {
+                                   ShiftAssignmentRepository shiftAssignmentRepository,
+                                   TherapistTipRepository tipRepository) {
         this.commissionRepository = commissionRepository;
         this.sessionRepository = sessionRepository;
         this.therapistRepository = therapistRepository;
         this.shiftRepository = shiftRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
+        this.tipRepository = tipRepository;
     }
 
-    public record TherapistRow(UUID therapistId, String nickname, BigDecimal total) {}
-    public record ShiftReport(Long shiftId, String shiftLabel, LocalDate date, List<TherapistRow> rows, BigDecimal grandTotal) {}
-    public record DailyReport(LocalDate date, List<TherapistRow> rows, BigDecimal grandTotal) {}
+    public record TherapistRow(UUID therapistId, String nickname, BigDecimal total, BigDecimal tip) {}
+    public record ShiftReport(Long shiftId, String shiftLabel, LocalDate date, List<TherapistRow> rows, BigDecimal grandTotal, BigDecimal grandTip) {}
+    public record DailyReport(LocalDate date, List<TherapistRow> rows, BigDecimal grandTotal, BigDecimal grandTip) {}
+    public record TipRow(UUID therapistId, String nickname, BigDecimal total, int count) {}
+    public record TipReport(LocalDate from, LocalDate to, List<TipRow> rows, BigDecimal grandTotal) {}
     public record MatrixRow(UUID therapistId, String nickname, List<BigDecimal> amounts, BigDecimal total) {}
     public record MatrixReport(List<String> columnLabels, List<MatrixRow> rows, List<BigDecimal> columnTotals, BigDecimal grandTotal) {}
 
@@ -79,19 +86,25 @@ public class CommissionReportService {
 
         Map<UUID, BigDecimal> totals = totalsByTherapistInWindow(organizationId, windowStart, windowEnd);
         totals.keySet().retainAll(assignedTherapistIds);
-        List<TherapistRow> rows = toTherapistRows(organizationId, totals);
+        Map<UUID, BigDecimal> tips = tipsByTherapistInWindow(organizationId, windowStart, windowEnd);
+        tips.keySet().retainAll(assignedTherapistIds);
+        List<TherapistRow> rows = toTherapistRows(organizationId, totals, tips);
         BigDecimal grand = rows.stream().map(TherapistRow::total).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new ShiftReport(shiftId, shift.getLabel(), date, rows, grand);
+        BigDecimal grandTip = rows.stream().map(TherapistRow::tip).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new ShiftReport(shiftId, shift.getLabel(), date, rows, grand, grandTip);
     }
 
     public byte[] shiftCsv(UUID organizationId, Long shiftId, LocalDate date) {
         ShiftReport r = shift(organizationId, shiftId, date);
         StringBuilder sb = new StringBuilder();
-        sb.append("Therapist,Commission\n");
+        sb.append("Therapist,Commission,Tips\n");
         for (TherapistRow row : r.rows()) {
-            sb.append(csvCell(row.nickname())).append(',').append(row.total().toPlainString()).append('\n');
+            sb.append(csvCell(row.nickname())).append(',')
+              .append(row.total().toPlainString()).append(',')
+              .append(row.tip().toPlainString()).append('\n');
         }
-        sb.append("\nTOTAL,").append(r.grandTotal().toPlainString()).append('\n');
+        sb.append("\nTOTAL,").append(r.grandTotal().toPlainString()).append(',')
+          .append(r.grandTip().toPlainString()).append('\n');
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
@@ -100,19 +113,62 @@ public class CommissionReportService {
         OffsetDateTime from = date.atStartOfDay(MANILA).toOffsetDateTime();
         OffsetDateTime to = from.plusDays(1);
         Map<UUID, BigDecimal> totals = totalsByTherapistInWindow(organizationId, from, to);
-        List<TherapistRow> rows = toTherapistRows(organizationId, totals);
+        Map<UUID, BigDecimal> tips = tipsByTherapistInWindow(organizationId, from, to);
+        List<TherapistRow> rows = toTherapistRows(organizationId, totals, tips);
         BigDecimal grand = rows.stream().map(TherapistRow::total).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new DailyReport(date, rows, grand);
+        BigDecimal grandTip = rows.stream().map(TherapistRow::tip).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new DailyReport(date, rows, grand, grandTip);
     }
 
     public byte[] dailyCsv(UUID organizationId, LocalDate date) {
         DailyReport r = daily(organizationId, date);
         StringBuilder sb = new StringBuilder();
-        sb.append("Therapist,Commission\n");
+        sb.append("Therapist,Commission,Tips\n");
         for (TherapistRow row : r.rows()) {
-            sb.append(csvCell(row.nickname())).append(',').append(row.total().toPlainString()).append('\n');
+            sb.append(csvCell(row.nickname())).append(',')
+              .append(row.total().toPlainString()).append(',')
+              .append(row.tip().toPlainString()).append('\n');
         }
-        sb.append("\nTOTAL,").append(r.grandTotal().toPlainString()).append('\n');
+        sb.append("\nTOTAL,").append(r.grandTotal().toPlainString()).append(',')
+          .append(r.grandTip().toPlainString()).append('\n');
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public TipReport tips(UUID organizationId, LocalDate from, LocalDate to, UUID therapistId) {
+        OffsetDateTime start = from.atStartOfDay(MANILA).toOffsetDateTime();
+        OffsetDateTime end = to.plusDays(1).atStartOfDay(MANILA).toOffsetDateTime();
+        List<TherapistTip> tips = therapistId == null
+                ? tipRepository.findAllByOrganizationIdAndRecordedAtBetween(organizationId, start, end)
+                : tipRepository.findAllByOrganizationIdAndTherapistIdAndRecordedAtBetween(organizationId, therapistId, start, end);
+        Map<UUID, BigDecimal> totals = new LinkedHashMap<>();
+        Map<UUID, Integer> counts = new HashMap<>();
+        for (TherapistTip t : tips) {
+            totals.merge(t.getTherapistId(), t.getAmount(), BigDecimal::add);
+            counts.merge(t.getTherapistId(), 1, Integer::sum);
+        }
+        List<TipRow> rows = new ArrayList<>();
+        BigDecimal grand = BigDecimal.ZERO;
+        for (Map.Entry<UUID, BigDecimal> e : totals.entrySet()) {
+            String nickname = therapistRepository.findById(e.getKey())
+                    .map(Therapist::getNickname).orElse(e.getKey().toString());
+            rows.add(new TipRow(e.getKey(), nickname, e.getValue(), counts.getOrDefault(e.getKey(), 0)));
+            grand = grand.add(e.getValue());
+        }
+        rows.sort((a, b) -> b.total().compareTo(a.total()));
+        return new TipReport(from, to, rows, grand);
+    }
+
+    public byte[] tipsCsv(UUID organizationId, LocalDate from, LocalDate to, UUID therapistId) {
+        TipReport r = tips(organizationId, from, to, therapistId);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Therapist,Tips Count,Tips Total\n");
+        for (TipRow row : r.rows()) {
+            sb.append(csvCell(row.nickname())).append(',')
+              .append(row.count()).append(',')
+              .append(row.total().toPlainString()).append('\n');
+        }
+        sb.append("\nTOTAL,,").append(r.grandTotal().toPlainString()).append('\n');
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
@@ -230,12 +286,26 @@ public class CommissionReportService {
         return totals;
     }
 
-    private List<TherapistRow> toTherapistRows(UUID organizationId, Map<UUID, BigDecimal> totals) {
+    private Map<UUID, BigDecimal> tipsByTherapistInWindow(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
+        List<TherapistTip> tips = tipRepository
+                .findAllByOrganizationIdAndRecordedAtBetween(organizationId, from, to);
+        Map<UUID, BigDecimal> totals = new HashMap<>();
+        for (TherapistTip t : tips) {
+            totals.merge(t.getTherapistId(), t.getAmount(), BigDecimal::add);
+        }
+        return totals;
+    }
+
+    private List<TherapistRow> toTherapistRows(UUID organizationId, Map<UUID, BigDecimal> totals, Map<UUID, BigDecimal> tips) {
+        java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
+        ids.addAll(totals.keySet());
+        ids.addAll(tips.keySet());
         List<TherapistRow> rows = new ArrayList<>();
-        for (Map.Entry<UUID, BigDecimal> e : totals.entrySet()) {
-            String nickname = therapistRepository.findById(e.getKey())
-                    .map(Therapist::getNickname).orElse(e.getKey().toString());
-            rows.add(new TherapistRow(e.getKey(), nickname, e.getValue()));
+        for (UUID id : ids) {
+            String nickname = therapistRepository.findById(id)
+                    .map(Therapist::getNickname).orElse(id.toString());
+            rows.add(new TherapistRow(id, nickname,
+                    totals.getOrDefault(id, BigDecimal.ZERO), tips.getOrDefault(id, BigDecimal.ZERO)));
         }
         rows.sort((a, b) -> b.total().compareTo(a.total()));
         return rows;

@@ -65,7 +65,7 @@ recommendations, immutable audit logging, and remotely accessible CSV-exportable
 ### Public Booking Website
 
 - Service catalogue and package browsing with per-organization branding.
-- Weighted-quiz massage recommendations (recreational only; disclaimer always shown).
+- Weighted-scoring massage recommendations (recreational only; disclaimer always shown).
 - Online booking with hard or soft reservations and automatic locker assignment.
 - Email-verified booking lookup and self-service cancellation.
 - Feedback submission and a public contact form.
@@ -222,7 +222,7 @@ sumicare/
 | `transaction` | Treatment-slip creation and digitization, session records, commissions. |
 | `pos` / `cashier` | Payment processing, receipts, transaction ledger, cashier reconciliation. |
 | `report` | Cutoff, day, monthly, commission, and decking reports with CSV export. |
-| `recommendation` | Weighted-scoring quiz engine for massage recommendations. |
+| `recommendation` | Weighted-scoring recommendation engine for massage services. |
 | `client` | Optional, non-critical client accounts for usage patterns and vouchers. |
 | `notification` | STOMP/WebSocket broker and topic broadcasting from Redis state. |
 | `audit` | Immutable audit logs per action per user for non-repudiation. |

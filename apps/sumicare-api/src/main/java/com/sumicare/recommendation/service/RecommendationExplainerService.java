@@ -8,7 +8,7 @@
 package com.sumicare.recommendation.service;
 
 import com.sumicare.common.config.AppProperties;
-import com.sumicare.recommendation.dto.QuizAnswer;
+import com.sumicare.recommendation.dto.RecommendationAnswer;
 import com.sumicare.service_catalogue.domain.Service;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -41,10 +41,10 @@ public class RecommendationExplainerService {
                 && !appProperties.anthropic().apiKey().isBlank();
     }
 
-    public String generateRationale(Service primary, List<QuizAnswer> answers) {
+    public String generateRationale(Service primary, List<RecommendationAnswer> answers) {
         if (!isAvailable() || primary == null) return null;
         try {
-            String prompt = "A spa client answered a relaxation preference quiz. Their answers were: "
+            String prompt = "A spa client shared a few relaxation preferences. Their answers were: "
                     + answers.toString()
                     + ". The recommendation engine has selected the service \""
                     + primary.getName()

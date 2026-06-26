@@ -20,7 +20,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/reports/decking")
+@RequestMapping("/api/records/decking")
 public class DeckingReportController {
 
     private final DeckingReportService deckingReportService;

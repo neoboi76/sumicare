@@ -71,4 +71,9 @@
     <include file="changes/0059-remove-staff-role.xml" relativeToChangelogFile="true"/>
     <include file="changes/0060-preferred-therapist.xml" relativeToChangelogFile="true"/>
     <include file="changes/0061-drop-deprecated-modules.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0062-booking-terms-and-order-reservation-type.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0063-attendee-preferred-therapist.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0064-feedback-survey.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0065-survey-expiry.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0066-therapist-tips.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

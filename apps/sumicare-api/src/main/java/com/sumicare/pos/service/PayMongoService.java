@@ -59,13 +59,29 @@ public class PayMongoService {
 
     public ChargeResult charge(Order order, BigDecimal amount, String paymentMethod,
                                String referenceNumber, PaymentDetailsRequest details) {
-        return runCharge(order, amount, paymentMethod, referenceNumber, details, false, "/sumicare/app/cashier");
+        return runCharge(contextForOrder(order), amount, paymentMethod, referenceNumber, details, false, "/sumicare/app/cashier");
     }
 
     public ChargeResult initiate(Order order, BigDecimal amount, String paymentMethod,
                                  String referenceNumber, PaymentDetailsRequest details, String returnPath) {
-        return runCharge(order, amount, paymentMethod, referenceNumber, details, true, returnPath);
+        return runCharge(contextForOrder(order), amount, paymentMethod, referenceNumber, details, true, returnPath);
     }
+
+    public ChargeResult initiatePending(String pendingToken, BigDecimal amount, String paymentMethod,
+                                        PaymentDetailsRequest details, String returnPath) {
+        return runCharge(contextForPending(pendingToken), amount, paymentMethod, null, details, true, returnPath);
+    }
+
+    private ChargeContext contextForOrder(Order order) {
+        return new ChargeContext("orderId", order.getId().toString(),
+                "Order " + order.getOrNumber() + " bookingId:" + order.getBookingId());
+    }
+
+    private ChargeContext contextForPending(String pendingToken) {
+        return new ChargeContext("pendingToken", pendingToken, "Pending reservation " + pendingToken);
+    }
+
+    private record ChargeContext(String idParam, String idValue, String description) {}
 
     public String confirm(String intentId) {
         if (intentId == null) {
@@ -112,7 +128,7 @@ public class PayMongoService {
         };
     }
 
-    private ChargeResult runCharge(Order order, BigDecimal amount, String paymentMethod,
+    private ChargeResult runCharge(ChargeContext ctx, BigDecimal amount, String paymentMethod,
                                    String referenceNumber, PaymentDetailsRequest details, boolean redirect, String returnPath) {
         if (!supports(paymentMethod)) {
             throw new IllegalArgumentException("Unsupported PayMongo payment method: " + paymentMethod);
@@ -120,20 +136,20 @@ public class PayMongoService {
         boolean card = !"GCASH".equalsIgnoreCase(paymentMethod);
 
         if (appProperties.payment().paymongo().mockMode()) {
-            return mockCharge(order, amount, paymentMethod, card, details, redirect);
+            return mockCharge(ctx, amount, paymentMethod, card, details, redirect);
         }
 
         if (card) {
-            return cardCheckout(order, amount, paymentMethod, returnPath);
+            return cardCheckout(ctx, amount, paymentMethod, returnPath);
         }
 
         Map<String, String> metadata = new HashMap<>();
-        metadata.put("orderId", order.getId().toString());
+        metadata.put(ctx.idParam(), ctx.idValue());
         metadata.put("paymentMethod", paymentMethod);
         if (referenceNumber != null && !referenceNumber.isBlank()) {
             metadata.put("reference", referenceNumber);
         }
-        metadata.put("description", "Order " + order.getOrNumber() + " bookingId:" + order.getBookingId());
+        metadata.put("description", ctx.description());
 
         if (!card) {
             if (details == null || details.gcashPhone() == null || details.gcashPhone().isBlank()) {
@@ -147,7 +163,7 @@ public class PayMongoService {
         PaymentGateway.CardDetails cardDetails = card ? toCardDetails(details) : null;
         PaymentGateway.Billing billing = toBilling(card, details);
         String paymentMethodId = gateway.createPaymentMethod(paymentMethod, cardDetails, billing);
-        String returnUrl = buildReturnUrl(order, intent.intentId(), paymentMethod, amount, returnPath);
+        String returnUrl = buildReturnUrl(ctx, intent.intentId(), paymentMethod, amount, returnPath);
         PaymentGateway.IntentResult attached = gateway.attachIntent(
                 intent.intentId(), paymentMethodId, intent.clientKey(), returnUrl);
 
@@ -158,24 +174,23 @@ public class PayMongoService {
         return new ChargeResult(attached.intentId(), status, attached.nextActionUrl());
     }
 
-    private ChargeResult cardCheckout(Order order, BigDecimal amount, String paymentMethod, String returnPath) {
-        String successUrl = buildReturnUrl(order, null, paymentMethod, amount, returnPath);
+    private ChargeResult cardCheckout(ChargeContext ctx, BigDecimal amount, String paymentMethod, String returnPath) {
+        String successUrl = buildReturnUrl(ctx, null, paymentMethod, amount, returnPath);
         // Cancel returns to the same page; the trailing status flag lets the frontend
         // distinguish an abandoned checkout from a successful return.
         String cancelUrl = successUrl + "&status=cancelled";
         Map<String, String> metadata = new HashMap<>();
-        metadata.put("orderId", order.getId().toString());
+        metadata.put(ctx.idParam(), ctx.idValue());
         metadata.put("paymentMethod", paymentMethod);
-        String description = "Order " + order.getOrNumber() + " bookingId:" + order.getBookingId();
         PaymentGateway.CheckoutResult session = gateway.createCheckoutSession(
-                amount, "PHP", java.util.List.of("card"), description, successUrl, cancelUrl, metadata);
+                amount, "PHP", java.util.List.of("card"), ctx.description(), successUrl, cancelUrl, metadata);
         if (session.checkoutUrl() == null || session.checkoutUrl().isBlank()) {
             throw new IllegalStateException("PayMongo did not return a checkout URL");
         }
         return new ChargeResult(session.sessionId(), "awaiting_next_action", session.checkoutUrl());
     }
 
-    private ChargeResult mockCharge(Order order, BigDecimal amount, String paymentMethod,
+    private ChargeResult mockCharge(ChargeContext ctx, BigDecimal amount, String paymentMethod,
                                     boolean card, PaymentDetailsRequest details, boolean redirect) {
         String intentId = MOCK_PREFIX + UUID.randomUUID();
         if (card) {
@@ -184,8 +199,8 @@ public class PayMongoService {
             if (!number.isBlank() && TEST_CARD_DECLINES.contains(number)) {
                 throw new IllegalStateException("PayMongo declined the card (test decline number)");
             }
-            log.info("PayMongo mock card charge: order={}, amount={}, method={}, intentId={}, redirect={}",
-                    order.getId(), amount, paymentMethod, intentId, redirect);
+            log.info("PayMongo mock card charge: ref={}, amount={}, method={}, intentId={}, redirect={}",
+                    ctx.idValue(), amount, paymentMethod, intentId, redirect);
             sleepBriefly();
             if (redirect) {
                 return new ChargeResult(intentId, "awaiting_next_action", null);
@@ -195,8 +210,8 @@ public class PayMongoService {
         if (details == null || details.gcashPhone() == null || details.gcashPhone().isBlank()) {
             throw new IllegalArgumentException("A GCash mobile number is required");
         }
-        log.info("PayMongo mock GCash charge: order={}, amount={}, intentId={}, redirect={}",
-                order.getId(), amount, intentId, redirect);
+        log.info("PayMongo mock GCash charge: ref={}, amount={}, intentId={}, redirect={}",
+                ctx.idValue(), amount, intentId, redirect);
         sleepBriefly();
         return new ChargeResult(intentId, "awaiting_next_action", null);
     }
@@ -204,7 +219,7 @@ public class PayMongoService {
     // Builds the URL PayMongo redirects the payer back to after the hosted checkout or
     // 3DS step. The order, intent, method, and amount are carried as query params so the
     // cashier (or public order) page can re-identify the order and confirm it on return.
-    private String buildReturnUrl(Order order, String intentId, String paymentMethod, BigDecimal amount, String returnPath) {
+    private String buildReturnUrl(ChargeContext ctx, String intentId, String paymentMethod, BigDecimal amount, String returnPath) {
         String base;
         String path;
         if (isAbsoluteHttpUrl(returnPath)) {
@@ -220,7 +235,7 @@ public class PayMongoService {
         }
         StringBuilder url = new StringBuilder(base).append(path)
                 .append("?paymongoReturn=1")
-                .append("&orderId=").append(order.getId());
+                .append("&").append(ctx.idParam()).append("=").append(enc(ctx.idValue()));
         if (intentId != null && !intentId.isBlank()) {
             url.append("&intent=").append(enc(intentId));
         }

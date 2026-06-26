@@ -20,7 +20,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/reports/commissions")
+@RequestMapping("/api/records/commissions")
 public class CommissionReportController {
 
     private final CommissionReportService service;
@@ -98,6 +98,25 @@ public class CommissionReportController {
         byte[] data = service.monthlyCsv(UUID.fromString(principal.organizationId()), year, month);
         String filename = "commissions-monthly-" + year + "-" + String.format("%02d", month) + ".csv";
         return csvResponse(filename, data);
+    }
+
+    @GetMapping("/tips")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public CommissionReportService.TipReport tips(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                                  @RequestParam LocalDate from,
+                                                  @RequestParam LocalDate to,
+                                                  @RequestParam(required = false) UUID therapistId) {
+        return service.tips(UUID.fromString(principal.organizationId()), from, to, therapistId);
+    }
+
+    @GetMapping("/tips/export.csv")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public ResponseEntity<byte[]> tipsCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                          @RequestParam LocalDate from,
+                                          @RequestParam LocalDate to,
+                                          @RequestParam(required = false) UUID therapistId) {
+        byte[] data = service.tipsCsv(UUID.fromString(principal.organizationId()), from, to, therapistId);
+        return csvResponse("tips-" + from + "-to-" + to + ".csv", data);
     }
 
     private ResponseEntity<byte[]> csvResponse(String filename, byte[] data) {

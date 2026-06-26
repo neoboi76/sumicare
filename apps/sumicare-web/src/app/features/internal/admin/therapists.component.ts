@@ -50,6 +50,8 @@ export class TherapistsAdminComponent implements OnInit {
   formError = signal<string | null>(null);
 
   sortState = signal<SortState>({ key: 'nickname', direction: 'asc' });
+  genderFilter = signal<'ALL' | 'M' | 'F'>('ALL');
+  shiftFilter = signal<number | 'ALL'>('ALL');
 
   sortedTherapists = computed(() => {
     const state = this.sortState();
@@ -63,6 +65,27 @@ export class TherapistsAdminComponent implements OnInit {
         default: return '';
       }
     });
+  });
+
+  filteredTherapists = computed(() => {
+    const gender = this.genderFilter();
+    const shift = this.shiftFilter();
+    return this.sortedTherapists().filter((t) => {
+      if (gender !== 'ALL' && t.gender !== gender) return false;
+      if (shift !== 'ALL' && t.currentShiftId !== shift) return false;
+      return true;
+    });
+  });
+
+  groupedByShift = computed(() => {
+    const groups = new Map<string, Therapist[]>();
+    for (const t of this.filteredTherapists()) {
+      const label = t.currentShiftLabel ?? 'Unassigned';
+      const list = groups.get(label) ?? [];
+      list.push(t);
+      groups.set(label, list);
+    }
+    return Array.from(groups, ([label, items]) => ({ label, items }));
   });
 
   formStaffNumber = '';

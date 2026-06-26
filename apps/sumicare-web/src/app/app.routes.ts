@@ -35,6 +35,10 @@ export const APP_ROUTES: Routes = [
     loadComponent: () => import('./features/public/paymongo-authorize.component').then(m => m.PaymongoAuthorizeComponent)
   },
   {
+    path: 'survey',
+    loadComponent: () => import('./features/public/survey.component').then(m => m.SurveyComponent)
+  },
+  {
     path: 'sumicare',
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -60,9 +64,9 @@ export const APP_ROUTES: Routes = [
           { path: 'registered-clients', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/registered-clients/registered-clients.component').then(m => m.RegisteredClientsComponent) },
           { path: 'treatment-slips', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slips.component').then(m => m.TreatmentSlipsComponent) },
           { path: 'treatment-slips/:id', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slip-detail.component').then(m => m.TreatmentSlipDetailComponent) },
+          { path: 'records', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/records/records.component').then(m => m.RecordsComponent) },
           { path: 'reports', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/reports/reports.component').then(m => m.ReportsComponent) },
           { path: 'ledger', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/ledger/ledger.component').then(m => m.LedgerComponent) },
-          { path: 'analytics', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/analytics/analytics.component').then(m => m.AnalyticsComponent) },
           { path: 'settings', loadComponent: () => import('./features/internal/settings/settings.component').then(m => m.SettingsComponent) },
           { path: 'users', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/users.component').then(m => m.UsersComponent) },
           { path: 'audit', canActivate: [roleGuard(ADMIN_PLUS)], loadComponent: () => import('./features/internal/admin/audit.component').then(m => m.AuditComponent) },

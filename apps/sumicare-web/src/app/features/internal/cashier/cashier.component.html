@@ -184,6 +184,11 @@
                   [(ngModel)]="att.discount" name="discount{{itemIdx}}_{{attIdx}}"
                   class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
               </label>
+              <label class="block">
+                <span class="text-xs text-slate-500">Preferred therapist (this guest)</span>
+                <input [(ngModel)]="att.preferredTherapist" name="prefTherapist{{itemIdx}}_{{attIdx}}" maxlength="120"
+                  class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+              </label>
             </div>
             }
           </div>
@@ -287,7 +292,7 @@
         <div class="flex flex-col sm:flex-row gap-2 sm:items-end">
           <label class="block flex-1">
             <span class="text-xs text-slate-500">Amount</span>
-            <input [(ngModel)]="paymentAmount" name="payAmount" type="number" min="0" step="0.01"
+            <input [ngModel]="paymentAmount()" (ngModelChange)="paymentAmount.set($event)" name="payAmount" type="number" min="0" step="0.01"
               class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
           </label>
           <label class="block flex-1">
