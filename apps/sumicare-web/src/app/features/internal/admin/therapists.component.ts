@@ -10,8 +10,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { ConfirmService } from '../../../shared/components/confirm-dialog/confirm.service';
-import { SortableColumnDirective } from '../../../shared/directives/sortable-column.directive';
-import { SortIconComponent } from '../../../shared/components/sort-icon/sort-icon.component';
 import { SortState, sortRows } from '../../../shared/utils/compare-by';
 
 interface Therapist {
@@ -35,7 +33,7 @@ interface Shift {
 @Component({
   selector: 'sumi-admin-therapists',
   standalone: true,
-  imports: [FormsModule, SortableColumnDirective, SortIconComponent],
+  imports: [FormsModule],
   templateUrl: './therapists.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

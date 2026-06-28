@@ -7,6 +7,7 @@
 
 package com.sumicare.report.service;
 
+import com.sumicare.common.util.LogoResolver;
 import com.sumicare.organization.domain.Organization;
 import com.sumicare.organization.repository.OrganizationRepository;
 import com.sumicare.print.PdfRenderer;
@@ -16,15 +17,10 @@ import com.sumicare.user.repository.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.URLConnection;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
 import java.util.UUID;
 
 @Service
@@ -38,15 +34,18 @@ public class ReportPdfService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final PdfRenderer pdfRenderer;
+    private final LogoResolver logoResolver;
 
     public ReportPdfService(OperationsReportService operationsReportService,
                             OrganizationRepository organizationRepository,
                             UserRepository userRepository,
-                            PdfRenderer pdfRenderer) {
+                            PdfRenderer pdfRenderer,
+                            LogoResolver logoResolver) {
         this.operationsReportService = operationsReportService;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.pdfRenderer = pdfRenderer;
+        this.logoResolver = logoResolver;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
@@ -69,7 +68,7 @@ public class ReportPdfService {
 
         String textHeader = "<div style=\"font-size: 20px; font-weight: 700; color: #c42441;\">"
                 + escape(org.getDisplayName()) + "</div>";
-        String logoDataUri = logoDataUriOrNull(org.getLogoUrl());
+        String logoDataUri = logoResolver.dataUriOrNull(org.getLogoUrl());
         String header = logoDataUri != null
                 ? "<img src=\"" + logoDataUri + "\" style=\"max-height: 48px;\" />"
                 : textHeader;
@@ -80,7 +79,7 @@ public class ReportPdfService {
                 <html>
                 <head><style>
                   @page { size: A4 portrait; margin: 18mm 14mm; }
-                  body { font-family: sans-serif; color: #1a1a1a; }
+                  body { font-family: 'DejaVu Sans', 'Liberation Sans', Arial, Helvetica, sans-serif; color: #1a1a1a; }
                   table { width: 100%%; border-collapse: collapse; margin-top: 12px; font-size: 11px; }
                   th, td { border-bottom: 1px solid #e5e7eb; padding: 6px 8px; }
                   th { background: #f8fafc; text-align: left; }
@@ -116,58 +115,11 @@ public class ReportPdfService {
     }
 
     private String peso(BigDecimal value) {
-        return "&#8369; " + (value == null ? BigDecimal.ZERO : value).toPlainString();
+        return "₱ " + (value == null ? BigDecimal.ZERO : value).toPlainString();
     }
 
     private String escape(String value) {
         if (value == null) return "";
         return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
-    }
-
-    private String logoDataUriOrNull(String logoUrl) {
-        if (logoUrl == null || logoUrl.isBlank()) {
-            return null;
-        }
-        if (logoUrl.startsWith("data:")) {
-            return logoUrl;
-        }
-        URI uri;
-        try {
-            uri = URI.create(logoUrl.trim());
-        } catch (Exception e) {
-            return null;
-        }
-        String scheme = uri.getScheme();
-        if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
-            return null;
-        }
-        try {
-            URLConnection connection = uri.toURL().openConnection();
-            connection.setConnectTimeout(3000);
-            connection.setReadTimeout(3000);
-            String contentType = connection.getContentType();
-            try (InputStream in = connection.getInputStream();
-                    ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-                in.transferTo(out);
-                byte[] bytes = out.toByteArray();
-                if (bytes.length == 0) {
-                    return null;
-                }
-                String mime = contentType != null && contentType.startsWith("image/") ? contentType : guessMime(logoUrl);
-                return "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
-            }
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private String guessMime(String url) {
-        String lower = url.toLowerCase();
-        if (lower.endsWith(".png")) return "image/png";
-        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-        if (lower.endsWith(".gif")) return "image/gif";
-        if (lower.endsWith(".svg")) return "image/svg+xml";
-        if (lower.endsWith(".webp")) return "image/webp";
-        return "image/png";
     }
 }

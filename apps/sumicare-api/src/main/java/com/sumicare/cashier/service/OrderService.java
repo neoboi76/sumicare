@@ -51,6 +51,8 @@ import com.sumicare.transaction.repository.CommissionRepository;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import com.sumicare.transaction.service.TipService;
 import com.sumicare.transaction.service.TreatmentSlipService;
+import com.sumicare.therapist.domain.Therapist;
+import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.user.repository.UserRepository;
 import com.sumicare.voucher.service.VoucherService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -107,6 +109,7 @@ public class OrderService {
     private final EmailService emailService;
     private final AuditService auditService;
     private final TipService tipService;
+    private final TherapistRepository therapistRepository;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -129,7 +132,8 @@ public class OrderService {
                         IdSequenceService idSequenceService,
                         EmailService emailService,
                         AuditService auditService,
-                        TipService tipService) {
+                        TipService tipService,
+                        TherapistRepository therapistRepository) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -152,6 +156,7 @@ public class OrderService {
         this.emailService = emailService;
         this.auditService = auditService;
         this.tipService = tipService;
+        this.therapistRepository = therapistRepository;
     }
 
     @Transactional
@@ -325,7 +330,8 @@ public class OrderService {
                 null,
                 request.notes(),
                 request.preferredTherapist(),
-                true
+                true,
+                request.roomId()
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
         Booking booking = bookingRepository.findById(bookingResponse.id()).orElseThrow();
@@ -759,6 +765,30 @@ public class OrderService {
             }
         }
         return null;
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public List<Map<String, String>> servedTherapists(UUID organizationId, UUID orderId) {
+        Order order = requireOrder(organizationId, orderId);
+        Map<UUID, String> seen = new java.util.LinkedHashMap<>();
+        for (OrderItemAttendee attendee : attendeeRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+            if (attendee.getSessionId() == null) continue;
+            Session session = sessionRepository.findById(attendee.getSessionId()).orElse(null);
+            if (session == null) continue;
+            if (session.getPrimaryTherapistId() != null) {
+                seen.putIfAbsent(session.getPrimaryTherapistId(), null);
+            }
+            if (session.getSecondaryTherapistId() != null) {
+                seen.putIfAbsent(session.getSecondaryTherapistId(), null);
+            }
+        }
+        List<Map<String, String>> result = new ArrayList<>();
+        for (UUID id : seen.keySet()) {
+            String nickname = therapistRepository.findById(id)
+                    .map(Therapist::getNickname).orElse("Therapist");
+            result.add(Map.of("id", id.toString(), "nickname", nickname));
+        }
+        return result;
     }
 
     @Transactional
@@ -1721,11 +1751,16 @@ public class OrderService {
                 Session sess = a.getSessionId() == null ? null : sessionsById.get(a.getSessionId());
                 String sessionStatus = sess == null ? null : sess.getStatus();
                 boolean sessionExtended = sess != null && sess.isExtension();
+                UUID primaryTherapistId = sess == null ? null : sess.getPrimaryTherapistId();
+                String therapistNickname = primaryTherapistId == null ? null
+                        : therapistRepository.findById(primaryTherapistId)
+                            .map(Therapist::getNickname).orElse(null);
                 attRes.add(new OrderItemAttendeeResponse(
                         a.getId(), a.getServiceId(), sName, a.getPackageTierId(),
                         a.getLockerNumber(), a.getClientGender(),
                         a.getSessionId(), sessionStatus, sessionExtended, a.getTreatmentSlipId(), a.getPosition(),
-                        a.getDiscount(), a.getProvidedTsn(), a.getPreferredTherapist()
+                        a.getDiscount(), a.getProvidedTsn(), a.getPreferredTherapist(),
+                        primaryTherapistId, therapistNickname
                 ));
             }
             itemResponses.add(new OrderItemResponse(

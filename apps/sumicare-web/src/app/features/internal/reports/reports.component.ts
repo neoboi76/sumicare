@@ -44,6 +44,27 @@ interface TopTherapist {
   score: number;
 }
 
+interface NameCount { name: string; count: number; }
+interface TherapistPerformance {
+  therapistId: string;
+  nickname: string;
+  revenue: number;
+  commissions: number;
+  tips: number;
+  servicesRendered: number;
+  specificRequests: number;
+  topClients: NameCount[];
+  topServices: NameCount[];
+}
+interface RegisteredClientRow {
+  clientId: string;
+  nickname: string;
+  bookingCount: number;
+  totalSpending: number;
+  topService: string;
+  topPackage: string;
+}
+
 const PAYMENT_METHODS = ['CASH', 'GCASH', 'CREDIT', 'DEBIT'];
 
 @Component({
@@ -68,8 +89,23 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
   points = signal<RevenuePoint[]>([]);
   methodSlices = signal<MethodSlice[]>([]);
   topTherapists = signal<TopTherapist[]>([]);
+  performance = signal<TherapistPerformance[]>([]);
+  registeredClients = signal<RegisteredClientRow[]>([]);
 
   readonly methodOptions = ['ALL', ...PAYMENT_METHODS];
+
+  narrative = computed(() => {
+    const count = this.totalCount();
+    if (count === 0) return 'No ledger activity in the selected range yet.';
+    const net = this.totalNet();
+    const days = Math.max(1, this.points().length);
+    const best = this.bestDay();
+    const avg = net / days;
+    const peak = best ? ` The peak day was ${best.date} at ₱${best.net.toFixed(2)}.` : '';
+    return `Net revenue of ₱${net.toFixed(2)} across ${count} transactions, averaging ₱${avg.toFixed(2)} per day over ${days} days.${peak}`;
+  });
+
+  totalClientSpend = computed(() => this.registeredClients().reduce((sum, c) => sum + c.totalSpending, 0));
 
   totalNet = computed(() => this.points().reduce((sum, p) => sum + p.net, 0));
   totalInflow = computed(() => this.points().reduce((sum, p) => sum + p.inflow, 0));
@@ -86,6 +122,36 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
     this.http.get<{ therapists: TopTherapist[] }>(`${environment.apiBaseUrl}/api/reports/top-therapists`)
       .pipe(catchError(() => of({ therapists: [] as TopTherapist[] })))
       .subscribe((res) => this.topTherapists.set(res.therapists));
+    this.loadRegisteredClients();
+  }
+
+  loadPerformance(): void {
+    this.http.get<{ therapists: TherapistPerformance[] }>(
+      `${environment.apiBaseUrl}/api/reports/therapist-performance?from=${this.from()}&to=${this.to()}`
+    ).pipe(catchError(() => of({ therapists: [] as TherapistPerformance[] })))
+      .subscribe((res) => this.performance.set(res.therapists));
+  }
+
+  loadRegisteredClients(): void {
+    this.http.get<{ clients: RegisteredClientRow[] }>(`${environment.apiBaseUrl}/api/reports/registered-clients`)
+      .pipe(catchError(() => of({ clients: [] as RegisteredClientRow[] })))
+      .subscribe((res) => this.registeredClients.set(res.clients));
+  }
+
+  downloadRegisteredClientsPdf(): void {
+    this.http.get(`${environment.apiBaseUrl}/api/reports/registered-clients.pdf`, { responseType: 'blob' })
+      .subscribe((blob) => this.saveBlob(blob, 'registered-clients.pdf'));
+  }
+
+  private saveBlob(blob: Blob, filename: string): void {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
   }
 
   ngOnDestroy(): void {
@@ -109,6 +175,7 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
 
   load(): void {
     this.loading.set(true);
+    this.loadPerformance();
     const from = this.from();
     const to = this.to();
     const method = this.method();

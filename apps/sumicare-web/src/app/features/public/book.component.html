@@ -181,9 +181,9 @@
                     }
                   </div>
 
-                  @if (isVipItem(packageById(item.packageId))) {
+                  @if (isPrivateRoomIncluded(packageById(item.packageId))) {
                     <div class="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-xs text-rose-800">
-                      VIP room is included with this package.
+                      A private room is included with this package.
                     </div>
                   } @else {
                     <fieldset class="block text-sm text-gray-700">
@@ -282,6 +282,31 @@
           </label>
         </div>
         <span class="text-xs text-gray-400 -mt-2 block">Both date and time are required.</span>
+
+        @if (roomPickerApplicable()) {
+        <div class="rounded-lg border border-gray-200 p-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-sm text-gray-700">Preferred room (optional)</span>
+            <button type="button" (click)="loadAvailableRooms()"
+              class="text-xs text-[var(--sumi-primary)] underline-offset-2 hover:underline">
+              {{ roomsLoading() ? 'Checking...' : 'Show available rooms' }}
+            </button>
+          </div>
+          @if (availableRooms().length) {
+          <div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            @for (r of availableRooms(); track r.id) {
+            <button type="button" (click)="selectedRoomId.set(r.id)"
+              [class]="'rounded border px-3 py-2 text-sm text-left ' + (selectedRoomId() === r.id ? 'border-[var(--sumi-primary)] bg-[var(--sumi-primary)]/10 text-[var(--sumi-primary)]' : 'border-gray-300 text-gray-600')">
+              <span class="block font-medium">Room {{ r.roomNumber }}</span>
+              <span class="block text-xs text-gray-400">{{ r.roomType }}</span>
+            </button>
+            }
+          </div>
+          } @else if (!roomsLoading()) {
+          <p class="text-xs text-gray-400 mt-2">Select a date and time, then check which rooms are free for that slot.</p>
+          }
+        </div>
+        }
 
         <label class="block text-sm text-gray-700">
           Preferred therapist (optional)

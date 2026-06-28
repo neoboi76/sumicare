@@ -8,7 +8,9 @@
 package com.sumicare.report.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
+import com.sumicare.report.service.RegisteredClientsReportService;
 import com.sumicare.report.service.ReportPdfService;
+import com.sumicare.report.service.TherapistPerformanceService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,9 +33,43 @@ public class ReportsController {
     private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
 
     private final ReportPdfService reportPdfService;
+    private final TherapistPerformanceService therapistPerformanceService;
+    private final RegisteredClientsReportService registeredClientsReportService;
 
-    public ReportsController(ReportPdfService reportPdfService) {
+    public ReportsController(ReportPdfService reportPdfService,
+                            TherapistPerformanceService therapistPerformanceService,
+                            RegisteredClientsReportService registeredClientsReportService) {
         this.reportPdfService = reportPdfService;
+        this.therapistPerformanceService = therapistPerformanceService;
+        this.registeredClientsReportService = registeredClientsReportService;
+    }
+
+    @GetMapping("/therapist-performance")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public TherapistPerformanceService.TherapistPerformanceReport therapistPerformance(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @RequestParam String from,
+            @RequestParam String to) {
+        return therapistPerformanceService.report(UUID.fromString(principal.organizationId()),
+                LocalDate.parse(from), LocalDate.parse(to));
+    }
+
+    @GetMapping("/registered-clients")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public RegisteredClientsReportService.RegisteredClientsReport registeredClients(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return registeredClientsReportService.report(UUID.fromString(principal.organizationId()));
+    }
+
+    @GetMapping(value = "/registered-clients.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public ResponseEntity<byte[]> registeredClientsPdf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        byte[] pdf = registeredClientsReportService.pdf(
+                UUID.fromString(principal.organizationId()), UUID.fromString(principal.userId()));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"registered-clients.pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     @GetMapping(value = "/sales-summary.pdf", produces = MediaType.APPLICATION_PDF_VALUE)

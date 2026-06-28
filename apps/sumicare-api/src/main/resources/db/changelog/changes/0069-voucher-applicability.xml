@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0069-1-voucher-applicability" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="vouchers" columnName="applicability"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="vouchers">
+            <column name="applicability" type="varchar(16)" defaultValue="ALL">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0069-2-voucher-clients" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="voucher_clients"/>
+            </not>
+        </preConditions>
+        <createTable tableName="voucher_clients">
+            <column name="voucher_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="voucher_clients" columnNames="voucher_id,client_id"
+                constraintName="pk_voucher_clients"/>
+        <createIndex tableName="voucher_clients" indexName="ix_voucher_clients_client">
+            <column name="client_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

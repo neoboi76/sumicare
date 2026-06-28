@@ -5,21 +5,22 @@
       Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
 -->
 
-<div>
-  <header class="flex items-baseline justify-between">
+<div class="max-w-6xl mx-auto">
+  <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3">
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Therapists</h1>
       <p class="text-slate-500">Roster of regular and backup therapists. Backups never auto-enter the lineup.</p>
     </div>
-    <button (click)="openCreate()" class="rounded bg-[var(--sumi-primary)] text-white px-4 py-1.5 text-sm">Add
+    <button (click)="openCreate()"
+      class="rounded bg-[var(--sumi-primary)] text-white px-4 py-2 text-sm self-start sm:self-auto">Add
       therapist</button>
   </header>
 
-  <div class="flex flex-wrap items-end gap-3">
+  <div class="bg-white rounded-xl shadow-sm p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
     <label class="block">
       <span class="text-xs text-slate-500">Gender</span>
       <select [ngModel]="genderFilter()" (ngModelChange)="genderFilter.set($event)" name="genderFilter"
-        class="mt-1 rounded border border-slate-300 px-3 py-2 text-sm">
+        class="mt-1 w-full sm:w-auto rounded border border-slate-300 px-3 py-2 text-sm">
         <option value="ALL">All genders</option>
         <option value="F">Female</option>
         <option value="M">Male</option>
@@ -28,7 +29,7 @@
     <label class="block">
       <span class="text-xs text-slate-500">Shift</span>
       <select [ngModel]="shiftFilter()" (ngModelChange)="shiftFilter.set($event)" name="shiftFilter"
-        class="mt-1 rounded border border-slate-300 px-3 py-2 text-sm">
+        class="mt-1 w-full sm:w-auto rounded border border-slate-300 px-3 py-2 text-sm">
         <option [ngValue]="'ALL'">All shifts</option>
         @for (s of shifts(); track s.id) {
         <option [ngValue]="s.id">{{ s.label }}</option>
@@ -42,76 +43,49 @@
     <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">{{ group.label }}
       <span class="text-slate-400">({{ group.items.length }})</span>
     </h2>
-    <div class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
-      <table class="w-full min-w-[560px] text-sm">
-        <thead class="bg-slate-100">
-          <tr>
-            <th class="text-left p-3" [sumiSortable]="'staffNumber'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-              Staff # <sumi-sort-icon [active]="sortState().key === 'staffNumber'" [direction]="sortState().direction" />
-            </th>
-            <th class="text-left p-3" [sumiSortable]="'nickname'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-              Nickname <sumi-sort-icon [active]="sortState().key === 'nickname'" [direction]="sortState().direction" />
-            </th>
-            <th class="text-left p-3" [sumiSortable]="'gender'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-              Gender <sumi-sort-icon [active]="sortState().key === 'gender'" [direction]="sortState().direction" />
-            </th>
-            <th class="text-left p-3" [sumiSortable]="'type'" [sortState]="sortState()" (sortStateChange)="sortState.set($event)">
-              Type <sumi-sort-icon [active]="sortState().key === 'type'" [direction]="sortState().direction" />
-            </th>
-            <th class="text-right p-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (t of group.items; track t.id) {
-          <tr class="border-t hover:bg-slate-50">
-            <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
-            <td class="p-3 font-medium">{{ t.nickname }}</td>
-            <td class="p-3">{{ t.gender }}</td>
-            <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
-            <td class="p-3 text-right space-x-2">
-              <button (click)="openEdit(t)" class="text-[var(--sumi-primary)] hover:underline text-xs">Edit</button>
-              <button (click)="deactivate(t)" class="text-red-700 hover:underline text-xs">Deactivate</button>
-            </td>
-          </tr>
-          }
-        </tbody>
-      </table>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      @for (t of group.items; track t.id) {
+      <div class="bg-white rounded-xl shadow-sm p-4 flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="font-semibold text-slate-900 truncate">{{ t.nickname }}</div>
+          <div class="text-xs font-mono text-slate-500">{{ t.staffNumber || 'No staff #' }}</div>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            <span class="text-[11px] rounded-full px-2 py-0.5" [class.bg-pink-100]="t.gender === 'F'"
+              [class.text-pink-700]="t.gender === 'F'" [class.bg-sky-100]="t.gender !== 'F'"
+              [class.text-sky-700]="t.gender !== 'F'">{{ t.gender === 'F' ? 'Female' : 'Male' }}</span>
+            <span class="text-[11px] rounded-full px-2 py-0.5" [class.bg-violet-100]="t.backup"
+              [class.text-violet-700]="t.backup" [class.bg-slate-100]="!t.backup" [class.text-slate-600]="!t.backup">{{
+              t.backup ? 'Backup' : 'Regular' }}</span>
+          </div>
+        </div>
+        <div class="flex flex-col items-end gap-1.5 shrink-0 text-xs">
+          <button (click)="openEdit(t)" class="text-[var(--sumi-primary)] hover:underline">Edit</button>
+          <button (click)="deactivate(t)" class="text-red-700 hover:underline">Deactivate</button>
+        </div>
+      </div>
+      }
     </div>
   </section>
   } @empty {
-  <section class="bg-white rounded-xl shadow p-6 text-center text-slate-500">No therapists match the current filters.</section>
+  <section class="bg-white rounded-xl shadow p-6 text-center text-slate-500">No therapists match the current filters.
+  </section>
   }
 
   @if (deactivated().length > 0) {
-  <section>
-    <h2 class="text-lg font-semibold text-slate-700 mb-2">Deactivated Therapists</h2>
-    <div class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
-      <table class="w-full min-w-[640px] text-sm">
-        <thead class="bg-slate-100">
-          <tr>
-            <th class="text-left p-3">Staff #</th>
-            <th class="text-left p-3">Nickname</th>
-            <th class="text-left p-3">Gender</th>
-            <th class="text-left p-3">Type</th>
-            <th class="text-left p-3">Shift</th>
-            <th class="text-right p-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (t of deactivated(); track t.id) {
-          <tr class="border-t hover:bg-slate-50 opacity-60">
-            <td class="p-3 font-mono">{{ t.staffNumber || '-' }}</td>
-            <td class="p-3 font-medium">{{ t.nickname }}</td>
-            <td class="p-3">{{ t.gender }}</td>
-            <td class="p-3">{{ t.backup ? 'Backup' : 'Regular' }}</td>
-            <td class="p-3 text-slate-500">{{ t.currentShiftLabel || 'Unassigned' }}</td>
-            <td class="p-3 text-right">
-              <button (click)="reactivate(t)" class="text-emerald-700 hover:underline text-xs">Reactivate</button>
-            </td>
-          </tr>
-          }
-        </tbody>
-      </table>
+  <section class="space-y-2">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Deactivated</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      @for (t of deactivated(); track t.id) {
+      <div class="bg-white rounded-xl shadow-sm p-4 flex items-start justify-between gap-3 opacity-70">
+        <div class="min-w-0">
+          <div class="font-semibold text-slate-900 truncate">{{ t.nickname }}</div>
+          <div class="text-xs font-mono text-slate-500">{{ t.staffNumber || 'No staff #' }}</div>
+          <div class="text-xs text-slate-500 mt-1">{{ t.gender === 'F' ? 'Female' : 'Male' }} &middot; {{ t.backup ?
+            'Backup' : 'Regular' }} &middot; {{ t.currentShiftLabel || 'Unassigned' }}</div>
+        </div>
+        <button (click)="reactivate(t)" class="text-emerald-700 hover:underline text-xs shrink-0">Reactivate</button>
+      </div>
+      }
     </div>
   </section>
   }

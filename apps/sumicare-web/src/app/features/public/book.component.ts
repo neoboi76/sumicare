@@ -59,6 +59,13 @@ interface BookingCreated {
 
 type PayMethod = 'GCASH' | 'CREDIT' | 'DEBIT';
 
+interface AvailableRoom {
+  id: string;
+  roomNumber: string;
+  floor: number | null;
+  roomType: string;
+}
+
 interface PublicPaymentResult {
   status: string;
   intentId: string | null;
@@ -154,6 +161,15 @@ export class BookComponent implements OnInit {
   termsScrolledToEnd = signal(false);
   termsAccepted = signal(false);
   bookingItems = signal<BookingItemForm[]>([this.blankItem()]);
+  availableRooms = signal<AvailableRoom[]>([]);
+  selectedRoomId = signal<string | null>(null);
+  roomsLoading = signal(false);
+
+  roomPickerApplicable = computed(() => {
+    const first = this.bookingItems()[0];
+    const pkg = first ? this.packageById(first.packageId) : null;
+    return !!pkg && !pkg.couple && !pkg.requiresVipRoom && !!this.scheduledDate && !!this.scheduledTime;
+  });
 
   voucherCode = '';
   voucherError = signal<string | null>(null);
@@ -268,12 +284,30 @@ export class BookComponent implements OnInit {
     return pkg?.tiers ?? [];
   }
 
+  loadAvailableRooms(): void {
+    if (!this.roomPickerApplicable()) return;
+    const iso = toManilaIso(this.scheduledDate, this.scheduledTime);
+    if (!iso) return;
+    this.roomsLoading.set(true);
+    this.selectedRoomId.set(null);
+    this.http.get<AvailableRoom[]>(
+      `${environment.apiBaseUrl}/api/public/rooms/available/${environment.defaultOrganizationSlug}?at=${encodeURIComponent(iso)}&durationMinutes=0`
+    ).subscribe({
+      next: (rooms) => { this.availableRooms.set(rooms); this.roomsLoading.set(false); },
+      error: () => { this.availableRooms.set([]); this.roomsLoading.set(false); }
+    });
+  }
+
   isDoubleItem(pkg: PublicPackage | null): boolean {
     return !!pkg && (pkg.couple || pkg.requiresVipRoom);
   }
 
   isVipItem(pkg: PublicPackage | null): boolean {
     return !!pkg && pkg.requiresVipRoom;
+  }
+
+  isPrivateRoomIncluded(pkg: PublicPackage | null): boolean {
+    return !!pkg && (pkg.requiresVipRoom || pkg.couple);
   }
 
   private blankItem(): BookingItemForm {
@@ -437,7 +471,8 @@ export class BookComponent implements OnInit {
       voucherCode: this.appliedVoucher() ? this.voucherCode.trim() : null,
       remarks: this.remarks.trim() || null,
       preferredTherapist: this.preferredTherapist.trim() || null,
-      termsAccepted: this.termsAccepted()
+      termsAccepted: this.termsAccepted(),
+      preferredRoomId: this.roomPickerApplicable() ? this.selectedRoomId() : null
     };
 
     if (this.reservationType === 'HARD') {

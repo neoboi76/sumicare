@@ -109,6 +109,13 @@ public class OrderController {
         return pendingCoordinator.confirm(request.token(), request.intentId(), request.paymentMethod());
     }
 
+    @GetMapping("/{id}/served-therapists")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public List<Map<String, String>> servedTherapists(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                                      @PathVariable UUID id) {
+        return orderService.servedTherapists(UUID.fromString(principal.organizationId()), id);
+    }
+
     @PostMapping("/{id}/tips")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public OrderResponse recordTip(@AuthenticationPrincipal AuthenticatedPrincipal principal,

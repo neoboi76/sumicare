@@ -69,6 +69,9 @@ public class Feedback {
     @Column(name = "responded_at")
     private OffsetDateTime respondedAt;
 
+    @Column(name = "criteria", columnDefinition = "text")
+    private String criteria;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -103,4 +106,6 @@ public class Feedback {
     public void setRespondedByUserId(UUID respondedByUserId) { this.respondedByUserId = respondedByUserId; }
     public OffsetDateTime getRespondedAt() { return respondedAt; }
     public void setRespondedAt(OffsetDateTime respondedAt) { this.respondedAt = respondedAt; }
+    public String getCriteria() { return criteria; }
+    public void setCriteria(String criteria) { this.criteria = criteria; }
 }

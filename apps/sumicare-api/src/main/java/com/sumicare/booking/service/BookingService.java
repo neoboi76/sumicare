@@ -9,6 +9,7 @@ package com.sumicare.booking.service;
 
 import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
+import com.sumicare.booking.dto.AvailableRoomResponse;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.CreateBookingItemRequest;
@@ -181,7 +182,10 @@ public class BookingService {
         if (request.clientNickname() == null || request.clientNickname().isBlank()) {
             throw new IllegalArgumentException("Client nickname is required");
         }
-        if (request.clientEmail() == null || request.clientEmail().isBlank()) {
+
+        String resolvedEmail = resolveClientEmail(request);
+        boolean walkIn = "WALK_IN".equalsIgnoreCase(request.reservationType());
+        if ((resolvedEmail == null || resolvedEmail.isBlank()) && !walkIn) {
             throw new IllegalArgumentException("Client email is required for all bookings");
         }
 
@@ -316,6 +320,7 @@ public class BookingService {
             booking.setTermsAcceptedAt(OffsetDateTime.now());
         }
         booking.setScheduledAt(request.scheduledAt());
+        booking.setPreferredRoomId(request.preferredRoomId());
         booking.setPax(resolvedPax);
         booking.setClientGender(request.clientGender());
         booking.setNationality(request.nationality());
@@ -409,6 +414,32 @@ public class BookingService {
         order.setVoucherId(voucher.getId());
         orderRepository.save(order);
         voucherService.markRedeemed(voucher.getId(), booking.getClientId(), order.getId());
+    }
+
+    public List<AvailableRoomResponse> availableRooms(UUID organizationId, OffsetDateTime at, int durationMinutes) {
+        int prepBuffer = 15;
+        int blockMinutes = durationMinutes > 0 ? durationMinutes + prepBuffer : 120;
+        OffsetDateTime windowStart = at.minusMinutes(prepBuffer);
+        OffsetDateTime windowEnd = at.plusMinutes(blockMinutes);
+
+        Set<UUID> occupied = new HashSet<>();
+        for (Booking b : bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(
+                organizationId, at.minusHours(4), windowEnd)) {
+            if (b.getPreferredRoomId() == null || "CANCELLED".equals(b.getStatus())) {
+                continue;
+            }
+            OffsetDateTime bStart = b.getScheduledAt();
+            OffsetDateTime bEnd = bStart.plusMinutes(blockMinutes);
+            if (bStart.isBefore(windowEnd) && bEnd.isAfter(windowStart)) {
+                occupied.add(b.getPreferredRoomId());
+            }
+        }
+
+        return roomRepository.findAllByOrganizationIdAndActiveTrue(organizationId).stream()
+                .filter(r -> !occupied.contains(r.getId()))
+                .map(r -> new AvailableRoomResponse(r.getId(), r.getRoomNumber(), r.getFloor(),
+                        r.getRoomType(), r.isRowSegmented()))
+                .toList();
     }
 
     private String resolveClientEmail(CreateBookingRequest request) {

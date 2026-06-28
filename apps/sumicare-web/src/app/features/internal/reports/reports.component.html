@@ -61,6 +61,11 @@
     </div>
   </section>
 
+  <section class="bg-[var(--sumi-primary)]/5 border border-[var(--sumi-primary)]/20 rounded-xl p-4">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-[var(--sumi-primary)] mb-1">Financial interpretation</h2>
+    <p class="text-sm text-slate-700">{{ narrative() }}</p>
+  </section>
+
   <section class="bg-white rounded-xl shadow p-4">
     <div class="flex items-baseline justify-between mb-3">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Daily net revenue</h2>
@@ -109,6 +114,83 @@
           </tr>
         } @empty {
           <tr><td colspan="6" class="p-4 text-center text-slate-400">No therapist performance data yet.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="bg-white rounded-xl shadow p-4 overflow-x-auto">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-1">Therapist performance monitoring</h2>
+    <p class="text-xs text-slate-400 mb-3">Revenue, commissions, tips, requests and favourites for the selected date range.</p>
+    <table class="w-full min-w-[820px] text-sm">
+      <thead class="text-slate-500 text-xs uppercase tracking-wide">
+        <tr>
+          <th class="text-left p-2">Therapist</th>
+          <th class="text-right p-2">Revenue</th>
+          <th class="text-right p-2">Commissions</th>
+          <th class="text-right p-2">Tips</th>
+          <th class="text-right p-2">Services</th>
+          <th class="text-right p-2">Requests</th>
+          <th class="text-left p-2">Top clients</th>
+          <th class="text-left p-2">Top services</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of performance(); track p.therapistId) {
+          <tr class="border-t border-slate-100 align-top">
+            <td class="p-2 font-medium">{{ p.nickname }}</td>
+            <td class="p-2 text-right">&#8369; {{ p.revenue | number:'1.2-2' }}</td>
+            <td class="p-2 text-right">&#8369; {{ p.commissions | number:'1.2-2' }}</td>
+            <td class="p-2 text-right">&#8369; {{ p.tips | number:'1.2-2' }}</td>
+            <td class="p-2 text-right">{{ p.servicesRendered }}</td>
+            <td class="p-2 text-right">{{ p.specificRequests }}</td>
+            <td class="p-2 text-xs text-slate-600">
+              @for (c of p.topClients; track c.name) { <span class="block">{{ c.name }} ({{ c.count }})</span> }
+            </td>
+            <td class="p-2 text-xs text-slate-600">
+              @for (s of p.topServices; track s.name) { <span class="block">{{ s.name }} ({{ s.count }})</span> }
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="8" class="p-4 text-center text-slate-400">No therapist activity in this range.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="bg-white rounded-xl shadow p-4 overflow-x-auto">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Registered clients</h2>
+      <button (click)="downloadRegisteredClientsPdf()"
+        class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1.5 text-sm hover:bg-rose-50 transition-colors">
+        Download PDF
+      </button>
+    </div>
+    <p class="text-xs text-slate-400 mb-3">Top customers by lifetime spend, with favourite service and package.
+      Total lifetime spend &#8369; {{ totalClientSpend() | number:'1.2-2' }}.</p>
+    <table class="w-full min-w-[640px] text-sm">
+      <thead class="text-slate-500 text-xs uppercase tracking-wide">
+        <tr>
+          <th class="text-left p-2">#</th>
+          <th class="text-left p-2">Client</th>
+          <th class="text-right p-2">Bookings</th>
+          <th class="text-right p-2">Lifetime spend</th>
+          <th class="text-left p-2">Favourite service</th>
+          <th class="text-left p-2">Favourite package</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of registeredClients(); track c.clientId; let i = $index) {
+          <tr class="border-t border-slate-100">
+            <td class="p-2 font-semibold text-slate-400">{{ i + 1 }}</td>
+            <td class="p-2 font-medium">{{ c.nickname }}</td>
+            <td class="p-2 text-right">{{ c.bookingCount }}</td>
+            <td class="p-2 text-right">&#8369; {{ c.totalSpending | number:'1.2-2' }}</td>
+            <td class="p-2">{{ c.topService || '—' }}</td>
+            <td class="p-2">{{ c.topPackage || '—' }}</td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="p-4 text-center text-slate-400">No registered clients yet.</td></tr>
         }
       </tbody>
     </table>

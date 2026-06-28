@@ -7,6 +7,7 @@
 
 package com.sumicare.feedback.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.BookingRepository;
@@ -49,6 +50,7 @@ public class SurveyService {
     private final TherapistRepository therapistRepository;
     private final TipService tipService;
     private final BaseUrlResolver baseUrlResolver;
+    private final ObjectMapper objectMapper;
 
     private static final int TOKEN_VALID_DAYS = 7;
 
@@ -60,7 +62,8 @@ public class SurveyService {
                          SessionRepository sessionRepository,
                          TherapistRepository therapistRepository,
                          TipService tipService,
-                         BaseUrlResolver baseUrlResolver) {
+                         BaseUrlResolver baseUrlResolver,
+                         ObjectMapper objectMapper) {
         this.invitationRepository = invitationRepository;
         this.feedbackRepository = feedbackRepository;
         this.orderRepository = orderRepository;
@@ -70,6 +73,7 @@ public class SurveyService {
         this.therapistRepository = therapistRepository;
         this.tipService = tipService;
         this.baseUrlResolver = baseUrlResolver;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -108,30 +112,51 @@ public class SurveyService {
                 : bookingRepository.findById(order.getBookingId()).map(Booking::getClientNickname).orElse(null);
         Map<UUID, UUID> servedTherapists = servedTherapistSessions(order.getId());
 
+        String orNumber = order.getOrNumber() != null && !order.getOrNumber().isBlank()
+                ? order.getOrNumber() : order.getReferenceNumber();
+
         feedbackRepository.save(buildFeedback(invitation.getOrganizationId(), order.getId(), nickname,
-                "LASEMA", null, request.lasemaRating(), request.lasemaComment()));
+                "LASEMA", null, request.lasemaRating(), request.lasemaComment(),
+                toCriteriaJson(request.lasemaCriteria()), orNumber));
 
         if (request.therapists() != null) {
             for (SubmitSurveyRequest.TherapistRating tr : request.therapists()) {
                 if (tr == null || tr.therapistId() == null) continue;
                 feedbackRepository.save(buildFeedback(invitation.getOrganizationId(), order.getId(), nickname,
-                        "THERAPIST", tr.therapistId(), tr.rating(), tr.comment()));
+                        "THERAPIST", tr.therapistId(), tr.rating(), tr.comment(),
+                        toCriteriaJson(tr.criteria()), orNumber));
             }
         }
 
-        if (request.tipGiven() && request.tipTherapistId() != null
-                && request.tipAmount() != null && request.tipAmount().signum() > 0) {
-            if (!servedTherapists.containsKey(request.tipTherapistId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "The selected therapist did not serve this visit");
+        if (request.tips() != null) {
+            for (SubmitSurveyRequest.TherapistTipEntry tip : request.tips()) {
+                if (tip == null || tip.therapistId() == null
+                        || tip.amount() == null || tip.amount().signum() <= 0) {
+                    continue;
+                }
+                if (!servedTherapists.containsKey(tip.therapistId())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "A tipped therapist did not serve this visit");
+                }
+                tipService.recordTip(invitation.getOrganizationId(), tip.therapistId(), order.getId(),
+                        servedTherapists.get(tip.therapistId()), tip.amount(),
+                        TipService.SOURCE_SURVEY, null);
             }
-            tipService.recordTip(invitation.getOrganizationId(), request.tipTherapistId(), order.getId(),
-                    servedTherapists.get(request.tipTherapistId()), request.tipAmount(),
-                    TipService.SOURCE_SURVEY, null);
         }
 
         invitation.setCompletedAt(OffsetDateTime.now());
         invitationRepository.save(invitation);
+    }
+
+    private String toCriteriaJson(Map<String, Integer> criteria) {
+        if (criteria == null || criteria.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(criteria);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private SurveyInvitation requireActiveInvitation(String token) {
@@ -147,7 +172,8 @@ public class SurveyService {
     }
 
     private Feedback buildFeedback(UUID organizationId, UUID orderId, String nickname,
-                                   String type, UUID therapistId, int rating, String comment) {
+                                   String type, UUID therapistId, int rating, String comment,
+                                   String criteriaJson, String orNumber) {
         Feedback feedback = new Feedback();
         feedback.setOrganizationId(organizationId);
         feedback.setOrderId(orderId);
@@ -156,6 +182,8 @@ public class SurveyService {
         feedback.setTherapistId(therapistId);
         feedback.setRatingStars(rating);
         feedback.setComment(comment);
+        feedback.setCriteria(criteriaJson);
+        feedback.setOrNumber(orNumber);
         feedback.setSubmittedAt(OffsetDateTime.now());
         return feedback;
     }

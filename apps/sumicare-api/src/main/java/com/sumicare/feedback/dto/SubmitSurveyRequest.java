@@ -13,20 +13,26 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public record SubmitSurveyRequest(
         @Min(1) @Max(5) int lasemaRating,
         @Size(max = 2000) String lasemaComment,
+        Map<String, Integer> lasemaCriteria,
         List<TherapistRating> therapists,
-        boolean tipGiven,
-        BigDecimal tipAmount,
-        UUID tipTherapistId
+        List<TherapistTipEntry> tips
 ) {
 
     public record TherapistRating(
             UUID therapistId,
             @Min(1) @Max(5) int rating,
-            @Size(max = 2000) String comment
+            @Size(max = 2000) String comment,
+            Map<String, Integer> criteria
+    ) {}
+
+    public record TherapistTipEntry(
+            UUID therapistId,
+            BigDecimal amount
     ) {}
 }

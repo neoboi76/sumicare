@@ -76,4 +76,7 @@
     <include file="changes/0064-feedback-survey.xml" relativeToChangelogFile="true"/>
     <include file="changes/0065-survey-expiry.xml" relativeToChangelogFile="true"/>
     <include file="changes/0066-therapist-tips.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0067-booking-preferred-room.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0068-feedback-criteria.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0069-voucher-applicability.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

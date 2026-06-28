@@ -47,10 +47,25 @@
         }
         <div class="text-xs text-slate-500">OR# {{ o.orNumber || '—' }} &middot; Ref {{ o.bookingReference || '—' }}
           &middot; Created {{ formatDate(o.createdAt) }}</div>
-        @if (o.scheduledAt) {
-        <div class="mt-1 inline-flex items-center gap-1.5 rounded bg-[var(--sumi-primary)]/10 text-[var(--sumi-primary)] text-xs font-medium px-2 py-1">
-          <span class="uppercase tracking-wide text-[10px]">Schedule</span>
-          <span class="font-semibold">{{ formatSchedule(o.scheduledAt) }}</span>
+        <div class="mt-1 flex items-center gap-2 flex-wrap">
+          @if (o.scheduledAt) {
+          <div class="inline-flex items-center gap-1.5 rounded bg-[var(--sumi-primary)]/10 text-[var(--sumi-primary)] text-xs font-medium px-2 py-1">
+            <span class="uppercase tracking-wide text-[10px]">Schedule</span>
+            <span class="font-semibold">{{ formatSchedule(o.scheduledAt) }}</span>
+          </div>
+          }
+          @if (o.bookingId && o.status !== 'CANCELLED' && !editingSchedule()) {
+          <button (click)="startEditSchedule()"
+            class="text-xs text-[var(--sumi-primary)] underline-offset-2 hover:underline">Edit date</button>
+          }
+        </div>
+        @if (editingSchedule()) {
+        <div class="mt-2 flex items-center gap-2 flex-wrap">
+          <input type="datetime-local" [(ngModel)]="newScheduledAt" name="newSchedule"
+            class="border border-slate-300 rounded px-2 py-1 text-sm" />
+          <button (click)="saveSchedule()" [disabled]="busy() || !newScheduledAt"
+            class="rounded bg-[var(--sumi-primary)] text-white text-xs px-3 py-1.5 disabled:opacity-50">Save</button>
+          <button (click)="editingSchedule.set(false)" class="text-xs text-slate-500">Cancel</button>
         </div>
         }
         @if (o.lastEditedByDisplayName || o.cashierDisplayName) {

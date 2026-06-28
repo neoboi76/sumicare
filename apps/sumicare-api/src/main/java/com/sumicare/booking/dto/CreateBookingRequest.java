@@ -37,5 +37,6 @@ public record CreateBookingRequest(
         String voucherCode,
         @Size(max = 1000) String remarks,
         @Size(max = 120) String preferredTherapist,
-        Boolean termsAccepted
+        Boolean termsAccepted,
+        UUID preferredRoomId
 ) {}

@@ -46,4 +46,6 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
 
     long countByOrganizationIdAndStatusAndEndedAtBetween(
             UUID organizationId, String status, OffsetDateTime from, OffsetDateTime to);
+
+    List<Session> findAllByBookingIdIn(Collection<UUID> bookingIds);
 }

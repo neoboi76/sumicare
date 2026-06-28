@@ -15,6 +15,6 @@ public record CalendarEntry(
         String reference,
         String clientNickname,
         String reservationType,
-        String status,
+        String schedulingStatus,
         OffsetDateTime scheduledAt
 ) {}

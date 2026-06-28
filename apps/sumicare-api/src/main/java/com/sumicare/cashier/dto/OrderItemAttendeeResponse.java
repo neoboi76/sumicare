@@ -24,5 +24,7 @@ public record OrderItemAttendeeResponse(
         int position,
         BigDecimal discount,
         String providedTsn,
-        String preferredTherapist
+        String preferredTherapist,
+        UUID primaryTherapistId,
+        String therapistNickname
 ) {}

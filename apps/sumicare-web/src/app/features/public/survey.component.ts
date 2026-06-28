@@ -23,6 +23,11 @@ interface SurveyDetail {
   therapists: TherapistSection[];
 }
 
+interface Criterion {
+  key: string;
+  label: string;
+}
+
 @Component({
   selector: 'sumi-survey',
   standalone: true,
@@ -40,14 +45,29 @@ export class SurveyComponent implements OnInit {
   submitted = signal(false);
   error = signal<string | null>(null);
 
-  lasemaRating = signal(0);
-  lasemaComment = '';
-  therapistRatings: Record<string, number> = {};
-  therapistComments: Record<string, string> = {};
+  readonly stars = [1, 2, 3, 4, 5];
+  readonly lasemaCriteria: Criterion[] = [
+    { key: 'cleanliness', label: 'Cleanliness' },
+    { key: 'comfort', label: 'Comfort and ambiance' },
+    { key: 'serviceQuality', label: 'Service quality' },
+    { key: 'valueForMoney', label: 'Value for money' },
+    { key: 'staffProfessionalism', label: 'Staff professionalism' }
+  ];
+  readonly therapistCriteria: Criterion[] = [
+    { key: 'technique', label: 'Technique quality' },
+    { key: 'communication', label: 'Communication' },
+    { key: 'punctuality', label: 'Punctuality' },
+    { key: 'professionalism', label: 'Professionalism' }
+  ];
 
-  tipGiven = signal(false);
-  tipAmount: number | null = null;
-  tipTherapistId = '';
+  lasemaOverall = signal(0);
+  lasemaComment = '';
+  lasemaScores: Record<string, number> = {};
+
+  therapistOverall: Record<string, number> = {};
+  therapistComments: Record<string, string> = {};
+  therapistScores: Record<string, Record<string, number>> = {};
+  tipAmounts: Record<string, number | null> = {};
 
   ngOnInit(): void {
     this.token = this.route.snapshot.queryParamMap.get('token') || '';
@@ -60,6 +80,9 @@ export class SurveyComponent implements OnInit {
       next: (d) => {
         this.detail.set(d);
         if (d.completed) this.submitted.set(true);
+        for (const t of d.therapists) {
+          this.therapistScores[t.therapistId] = {};
+        }
         this.loading.set(false);
       },
       error: () => {
@@ -69,57 +92,48 @@ export class SurveyComponent implements OnInit {
     });
   }
 
-  setLasema(rating: number): void {
-    this.lasemaRating.set(rating);
+  setLasemaOverall(rating: number): void {
+    this.lasemaOverall.set(rating);
   }
 
-  setTherapistRating(therapistId: string, rating: number): void {
-    this.therapistRatings[therapistId] = rating;
+  setLasemaScore(key: string, rating: number): void {
+    this.lasemaScores[key] = rating;
   }
 
-  setTipGiven(given: boolean): void {
-    this.tipGiven.set(given);
-    if (!given) {
-      this.tipAmount = null;
-      this.tipTherapistId = '';
-    } else {
-      const d = this.detail();
-      if (d && d.therapists.length === 1) this.tipTherapistId = d.therapists[0].therapistId;
-    }
+  setTherapistOverall(therapistId: string, rating: number): void {
+    this.therapistOverall[therapistId] = rating;
+  }
+
+  setTherapistScore(therapistId: string, key: string, rating: number): void {
+    this.therapistScores[therapistId][key] = rating;
   }
 
   submit(): void {
     const d = this.detail();
     if (!d) return;
-    if (this.lasemaRating() < 1) {
-      this.error.set('Please rate your overall experience.');
+    if (this.lasemaOverall() < 1) {
+      this.error.set('Please rate your overall Lasema experience.');
       return;
     }
-    if (this.tipGiven()) {
-      if (!this.tipAmount || this.tipAmount <= 0) {
-        this.error.set('Enter the tip amount in pesos.');
-        return;
-      }
-      if (!this.tipTherapistId) {
-        this.error.set('Select which therapist received the tip.');
-        return;
-      }
-    }
     const therapists = d.therapists
-      .filter(t => (this.therapistRatings[t.therapistId] || 0) >= 1)
+      .filter(t => (this.therapistOverall[t.therapistId] || 0) >= 1)
       .map(t => ({
         therapistId: t.therapistId,
-        rating: this.therapistRatings[t.therapistId],
-        comment: (this.therapistComments[t.therapistId] || '').trim() || null
+        rating: this.therapistOverall[t.therapistId],
+        comment: (this.therapistComments[t.therapistId] || '').trim() || null,
+        criteria: this.therapistScores[t.therapistId] || {}
       }));
+    const tips = d.therapists
+      .filter(t => (this.tipAmounts[t.therapistId] || 0) > 0)
+      .map(t => ({ therapistId: t.therapistId, amount: this.tipAmounts[t.therapistId] }));
+
     this.error.set(null);
     this.http.post(`${environment.apiBaseUrl}/api/public/survey/${this.token}`, {
-      lasemaRating: this.lasemaRating(),
+      lasemaRating: this.lasemaOverall(),
       lasemaComment: this.lasemaComment.trim() || null,
+      lasemaCriteria: this.lasemaScores,
       therapists,
-      tipGiven: this.tipGiven(),
-      tipAmount: this.tipGiven() ? this.tipAmount : null,
-      tipTherapistId: this.tipGiven() ? (this.tipTherapistId || null) : null
+      tips
     }).subscribe({
       next: () => this.submitted.set(true),
       error: (err) => this.error.set(err?.error?.message || 'Could not submit your survey. Please try again.')

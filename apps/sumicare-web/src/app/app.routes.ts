@@ -27,7 +27,8 @@ export const APP_ROUTES: Routes = [
       { path: 'feedback', loadComponent: () => import('./features/public/feedback.component').then(m => m.FeedbackComponent) },
       { path: 'contact', loadComponent: () => import('./features/public/contact.component').then(m => m.ContactComponent) },
       { path: 'cancel', loadComponent: () => import('./features/public/cancel.component').then(m => m.CancelComponent) },
-      { path: 'terms', loadComponent: () => import('./features/public/terms.component').then(m => m.TermsComponent) }
+      { path: 'terms', loadComponent: () => import('./features/public/terms.component').then(m => m.TermsComponent) },
+      { path: 'terms-and-conditions', loadComponent: () => import('./features/public/terms-conditions.component').then(m => m.TermsConditionsComponent) }
     ]
   },
   {

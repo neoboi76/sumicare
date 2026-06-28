@@ -19,6 +19,15 @@ interface Feedback {
   nickname: string | null;
   sessionId: string | null;
   submittedAt: string;
+  feedbackType: string | null;
+  therapistId: string | null;
+  criteria: string | null;
+  staffResponse: string | null;
+}
+
+interface CriterionScore {
+  label: string;
+  score: number;
 }
 
 @Component({
@@ -62,6 +71,33 @@ export class FeedbackAdminComponent implements OnInit {
 
   stars(rating: number): string {
     return '★'.repeat(rating) + '☆'.repeat(Math.max(0, 5 - rating));
+  }
+
+  typeLabel(type: string | null): string {
+    switch (type) {
+      case 'LASEMA': return 'Lasema survey';
+      case 'THERAPIST': return 'Therapist survey';
+      default: return 'General feedback';
+    }
+  }
+
+  isSurvey(type: string | null): boolean {
+    return type === 'LASEMA' || type === 'THERAPIST';
+  }
+
+  parsedCriteria(criteria: string | null): CriterionScore[] {
+    if (!criteria) return [];
+    try {
+      const map = JSON.parse(criteria) as Record<string, number>;
+      return Object.entries(map).map(([key, score]) => ({ label: this.humanize(key), score }));
+    } catch {
+      return [];
+    }
+  }
+
+  private humanize(key: string): string {
+    const spaced = key.replace(/([A-Z])/g, ' $1');
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
   }
 
   formatDate(iso: string): string {

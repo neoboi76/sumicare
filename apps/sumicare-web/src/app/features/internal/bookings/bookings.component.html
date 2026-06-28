@@ -49,8 +49,8 @@
           <div class="text-xs text-slate-500">{{ cell.day }}</div>
           <div class="space-y-0.5 mt-0.5">
             @for (e of cell.entries.slice(0, 3); track e.bookingId) {
-              <div class="flex items-center gap-1">
-                <span [class]="'inline-block w-1.5 h-1.5 rounded-full ' + calendarStatusColor(e.status)"></span>
+              <div [class]="'flex items-center gap-1 pl-1 ' + calendarTypeBorder(e.reservationType)">
+                <span [class]="'inline-block w-1.5 h-1.5 rounded-full ' + calendarStatusColor(e.schedulingStatus)"></span>
                 <span class="truncate text-[11px] text-slate-700">{{ e.clientNickname }}</span>
               </div>
             }
@@ -61,11 +61,19 @@
         </button>
       }
     </div>
-    <div class="flex flex-wrap gap-3 mt-3 text-xs text-slate-500">
-      <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>Open</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>In session</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>Completed</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-rose-400"></span>Cancelled</span>
+    <div class="flex flex-wrap gap-4 mt-3 text-xs text-slate-500">
+      <span class="flex items-center gap-3">
+        <span class="font-medium text-slate-600">Status</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>Scheduled</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>In progress</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>Completed</span>
+      </span>
+      <span class="flex items-center gap-3">
+        <span class="font-medium text-slate-600">Type</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-3 border-l-2 border-slate-400"></span>Walk-in</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-3 border-l-2 border-amber-500"></span>Soft</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-3 border-l-2 border-emerald-500"></span>Hard</span>
+      </span>
     </div>
   </section>
   }

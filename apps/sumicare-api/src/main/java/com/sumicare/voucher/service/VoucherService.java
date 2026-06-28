@@ -61,7 +61,22 @@ public class VoucherService {
         v.setUsageLimit(updates.getUsageLimit());
         if (updates.isActive() != v.isActive()) v.setActive(updates.isActive());
         v.setTargetPackageId(updates.getTargetPackageId());
+        if (updates.getApplicability() != null) v.setApplicability(updates.getApplicability());
+        v.setEligibleClientIds(updates.getEligibleClientIds() == null
+                ? new java.util.HashSet<>() : updates.getEligibleClientIds());
         return repository.save(v);
+    }
+
+    public List<Voucher> eligibleForClient(UUID organizationId, UUID clientId) {
+        LocalDate today = LocalDate.now();
+        return repository.findAllByOrganizationId(organizationId).stream()
+                .filter(Voucher::isActive)
+                .filter(v -> v.getValidFrom() == null || !today.isBefore(v.getValidFrom()))
+                .filter(v -> v.getValidUntil() == null || !today.isAfter(v.getValidUntil()))
+                .filter(v -> "ALL".equalsIgnoreCase(v.getApplicability())
+                        || (clientId != null && v.getEligibleClientIds().contains(clientId)))
+                .filter(v -> isRedeemableBy(v, clientId))
+                .toList();
     }
 
     public Optional<Voucher> findValid(UUID organizationId, String code) {
@@ -72,6 +87,10 @@ public class VoucherService {
     }
 
     public boolean isRedeemableBy(Voucher voucher, UUID clientId) {
+        if ("SPECIFIC".equalsIgnoreCase(voucher.getApplicability())
+                && (clientId == null || !voucher.getEligibleClientIds().contains(clientId))) {
+            return false;
+        }
         if (voucher.getUsageLimit() != null
                 && redemptionRepository.countByVoucherId(voucher.getId()) >= voucher.getUsageLimit()) {
             return false;
@@ -86,6 +105,10 @@ public class VoucherService {
         Voucher voucher = repository.findById(voucherId)
                 .filter(v -> organizationId.equals(v.getOrganizationId()))
                 .orElseThrow(() -> new IllegalArgumentException("Voucher not found"));
+        if ("SPECIFIC".equalsIgnoreCase(voucher.getApplicability())
+                && (clientId == null || !voucher.getEligibleClientIds().contains(clientId))) {
+            throw new IllegalStateException("This voucher is not applicable to this client.");
+        }
         if (clientId != null && redemptionRepository.existsByVoucherIdAndClientId(voucherId, clientId)) {
             throw new IllegalStateException("This client has already used this voucher.");
         }

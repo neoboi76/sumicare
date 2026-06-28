@@ -284,7 +284,7 @@ public class EmailService {
                     <p><strong>Refunds.</strong> Eligible refunds return through the original payment method (card and GCash to the same account, cash at the front desk); payment-provider fees may be non-refundable.</p>
                     <p><strong>Timeliness.</strong> Please arrive 15 minutes early. A slot forfeited by a client who is 10 to 20 minutes late may be offered to a waiting walk-in. Session durations are fixed per service.</p>
                     <p><strong>Booking &amp; responsibilities.</strong> A nickname and email are required, and clients are identified by nickname and email only. Disclose any relevant medical or skin conditions; services are for relaxation and are not medical care; unsafe or abusive conduct ends the session without refund; the spa is not liable for belongings not secured in a provided locker.</p>
-                    <p>The full Terms and Conditions are available on <a href="%s/terms">our website</a>.</p>
+                    <p>The full Terms and Conditions are available on <a href="%s/terms-and-conditions">our website</a>.</p>
                   </div>
                   <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
                   <p style="font-size: 12px; color: #6b7280;">New Lasema Spa Jjimjilbang &mdash; Spa Operations Management</p>
@@ -448,10 +448,14 @@ public class EmailService {
     }
 
     private String withPoweredBy(String body) {
+        String logoUrl = baseUrlResolver.resolve() + "/assets/logos/lasema-logo.png";
+        String header = "<div style=\"text-align: center; margin-bottom: 16px;\">"
+                + "<img src=\"" + logoUrl + "\" alt=\"New Lasema Spa Jjimjilbang\" style=\"max-height: 48px;\"/></div>";
         String footer = "<p style=\"font-size: 11px; color: #9ca3af; text-align: center; margin-top: 16px;\">Powered by SumiCare</p>";
-        if (body.contains("</body>")) {
-            return body.replace("</body>", footer + "</body>");
-        }
-        return body + footer;
+
+        String out = body.contains("<body")
+                ? body.replaceFirst("(?s)(<body[^>]*>)", "$1" + java.util.regex.Matcher.quoteReplacement(header))
+                : header + body;
+        return out.contains("</body>") ? out.replace("</body>", footer + "</body>") : out + footer;
     }
 }

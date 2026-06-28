@@ -20,9 +20,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -43,10 +45,15 @@ public class BookingExportController {
                                              @RequestParam OffsetDateTime from,
                                              @RequestParam OffsetDateTime to) {
         UUID orgId = UUID.fromString(principal.organizationId());
+        ZoneId manila = ZoneId.of("Asia/Manila");
         List<Booking> bookings = bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(orgId, from, to);
 
-        List<Session> allSessions = sessionRepository.findAllByOrganizationIdAndStartedAtBetween(orgId, from, to);
+        Set<UUID> bookingIds = bookings.stream().map(Booking::getId).collect(Collectors.toSet());
+        List<Session> allSessions = bookingIds.isEmpty()
+                ? List.of()
+                : sessionRepository.findAllByBookingIdIn(bookingIds);
         Map<UUID, Session> sessionByBookingId = allSessions.stream()
+                .filter(s -> s.getBookingId() != null)
                 .collect(Collectors.toMap(Session::getBookingId, s -> s, (a, b) -> a));
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -64,10 +71,10 @@ public class BookingExportController {
               .append(csvCell(b.getClientGender())).append(',')
               .append(b.getPax() != null ? b.getPax() : "").append(',')
               .append(b.getServiceId()).append(',')
-              .append(b.getScheduledAt() != null ? b.getScheduledAt().format(fmt) : "").append(',')
-              .append(s != null && s.getStartedAt() != null ? s.getStartedAt().format(fmt) : "").append(',')
-              .append(s != null && s.getExpectedEndAt() != null ? s.getExpectedEndAt().format(fmt) : "").append(',')
-              .append(s != null && s.getEndedAt() != null ? s.getEndedAt().format(fmt) : "").append(',')
+              .append(b.getScheduledAt() != null ? b.getScheduledAt().atZoneSameInstant(manila).format(fmt) : "").append(',')
+              .append(s != null && s.getStartedAt() != null ? s.getStartedAt().atZoneSameInstant(manila).format(fmt) : "").append(',')
+              .append(s != null && s.getExpectedEndAt() != null ? s.getExpectedEndAt().atZoneSameInstant(manila).format(fmt) : "").append(',')
+              .append(s != null && s.getEndedAt() != null ? s.getEndedAt().atZoneSameInstant(manila).format(fmt) : "").append(',')
               .append(s != null && s.getPrimaryTherapistId() != null ? s.getPrimaryTherapistId() : "").append(',')
               .append(s != null && s.getSecondaryTherapistId() != null ? s.getSecondaryTherapistId() : "").append(',')
               .append(s != null && s.getRoomId() != null ? s.getRoomId() : "").append(',')

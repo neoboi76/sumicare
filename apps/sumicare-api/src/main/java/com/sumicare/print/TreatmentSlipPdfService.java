@@ -8,7 +8,9 @@
 package com.sumicare.print;
 
 import com.sumicare.common.util.BaseUrlResolver;
+import com.sumicare.common.util.LogoResolver;
 import com.sumicare.common.util.QrCodeUtil;
+import com.sumicare.organization.repository.OrganizationRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import org.springframework.stereotype.Component;
@@ -29,12 +31,18 @@ public class TreatmentSlipPdfService {
     private final PdfRenderer pdfRenderer;
     private final TreatmentSlipRepository slipRepository;
     private final BaseUrlResolver baseUrlResolver;
+    private final OrganizationRepository organizationRepository;
+    private final LogoResolver logoResolver;
 
     public TreatmentSlipPdfService(PdfRenderer pdfRenderer, TreatmentSlipRepository slipRepository,
-                                   BaseUrlResolver baseUrlResolver) {
+                                   BaseUrlResolver baseUrlResolver,
+                                   OrganizationRepository organizationRepository,
+                                   LogoResolver logoResolver) {
         this.pdfRenderer = pdfRenderer;
         this.slipRepository = slipRepository;
         this.baseUrlResolver = baseUrlResolver;
+        this.organizationRepository = organizationRepository;
+        this.logoResolver = logoResolver;
     }
 
     public byte[] renderSlip(UUID slipId) {
@@ -72,7 +80,13 @@ public class TreatmentSlipPdfService {
               .append("</div>");
         }
 
-        sb.append("<div class=\"brand\">LASEMA</div>");
+        String logo = organizationRepository.findById(slip.getOrganizationId())
+                .map(o -> logoResolver.dataUriOrNull(o.getLogoUrl())).orElse(null);
+        if (logo != null) {
+            sb.append("<div class=\"brand\"><img src=\"").append(logo).append("\" style=\"max-height: 9mm;\"/></div>");
+        } else {
+            sb.append("<div class=\"brand\">LASEMA</div>");
+        }
 
         sb.append("<div class=\"row row-2\">")
           .append(cell("Customer Name", customerName))
@@ -134,14 +148,19 @@ public class TreatmentSlipPdfService {
 
         sb.append("<div class=\"waiver-title\">WAIVER</div>");
         sb.append("<div class=\"waiver\">")
-          .append("I understand that the massage or body scrub received is provided for the basic purpose of relaxation ")
-          .append("and relief of MUSCULAR TENSION. If I experience any pain or discomfort during the session, ")
-          .append("I will immediately inform the practitioner so that pressure and/or strokes may be adjusted to my level of comfort. ")
-          .append("I further understand that the massage/body scrub is not a substitute for medical examination, diagnosis, or treatment, ")
-          .append("and that I should see a qualified physician for any physical/mental ailment. ")
-          .append("THERE SHALL BE NO LIABILITY ON THE PRACTITIONER'S PART OR THE LASEMA Management. ")
-          .append("Any illicit or sexually suggestive remarks or advances will result in immediate termination of the session, ")
-          .append("with payment forfeited.")
+          .append("I understand that the massage or body scrub received is provided for the basic purpose of relaxation and relief of MUSCULAR TENSION. ")
+          .append("If I experience any pain or discomfort during the session, I will immediately inform the practitioner so that the pressure and/or strokes may be adjusted to my level of comfort. ")
+          .append("I further understand that the massage or body scrub should not be construed as a substitute for medical examination, diagnosis or treatment ")
+          .append("and that I should see physician, chiropractor, dermatologist or other qualified for any physical/mental ailment that I am aware of. ")
+          .append("I understand that the massage/body scrub practitioners are not qualified to perform spinal or skeletal adjustment, diagnose, prescribe or treat any skin disorders or any physical or mental illness, ")
+          .append("and that nothing said in the course of the session given should be construed as such, because massage or body scrub should not be performed under certain conditions. ")
+          .append("I affirm that I have stated all my known medical conditions especially in my physical and skin conditions, and answered all questions honestly. ")
+          .append("I will declare my skin condition prior to body scrub so that my practitioner will be aware and able to use strokes that will fit my level of comfort upon session. ")
+          .append("I agree to keep the practitioner update as to any changes in my medical profile/skin condition and understand that ")
+          .append("THERE SHALL BE NO LIABILITY ON THE PRACTITIONER'S PART OR THE LASEMA Management if I fail to do so. ")
+          .append("It is also understood that any illicit or sexually suggestive remarks or advances made by me will result in immediate termination of the session, ")
+          .append("and I will be liable for payment of the scheduled appointment. ")
+          .append("The Management of LASEMA accepts no responsibility for any loss or damage to any personal items of money or any refund brought into the LASEMA PREMISES.")
           .append("</div>");
 
         sb.append("<div class=\"sig\">Signature over printed name</div>");

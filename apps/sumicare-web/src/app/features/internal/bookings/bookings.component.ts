@@ -36,7 +36,7 @@ interface CalendarEntry {
   reference: string | null;
   clientNickname: string;
   reservationType: string;
-  status: string;
+  schedulingStatus: string;
   scheduledAt: string;
 }
 
@@ -430,9 +430,16 @@ export class BookingsComponent implements OnInit, OnDestroy {
   calendarStatusColor(status: string): string {
     switch (status) {
       case 'COMPLETED': return 'bg-emerald-500';
-      case 'ACTIVE': return 'bg-blue-500';
-      case 'CANCELLED': return 'bg-rose-400';
+      case 'IN_PROGRESS': return 'bg-blue-500';
       default: return 'bg-amber-400';
+    }
+  }
+
+  calendarTypeBorder(reservationType: string): string {
+    switch (reservationType) {
+      case 'HARD': return 'border-l-2 border-emerald-500';
+      case 'SOFT': return 'border-l-2 border-amber-500';
+      default: return 'border-l-2 border-slate-400';
     }
   }
 

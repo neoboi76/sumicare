@@ -24,6 +24,7 @@ import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.voucher.domain.Voucher;
 import com.sumicare.voucher.repository.VoucherRedemptionRepository;
 import com.sumicare.voucher.repository.VoucherRepository;
+import com.sumicare.voucher.service.VoucherService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class ClientUsageService {
     private final TherapistRepository therapistRepository;
     private final VoucherRepository voucherRepository;
     private final VoucherRedemptionRepository voucherRedemptionRepository;
+    private final VoucherService voucherService;
 
     public ClientUsageService(ClientRepository clientRepository,
                               BookingRepository bookingRepository,
@@ -60,7 +62,8 @@ public class ClientUsageService {
                               PackageRepository packageRepository,
                               TherapistRepository therapistRepository,
                               VoucherRepository voucherRepository,
-                              VoucherRedemptionRepository voucherRedemptionRepository) {
+                              VoucherRedemptionRepository voucherRedemptionRepository,
+                              VoucherService voucherService) {
         this.clientRepository = clientRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -71,6 +74,7 @@ public class ClientUsageService {
         this.therapistRepository = therapistRepository;
         this.voucherRepository = voucherRepository;
         this.voucherRedemptionRepository = voucherRedemptionRepository;
+        this.voucherService = voucherService;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -122,8 +126,10 @@ public class ClientUsageService {
 
         List<VoucherEligibility> vouchers = voucherRepository.findAllByOrganizationId(organizationId).stream()
                 .filter(Voucher::isActive)
+                .filter(v -> "ALL".equalsIgnoreCase(v.getApplicability())
+                        || v.getEligibleClientIds().contains(clientId))
                 .map(v -> new VoucherEligibility(v.getCode(), v.getName(), v.getDiscountAmount(),
-                        !voucherRedemptionRepository.existsByVoucherIdAndClientId(v.getId(), clientId)))
+                        voucherService.isRedeemableBy(v, clientId)))
                 .toList();
 
         return new ClientUsageResponse(client.getId(), client.getNickname(), client.getEmail(),
