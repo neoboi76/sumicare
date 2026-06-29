@@ -5,7 +5,7 @@
  *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
  */
 
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, linkedSignal, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -59,6 +59,7 @@ interface CartAttendee {
   clientGender: 'M' | 'F';
   discount: number;
   providedTsn: string | null;
+  preferredTherapist?: string | null;
 }
 
 interface CartItem {
@@ -155,6 +156,10 @@ export class CashierComponent implements OnInit {
   notes = '';
   preferredTherapist = '';
 
+  reservationType = signal<'WALK_IN' | 'HARD' | 'SOFT'>('WALK_IN');
+  preferredRoomId = signal<string | null>(null);
+  availableRoomsForReservation = signal<{ id: string; roomNumber: string; floor: number | null; roomType: string }[]>([]);
+  roomsLoading = signal(false);
   editingOrderId = signal<string | null>(null);
 
   voucherCode = '';
@@ -162,7 +167,7 @@ export class CashierComponent implements OnInit {
   voucherError = signal<string | null>(null);
 
   paymentMethod = signal<string>('CASH');
-  paymentAmount = 0;
+  paymentAmount = linkedSignal(() => this.due());
   paymentRef = '';
   payments = signal<AddedPayment[]>([]);
 
@@ -238,6 +243,41 @@ export class CashierComponent implements OnInit {
       this.scheduleTime = manilaNowTime();
     }
     this.loadPackages(orderId);
+  }
+
+  loadAvailableRoomsForReservation(): void {
+    if (!this.scheduleDate || !this.scheduleTime) return;
+    const iso = toManilaIso(this.scheduleDate, this.scheduleTime);
+    if (!iso) return;
+    this.roomsLoading.set(true);
+    this.preferredRoomId.set(null);
+    const rt = this.resolveRoomTypeForCart();
+    const rtParam = rt ? `&roomType=${encodeURIComponent(rt)}` : '';
+    this.http.get<{ id: string; roomNumber: string; floor: number | null; roomType: string }[]>(
+      `${environment.apiBaseUrl}/api/rooms/available?at=${encodeURIComponent(iso)}&durationMinutes=0${rtParam}`
+    ).subscribe({
+      next: (rooms) => { this.availableRoomsForReservation.set(rooms); this.roomsLoading.set(false); },
+      error: () => { this.availableRoomsForReservation.set([]); this.roomsLoading.set(false); }
+    });
+  }
+
+  private resolveRoomTypeForCart(): string | null {
+    const items = this.cart();
+    if (items.length === 0) return null;
+    if (items.some(c => c.requiresVipRoom)) return 'VIP';
+    if (items.some(c => c.couple)) return 'PRIVATE';
+    return null;
+  }
+
+  onReservationTypeChange(): void {
+    this.preferredRoomId.set(null);
+    this.availableRoomsForReservation.set([]);
+  }
+
+  onScheduleChange(): void {
+    if (this.reservationType() === 'HARD') {
+      this.loadAvailableRoomsForReservation();
+    }
   }
 
   private loadChargeLedgers(): void {
@@ -349,7 +389,8 @@ export class CashierComponent implements OnInit {
             packageTierId: a.packageTierId ?? null,
             serviceName: a.serviceName || '',
             lockerNumber: a.lockerNumber || '',
-            clientGender: (a.clientGender === 'M' ? 'M' : 'F') as 'M' | 'F'
+            clientGender: (a.clientGender === 'M' ? 'M' : 'F') as 'M' | 'F',
+            preferredTherapist: a.preferredTherapist || null
           }));
           return {
             packageId: it.packageId,
@@ -453,7 +494,7 @@ export class CashierComponent implements OnInit {
   }
 
   private blankAttendee(): CartAttendee {
-    return { serviceId: null, packageTierId: null, serviceName: '', lockerNumber: '', clientGender: 'F', discount: 0, providedTsn: null };
+    return { serviceId: null, packageTierId: null, serviceName: '', lockerNumber: '', clientGender: 'F', discount: 0, providedTsn: null, preferredTherapist: null };
   }
 
   addPackage(): void {
@@ -709,7 +750,7 @@ export class CashierComponent implements OnInit {
       this.error.set('No payment is required for a zero-total order.');
       return;
     }
-    const amt = Number(this.paymentAmount || 0);
+    const amt = Number(this.paymentAmount() || 0);
     if (amt <= 0) {
       this.error.set('Enter a payment amount greater than zero.');
       return;
@@ -734,7 +775,6 @@ export class CashierComponent implements OnInit {
       referenceNumber: this.paymentRef || undefined,
       paymentDetails
     }]);
-    this.paymentAmount = 0;
     this.paymentRef = '';
   }
 
@@ -799,6 +839,8 @@ export class CashierComponent implements OnInit {
       tsNumber: this.tsNumber || null,
       notes: this.notes || null,
       preferredTherapist: this.preferredTherapist || null,
+      reservationType: this.reservationType(),
+      preferredRoomId: this.preferredRoomId() || null,
       voucherId: this.voucherId(),
       subtotal: this.subtotal(),
       discount: this.discountSummary()
@@ -820,7 +862,8 @@ export class CashierComponent implements OnInit {
           clientGender: a.clientGender,
           position: j,
           discount: a.discount || 0,
-          providedTsn: a.providedTsn || null
+          providedTsn: a.providedTsn || null,
+          preferredTherapist: a.preferredTherapist || null
         }))
       })),
       initialPayment: firstPayment ? {

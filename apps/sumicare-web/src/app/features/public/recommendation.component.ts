@@ -11,22 +11,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { SumiRevealDirective } from '../../shared/directives/sumi-reveal.directive';
-
-interface Service {
-  id: number;
-  code: string;
-  name: string;
-  durationMinutes: number;
-  price: number;
-}
-
-interface RecommendationResponse {
-  primary: Service | null;
-  alternatives: Service[];
-  rationale: string | null;
-  aiUsed: boolean;
-  disclaimer: string;
-}
+import { RecommendationResponse } from '@sumicare/shared-types';
 
 @Component({
   selector: 'sumi-recommendation',

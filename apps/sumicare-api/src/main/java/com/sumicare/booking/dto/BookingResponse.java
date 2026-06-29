@@ -28,5 +28,6 @@ public record BookingResponse(
         boolean sessionExtended,
         String nationality,
         String remarks,
-        String preferredTherapist
+        String preferredTherapist,
+        UUID preferredRoomId
 ) {}

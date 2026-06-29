@@ -5,7 +5,7 @@
  *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
  */
 
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -15,6 +15,7 @@ import { environment } from '../../../environments/environment';
 import { PaymentDetailsModalComponent } from '../../shared/components/payment-details/payment-details-modal.component';
 import { PaymentDetails, PaymentDetailsService } from '../../shared/components/payment-details/payment-details.service';
 import { manilaToday, manilaNowTime, toManilaIso } from '../../shared/util/manila-time';
+import { TermsContentComponent } from './terms-content.component';
 
 interface ServiceItem {
   id: number;
@@ -58,6 +59,13 @@ interface BookingCreated {
 
 type PayMethod = 'GCASH' | 'CREDIT' | 'DEBIT';
 
+interface AvailableRoom {
+  id: string;
+  roomNumber: string;
+  floor: number | null;
+  roomType: string;
+}
+
 interface PublicPaymentResult {
   status: string;
   intentId: string | null;
@@ -67,6 +75,19 @@ interface PublicPaymentResult {
   clientNickname: string | null;
   packageName: string | null;
   serviceName: string | null;
+  scheduledAt: string | null;
+  reservationType: string | null;
+}
+
+interface HoldResult {
+  status: string;
+  token: string | null;
+  intentId: string | null;
+  redirectUrl: string | null;
+  orderId: string | null;
+  orNumber: string | null;
+  reference: string | null;
+  nickname: string | null;
   scheduledAt: string | null;
   reservationType: string | null;
 }
@@ -96,7 +117,7 @@ interface AppliedVoucher {
 @Component({
   selector: 'sumi-book',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, QRCodeComponent, PaymentDetailsModalComponent, RouterLink],
+  imports: [FormsModule, DecimalPipe, QRCodeComponent, PaymentDetailsModalComponent, RouterLink, TermsContentComponent],
   templateUrl: './book.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -105,6 +126,7 @@ export class BookComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private paymentDetailsService = inject(PaymentDetailsService);
+  private cdr = inject(ChangeDetectorRef);
 
   services = signal<ServiceItem[]>([]);
   packages = signal<PublicPackage[]>([]);
@@ -134,10 +156,39 @@ export class BookComponent implements OnInit {
   preferredTherapist = '';
   reservationType = 'SOFT';
   paymentMethod = signal<PayMethod>('GCASH');
-  scheduledDate = '';
-  scheduledTime = '';
-  consent = false;
+  scheduledDate = signal('');
+  scheduledTime = signal('');
+  showTerms = signal(false);
+  termsScrolledToEnd = signal(false);
+  termsAccepted = signal(false);
   bookingItems = signal<BookingItemForm[]>([this.blankItem()]);
+  availableRooms = signal<AvailableRoom[]>([]);
+  selectedRoomId = signal<string | null>(null);
+  roomsLoading = signal(false);
+
+  roomPickerApplicable(): boolean {
+    const first = this.bookingItems()[0];
+    const pkg = first ? this.packageById(first.packageId) : null;
+    return !!pkg && !pkg.couple && !pkg.requiresVipRoom && !!this.scheduledDate() && !!this.scheduledTime();
+  }
+
+  onDateChange(value: string): void {
+    this.scheduledDate.set(value);
+    this.cdr.markForCheck();
+  }
+
+  onTimeChange(value: string): void {
+    this.scheduledTime.set(value);
+    this.cdr.markForCheck();
+  }
+
+  filteredRooms = computed(() => {
+    const rooms = this.availableRooms();
+    const first = this.bookingItems()[0];
+    const rt = first?.roomType;
+    if (!rt) return rooms;
+    return rooms.filter(r => r.roomType.toUpperCase() === rt.toUpperCase());
+  });
 
   voucherCode = '';
   voucherError = signal<string | null>(null);
@@ -209,7 +260,12 @@ export class BookComponent implements OnInit {
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
     if (params.get('paymongoReturn')) {
-      this.handlePaymentReturn(params.get('orderId'), params.get('intent'), params.get('paymentMethod'), params.get('status'));
+      const pendingToken = params.get('pendingToken');
+      if (pendingToken) {
+        this.handleHoldReturn(pendingToken, params.get('intent'), params.get('paymentMethod'), params.get('status'));
+      } else {
+        this.handlePaymentReturn(params.get('orderId'), params.get('intent'), params.get('paymentMethod'), params.get('status'));
+      }
     }
     this.http
       .get<ServiceItem[]>(`${environment.apiBaseUrl}/api/public/services/${environment.defaultOrganizationSlug}`)
@@ -230,7 +286,7 @@ export class BookComponent implements OnInit {
   }
 
   get scheduleMinTime(): string | null {
-    return this.scheduledDate === manilaToday() ? manilaNowTime() : null;
+    return this.scheduledDate() === manilaToday() ? manilaNowTime() : null;
   }
 
   dismissError(): void {
@@ -247,12 +303,30 @@ export class BookComponent implements OnInit {
     return pkg?.tiers ?? [];
   }
 
+  loadAvailableRooms(): void {
+    if (!this.roomPickerApplicable()) return;
+    const iso = toManilaIso(this.scheduledDate(), this.scheduledTime());
+    if (!iso) return;
+    this.roomsLoading.set(true);
+    this.selectedRoomId.set(null);
+    this.http.get<AvailableRoom[]>(
+      `${environment.apiBaseUrl}/api/public/rooms/available/${environment.defaultOrganizationSlug}?at=${encodeURIComponent(iso)}&durationMinutes=0`
+    ).subscribe({
+      next: (rooms) => { this.availableRooms.set(rooms); this.roomsLoading.set(false); },
+      error: () => { this.availableRooms.set([]); this.roomsLoading.set(false); }
+    });
+  }
+
   isDoubleItem(pkg: PublicPackage | null): boolean {
     return !!pkg && (pkg.couple || pkg.requiresVipRoom);
   }
 
   isVipItem(pkg: PublicPackage | null): boolean {
     return !!pkg && pkg.requiresVipRoom;
+  }
+
+  isPrivateRoomIncluded(pkg: PublicPackage | null): boolean {
+    return !!pkg && (pkg.requiresVipRoom || pkg.couple);
   }
 
   private blankItem(): BookingItemForm {
@@ -300,7 +374,8 @@ export class BookComponent implements OnInit {
       const item = next[idx];
       if (!item) return items;
       if (this.packageById(item.packageId)?.requiresVipRoom) return items;
-      item.roomType = rt;
+      for (const other of next) other.roomType = rt;
+      this.selectedRoomId.set(null);
       return next;
     });
   }
@@ -328,6 +403,23 @@ export class BookComponent implements OnInit {
     });
   }
 
+  openTerms(): void {
+    this.termsScrolledToEnd.set(false);
+    this.showTerms.set(true);
+  }
+
+  onTermsScroll(event: Event): void {
+    const el = event.target as HTMLElement;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 12) {
+      this.termsScrolledToEnd.set(true);
+    }
+  }
+
+  acceptTerms(): void {
+    this.termsAccepted.set(true);
+    this.showTerms.set(false);
+  }
+
   submit(event: Event): void {
     event.preventDefault();
     if (this.submitting()) return;
@@ -341,9 +433,9 @@ export class BookComponent implements OnInit {
         if (a.packageTierId == null) missing.push(`package ${idx + 1} guest ${gi + 1} massage`);
       });
     });
-    if (!this.scheduledDate) missing.push('date');
-    if (!this.scheduledTime) missing.push('time');
-    if (!this.consent) missing.push('consent');
+    if (!this.scheduledDate()) missing.push('date');
+    if (!this.scheduledTime()) missing.push('time');
+    if (!this.termsAccepted()) missing.push('accept the Terms and Conditions');
     if (missing.length > 0) {
       this.error.set('Please complete: ' + missing.join(', ') + '.');
       return;
@@ -358,7 +450,7 @@ export class BookComponent implements OnInit {
       return;
     }
 
-    const scheduledIso = toManilaIso(this.scheduledDate, this.scheduledTime);
+    const scheduledIso = toManilaIso(this.scheduledDate(), this.scheduledTime());
     if (!scheduledIso) {
       this.error.set('Please enter a valid date and time.');
       return;
@@ -398,8 +490,15 @@ export class BookComponent implements OnInit {
       items: payloadItems,
       voucherCode: this.appliedVoucher() ? this.voucherCode.trim() : null,
       remarks: this.remarks.trim() || null,
-      preferredTherapist: this.preferredTherapist.trim() || null
+      preferredTherapist: this.preferredTherapist.trim() || null,
+      termsAccepted: this.termsAccepted(),
+      preferredRoomId: this.roomPickerApplicable() ? this.selectedRoomId() : null
     };
+
+    if (this.reservationType === 'HARD') {
+      this.startPublicHold(payload);
+      return;
+    }
 
     this.http
       .post<BookingCreated>(
@@ -408,10 +507,6 @@ export class BookComponent implements OnInit {
       )
       .subscribe({
         next: (booking) => {
-          if (this.reservationType === 'HARD' && booking.orderId) {
-            this.startPublicPayment(booking);
-            return;
-          }
           this.submitting.set(false);
           this.bookingRef.set(booking.reference);
           this.setConfirmationFromForm(booking);
@@ -424,23 +519,7 @@ export class BookComponent implements OnInit {
       });
   }
 
-  private setConfirmationFromForm(booking: BookingCreated): void {
-    this.confirmNickname.set(booking.clientNickname || this.clientNickname.trim() || null);
-    this.confirmReservationType.set(booking.reservationType);
-    this.confirmScheduled.set(booking.scheduledAt);
-    this.confirmPackageName.set(this.packageById(this.bookingItems()[0]?.packageId ?? null)?.name ?? null);
-    this.confirmServiceName.set(this.services().find(s => s.id === booking.serviceId)?.name ?? null);
-  }
-
-  private setConfirmationFromResponse(res: PublicPaymentResult): void {
-    this.confirmNickname.set(res.clientNickname);
-    this.confirmReservationType.set(res.reservationType ?? 'HARD');
-    this.confirmScheduled.set(res.scheduledAt);
-    this.confirmPackageName.set(res.packageName);
-    this.confirmServiceName.set(res.serviceName);
-  }
-
-  private async startPublicPayment(booking: BookingCreated): Promise<void> {
+  private async startPublicHold(payload: Record<string, unknown>): Promise<void> {
     const method = this.paymentMethod();
     let details: PaymentDetails | null = null;
     if (method === 'GCASH') {
@@ -451,12 +530,18 @@ export class BookComponent implements OnInit {
       }
     }
     this.http
-      .post<PublicPaymentResult>(
-        `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/initiate`,
-        { orderId: booking.orderId, paymentMethod: method, paymentDetails: details, returnPath: `${window.location.origin}/book` }
+      .post<HoldResult>(
+        `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/initiate-hold`,
+        {
+          booking: payload,
+          paymentMethod: method,
+          amount: this.estimatedTotal(),
+          paymentDetails: details,
+          returnPath: `${window.location.origin}/book`
+        }
       )
       .subscribe({
-        next: (res) => this.onPaymentInitiated(booking, res, method),
+        next: (res) => this.onHoldInitiated(res, method),
         error: (err) => {
           this.submitting.set(false);
           this.error.set(this.extractErrorMessage(err));
@@ -464,21 +549,23 @@ export class BookComponent implements OnInit {
       });
   }
 
-  private onPaymentInitiated(booking: BookingCreated, res: PublicPaymentResult, method: PayMethod): void {
+  private onHoldInitiated(res: HoldResult, method: PayMethod): void {
     if (res.status === 'succeeded') {
       this.submitting.set(false);
-      this.bookingRef.set(res.reference ?? booking.reference);
-      this.orNumber.set(res.orNumber);
-      this.setConfirmationFromResponse(res);
-      this.confirmation.set(booking);
+      this.applyHoldConfirmation(res);
+      return;
+    }
+    if (!res.token) {
+      this.submitting.set(false);
+      this.error.set('Could not start the payment. Please try again.');
       return;
     }
     const origin = window.location.origin;
-    const returnUrl = `${origin}/book?paymongoReturn=1&orderId=${booking.orderId}`
+    const returnUrl = `${origin}/book?paymongoReturn=1&pendingToken=${encodeURIComponent(res.token)}`
       + `&intent=${encodeURIComponent(res.intentId ?? '')}`
       + `&paymentMethod=${encodeURIComponent(method)}`;
-    if (booking.orderId && res.intentId) {
-      sessionStorage.setItem('paymongoIntent:' + booking.orderId, res.intentId);
+    if (res.intentId) {
+      sessionStorage.setItem('paymongoHold:' + res.token, res.intentId);
     }
     if (res.intentId && res.intentId.startsWith('mock_')) {
       window.location.href = `${origin}/pay/authorize?intent=${encodeURIComponent(res.intentId)}`
@@ -492,6 +579,69 @@ export class BookComponent implements OnInit {
       this.error.set('Could not start the payment. Please try again.');
     }
   }
+
+  private handleHoldReturn(token: string, intentId: string | null, method: string | null, status: string | null): void {
+    const resolvedIntent = intentId ?? sessionStorage.getItem('paymongoHold:' + token);
+    sessionStorage.removeItem('paymongoHold:' + token);
+    if (status === 'cancelled' || status === 'failed') {
+      this.error.set('The payment was cancelled. Your slot is not yet reserved. Please try again.');
+      this.router.navigate(['/book']);
+      return;
+    }
+    this.submitting.set(true);
+    this.http
+      .post<HoldResult>(
+        `${environment.apiBaseUrl}/api/public/bookings/${environment.defaultOrganizationSlug}/payment/confirm-hold`,
+        { token, intentId: resolvedIntent, paymentMethod: method }
+      )
+      .subscribe({
+        next: (res) => {
+          this.submitting.set(false);
+          this.applyHoldConfirmation(res);
+        },
+        error: () => {
+          this.submitting.set(false);
+          this.error.set('We could not confirm your payment. If you were charged, please contact the front desk with your reference.');
+        }
+      });
+  }
+
+  private applyHoldConfirmation(res: HoldResult): void {
+    this.bookingRef.set(res.reference);
+    this.orNumber.set(res.orNumber);
+    this.confirmNickname.set(res.nickname);
+    this.confirmReservationType.set(res.reservationType ?? 'HARD');
+    this.confirmScheduled.set(res.scheduledAt);
+    this.confirmation.set({
+      id: res.orderId ?? '',
+      reference: res.reference ?? '',
+      clientNickname: res.nickname ?? '',
+      reservationType: res.reservationType ?? 'HARD',
+      scheduledAt: res.scheduledAt ?? '',
+      serviceId: 0,
+      orderId: res.orderId
+    });
+  }
+
+  private setConfirmationFromForm(booking: BookingCreated): void {
+    this.confirmNickname.set(booking.clientNickname || this.clientNickname.trim() || null);
+    this.confirmReservationType.set(booking.reservationType);
+    this.confirmScheduled.set(booking.scheduledAt);
+    this.confirmPackageName.set(this.packageById(this.bookingItems()[0]?.packageId ?? null)?.name ?? null);
+    const firstItem = this.bookingItems()[0];
+    const firstPkg = firstItem ? this.packageById(firstItem.packageId) : null;
+    const firstTier = firstPkg?.tiers.find(t => t.id === Number(firstItem?.attendees[0]?.packageTierId));
+    this.confirmServiceName.set(firstTier?.serviceName ?? this.services().find(s => s.id === booking.serviceId)?.name ?? null);
+  }
+
+  private setConfirmationFromResponse(res: PublicPaymentResult): void {
+    this.confirmNickname.set(res.clientNickname);
+    this.confirmReservationType.set(res.reservationType ?? 'HARD');
+    this.confirmScheduled.set(res.scheduledAt);
+    this.confirmPackageName.set(res.packageName);
+    this.confirmServiceName.set(res.serviceName);
+  }
+
 
   private handlePaymentReturn(orderId: string | null, intentId: string | null, method: string | null, status: string | null): void {
     if (!orderId) return;
@@ -551,9 +701,10 @@ export class BookComponent implements OnInit {
     this.nationality = '';
     this.remarks = '';
     this.preferredTherapist = '';
-    this.scheduledDate = '';
-    this.scheduledTime = '';
-    this.consent = false;
+    this.scheduledDate.set('');
+    this.scheduledTime.set('');
+    this.termsAccepted.set(false);
+    this.termsScrolledToEnd.set(false);
     this.bookingItems.set([this.blankItem()]);
     this.voucherCode = '';
     this.appliedVoucher.set(null);

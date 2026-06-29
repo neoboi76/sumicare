@@ -9,11 +9,14 @@ package com.sumicare.booking.service;
 
 import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.domain.Session;
+import com.sumicare.booking.dto.AvailableRoomResponse;
 import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.CreateBookingItemRequest;
 import com.sumicare.booking.dto.PublicAttendeeRequest;
+import com.sumicare.booking.dto.PublicBedResponse;
 import com.sumicare.booking.dto.PublicPaymentResponse;
+import com.sumicare.booking.dto.PublicRoomResponse;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.common.util.BookingReference;
@@ -25,6 +28,7 @@ import com.sumicare.cashier.domain.OrderItemAttendee;
 import com.sumicare.cashier.domain.Package;
 import com.sumicare.cashier.domain.PackageTier;
 import com.sumicare.cashier.dto.PaymentDetailsRequest;
+import com.sumicare.cashier.dto.PendingPaymentResult;
 import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderItemRepository;
 import com.sumicare.cashier.repository.OrderRepository;
@@ -59,6 +63,7 @@ import com.sumicare.voucher.service.VoucherService;
 import com.sumicare.print.ReceiptPdfService;
 import com.sumicare.print.TreatmentSlipPdfService;
 import com.sumicare.auth.service.EmailService;
+import com.sumicare.feedback.service.SurveyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -113,6 +118,7 @@ public class BookingService {
     private final TreatmentSlipPdfService treatmentSlipPdfService;
     private final PayMongoService payMongoService;
     private final LockerAssignmentService lockerAssignmentService;
+    private final SurveyService surveyService;
 
     public BookingService(BookingRepository bookingRepository, SessionRepository sessionRepository,
                           ServiceRepository serviceRepository, TherapistRepository therapistRepository,
@@ -137,7 +143,8 @@ public class BookingService {
                           ReceiptPdfService receiptPdfService,
                           TreatmentSlipPdfService treatmentSlipPdfService,
                           PayMongoService payMongoService,
-                          LockerAssignmentService lockerAssignmentService) {
+                          LockerAssignmentService lockerAssignmentService,
+                          SurveyService surveyService) {
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
         this.serviceRepository = serviceRepository;
@@ -166,6 +173,7 @@ public class BookingService {
         this.treatmentSlipPdfService = treatmentSlipPdfService;
         this.payMongoService = payMongoService;
         this.lockerAssignmentService = lockerAssignmentService;
+        this.surveyService = surveyService;
     }
 
     @PreAuthorize("permitAll()")
@@ -176,9 +184,11 @@ public class BookingService {
         if (request.clientNickname() == null || request.clientNickname().isBlank()) {
             throw new IllegalArgumentException("Client nickname is required");
         }
-        if (!"WALK_IN".equalsIgnoreCase(request.reservationType())
-                && (request.clientEmail() == null || request.clientEmail().isBlank())) {
-            throw new IllegalArgumentException("Client email is required for online bookings");
+
+        String resolvedEmail = resolveClientEmail(request);
+        boolean walkIn = "WALK_IN".equalsIgnoreCase(request.reservationType());
+        if ((resolvedEmail == null || resolvedEmail.isBlank()) && !walkIn) {
+            throw new IllegalArgumentException("Client email is required for all bookings");
         }
 
         if (request.scheduledAt() != null && !"WALK_IN".equals(request.reservationType())) {
@@ -195,6 +205,7 @@ public class BookingService {
         }
 
         UUID resolvedClientId = request.clientId();
+        String effectiveNickname = request.clientNickname();
         if (resolvedClientId == null && request.clientEmail() != null && !request.clientEmail().isBlank()) {
             Client existing = clientRepository.findByOrganizationIdAndEmailAndDeletedAtIsNull(organizationId, request.clientEmail()).orElse(null);
             if (existing == null) {
@@ -208,11 +219,7 @@ public class BookingService {
                 Client saved = clientRepository.save(created);
                 resolvedClientId = saved.getId();
             } else {
-                if (!request.clientNickname().equalsIgnoreCase(existing.getNickname())) {
-                    throw new org.springframework.web.server.ResponseStatusException(
-                            org.springframework.http.HttpStatus.CONFLICT,
-                            "That email is already registered to another nickname. Use a different email.");
-                }
+                effectiveNickname = existing.getNickname();
                 if (request.nationality() != null && (existing.getNationality() == null || existing.getNationality().isBlank())) {
                     existing.setNationality(request.nationality());
                     clientRepository.save(existing);
@@ -222,7 +229,7 @@ public class BookingService {
         }
 
         if (request.items() != null && !request.items().isEmpty()) {
-            return createMultiPackageBooking(organizationId, request, resolvedClientId, service);
+            return createMultiPackageBooking(organizationId, request, resolvedClientId, effectiveNickname, service);
         }
 
         Package selectedPackage = request.packageId() == null ? null
@@ -306,12 +313,16 @@ public class BookingService {
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(resolvedClientId);
-        booking.setClientNickname(request.clientNickname());
+        booking.setClientNickname(effectiveNickname);
         booking.setClientEmail(resolveClientEmail(request));
         booking.setLockerNumber(resolvedBookingLocker);
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
+        if (Boolean.TRUE.equals(request.termsAccepted())) {
+            booking.setTermsAcceptedAt(OffsetDateTime.now());
+        }
         booking.setScheduledAt(request.scheduledAt());
+        booking.setPreferredRoomId(request.preferredRoomId());
         booking.setPax(resolvedPax);
         booking.setClientGender(request.clientGender());
         booking.setNationality(request.nationality());
@@ -407,6 +418,72 @@ public class BookingService {
         voucherService.markRedeemed(voucher.getId(), booking.getClientId(), order.getId());
     }
 
+    public List<AvailableRoomResponse> availableRooms(UUID organizationId, OffsetDateTime at, int durationMinutes) {
+        return availableRooms(organizationId, at, durationMinutes, null);
+    }
+
+    public List<AvailableRoomResponse> availableRooms(UUID organizationId, OffsetDateTime at, int durationMinutes, String roomType) {
+        int prepBuffer = 15;
+        int blockMinutes = durationMinutes > 0 ? durationMinutes + prepBuffer : 120;
+        OffsetDateTime windowStart = at.minusMinutes(prepBuffer);
+        OffsetDateTime windowEnd = at.plusMinutes(blockMinutes);
+
+        Set<UUID> occupied = new HashSet<>();
+        for (Booking b : bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(
+                organizationId, at.minusHours(4), windowEnd)) {
+            if (b.getPreferredRoomId() == null || "CANCELLED".equals(b.getStatus())) {
+                continue;
+            }
+            OffsetDateTime bStart = b.getScheduledAt();
+            OffsetDateTime bEnd = bStart.plusMinutes(blockMinutes);
+            if (bStart.isBefore(windowEnd) && bEnd.isAfter(windowStart)) {
+                occupied.add(b.getPreferredRoomId());
+            }
+        }
+
+        return roomRepository.findAllByOrganizationIdAndActiveTrue(organizationId).stream()
+                .filter(r -> !occupied.contains(r.getId()))
+                .filter(r -> roomType == null || roomType.isBlank() || roomType.equalsIgnoreCase(r.getRoomType()))
+                .map(r -> new AvailableRoomResponse(r.getId(), r.getRoomNumber(), r.getFloor(),
+                        r.getRoomType(), r.isRowSegmented()))
+                .toList();
+    }
+
+    public List<PublicRoomResponse> roomMap(UUID organizationId, OffsetDateTime at, int durationMinutes) {
+        int prepBuffer = 15;
+        int blockMinutes = durationMinutes > 0 ? durationMinutes + prepBuffer : 120;
+        OffsetDateTime windowStart = at.minusMinutes(prepBuffer);
+        OffsetDateTime windowEnd = at.plusMinutes(blockMinutes);
+
+        Set<UUID> bookedRoomIds = new HashSet<>();
+        for (Booking b : bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(
+                organizationId, at.minusHours(4), windowEnd)) {
+            if (b.getPreferredRoomId() == null || "CANCELLED".equals(b.getStatus())) continue;
+            OffsetDateTime bStart = b.getScheduledAt();
+            OffsetDateTime bEnd = bStart.plusMinutes(blockMinutes);
+            if (bStart.isBefore(windowEnd) && bEnd.isAfter(windowStart)) {
+                bookedRoomIds.add(b.getPreferredRoomId());
+            }
+        }
+
+        List<Room> rooms = roomRepository.findAllByOrganizationIdAndActiveTrue(organizationId);
+        return rooms.stream().map(room -> {
+            boolean roomBookedAtSlot = bookedRoomIds.contains(room.getId());
+            List<Bed> beds = bedRepository.findAllByRoomIdAndActiveTrue(room.getId());
+            List<PublicBedResponse> bedViews = beds.stream().map(bed -> {
+                Map<String, String> occupancy = new HashMap<>();
+                occupancyService.read(room.getId(), bed.getId())
+                        .forEach((k, v) -> occupancy.put(String.valueOf(k), String.valueOf(v)));
+                if (roomBookedAtSlot && !"OCCUPIED".equals(occupancy.get("status"))) {
+                    occupancy.put("status", "RESERVED");
+                }
+                return new PublicBedResponse(bed.getId(), bed.getBedLabel(), bed.getRowIndex(), occupancy);
+            }).toList();
+            return new PublicRoomResponse(room.getId(), room.getRoomNumber(), room.getFloor(),
+                    room.getRoomType(), room.isRowSegmented(), bedViews);
+        }).toList();
+    }
+
     private String resolveClientEmail(CreateBookingRequest request) {
         if (request.clientEmail() != null && !request.clientEmail().isBlank()) {
             return request.clientEmail();
@@ -463,7 +540,7 @@ public class BookingService {
     }
 
     private BookingResponse createMultiPackageBooking(UUID organizationId, CreateBookingRequest request,
-                                                      UUID resolvedClientId, Service service) {
+                                                      UUID resolvedClientId, String effectiveNickname, Service service) {
         boolean publicReservation = !"WALK_IN".equalsIgnoreCase(request.reservationType());
         List<CreateBookingItemRequest> items = request.items();
 
@@ -528,12 +605,16 @@ public class BookingService {
         Booking booking = new Booking();
         booking.setOrganizationId(organizationId);
         booking.setClientId(resolvedClientId);
-        booking.setClientNickname(request.clientNickname());
+        booking.setClientNickname(effectiveNickname);
         booking.setClientEmail(resolveClientEmail(request));
         booking.setLockerNumber(bookingLocker);
         booking.setServiceId(request.serviceId());
         booking.setReservationType(request.reservationType());
+        if (Boolean.TRUE.equals(request.termsAccepted())) {
+            booking.setTermsAcceptedAt(OffsetDateTime.now());
+        }
         booking.setScheduledAt(request.scheduledAt());
+        booking.setPreferredRoomId(request.preferredRoomId());
         booking.setPax(totalAttendees);
         booking.setClientGender(request.clientGender());
         booking.setNationality(request.nationality());
@@ -738,6 +819,24 @@ public class BookingService {
         }
         orderService.settleGatewayPayment(order, null, intentId, paymentMethod, order.getTotal());
         return order.getOrNumber();
+    }
+
+    public boolean isHardPrepayRequired(String reservationType, String paymentMethod) {
+        return "HARD".equalsIgnoreCase(reservationType) && PayMongoService.supports(paymentMethod);
+    }
+
+    @Transactional
+    public PendingPaymentResult createPublicFromPending(
+            UUID organizationId, CreateBookingRequest request, String intentId, String paymentMethod, BigDecimal amount) {
+        BookingResponse created = createBooking(organizationId, request);
+        Booking booking = bookingRepository.findById(created.id()).orElseThrow();
+        Order order = orderRepository.findByBookingId(booking.getId()).orElseThrow();
+        settlePublicPayment(order, intentId, paymentMethod);
+        Booking settled = bookingRepository.findById(booking.getId()).orElse(booking);
+        String scheduledAt = settled.getScheduledAt() == null ? null : settled.getScheduledAt().toString();
+        return new PendingPaymentResult("succeeded", null, intentId, null,
+                order.getId().toString(), order.getOrNumber(), settled.getReference(),
+                settled.getClientNickname(), scheduledAt, settled.getReservationType());
     }
 
     public void resendBookingConfirmation(Order order) {
@@ -1135,6 +1234,7 @@ public class BookingService {
             OffsetDateTime scheduled = booking.getScheduledAt();
             String paymentMethod = describePaymentMethods(order);
             List<String> slipLines = buildSlipSummaryLines(booking.getId());
+            String surveyLink = surveyService.createInvitationLink(booking.getOrganizationId(), order.getId());
             EmailService.CompletionEmailPayload payload = new EmailService.CompletionEmailPayload(
                     booking.getId().toString(),
                     order.getOrNumber(),
@@ -1143,7 +1243,8 @@ public class BookingService {
                     formatManila(scheduled == null ? null : scheduled.plusMinutes(PREP_BUFFER_MINUTES)),
                     total.toPlainString(),
                     paymentMethod,
-                    slipLines);
+                    slipLines,
+                    surveyLink);
             emailService.sendCompletionEmail(email, booking.getClientNickname(), payload, receipt, slips);
             order.setCompletionEmailSentAt(OffsetDateTime.now());
             orderRepository.save(order);
@@ -1441,7 +1542,7 @@ public class BookingService {
         return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(),
                 b.getLockerNumber(), b.getServiceId(), b.getReservationType(), effectiveStart, projectedEnd,
                 b.getStatus(), orderId, orderStatus, order == null ? null : order.getTreatmentSlipId(),
-                b.getPax(), sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
+                b.getPax(), sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist(), b.getPreferredRoomId());
     }
 
     public List<Session> findExpiredActiveSessions() {
@@ -1552,13 +1653,15 @@ public class BookingService {
             return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                     b.getServiceId(), b.getReservationType(), effectiveStart,
                     projectedEnd, b.getStatus(), orderId, orderStatus, treatmentSlipId, b.getPax(),
-                    sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
+                    sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist(),
+                    b.getPreferredRoomId());
         }
         OffsetDateTime projectedEnd = effectiveStart.plusMinutes(maxDuration);
         return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), effectiveStart,
                 projectedEnd, b.getStatus(), orderId, orderStatus, treatmentSlipId, b.getPax(),
-                sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
+                sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist(),
+                b.getPreferredRoomId());
     }
 
     private SessionResponse toSessionResponse(Session s) {

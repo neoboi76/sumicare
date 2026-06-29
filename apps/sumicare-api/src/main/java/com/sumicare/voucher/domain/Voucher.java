@@ -11,6 +11,8 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -52,6 +54,14 @@ public class Voucher {
     @Column(name = "target_package_id")
     private Long targetPackageId;
 
+    @Column(name = "applicability", nullable = false, length = 16)
+    private String applicability = "ALL";
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "voucher_clients", joinColumns = @JoinColumn(name = "voucher_id"))
+    @Column(name = "client_id", columnDefinition = "uuid")
+    private Set<UUID> eligibleClientIds = new HashSet<>();
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -74,4 +84,8 @@ public class Voucher {
     public void setActive(boolean active) { this.active = active; }
     public Long getTargetPackageId() { return targetPackageId; }
     public void setTargetPackageId(Long targetPackageId) { this.targetPackageId = targetPackageId; }
+    public String getApplicability() { return applicability; }
+    public void setApplicability(String applicability) { this.applicability = applicability; }
+    public Set<UUID> getEligibleClientIds() { return eligibleClientIds; }
+    public void setEligibleClientIds(Set<UUID> eligibleClientIds) { this.eligibleClientIds = eligibleClientIds; }
 }

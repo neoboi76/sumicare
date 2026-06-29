@@ -26,6 +26,16 @@ public interface FeedbackRepository extends JpaRepository<Feedback, UUID> {
 
     long countByOrganizationIdAndReadAtIsNull(UUID organizationId);
 
+    List<Feedback> findAllByOrganizationIdAndSubmittedAtBetweenOrderByOrderIdAscSubmittedAtAsc(
+            UUID organizationId, OffsetDateTime from, OffsetDateTime to);
+
+    List<Feedback> findAllByOrganizationIdAndFeedbackTypeAndTherapistIdAndSubmittedAtBetween(
+            UUID organizationId, String feedbackType, UUID therapistId,
+            OffsetDateTime from, OffsetDateTime to);
+
+    List<Feedback> findAllByOrganizationIdAndFeedbackTypeAndSubmittedAtBetween(
+            UUID organizationId, String feedbackType, OffsetDateTime from, OffsetDateTime to);
+
     @Modifying
     @Query("update Feedback f set f.readAt = :readAt, f.readByUserId = :userId "
             + "where f.organizationId = :organizationId and f.readAt is null")

@@ -46,6 +46,12 @@ public class VoucherController {
         return voucherService.update(UUID.fromString(principal.organizationId()), id, voucher);
     }
 
+    @GetMapping("/eligible/{clientId}")
+    public List<Voucher> eligibleForClient(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                           @PathVariable UUID clientId) {
+        return voucherService.eligibleForClient(UUID.fromString(principal.organizationId()), clientId);
+    }
+
     @GetMapping("/check")
     public VoucherCheckResponse check(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                       @RequestParam String code,

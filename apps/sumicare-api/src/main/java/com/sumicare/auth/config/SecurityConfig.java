@@ -55,8 +55,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/mfa/verify", "/api/auth/mfa/resend", "/api/auth/refresh", "/api/auth/logout", "/api/auth/verify", "/api/auth/reset-password", "/api/auth/contact-admin-reset", "/api/auth/invitations/redeem").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/webhooks/**").permitAll()
-                        .requestMatchers("/api/content/upload").authenticated()
-                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .anyRequest().authenticated()

@@ -112,6 +112,27 @@
           }
         </select>
       </label>
+      <label class="block text-sm mt-2">
+        <span class="text-slate-700">Eligibility</span>
+        <select [(ngModel)]="formApplicability" name="applicability"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+          <option value="ALL">All registered clients</option>
+          <option value="SPECIFIC">Specific clients only</option>
+        </select>
+      </label>
+      @if (formApplicability === 'SPECIFIC') {
+      <div class="mt-2 border border-slate-200 rounded-lg p-2 max-h-44 overflow-y-auto space-y-1">
+        @for (c of clients(); track c.id) {
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" [checked]="formEligibleClientIds.includes(c.id)"
+            (change)="toggleEligibleClient(c.id)" class="rounded border-slate-300" />
+          <span>{{ c.nickname }}</span>
+        </label>
+        } @empty {
+        <p class="text-xs text-slate-400">No registered clients yet.</p>
+        }
+      </div>
+      }
       @if (editingVoucher()) {
       <label class="flex items-center gap-2 mt-2">
         <input [(ngModel)]="formActive" name="active" type="checkbox" class="rounded border-slate-300" />

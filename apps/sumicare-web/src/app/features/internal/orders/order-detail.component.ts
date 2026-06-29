@@ -26,6 +26,9 @@ interface OrderItemAttendee {
   sessionId: string | null;
   treatmentSlipId: string | null;
   position: number;
+  preferredTherapist: string | null;
+  primaryTherapistId: string | null;
+  therapistNickname: string | null;
 }
 
 interface OrderItem {
@@ -119,6 +122,14 @@ export class OrderDetailComponent implements OnInit {
   refundNotes = '';
   showRefund = signal(false);
 
+  therapists = signal<{ id: string; nickname: string }[]>([]);
+  tipTherapistId = '';
+  tipAmount: number | null = null;
+  tipNotice = signal<string | null>(null);
+
+  editingSchedule = signal(false);
+  newScheduledAt = '';
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) return;
@@ -146,6 +157,7 @@ export class OrderDetailComponent implements OnInit {
       next: (o) => {
         this.order.set(o);
         this.loading.set(false);
+        this.therapists.set(this.deriveServedTherapists(o));
       },
       error: () => {
         this.error.set('Order not found.');
@@ -155,6 +167,82 @@ export class OrderDetailComponent implements OnInit {
     this.http.get<AuditEntry[]>(`${environment.apiBaseUrl}/api/audit-logs/by-target?entity=ORDER&id=${id}`).subscribe({
       next: (a) => this.audits.set(a),
       error: () => this.audits.set([])
+    });
+  }
+
+  startEditSchedule(): void {
+    const o = this.order();
+    this.newScheduledAt = o?.scheduledAt ? this.toManilaLocalInput(o.scheduledAt) : '';
+    this.editingSchedule.set(true);
+  }
+
+  saveSchedule(): void {
+    const o = this.order();
+    if (!o || !o.bookingId || !this.newScheduledAt) return;
+    this.busy.set(true);
+    const iso = `${this.newScheduledAt}:00+08:00`;
+    this.http.patch(`${environment.apiBaseUrl}/api/bookings/${o.bookingId}`, { scheduledAt: iso }).subscribe({
+      next: () => {
+        this.editingSchedule.set(false);
+        this.busy.set(false);
+        this.error.set(null);
+        this.load(o.id);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || 'Could not update the schedule.');
+        this.busy.set(false);
+      }
+    });
+  }
+
+  private toManilaLocalInput(iso: string): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(new Date(iso));
+    const get = (t: string) => parts.find(p => p.type === t)?.value ?? '00';
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+  }
+
+  private deriveServedTherapists(order: Order): { id: string; nickname: string }[] {
+    const seen = new Map<string, string>();
+    for (const item of order.items) {
+      for (const att of item.attendees) {
+        if (att.primaryTherapistId && att.therapistNickname && !seen.has(att.primaryTherapistId)) {
+          seen.set(att.primaryTherapistId, att.therapistNickname);
+        }
+      }
+    }
+    return Array.from(seen.entries()).map(([id, nickname]) => ({ id, nickname }));
+  }
+
+  recordTip(): void {
+    const o = this.order();
+    if (!o || this.busy()) return;
+    if (!this.tipTherapistId) {
+      this.error.set('Select which therapist received the tip.');
+      return;
+    }
+    if (!this.tipAmount || this.tipAmount <= 0) {
+      this.error.set('Enter a valid tip amount.');
+      return;
+    }
+    this.busy.set(true);
+    this.http.post<Order>(`${environment.apiBaseUrl}/api/cashier/orders/${o.id}/tips`, {
+      therapistId: this.tipTherapistId,
+      amount: this.tipAmount
+    }).subscribe({
+      next: () => {
+        this.tipAmount = null;
+        this.tipTherapistId = '';
+        this.error.set(null);
+        this.tipNotice.set('Tip recorded.');
+        this.busy.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || 'Could not record the tip.');
+        this.busy.set(false);
+      }
     });
   }
 

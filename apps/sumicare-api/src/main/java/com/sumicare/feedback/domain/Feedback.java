@@ -51,6 +51,30 @@ public class Feedback {
     @Column(name = "read_by_user_id", columnDefinition = "uuid")
     private UUID readByUserId;
 
+    @Column(name = "feedback_type", nullable = false, length = 16)
+    private String feedbackType = "GENERAL";
+
+    @Column(name = "therapist_id", columnDefinition = "uuid")
+    private UUID therapistId;
+
+    @Column(name = "order_id", columnDefinition = "uuid")
+    private UUID orderId;
+
+    @Column(name = "staff_response", columnDefinition = "text")
+    private String staffResponse;
+
+    @Column(name = "responded_by_user_id", columnDefinition = "uuid")
+    private UUID respondedByUserId;
+
+    @Column(name = "responded_at")
+    private OffsetDateTime respondedAt;
+
+    @Column(name = "criteria", columnDefinition = "text")
+    private String criteria;
+
+    @Column(name = "nps_score")
+    private Integer npsScore;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -73,4 +97,20 @@ public class Feedback {
     public void setReadAt(OffsetDateTime readAt) { this.readAt = readAt; }
     public UUID getReadByUserId() { return readByUserId; }
     public void setReadByUserId(UUID readByUserId) { this.readByUserId = readByUserId; }
+    public String getFeedbackType() { return feedbackType; }
+    public void setFeedbackType(String feedbackType) { this.feedbackType = feedbackType; }
+    public UUID getTherapistId() { return therapistId; }
+    public void setTherapistId(UUID therapistId) { this.therapistId = therapistId; }
+    public UUID getOrderId() { return orderId; }
+    public void setOrderId(UUID orderId) { this.orderId = orderId; }
+    public String getStaffResponse() { return staffResponse; }
+    public void setStaffResponse(String staffResponse) { this.staffResponse = staffResponse; }
+    public UUID getRespondedByUserId() { return respondedByUserId; }
+    public void setRespondedByUserId(UUID respondedByUserId) { this.respondedByUserId = respondedByUserId; }
+    public OffsetDateTime getRespondedAt() { return respondedAt; }
+    public void setRespondedAt(OffsetDateTime respondedAt) { this.respondedAt = respondedAt; }
+    public String getCriteria() { return criteria; }
+    public void setCriteria(String criteria) { this.criteria = criteria; }
+    public Integer getNpsScore() { return npsScore; }
+    public void setNpsScore(Integer npsScore) { this.npsScore = npsScore; }
 }

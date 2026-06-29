@@ -13,6 +13,7 @@ import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.dto.UpdateTreatmentSlipRequest;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
 import com.sumicare.transaction.service.TreatmentSlipService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -84,7 +85,9 @@ public class TreatmentSlipController {
     @PatchMapping("/{slipId}")
     public TreatmentSlip update(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                 @PathVariable UUID slipId,
-                                @Valid @RequestBody UpdateTreatmentSlipRequest request) {
-        return service.update(UUID.fromString(principal.organizationId()), slipId, request);
+                                @Valid @RequestBody UpdateTreatmentSlipRequest request,
+                                HttpServletRequest httpRequest) {
+        return service.update(UUID.fromString(principal.organizationId()), slipId, request,
+                UUID.fromString(principal.userId()), principal.role(), httpRequest.getRemoteAddr());
     }
 }

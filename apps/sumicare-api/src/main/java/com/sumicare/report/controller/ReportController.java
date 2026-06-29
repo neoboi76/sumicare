@@ -29,8 +29,10 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/reports")
+@RequestMapping("/api/records")
 public class ReportController {
+
+    private static final String XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     private final ReportService reportService;
     private final ReportAggregationService aggregationService;
@@ -57,16 +59,14 @@ public class ReportController {
         return reportService.buildCutoffReport(UUID.fromString(principal.organizationId()), from, to);
     }
 
-    @GetMapping("/cutoff/export.csv")
-    public ResponseEntity<byte[]> cutoffCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                            @RequestParam OffsetDateTime from,
-                                            @RequestParam OffsetDateTime to) {
-        byte[] data = reportService.exportCutoffToCsv(UUID.fromString(principal.organizationId()), from, to);
-        String filename = "cutoff-" + from.toLocalDate() + "-to-" + to.toLocalDate() + ".csv";
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
-                .body(data);
+    @GetMapping("/cutoff/export.xlsx")
+    public ResponseEntity<byte[]> cutoffXlsx(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                             @RequestParam OffsetDateTime from,
+                                             @RequestParam OffsetDateTime to) {
+        byte[] data = reportService.exportCutoffToXlsx(UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), from, to);
+        String filename = "cutoff-" + from.toLocalDate() + "-to-" + to.toLocalDate() + ".xlsx";
+        return xlsxResponse(filename, data);
     }
 
     @GetMapping("/day")
@@ -108,18 +108,17 @@ public class ReportController {
         return operationsReportService.cutoffServices(UUID.fromString(principal.organizationId()), from, to, shiftId);
     }
 
-    @GetMapping("/cutoff/services/export.csv")
-    public ResponseEntity<byte[]> cutoffServicesCsv(
+    @GetMapping("/cutoff/services/export.xlsx")
+    public ResponseEntity<byte[]> cutoffServicesXlsx(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
             @RequestParam OffsetDateTime from,
             @RequestParam OffsetDateTime to,
             @RequestParam(required = false) Long shiftId) {
-        byte[] data = operationsReportService.cutoffServicesCsv(UUID.fromString(principal.organizationId()), from, to, shiftId);
-        String filename = "cutoff-services-" + from.toLocalDate() + "-to-" + to.toLocalDate() + ".csv";
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
-                .body(data);
+        byte[] data = operationsReportService.cutoffServicesXlsx(
+                UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), from, to, shiftId);
+        String filename = "cutoff-services-" + from.toLocalDate() + "-to-" + to.toLocalDate() + ".xlsx";
+        return xlsxResponse(filename, data);
     }
 
     @GetMapping("/daily")
@@ -129,16 +128,14 @@ public class ReportController {
         return operationsReportService.daily(UUID.fromString(principal.organizationId()), date);
     }
 
-    @GetMapping("/daily/export.csv")
-    public ResponseEntity<byte[]> dailyCsv(
+    @GetMapping("/daily/export.xlsx")
+    public ResponseEntity<byte[]> dailyXlsx(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
             @RequestParam LocalDate date) {
-        byte[] data = operationsReportService.dailyCsv(UUID.fromString(principal.organizationId()), date);
-        String filename = "daily-" + date + ".csv";
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
-                .body(data);
+        byte[] data = operationsReportService.dailyXlsx(
+                UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), date);
+        return xlsxResponse("daily-" + date + ".xlsx", data);
     }
 
     @GetMapping("/monthly-detailed")
@@ -149,16 +146,22 @@ public class ReportController {
         return operationsReportService.monthly(UUID.fromString(principal.organizationId()), year, month);
     }
 
-    @GetMapping("/monthly-detailed/export.csv")
-    public ResponseEntity<byte[]> monthlyDetailedCsv(
+    @GetMapping("/monthly-detailed/export.xlsx")
+    public ResponseEntity<byte[]> monthlyDetailedXlsx(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
             @RequestParam int year,
             @RequestParam int month) {
-        byte[] data = operationsReportService.monthlyCsv(UUID.fromString(principal.organizationId()), year, month);
-        String filename = "monthly-" + year + "-" + String.format("%02d", month) + ".csv";
+        byte[] data = operationsReportService.monthlyXlsx(
+                UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), year, month);
+        String filename = "monthly-" + year + "-" + String.format("%02d", month) + ".xlsx";
+        return xlsxResponse(filename, data);
+    }
+
+    private ResponseEntity<byte[]> xlsxResponse(String filename, byte[] data) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .contentType(MediaType.parseMediaType(XLSX_MIME))
                 .body(data);
     }
 }

@@ -8,19 +8,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, finalize, firstValueFrom, of, shareReplay, tap } from 'rxjs';
+import { TokenResponse } from '@sumicare/shared-types';
 import { environment } from '../../../environments/environment';
 
 export interface AuthSession {
   accessToken: string;
   role: string;
   expiresAt: number;
-}
-
-interface TokenResponse {
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
-  role: string;
 }
 
 export interface LoginResponse {

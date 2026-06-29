@@ -16,5 +16,6 @@ public record CreateOrderItemAttendeeRequest(
         String clientGender,
         Integer position,
         BigDecimal discount,
-        String providedTsn
+        String providedTsn,
+        String preferredTherapist
 ) {}

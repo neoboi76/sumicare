@@ -20,8 +20,10 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/reports/decking")
+@RequestMapping("/api/records/decking")
 public class DeckingReportController {
+
+    private static final String XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     private final DeckingReportService deckingReportService;
 
@@ -37,15 +39,18 @@ public class DeckingReportController {
         return deckingReportService.daily(UUID.fromString(principal.organizationId()), LocalDate.parse(date));
     }
 
-    @GetMapping("/daily/export.csv")
+    @GetMapping("/daily/export.xlsx")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
-    public ResponseEntity<byte[]> dailyCsv(
+    public ResponseEntity<byte[]> dailyXlsx(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
             @RequestParam String date) {
-        byte[] csv = deckingReportService.dailyCsv(UUID.fromString(principal.organizationId()), LocalDate.parse(date));
+        byte[] data = deckingReportService.dailyXlsx(
+                UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()),
+                LocalDate.parse(date));
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=decking-" + date + ".csv")
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .body(csv);
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"decking-" + date + ".xlsx\"")
+                .contentType(MediaType.parseMediaType(XLSX_MIME))
+                .body(data);
     }
 }

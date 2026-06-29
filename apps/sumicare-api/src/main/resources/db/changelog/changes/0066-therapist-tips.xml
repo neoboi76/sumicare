@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0066-1-therapist-tips" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="therapist_tips"/>
+            </not>
+        </preConditions>
+        <createTable tableName="therapist_tips">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="therapist_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="order_id" type="uuid"/>
+            <column name="session_id" type="uuid"/>
+            <column name="amount" type="numeric(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recorded_by_user_id" type="uuid"/>
+            <column name="recorded_at" type="timestamp" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="therapist_tips" indexName="ix_therapist_tips_org_recorded">
+            <column name="organization_id"/>
+            <column name="recorded_at"/>
+        </createIndex>
+        <createIndex tableName="therapist_tips" indexName="ix_therapist_tips_therapist">
+            <column name="therapist_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

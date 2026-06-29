@@ -9,9 +9,13 @@ package com.sumicare.booking.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.booking.domain.Booking;
+import com.sumicare.booking.dto.AvailableRoomResponse;
 import com.sumicare.booking.dto.BookingResponse;
+import com.sumicare.booking.dto.PublicRoomResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.CreateWalkInRequest;
+import com.sumicare.booking.dto.PublicHoldConfirmRequest;
+import com.sumicare.booking.dto.PublicHoldInitiateRequest;
 import com.sumicare.booking.dto.PublicPaymentConfirmRequest;
 import com.sumicare.booking.dto.PublicPaymentInitiateRequest;
 import com.sumicare.booking.dto.PublicPaymentResponse;
@@ -22,9 +26,12 @@ import com.sumicare.booking.repository.BookingRepository;
 import com.sumicare.booking.repository.SessionRepository;
 import com.sumicare.booking.service.BookingService;
 import com.sumicare.booking.service.WalkInService;
+import com.sumicare.cashier.dto.PendingPaymentResult;
+import com.sumicare.cashier.service.PendingReservationCoordinator;
 import com.sumicare.organization.repository.OrganizationRepository;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,17 +50,20 @@ public class BookingController {
     private final OrganizationRepository organizationRepository;
     private final SessionRepository sessionRepository;
     private final BookingRepository bookingRepository;
+    private final PendingReservationCoordinator pendingCoordinator;
 
     public BookingController(BookingService bookingService,
                              WalkInService walkInService,
                              OrganizationRepository organizationRepository,
                              SessionRepository sessionRepository,
-                             BookingRepository bookingRepository) {
+                             BookingRepository bookingRepository,
+                             PendingReservationCoordinator pendingCoordinator) {
         this.bookingService = bookingService;
         this.walkInService = walkInService;
         this.organizationRepository = organizationRepository;
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
+        this.pendingCoordinator = pendingCoordinator;
     }
 
     @PostMapping("/api/walk-in")
@@ -66,6 +76,31 @@ public class BookingController {
     public BookingResponse publicBook(@PathVariable String slug, @Valid @RequestBody CreateBookingRequest request) {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
         return bookingService.createBooking(organizationId, request);
+    }
+
+    @GetMapping("/api/rooms/available")
+    public List<AvailableRoomResponse> availableRooms(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                                      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime at,
+                                                      @RequestParam(defaultValue = "0") int durationMinutes,
+                                                      @RequestParam(required = false) String roomType) {
+        return bookingService.availableRooms(UUID.fromString(principal.organizationId()), at, durationMinutes, roomType);
+    }
+
+    @GetMapping("/api/public/rooms/available/{slug}")
+    public List<AvailableRoomResponse> publicAvailableRooms(@PathVariable String slug,
+                                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime at,
+                                                            @RequestParam(defaultValue = "0") int durationMinutes,
+                                                            @RequestParam(required = false) String roomType) {
+        UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
+        return bookingService.availableRooms(organizationId, at, durationMinutes, roomType);
+    }
+
+    @GetMapping("/api/public/rooms/map/{slug}")
+    public List<PublicRoomResponse> publicRoomMap(@PathVariable String slug,
+                                                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime at,
+                                                  @RequestParam(defaultValue = "0") int durationMinutes) {
+        UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
+        return bookingService.roomMap(organizationId, at, durationMinutes);
     }
 
     @PostMapping("/api/bookings")
@@ -88,6 +123,21 @@ public class BookingController {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
         return bookingService.confirmPublicPayment(organizationId, request.orderId(),
                 request.intentId(), request.paymentMethod());
+    }
+
+    @PostMapping("/api/public/bookings/{slug}/payment/initiate-hold")
+    public PendingPaymentResult publicHoldInitiate(@PathVariable String slug,
+                                                   @Valid @RequestBody PublicHoldInitiateRequest request) {
+        UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
+        return pendingCoordinator.initiatePublicHold(organizationId, request.booking(), request.paymentMethod(),
+                request.amount(), request.paymentDetails(), request.returnPath());
+    }
+
+    @PostMapping("/api/public/bookings/{slug}/payment/confirm-hold")
+    public PendingPaymentResult publicHoldConfirm(@PathVariable String slug,
+                                                  @Valid @RequestBody PublicHoldConfirmRequest request) {
+        organizationRepository.findBySlug(slug).orElseThrow();
+        return pendingCoordinator.confirm(request.token(), request.intentId(), request.paymentMethod());
     }
 
     @GetMapping("/api/bookings")
@@ -164,6 +214,7 @@ public class BookingController {
     }
 
     @PatchMapping("/api/bookings/{bookingId}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public Map<String, String> updateBooking(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                              @PathVariable UUID bookingId,
                                              @RequestBody Map<String, Object> updates) {
@@ -171,6 +222,17 @@ public class BookingController {
         UUID orgId = UUID.fromString(principal.organizationId());
         if (!booking.getOrganizationId().equals(orgId)) {
             throw new IllegalArgumentException("Booking not in organization");
+        }
+        if (updates.containsKey("scheduledAt") && updates.get("scheduledAt") != null) {
+            OffsetDateTime newSchedule = OffsetDateTime.parse(updates.get("scheduledAt").toString());
+            if (!"WALK_IN".equals(booking.getReservationType()) && newSchedule.isBefore(OffsetDateTime.now())) {
+                throw new IllegalArgumentException("Cannot reschedule to a past date and time");
+            }
+            booking.setScheduledAt(newSchedule);
+        }
+        if (updates.containsKey("preferredRoomId")) {
+            Object raw = updates.get("preferredRoomId");
+            booking.setPreferredRoomId(raw == null || raw.toString().isBlank() ? null : UUID.fromString(raw.toString()));
         }
         if (updates.containsKey("serviceId")) {
             booking.setServiceId(((Number) updates.get("serviceId")).longValue());
