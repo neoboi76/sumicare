@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.transaction.dto;
 
 import jakarta.validation.constraints.DecimalMin;
@@ -10,6 +17,11 @@ import java.time.OffsetDateTime;
 
 public record UpdateTreatmentSlipRequest(
         @Size(max = 64) String tsn,
+        @Size(max = 120) String clientNickname,
+        @Size(max = 120) String serviceName,
+        @Size(max = 120) String primaryTherapistNickname,
+        @Size(max = 120) String secondaryTherapistNickname,
+        @Size(max = 120) String requestedTherapistNickname,
         @Size(max = 16) String lockerNumber,
         @Size(max = 64) String roomNumber,
         @Size(max = 500) String othersAddOn,

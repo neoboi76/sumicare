@@ -1,12 +1,9 @@
-export interface QuizAnswer {
-  questionCode: string;
-  optionCode: string;
-}
-
-export interface QuizSubmissionRequest {
-  clientId?: string;
-  answers: QuizAnswer[];
-}
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
 
 export interface ServiceSummary {
   id: number;
@@ -14,7 +11,6 @@ export interface ServiceSummary {
   name: string;
   durationMinutes: number;
   price: number;
-  category: string;
 }
 
 export interface RecommendationResponse {

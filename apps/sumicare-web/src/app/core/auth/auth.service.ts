@@ -1,19 +1,20 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, finalize, firstValueFrom, of, shareReplay, tap } from 'rxjs';
+import { TokenResponse } from '@sumicare/shared-types';
 import { environment } from '../../../environments/environment';
 
 export interface AuthSession {
   accessToken: string;
   role: string;
   expiresAt: number;
-}
-
-interface TokenResponse {
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
-  role: string;
 }
 
 export interface LoginResponse {
@@ -29,6 +30,8 @@ export class AuthService {
   readonly session = signal<AuthSession | null>(null);
   private refreshInFlight: Observable<TokenResponse> | null = null;
 
+  // Returned as a Promise so the APP_INITIALIZER can await it and block routing
+  // until a silent refresh has either restored the session or failed on reload.
   bootstrapSession(): Promise<void> {
     return firstValueFrom(
       this.http
@@ -62,6 +65,9 @@ export class AuthService {
   }
 
   refresh(): Observable<TokenResponse> {
+    // Single-flight: callers arriving while a refresh is in progress share the same
+    // request. shareReplay replays the one result to all of them, and finalize clears
+    // the handle so the next refresh after this settles starts fresh.
     if (this.refreshInFlight) {
       return this.refreshInFlight;
     }

@@ -1,4 +1,12 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
@@ -13,10 +21,34 @@ interface RegisteredClient {
   nationality: string | null;
 }
 
+interface UsageCount {
+  label: string;
+  count: number;
+}
+
+interface VoucherEligibility {
+  code: string;
+  name: string | null;
+  discount: number;
+  eligible: boolean;
+}
+
+interface ClientUsage {
+  clientId: string;
+  nickname: string;
+  email: string | null;
+  bookingCount: number;
+  totalSpending: number;
+  topServices: UsageCount[];
+  topPackages: UsageCount[];
+  topTherapists: UsageCount[];
+  vouchers: VoucherEligibility[];
+}
+
 @Component({
   selector: 'sumi-registered-clients',
   standalone: true,
-  imports: [FormsModule, PaginatorComponent],
+  imports: [FormsModule, PaginatorComponent, DecimalPipe],
   templateUrl: './registered-clients.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -34,6 +66,14 @@ export class RegisteredClientsComponent implements OnInit {
   saving = signal(false);
   addError = signal<string | null>(null);
   newClient = { nickname: '', email: '', gender: 'F', nationality: '' };
+
+  editClient = signal<RegisteredClient | null>(null);
+  editError = signal<string | null>(null);
+  editForm = { nickname: '', gender: 'F', nationality: '' };
+
+  detailClient = signal<RegisteredClient | null>(null);
+  usage = signal<ClientUsage | null>(null);
+  usageLoading = signal(false);
 
   filteredClients = computed(() => {
     const term = this.searchTerm().trim().toLowerCase();
@@ -106,6 +146,51 @@ export class RegisteredClientsComponent implements OnInit {
         this.saving.set(false);
       }
     });
+  }
+
+  openEdit(client: RegisteredClient): void {
+    this.editClient.set(client);
+    this.editForm = { nickname: client.nickname, gender: client.gender || 'F', nationality: client.nationality || '' };
+    this.editError.set(null);
+  }
+
+  closeEdit(): void {
+    this.editClient.set(null);
+  }
+
+  submitEdit(): void {
+    const client = this.editClient();
+    if (!client) return;
+    if (!this.editForm.nickname.trim()) {
+      this.editError.set('Nickname is required.');
+      return;
+    }
+    this.http.patch<RegisteredClient>(`${environment.apiBaseUrl}/api/clients/${client.id}`, {
+      nickname: this.editForm.nickname.trim(),
+      gender: this.editForm.gender,
+      nationality: this.editForm.nationality.trim() || null
+    }).subscribe({
+      next: (updated) => {
+        this.clients.update(list => list.map(c => c.id === updated.id ? updated : c));
+        this.editClient.set(null);
+      },
+      error: (err) => this.editError.set(err?.error?.message || 'Could not save changes.')
+    });
+  }
+
+  openDetails(client: RegisteredClient): void {
+    this.detailClient.set(client);
+    this.usage.set(null);
+    this.usageLoading.set(true);
+    this.http.get<ClientUsage>(`${environment.apiBaseUrl}/api/clients/${client.id}/usage`).subscribe({
+      next: (u) => { this.usage.set(u); this.usageLoading.set(false); },
+      error: () => this.usageLoading.set(false)
+    });
+  }
+
+  closeDetails(): void {
+    this.detailClient.set(null);
+    this.usage.set(null);
   }
 
   async remove(client: RegisteredClient): Promise<void> {

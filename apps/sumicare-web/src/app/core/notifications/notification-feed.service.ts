@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Subject, Subscription } from 'rxjs';
@@ -36,6 +43,9 @@ export class NotificationFeedService {
         this.subscriptions.push(this.watch('feedback', this.unreadFeedback, organizationId));
     }
 
+    // Seeds initial unread counts from persisted server state for the two streams
+    // that survive a page reload (messages, feedback); bookings/orders start at zero
+    // and accrue only from live events received this session.
     private seedUnreadCounts(): void {
         this.http.get<{ count: number }>(`${environment.apiBaseUrl}/api/contact-messages/unread-count`).subscribe({
             next: (r) => this.unreadMessages.set(r.count ?? 0),

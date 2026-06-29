@@ -1,3 +1,10 @@
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
 <div class="max-w-md mx-auto">
   <div class="flex justify-between items-baseline mb-2 no-print">
     <a routerLink="/sumicare/app/treatment-slips" class="text-sm text-slate-600 hover:underline">Back to slips</a>
@@ -17,6 +24,41 @@
       <div class="grid grid-cols-2 gap-3 text-sm">
         <label class="block col-span-2">TS #
           <input [(ngModel)]="edit.tsn" name="etsn" maxlength="64" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block col-span-2">Customer name
+          <input [(ngModel)]="edit.clientNickname" name="enickname" maxlength="120" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block col-span-2">Treatment / service
+          <select [(ngModel)]="edit.serviceName" name="eservice" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+            <option value="">Select service</option>
+            @for (svc of services(); track svc.id) {
+              <option [value]="svc.name">{{ svc.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="block">Therapist
+          <select [(ngModel)]="edit.primaryTherapistNickname" name="eprimary" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+            <option value="">Select therapist</option>
+            @for (t of therapists(); track t.id) {
+              <option [value]="t.nickname">{{ t.nickname }}</option>
+            }
+          </select>
+        </label>
+        <label class="block">Secondary therapist
+          <select [(ngModel)]="edit.secondaryTherapistNickname" name="esecondary" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+            <option value="">None</option>
+            @for (t of therapists(); track t.id) {
+              <option [value]="t.nickname">{{ t.nickname }}</option>
+            }
+          </select>
+        </label>
+        <label class="block col-span-2">Requested therapist
+          <select [(ngModel)]="edit.requestedTherapistNickname" name="erequested" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+            <option value="">None</option>
+            @for (t of therapists(); track t.id) {
+              <option [value]="t.nickname">{{ t.nickname }}</option>
+            }
+          </select>
         </label>
         <label class="block">Locker
           <input [(ngModel)]="edit.lockerNumber" name="elocker" maxlength="16" class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />

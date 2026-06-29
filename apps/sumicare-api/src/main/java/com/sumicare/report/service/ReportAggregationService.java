@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.report.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,6 +65,8 @@ public class ReportAggregationService {
 
     @Transactional
     public DayReport generateDayReport(UUID organizationId, LocalDate date) {
+        // Timestamps are stored in UTC; resolve the day boundaries against Asia/Manila so
+        // the window matches the spa's local calendar day rather than a UTC day.
         OffsetDateTime from = date.atStartOfDay(MANILA).toOffsetDateTime();
         OffsetDateTime to = date.plusDays(1).atStartOfDay(MANILA).toOffsetDateTime();
         ReportService.ReportSummary summary = reportService.buildCutoffReport(organizationId, from, to);

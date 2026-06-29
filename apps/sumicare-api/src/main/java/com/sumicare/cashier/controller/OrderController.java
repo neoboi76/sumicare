@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.cashier.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
@@ -5,9 +12,14 @@ import com.sumicare.cashier.dto.CreateOrderRequest;
 import com.sumicare.cashier.dto.OrderResponse;
 import com.sumicare.cashier.dto.PayMongoConfirmRequest;
 import com.sumicare.cashier.dto.PayMongoInitiateResponse;
+import com.sumicare.cashier.dto.PendingConfirmRequest;
+import com.sumicare.cashier.dto.PendingInitiateRequest;
+import com.sumicare.cashier.dto.PendingPaymentResult;
 import com.sumicare.cashier.dto.RecordPaymentRequest;
+import com.sumicare.cashier.dto.RecordTipRequest;
 import com.sumicare.cashier.dto.RefundRequest;
 import com.sumicare.cashier.service.OrderService;
+import com.sumicare.cashier.service.PendingReservationCoordinator;
 import com.sumicare.print.ReceiptPdfService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -28,10 +40,13 @@ public class OrderController {
 
     private final OrderService orderService;
     private final ReceiptPdfService receiptPdfService;
+    private final PendingReservationCoordinator pendingCoordinator;
 
-    public OrderController(OrderService orderService, ReceiptPdfService receiptPdfService) {
+    public OrderController(OrderService orderService, ReceiptPdfService receiptPdfService,
+                           PendingReservationCoordinator pendingCoordinator) {
         this.orderService = orderService;
         this.receiptPdfService = receiptPdfService;
+        this.pendingCoordinator = pendingCoordinator;
     }
 
     @PostMapping
@@ -75,6 +90,38 @@ public class OrderController {
                                        @PathVariable UUID id,
                                        @Valid @RequestBody RecordPaymentRequest request) {
         return orderService.recordPayment(UUID.fromString(principal.organizationId()), id,
+                UUID.fromString(principal.userId()), request);
+    }
+
+    @PostMapping("/paymongo/initiate-pending")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public PendingPaymentResult initiatePending(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                                @Valid @RequestBody PendingInitiateRequest request) {
+        return pendingCoordinator.initiateCashierHold(UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), request.order(), request.paymentMethod(),
+                request.amount(), request.paymentDetails(), request.returnPath());
+    }
+
+    @PostMapping("/paymongo/confirm-pending")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public PendingPaymentResult confirmPending(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                               @Valid @RequestBody PendingConfirmRequest request) {
+        return pendingCoordinator.confirm(request.token(), request.intentId(), request.paymentMethod());
+    }
+
+    @GetMapping("/{id}/served-therapists")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public List<Map<String, String>> servedTherapists(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                                      @PathVariable UUID id) {
+        return orderService.servedTherapists(UUID.fromString(principal.organizationId()), id);
+    }
+
+    @PostMapping("/{id}/tips")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public OrderResponse recordTip(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                   @PathVariable UUID id,
+                                   @Valid @RequestBody RecordTipRequest request) {
+        return orderService.recordTip(UUID.fromString(principal.organizationId()), id,
                 UUID.fromString(principal.userId()), request);
     }
 

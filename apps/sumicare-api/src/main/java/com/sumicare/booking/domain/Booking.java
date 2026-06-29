@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.booking.domain;
 
 import jakarta.persistence.*;
@@ -41,6 +48,9 @@ public class Booking {
     @Column(name = "scheduled_at", nullable = false)
     private OffsetDateTime scheduledAt;
 
+    @Column(name = "preferred_room_id", columnDefinition = "uuid")
+    private UUID preferredRoomId;
+
     @Column(name = "actual_start_at")
     private OffsetDateTime actualStartAt;
 
@@ -58,6 +68,9 @@ public class Booking {
 
     @Column(name = "remarks", columnDefinition = "text")
     private String remarks;
+
+    @Column(name = "terms_accepted_at")
+    private OffsetDateTime termsAcceptedAt;
 
     @Column(name = "preferred_therapist", length = 120)
     private String preferredTherapist;
@@ -94,6 +107,8 @@ public class Booking {
     public void setReservationType(String reservationType) { this.reservationType = reservationType; }
     public OffsetDateTime getScheduledAt() { return scheduledAt; }
     public void setScheduledAt(OffsetDateTime scheduledAt) { this.scheduledAt = scheduledAt; }
+    public UUID getPreferredRoomId() { return preferredRoomId; }
+    public void setPreferredRoomId(UUID preferredRoomId) { this.preferredRoomId = preferredRoomId; }
     public OffsetDateTime getActualStartAt() { return actualStartAt; }
     public void setActualStartAt(OffsetDateTime actualStartAt) { this.actualStartAt = actualStartAt; }
     public OffsetDateTime getActualEndAt() { return actualEndAt; }
@@ -106,6 +121,8 @@ public class Booking {
     public void setNationality(String nationality) { this.nationality = nationality; }
     public String getRemarks() { return remarks; }
     public void setRemarks(String remarks) { this.remarks = remarks; }
+    public OffsetDateTime getTermsAcceptedAt() { return termsAcceptedAt; }
+    public void setTermsAcceptedAt(OffsetDateTime termsAcceptedAt) { this.termsAcceptedAt = termsAcceptedAt; }
     public String getPreferredTherapist() { return preferredTherapist; }
     public void setPreferredTherapist(String preferredTherapist) { this.preferredTherapist = preferredTherapist; }
     public String getStatus() { return status; }

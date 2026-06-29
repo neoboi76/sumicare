@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.print;
 
 import com.sumicare.booking.domain.Booking;
@@ -12,6 +19,7 @@ import com.sumicare.cashier.repository.OrderRepository;
 import com.sumicare.cashier.repository.PackageRepository;
 import com.sumicare.cashier.service.PackageService;
 import com.sumicare.common.util.BaseUrlResolver;
+import com.sumicare.common.util.LogoResolver;
 import com.sumicare.common.util.BookingReference;
 import com.sumicare.common.util.QrCodeUtil;
 import com.sumicare.organization.domain.Organization;
@@ -52,6 +60,7 @@ public class ReceiptPdfService {
     private final PosTransactionRepository transactionRepository;
     private final BaseUrlResolver baseUrlResolver;
     private final PackageService packageService;
+    private final LogoResolver logoResolver;
 
     public ReceiptPdfService(PdfRenderer pdfRenderer,
                              OrderRepository orderRepository,
@@ -64,8 +73,10 @@ public class ReceiptPdfService {
                              UserRepository userRepository,
                              PosTransactionRepository transactionRepository,
                              BaseUrlResolver baseUrlResolver,
-                             PackageService packageService) {
+                             PackageService packageService,
+                             LogoResolver logoResolver) {
         this.pdfRenderer = pdfRenderer;
+        this.logoResolver = logoResolver;
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.orderItemRepository = orderItemRepository;
@@ -190,7 +201,7 @@ public class ReceiptPdfService {
               .totals .lbl { text-align: left; }
               .totals .val { text-align: right; }
             </style></head><body>
-              <div class="center bold">%s</div>
+              <div class="center">%s</div>
               <div class="center small">Owned and Operated by %s</div>
               <div class="center small">Powered by SumiCare</div>
               <hr/>
@@ -224,7 +235,7 @@ public class ReceiptPdfService {
               <div class="center small">Powered by SumiCare</div>
             </body></html>
             """.formatted(
-                esc(org == null ? "La Sema Spa" : (org.getDisplayName() != null ? org.getDisplayName() : org.getSlug())),
+                headerMarkup(org),
                 esc(org == null ? "" : (org.getSlug() == null ? "" : org.getSlug())),
                 esc(cashierName),
                 now,
@@ -280,6 +291,16 @@ public class ReceiptPdfService {
         }
         String derived = BookingReference.of(order.getBookingId());
         return derived == null ? "" : derived;
+    }
+
+    private String headerMarkup(Organization org) {
+        String logo = logoResolver.dataUriOrNull(org == null ? null : org.getLogoUrl());
+        if (logo != null) {
+            return "<img src=\"" + logo + "\" style=\"max-height: 42px; margin: 0 auto;\"/>";
+        }
+        String name = org == null ? "La Sema Spa"
+                : (org.getDisplayName() != null ? org.getDisplayName() : org.getSlug());
+        return "<span style=\"font-weight: bold;\">" + esc(name) + "</span>";
     }
 
     private String esc(String s) {

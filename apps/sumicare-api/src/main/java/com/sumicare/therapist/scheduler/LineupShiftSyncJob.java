@@ -1,6 +1,12 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.therapist.scheduler;
 
-import com.sumicare.attendance.service.AttendanceService;
 import com.sumicare.organization.repository.OrganizationRepository;
 import com.sumicare.shift.domain.Shift;
 import com.sumicare.shift.domain.ShiftAssignment;
@@ -14,9 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,20 +39,17 @@ public class LineupShiftSyncJob {
     private final ShiftAssignmentRepository shiftAssignmentRepository;
     private final TherapistRepository therapistRepository;
     private final DeckingService deckingService;
-    private final AttendanceService attendanceService;
 
     public LineupShiftSyncJob(OrganizationRepository organizationRepository,
                               ShiftService shiftService,
                               ShiftAssignmentRepository shiftAssignmentRepository,
                               TherapistRepository therapistRepository,
-                              DeckingService deckingService,
-                              AttendanceService attendanceService) {
+                              DeckingService deckingService) {
         this.organizationRepository = organizationRepository;
         this.shiftService = shiftService;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
         this.therapistRepository = therapistRepository;
         this.deckingService = deckingService;
-        this.attendanceService = attendanceService;
     }
 
     private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
@@ -95,12 +96,7 @@ public class LineupShiftSyncJob {
 
         shouldBeInLineup.sort(Comparator.comparing(ShouldEntry::shiftStartTime));
 
-        OffsetDateTime dayStart = LocalDate.now(MANILA).atStartOfDay(MANILA).toOffsetDateTime();
-        Set<UUID> clockedInToday = attendanceService.clockedInTherapistIds(dayStart, dayStart.plusDays(1));
-        boolean orgHasClockIns = shouldBeInLineup.stream().anyMatch(e -> clockedInToday.contains(e.therapistId()));
-        List<ShouldEntry> effectiveLineup = orgHasClockIns
-                ? shouldBeInLineup.stream().filter(e -> clockedInToday.contains(e.therapistId())).toList()
-                : shouldBeInLineup;
+        List<ShouldEntry> effectiveLineup = shouldBeInLineup;
 
         List<DeckingEntry> currentLineup = deckingService.currentLineup(orgId);
         Set<UUID> currentIds = new HashSet<>();

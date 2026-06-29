@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0064-1-feedback-survey-columns" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="feedback" columnName="feedback_type"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="feedback">
+            <column name="feedback_type" type="varchar(16)" defaultValue="GENERAL">
+                <constraints nullable="false"/>
+            </column>
+            <column name="therapist_id" type="uuid"/>
+            <column name="order_id" type="uuid"/>
+            <column name="staff_response" type="text"/>
+            <column name="responded_by_user_id" type="uuid"/>
+            <column name="responded_at" type="timestamp"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0064-2-survey-invitations" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="survey_invitations"/>
+            </not>
+        </preConditions>
+        <createTable tableName="survey_invitations">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="order_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token" type="varchar(64)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="sent_at" type="timestamp"/>
+            <column name="completed_at" type="timestamp"/>
+        </createTable>
+        <createIndex tableName="survey_invitations" indexName="ix_survey_invitations_order">
+            <column name="order_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

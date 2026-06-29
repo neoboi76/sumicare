@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -18,11 +25,18 @@ interface Voucher {
   usageLimit: number | null;
   active: boolean;
   targetPackageId: number | null;
+  applicability: string | null;
+  eligibleClientIds: string[] | null;
 }
 
 interface PackageOption {
   id: number;
   name: string;
+}
+
+interface ClientOption {
+  id: string;
+  nickname: string;
 }
 
 @Component({
@@ -36,6 +50,7 @@ export class VouchersAdminComponent implements OnInit {
   private http = inject(HttpClient);
   vouchers = signal<Voucher[]>([]);
   packages = signal<PackageOption[]>([]);
+  clients = signal<ClientOption[]>([]);
   showForm = signal(false);
   editingVoucher = signal<Voucher | null>(null);
 
@@ -48,6 +63,8 @@ export class VouchersAdminComponent implements OnInit {
   formUsageLimit: number | null = null;
   formActive = true;
   formTargetPackageId: number | null = null;
+  formApplicability = 'ALL';
+  formEligibleClientIds: string[] = [];
 
   sortState = signal<SortState>({ key: 'code', direction: 'asc' });
 
@@ -69,6 +86,16 @@ export class VouchersAdminComponent implements OnInit {
       next: (p) => this.packages.set(p.map(x => ({ id: x.id, name: x.name }))),
       error: () => this.packages.set([])
     });
+    this.http.get<ClientOption[]>(`${environment.apiBaseUrl}/api/clients`).subscribe({
+      next: (c) => this.clients.set(c.map(x => ({ id: x.id, nickname: x.nickname }))),
+      error: () => this.clients.set([])
+    });
+  }
+
+  toggleEligibleClient(clientId: string): void {
+    this.formEligibleClientIds = this.formEligibleClientIds.includes(clientId)
+      ? this.formEligibleClientIds.filter(id => id !== clientId)
+      : [...this.formEligibleClientIds, clientId];
   }
 
   reload(): void {
@@ -97,7 +124,9 @@ export class VouchersAdminComponent implements OnInit {
       validUntil: this.formUntil || null,
       usageLimit: this.formUsageLimit != null && this.formUsageLimit !== 0 ? Number(this.formUsageLimit) : null,
       active: this.formActive,
-      targetPackageId: this.formTargetPackageId != null ? Number(this.formTargetPackageId) : null
+      targetPackageId: this.formTargetPackageId != null ? Number(this.formTargetPackageId) : null,
+      applicability: this.formApplicability,
+      eligibleClientIds: this.formApplicability === 'SPECIFIC' ? this.formEligibleClientIds : []
     };
     const editing = this.editingVoucher();
     const req = editing
@@ -122,6 +151,8 @@ export class VouchersAdminComponent implements OnInit {
     this.formUsageLimit = v.usageLimit;
     this.formActive = v.active;
     this.formTargetPackageId = v.targetPackageId;
+    this.formApplicability = v.applicability || 'ALL';
+    this.formEligibleClientIds = v.eligibleClientIds ? [...v.eligibleClientIds] : [];
     this.showForm.set(true);
   }
 
@@ -137,5 +168,7 @@ export class VouchersAdminComponent implements OnInit {
     this.formUsageLimit = null;
     this.formActive = true;
     this.formTargetPackageId = null;
+    this.formApplicability = 'ALL';
+    this.formEligibleClientIds = [];
   }
 }

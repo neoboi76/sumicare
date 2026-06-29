@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.cashier.scheduler;
 
 import com.sumicare.cashier.service.OrderService;
@@ -25,6 +32,8 @@ public class OrderAutoCancelJob {
         this.orderService = orderService;
     }
 
+    // Runs just after Manila midnight so the previous business day is fully closed before
+    // sweeping; pending orders whose scheduled date has elapsed without a session are cancelled.
     @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Manila")
     public void sweep() {
         UsernamePasswordAuthenticationToken systemAuth = new UsernamePasswordAuthenticationToken(

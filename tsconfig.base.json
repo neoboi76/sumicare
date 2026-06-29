@@ -14,8 +14,7 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@sumicare/shared-types": ["libs/shared-types/src/index.ts"],
-      "@sumicare/ui": ["libs/ui/src/index.ts"]
+      "@sumicare/shared-types": ["libs/shared-types/src/index.ts"]
     },
     "strict": true,
     "noImplicitAny": true,

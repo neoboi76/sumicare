@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -70,9 +77,9 @@ export class InternalShellComponent implements OnInit, OnDestroy {
     {
       title: 'Finance',
       items: [
+        { label: 'Records', route: 'records', roles: MANAGER_PLUS },
         { label: 'Reports', route: 'reports', roles: MANAGER_PLUS },
-        { label: 'Ledger', route: 'ledger', roles: MANAGER_PLUS },
-        { label: 'Analytics', route: 'analytics', roles: MANAGER_PLUS }
+        { label: 'Ledger', route: 'ledger', roles: MANAGER_PLUS }
       ]
     },
     {
@@ -101,6 +108,8 @@ export class InternalShellComponent implements OnInit, OnDestroy {
   visibleGroups = computed(() => {
     const role = this.session()?.role;
     if (!role) return [];
+    // Filter each group's items to those the current role may see, then drop any group
+    // left empty so a section header never renders without links beneath it.
     return this.groups
       .map(g => ({ ...g, items: g.items.filter(i => i.roles.includes(role)) }))
       .filter(g => g.items.length > 0);

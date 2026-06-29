@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.voucher.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
@@ -37,6 +44,12 @@ public class VoucherController {
                           @PathVariable UUID id,
                           @RequestBody Voucher voucher) {
         return voucherService.update(UUID.fromString(principal.organizationId()), id, voucher);
+    }
+
+    @GetMapping("/eligible/{clientId}")
+    public List<Voucher> eligibleForClient(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                           @PathVariable UUID clientId) {
+        return voucherService.eligibleForClient(UUID.fromString(principal.organizationId()), clientId);
     }
 
     @GetMapping("/check")

@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.report.service;
 
 import com.sumicare.booking.domain.Booking;
@@ -19,10 +26,11 @@ import com.sumicare.shift.repository.ShiftRepository;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
+import com.sumicare.organization.repository.OrganizationRepository;
+import com.sumicare.user.repository.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
@@ -53,6 +61,9 @@ public class OperationsReportService {
     private final ShiftAssignmentRepository shiftAssignmentRepository;
     private final OrderItemAttendeeRepository attendeeRepository;
     private final OrderItemRepository orderItemRepository;
+    private final ExcelExportService excelExportService;
+    private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
 
     public OperationsReportService(SessionRepository sessionRepository,
                                    BookingRepository bookingRepository,
@@ -64,7 +75,10 @@ public class OperationsReportService {
                                    ShiftRepository shiftRepository,
                                    ShiftAssignmentRepository shiftAssignmentRepository,
                                    OrderItemAttendeeRepository attendeeRepository,
-                                   OrderItemRepository orderItemRepository) {
+                                   OrderItemRepository orderItemRepository,
+                                   ExcelExportService excelExportService,
+                                   OrganizationRepository organizationRepository,
+                                   UserRepository userRepository) {
         this.sessionRepository = sessionRepository;
         this.bookingRepository = bookingRepository;
         this.slipRepository = slipRepository;
@@ -76,6 +90,9 @@ public class OperationsReportService {
         this.shiftAssignmentRepository = shiftAssignmentRepository;
         this.attendeeRepository = attendeeRepository;
         this.orderItemRepository = orderItemRepository;
+        this.excelExportService = excelExportService;
+        this.organizationRepository = organizationRepository;
+        this.userRepository = userRepository;
     }
 
     public record ServiceLine(Long serviceId, String serviceName, int qty, BigDecimal unitPrice, BigDecimal lineTotal) {}
@@ -102,6 +119,11 @@ public class OperationsReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public CutoffServicesReport cutoffServices(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
+        return cutoffServices(organizationId, from, to, shiftId, SalesGroupBy.SERVICE);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public CutoffServicesReport cutoffServices(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId, SalesGroupBy groupBy) {
         List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndScheduleBetween(organizationId, from, to)
                 .stream()
                 .filter(s -> !"VOIDED".equals(s.getStatus()))
@@ -142,10 +164,15 @@ public class OperationsReportService {
         for (TreatmentSlip s : slips) {
             String pkg = s.getPackageName() != null ? s.getPackageName() : "(Walk-in)";
             String svc = s.getServiceName() == null ? "Unknown" : s.getServiceName();
-            String key = pkg + " — " + svc;
+            String key = switch (groupBy) {
+                case PACKAGE -> pkg;
+                default -> svc;
+            };
             UUID orderItemId = slipToOrderItemId.get(s.getId());
             ServiceAccumulator acc = bucket.computeIfAbsent(key, k -> new ServiceAccumulator());
             if (orderItemId != null) {
+                // Several slips can map to one order item (group/couple guests); count the
+                // item's quantity and price only once, and add any extension charge once per order.
                 if (countedOrderItemIds.add(orderItemId)) {
                     OrderItem item = orderItemById.get(orderItemId);
                     int qty = item != null ? Math.max(1, item.getQuantity()) : 1;
@@ -206,22 +233,32 @@ public class OperationsReportService {
         return out;
     }
 
-    public byte[] cutoffServicesCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
+    public byte[] cutoffServicesXlsx(UUID organizationId, UUID preparedByUserId,
+                                      OffsetDateTime from, OffsetDateTime to, Long shiftId) {
         CutoffServicesReport report = cutoffServices(organizationId, from, to, shiftId);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Service,Qty,Unit Price,Line Total\n");
+        String preparedBy = resolveDisplayName(preparedByUserId);
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Cutoff Services",
+                "Cutoff Services Report",
+                from + " to " + to, preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, List.of("Service", "Qty", "Unit Price", "Line Total"));
         for (ServiceLine l : report.lines()) {
-            sb.append(csvCell(l.serviceName())).append(',')
-              .append(l.qty()).append(',')
-              .append(l.unitPrice() != null ? l.unitPrice().toPlainString() : "0").append(',')
-              .append(l.lineTotal() != null ? l.lineTotal().toPlainString() : "0").append('\n');
+            excelExportService.writeDataRow(ctx, List.of(
+                    l.serviceName(), l.qty(),
+                    l.unitPrice() != null ? l.unitPrice() : BigDecimal.ZERO,
+                    l.lineTotal() != null ? l.lineTotal() : BigDecimal.ZERO));
         }
-        sb.append("\n,,GRAND TOTAL,").append(report.grandTotal().toPlainString()).append('\n');
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        excelExportService.writeTotalRow(ctx, List.of("", "", "GRAND TOTAL", report.grandTotal()));
+        excelExportService.writeFooter(ctx, 4);
+        excelExportService.autoSizeColumns(ctx, 4);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public DailyReportResponse daily(UUID organizationId, LocalDate date) {
+        // Slips are timestamped in UTC; window the day against Asia/Manila so the report
+        // covers the spa's local calendar day.
         OffsetDateTime from = date.atStartOfDay(java.time.ZoneId.of("Asia/Manila")).toOffsetDateTime();
         OffsetDateTime to = from.plusDays(1);
         List<DailyRow> rows = collectRows(organizationId, from, to);
@@ -230,9 +267,12 @@ public class OperationsReportService {
         return new DailyReportResponse(date, rows, grand);
     }
 
-    public byte[] dailyCsv(UUID organizationId, LocalDate date) {
+    public byte[] dailyXlsx(UUID organizationId, UUID preparedByUserId, LocalDate date) {
         DailyReportResponse r = daily(organizationId, date);
-        return rowsToCsv(r.rows(), r.grandTotal());
+        String preparedBy = resolveDisplayName(preparedByUserId);
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        return rowsToXlsx(organizationId, preparedByUserId, r.rows(), r.grandTotal(),
+                "Daily Report " + date, date.toString(), logoUrl, preparedBy);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -246,19 +286,26 @@ public class OperationsReportService {
         return new MonthlyReportResponse(year, month, rows, grand);
     }
 
-    public byte[] monthlyCsv(UUID organizationId, int year, int month) {
+    public byte[] monthlyXlsx(UUID organizationId, UUID preparedByUserId, int year, int month) {
         YearMonth ym = YearMonth.of(year, month);
-        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        StringBuilder sb = new StringBuilder("Date,Revenue\n");
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        String preparedBy = resolveDisplayName(preparedByUserId);
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Monthly Summary",
+                "Monthly Revenue Report " + year + "-" + String.format("%02d", month),
+                ym.atDay(1) + " to " + ym.atEndOfMonth(), preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, List.of("Date", "Revenue"));
         BigDecimal grand = BigDecimal.ZERO;
         for (int d = 1; d <= ym.lengthOfMonth(); d++) {
             LocalDate day = ym.atDay(d);
             BigDecimal total = daily(organizationId, day).grandTotal();
-            sb.append(day.format(dateFmt)).append(',').append(total.toPlainString()).append('\n');
+            excelExportService.writeDataRow(ctx, List.of(day.toString(), total));
             grand = grand.add(total);
         }
-        sb.append("GRAND TOTAL,").append(grand.toPlainString()).append('\n');
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        excelExportService.writeTotalRow(ctx, List.of("GRAND TOTAL", grand));
+        excelExportService.writeFooter(ctx, 2);
+        excelExportService.autoSizeColumns(ctx, 2);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
     private List<DailyRow> collectRows(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
@@ -322,6 +369,8 @@ public class OperationsReportService {
             boolean includeExtension = item != null && o != null && o.getExtensionAmount() != null
                     && o.getExtensionAmount().signum() > 0
                     && extensionCountedOrderIds.add(o.getId());
+            // Each guest gets their own row, but the order item's amount (and extension) is
+            // attributed only to the first row so the grand total is not multiplied per guest.
             for (int i = 0; i < group.size(); i++) {
                 boolean countAmount = i == 0;
                 rows.add(buildRow(group.get(i), b, o, item, includeExtension && countAmount, countAmount,
@@ -438,34 +487,44 @@ public class OperationsReportService {
         return idByNickname.get(nickname.trim().toLowerCase());
     }
 
-    private byte[] rowsToCsv(List<DailyRow> rows, BigDecimal grandTotal) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Check-in Time,OR#,Locker#,Package,Treatment,Amount,TS#,Therapist,Room,Massage Start,Massage End,Status\n");
+    private byte[] rowsToXlsx(UUID organizationId, UUID preparedByUserId, List<DailyRow> rows,
+                                BigDecimal grandTotal, String title, String dateRange,
+                                String logoUrl, String preparedBy) {
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Daily Report", title, dateRange, preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, List.of(
+                "Check-in Time", "OR#", "Locker#", "Package", "Treatment",
+                "Amount", "TS#", "Therapist", "Room", "Massage Start", "Massage End", "Status"));
         for (DailyRow r : rows) {
-            sb.append(csvCell(r.checkInTime())).append(',')
-              .append(csvCell(r.orNumber())).append(',')
-              .append(csvCell(r.lockerNumber())).append(',')
-              .append(csvCell(r.packageName())).append(',')
-              .append(csvCell(r.treatment())).append(',')
-              .append(r.amount() != null ? r.amount().toPlainString() : "0").append(',')
-              .append(csvCell(r.tsn())).append(',')
-              .append(csvCell(r.therapist())).append(',')
-              .append(csvCell(r.room())).append(',')
-              .append(csvCell(r.massageStart())).append(',')
-              .append(csvCell(r.massageEnd())).append(',')
-              .append(csvCell(r.status())).append('\n');
+            excelExportService.writeDataRow(ctx, List.of(
+                    r.checkInTime() != null ? r.checkInTime() : "",
+                    r.orNumber() != null ? r.orNumber() : "",
+                    r.lockerNumber() != null ? r.lockerNumber() : "",
+                    r.packageName() != null ? r.packageName() : "",
+                    r.treatment() != null ? r.treatment() : "",
+                    r.amount() != null ? r.amount() : BigDecimal.ZERO,
+                    r.tsn() != null ? r.tsn() : "",
+                    r.therapist() != null ? r.therapist() : "",
+                    r.room() != null ? r.room() : "",
+                    r.massageStart() != null ? r.massageStart() : "",
+                    r.massageEnd() != null ? r.massageEnd() : "",
+                    r.status() != null ? r.status() : ""
+            ));
         }
-        sb.append("\n,,,,,").append(grandTotal != null ? grandTotal.toPlainString() : "0")
-          .append(",,GRAND TOTAL,,,\n");
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        excelExportService.writeTotalRow(ctx, List.of(
+                "", "", "", "", "",
+                grandTotal != null ? grandTotal : BigDecimal.ZERO,
+                "", "GRAND TOTAL", "", "", "", ""));
+        excelExportService.writeFooter(ctx, 12);
+        excelExportService.autoSizeColumns(ctx, 12);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
-    private String csvCell(String v) {
-        if (v == null || v.isBlank()) return "";
-        if (v.contains(",") || v.contains("\"") || v.contains("\n")) {
-            return "\"" + v.replace("\"", "\"\"") + "\"";
-        }
-        return v;
+    private String resolveDisplayName(UUID userId) {
+        if (userId == null) return "Staff";
+        return userRepository.findById(userId)
+                .map(u -> u.getDisplayName() == null ? u.getUsername() : u.getDisplayName())
+                .orElse("Staff");
     }
 
     private String formatTime(OffsetDateTime dt, DateTimeFormatter fmt) {

@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.therapist.service;
 
 import com.sumicare.notification.service.NotificationService;
@@ -47,6 +54,8 @@ public class DeckingService {
     }
 
     public void appendToBack(UUID organizationId, UUID therapistId, Long shiftId) {
+        // Epoch-millis as the ZSET score yields FIFO ordering: later arrivals get higher
+        // scores and therefore sort to the back of the lineup.
         double score = Instant.now().toEpochMilli();
         redis.opsForZSet().add(queueKey(organizationId), therapistId.toString(), score);
         if (shiftId != null) {
@@ -56,6 +65,8 @@ public class DeckingService {
     }
 
     public void prependToFront(UUID organizationId, UUID therapistId, Long shiftId) {
+        // Scoring just below the current minimum places this therapist ahead of an
+        // in-progress lineup, enforcing the "newest shift preempts older shifts" rule.
         double score = lowestScore(organizationId) - 1.0;
         redis.opsForZSet().add(queueKey(organizationId), therapistId.toString(), score);
         if (shiftId != null) {
@@ -67,6 +78,7 @@ public class DeckingService {
     public void rotateToBack(UUID organizationId, UUID therapistId) {
         Double current = redis.opsForZSet().score(queueKey(organizationId), therapistId.toString());
         if (current == null) return;
+        // Re-scoring with the current time after service moves the therapist to the back.
         redis.opsForZSet().add(queueKey(organizationId), therapistId.toString(), Instant.now().toEpochMilli());
         notificationService.broadcastDecking(organizationId, currentLineup(organizationId));
     }
@@ -81,6 +93,8 @@ public class DeckingService {
     }
 
     public void skip(UUID organizationId, UUID therapistId, Duration duration) {
+        // The skip key carries a TTL so the break expires on its own (max break window)
+        // without a follow-up call; cancelSkip deletes it for an early return.
         redis.opsForValue().set(skipKey(organizationId, therapistId), "1", duration);
         notificationService.broadcastDecking(organizationId, currentLineup(organizationId));
     }
@@ -107,6 +121,8 @@ public class DeckingService {
         }
         List<ZSetOperations.TypedTuple<String>> ordered = new java.util.ArrayList<>(existing);
         int index = Math.max(0, Math.min(positionFromTop, ordered.size()));
+        // Backup insertion uses the midpoint between the neighbouring scores so the backup
+        // lands at the requested slot without disturbing any existing therapist's score.
         double previous = index == 0 ? ordered.get(0).getScore() - 1.0 : ordered.get(index - 1).getScore();
         double next = index >= ordered.size() ? previous + 2.0 : ordered.get(index).getScore();
         double score = (previous + next) / 2.0;

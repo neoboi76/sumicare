@@ -1,24 +1,16 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { OrganizationBranding } from '@sumicare/shared-types';
 import { environment } from '../../../environments/environment';
 
-export interface OrganizationBranding {
-    id: string;
-    slug: string;
-    displayName: string;
-    logoUrl: string | null;
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-    theme: string;
-    fontFamily: string | null;
-    loginBackgroundUrl: string | null;
-    faviconUrl: string | null;
-    instagramUrl: string | null;
-    contactPhone: string | null;
-    contactEmail: string | null;
-    footerNote: string | null;
-}
+export type { OrganizationBranding };
 
 @Injectable({ providedIn: 'root' })
 export class BrandingService {

@@ -41,7 +41,7 @@ website** lets prospective clients browse services, receive personalized massage
 make hard or soft reservations, manage or cancel a booking, and leave feedback — all through open,
 unauthenticated endpoints. The **internal operations system** is a role-restricted application for
 spa staff to manage therapist decking, client and room assignment, treatment-slip generation,
-point-of-sale and cashier operations, attendance, and report generation, protected by JWT
+point-of-sale and cashier operations, and report generation, protected by JWT
 authentication and method-level authorization.
 
 As a thesis project, SumiCare targets a real operational gap: small and mid-sized spas that run on
@@ -59,14 +59,13 @@ recommendations, immutable audit logging, and remotely accessible CSV-exportable
 - Treatment-slip generation and digitization (clients identified by nickname only).
 - Point-of-sale and cashier module: cash, GCash, credit, and debit payments, refunds, receipts, discounts, vouchers, and an append-only transaction ledger.
 - Cutoff, end-of-day, monthly, commission, and decking reports, all exportable to CSV (`text/csv`).
-- Therapist attendance with day-off, absence, and remarks tracking.
-- Per-organization branding and editable public website content (CMS).
+- Per-organization branding.
 - Immutable audit logging of every authenticated state-changing action.
 
 ### Public Booking Website
 
 - Service catalogue and package browsing with per-organization branding.
-- Weighted-quiz massage recommendations (recreational only; disclaimer always shown).
+- Weighted-scoring massage recommendations (recreational only; disclaimer always shown).
 - Online booking with hard or soft reservations and automatic locker assignment.
 - Email-verified booking lookup and self-service cancellation.
 - Feedback submission and a public contact form.
@@ -93,8 +92,8 @@ The backend is a **modular monolith**: a single deployable Spring Boot applicati
 bounded-context modules, each following a `Controller -> Service -> Repository -> Domain` layering
 with no business logic in controllers or repositories and no cross-module direct database access.
 Modules include `auth`, `user`, `organization`, `booking`, `therapist`, `shift`, `room`,
-`transaction`, `pos`/`cashier`, `report`, `attendance`, `recommendation`, `client`, `notification`,
-`audit`, and `content`. Both the public booking website and the internal operations system are
+`transaction`, `pos`/`cashier`, `report`, `recommendation`, `client`, `notification`,
+and `audit`. Both the public booking website and the internal operations system are
 served by this one backend and persist to one PostgreSQL database; public endpoints are exposed
 while internal endpoints are protected.
 
@@ -223,12 +222,10 @@ sumicare/
 | `transaction` | Treatment-slip creation and digitization, session records, commissions. |
 | `pos` / `cashier` | Payment processing, receipts, transaction ledger, cashier reconciliation. |
 | `report` | Cutoff, day, monthly, commission, and decking reports with CSV export. |
-| `attendance` | Therapist attendance, day-off, absence, and remarks reporting. |
-| `recommendation` | Weighted-scoring quiz engine for massage recommendations. |
+| `recommendation` | Weighted-scoring recommendation engine for massage services. |
 | `client` | Optional, non-critical client accounts for usage patterns and vouchers. |
 | `notification` | STOMP/WebSocket broker and topic broadcasting from Redis state. |
 | `audit` | Immutable audit logs per action per user for non-repudiation. |
-| `content` | Editable public website content blocks (CMS). |
 
 ## User Roles
 

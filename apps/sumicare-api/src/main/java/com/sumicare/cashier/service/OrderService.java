@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.cashier.service;
 
 import com.sumicare.booking.domain.Booking;
@@ -20,7 +27,9 @@ import com.sumicare.cashier.dto.OrderItemResponse;
 import com.sumicare.cashier.dto.OrderResponse;
 import com.sumicare.cashier.dto.PayMongoConfirmRequest;
 import com.sumicare.cashier.dto.PayMongoInitiateResponse;
+import com.sumicare.cashier.dto.PendingPaymentResult;
 import com.sumicare.cashier.dto.RecordPaymentRequest;
+import com.sumicare.cashier.dto.RecordTipRequest;
 import com.sumicare.cashier.dto.RefundRequest;
 import com.sumicare.cashier.repository.OrderItemAttendeeRepository;
 import com.sumicare.cashier.repository.OrderItemRepository;
@@ -40,7 +49,10 @@ import com.sumicare.transaction.domain.Commission;
 import com.sumicare.transaction.domain.TreatmentSlip;
 import com.sumicare.transaction.repository.CommissionRepository;
 import com.sumicare.transaction.repository.TreatmentSlipRepository;
+import com.sumicare.transaction.service.TipService;
 import com.sumicare.transaction.service.TreatmentSlipService;
+import com.sumicare.therapist.domain.Therapist;
+import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.user.repository.UserRepository;
 import com.sumicare.voucher.service.VoucherService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -96,6 +108,8 @@ public class OrderService {
     private final IdSequenceService idSequenceService;
     private final EmailService emailService;
     private final AuditService auditService;
+    private final TipService tipService;
+    private final TherapistRepository therapistRepository;
 
     public OrderService(OrderRepository orderRepository,
                         BookingRepository bookingRepository,
@@ -117,7 +131,9 @@ public class OrderService {
                         NotificationService notificationService,
                         IdSequenceService idSequenceService,
                         EmailService emailService,
-                        AuditService auditService) {
+                        AuditService auditService,
+                        TipService tipService,
+                        TherapistRepository therapistRepository) {
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.sessionRepository = sessionRepository;
@@ -139,6 +155,8 @@ public class OrderService {
         this.idSequenceService = idSequenceService;
         this.emailService = emailService;
         this.auditService = auditService;
+        this.tipService = tipService;
+        this.therapistRepository = therapistRepository;
     }
 
     @Transactional
@@ -311,10 +329,14 @@ public class OrderService {
                 null,
                 null,
                 request.notes(),
-                request.preferredTherapist()
+                request.preferredTherapist(),
+                true,
+                request.roomId()
         );
         var bookingResponse = bookingService.createBooking(organizationId, bookingRequest);
         Booking booking = bookingRepository.findById(bookingResponse.id()).orElseThrow();
+        // Persist the guest count on the booking; the frontend relies on pax > 1 to expose
+        // the per-guest expander for group, couple, and VIP bookings.
         booking.setPax(request.pax() == null ? Math.max(1, totalAttendees) : request.pax());
         bookingRepository.save(booking);
 
@@ -333,6 +355,7 @@ public class OrderService {
         order.setReferenceNumber(request.referenceNumber());
         order.setNotes(request.notes());
         order.setPreferredTherapist(normalizePreferredTherapist(request.preferredTherapist()));
+        order.setReservationType(booking.getReservationType());
         order.setSubtotal(subtotalFromRequest);
         order.setDiscount(discount);
         order.setTax(tax);
@@ -398,6 +421,7 @@ public class OrderService {
                     att.setPosition(ar.position() != null ? ar.position() : attPos.getAndIncrement());
                     att.setDiscount(ar.discount() != null ? ar.discount() : BigDecimal.ZERO);
                     att.setProvidedTsn(ar.providedTsn());
+                    att.setPreferredTherapist(normalizePreferredTherapist(ar.preferredTherapist()));
                     attendeeRepository.save(att);
                 }
             }
@@ -720,6 +744,75 @@ public class OrderService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     @Transactional
+    public OrderResponse recordTip(UUID organizationId, UUID orderId, UUID actorUserId, RecordTipRequest request) {
+        Order order = requireOrder(organizationId, orderId);
+        UUID sessionId = sessionIdForTherapistOnOrder(order, request.therapistId());
+        tipService.recordTip(organizationId, request.therapistId(), order.getId(), sessionId,
+                request.amount(), TipService.SOURCE_CASHIER, actorUserId);
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        return toResponse(order, booking);
+    }
+
+    private UUID sessionIdForTherapistOnOrder(Order order, UUID therapistId) {
+        for (OrderItemAttendee attendee : attendeeRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+            if (attendee.getSessionId() == null) continue;
+            Session session = sessionRepository.findById(attendee.getSessionId()).orElse(null);
+            if (session == null) continue;
+            if (therapistId.equals(session.getPrimaryTherapistId())
+                    || therapistId.equals(session.getSecondaryTherapistId())) {
+                return session.getId();
+            }
+        }
+        return null;
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public List<Map<String, String>> servedTherapists(UUID organizationId, UUID orderId) {
+        Order order = requireOrder(organizationId, orderId);
+        Map<UUID, String> seen = new java.util.LinkedHashMap<>();
+        for (OrderItemAttendee attendee : attendeeRepository.findAllByOrderIdOrderByPosition(order.getId())) {
+            if (attendee.getSessionId() == null) continue;
+            Session session = sessionRepository.findById(attendee.getSessionId()).orElse(null);
+            if (session == null) continue;
+            if (session.getPrimaryTherapistId() != null) {
+                seen.putIfAbsent(session.getPrimaryTherapistId(), null);
+            }
+            if (session.getSecondaryTherapistId() != null) {
+                seen.putIfAbsent(session.getSecondaryTherapistId(), null);
+            }
+        }
+        List<Map<String, String>> result = new ArrayList<>();
+        for (UUID id : seen.keySet()) {
+            String nickname = therapistRepository.findById(id)
+                    .map(Therapist::getNickname).orElse("Therapist");
+            result.add(Map.of("id", id.toString(), "nickname", nickname));
+        }
+        return result;
+    }
+
+    @Transactional
+    public PendingPaymentResult createCashierFromPending(UUID organizationId, UUID cashierUserId,
+            CreateOrderRequest request, String intentId, String paymentMethod, BigDecimal amount) {
+        OrderResponse created = create(organizationId, cashierUserId, request);
+        Order order = requireOrder(organizationId, created.id());
+        if (order.getOrNumber() == null || order.getOrNumber().isBlank()) {
+            order.setOrNumber(nextOrNumber());
+            orderRepository.save(order);
+        }
+        settleGatewayPayment(order, cashierUserId, intentId, paymentMethod, amount);
+        Booking booking = order.getBookingId() == null ? null
+                : bookingRepository.findById(order.getBookingId()).orElse(null);
+        String reference = booking != null ? booking.getReference() : order.getReferenceNumber();
+        String nickname = booking != null ? booking.getClientNickname() : order.getTransactorName();
+        String scheduledAt = booking != null && booking.getScheduledAt() != null
+                ? booking.getScheduledAt().toString() : null;
+        return new PendingPaymentResult("succeeded", null, intentId, null, order.getId().toString(),
+                order.getOrNumber(), reference, nickname, scheduledAt, order.getReservationType());
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    @Transactional
     public PayMongoInitiateResponse initiatePayMongo(
             UUID organizationId, UUID orderId, UUID actorUserId, RecordPaymentRequest request) {
         Order order = requireOrder(organizationId, orderId);
@@ -796,6 +889,8 @@ public class OrderService {
     @Transactional
     public boolean settleGatewayPayment(Order order, UUID actorUserId, String intentId,
                                         String paymentMethod, BigDecimal amount) {
+        // Idempotent against duplicate webhook deliveries and confirm calls: an order that
+        // is already settled, cancelled, or fully paid yields no further payment.
         if ("PAID".equals(order.getStatus()) || "CANCELLED".equals(order.getStatus())) {
             return false;
         }
@@ -1656,11 +1751,16 @@ public class OrderService {
                 Session sess = a.getSessionId() == null ? null : sessionsById.get(a.getSessionId());
                 String sessionStatus = sess == null ? null : sess.getStatus();
                 boolean sessionExtended = sess != null && sess.isExtension();
+                UUID primaryTherapistId = sess == null ? null : sess.getPrimaryTherapistId();
+                String therapistNickname = primaryTherapistId == null ? null
+                        : therapistRepository.findById(primaryTherapistId)
+                            .map(Therapist::getNickname).orElse(null);
                 attRes.add(new OrderItemAttendeeResponse(
                         a.getId(), a.getServiceId(), sName, a.getPackageTierId(),
                         a.getLockerNumber(), a.getClientGender(),
                         a.getSessionId(), sessionStatus, sessionExtended, a.getTreatmentSlipId(), a.getPosition(),
-                        a.getDiscount(), a.getProvidedTsn()
+                        a.getDiscount(), a.getProvidedTsn(), a.getPreferredTherapist(),
+                        primaryTherapistId, therapistNickname
                 ));
             }
             itemResponses.add(new OrderItemResponse(

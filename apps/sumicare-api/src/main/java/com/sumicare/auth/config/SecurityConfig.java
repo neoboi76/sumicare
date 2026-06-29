@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.auth.config;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter;
@@ -48,8 +55,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/mfa/verify", "/api/auth/mfa/resend", "/api/auth/refresh", "/api/auth/logout", "/api/auth/verify", "/api/auth/reset-password", "/api/auth/contact-admin-reset", "/api/auth/invitations/redeem").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/webhooks/**").permitAll()
-                        .requestMatchers("/api/content/upload").authenticated()
-                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .anyRequest().authenticated()
@@ -65,6 +70,8 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
+        // BCrypt work factor (12 by default) is a deliberate cost/security trade-off:
+        // each step up doubles hashing time, slowing brute-force without harming login UX.
         return new BCryptPasswordEncoder(appProperties.bcrypt().cost());
     }
 

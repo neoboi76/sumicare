@@ -1,0 +1,146 @@
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
+<div class="min-h-screen bg-stone-50 py-12 px-5">
+  <div class="max-w-2xl mx-auto">
+    @if (loading()) {
+      <p class="text-stone-500">Loading your survey...</p>
+    } @else if (submitted()) {
+      <div class="text-center py-16 bg-white rounded-xl shadow-sm">
+        <p class="text-xs uppercase tracking-widest text-stone-400 font-semibold">Salamat po</p>
+        <h1 class="mt-3 text-3xl font-bold text-stone-800">Thank you</h1>
+        <p class="text-stone-500 mt-2">Your feedback has been recorded. We are grateful you took the time.</p>
+        <a href="/" class="inline-block mt-6 text-sm text-teal-700 underline-offset-2 hover:underline">Return to the website</a>
+      </div>
+    } @else if (detail(); as d) {
+      <header class="mb-8">
+        <p class="text-xs uppercase tracking-widest text-stone-400 font-semibold">Client Satisfaction Survey</p>
+        <h1 class="mt-2 text-4xl font-bold text-stone-800">How was your visit?</h1>
+        <p class="text-stone-500 mt-2 text-sm">
+          @if (d.orderReference) { Reference {{ d.orderReference }} &middot; }
+          Rate each part of your experience to help us serve you better.
+        </p>
+      </header>
+
+      @if (error(); as e) { <p class="mb-4 text-sm text-red-600">{{ e }}</p> }
+
+      <section class="bg-white rounded-xl shadow-sm p-6 mb-5 border border-stone-100">
+        <h2 class="text-xl font-bold text-stone-800 mb-1">Overall Lasema experience</h2>
+        <p class="text-xs text-stone-400 mb-5">Rate from 1 (poor) to 5 (excellent).</p>
+
+        <div class="flex items-center justify-between py-3 border-b border-stone-100">
+          <span class="text-sm font-semibold text-stone-700">Overall satisfaction</span>
+          <div class="flex gap-2">
+            @for (n of stars; track n) {
+              <button type="button" (click)="setLasemaOverall(n)"
+                [class]="'w-9 h-9 rounded-full border-2 text-sm font-medium transition-colors ' +
+                  (lasemaOverall() >= n
+                    ? 'bg-rose-600 text-white border-rose-600'
+                    : 'bg-white text-stone-600 border-stone-300 hover:border-rose-400 hover:text-rose-600')">{{ n }}</button>
+            }
+          </div>
+        </div>
+
+        @for (c of lasemaCriteria; track c.key) {
+          <div class="flex items-center justify-between py-3 border-b border-stone-100">
+            <span class="text-sm text-stone-700">{{ c.label }}</span>
+            <div class="flex gap-2">
+              @for (n of stars; track n) {
+                <button type="button" (click)="setLasemaScore(c.key, n)"
+                  [class]="'w-9 h-9 rounded-full border-2 text-sm font-medium transition-colors ' +
+                    ((lasemaScores[c.key] || 0) >= n
+                      ? 'bg-teal-700 text-white border-teal-700'
+                      : 'bg-white text-stone-600 border-stone-300 hover:border-teal-500 hover:text-teal-700')">{{ n }}</button>
+              }
+            </div>
+          </div>
+        }
+
+        <textarea [(ngModel)]="lasemaComment" name="lasemaComment" rows="2" maxlength="2000"
+          placeholder="What stood out, and what could we improve? (optional)"
+          class="mt-4 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm text-stone-800 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent"></textarea>
+      </section>
+
+      @for (t of d.therapists; track t.therapistId) {
+        <section class="bg-white rounded-xl shadow-sm p-6 mb-5 border border-stone-100">
+          <h2 class="text-xl font-bold text-stone-800 mb-1">Therapist: {{ t.nickname }}</h2>
+          <p class="text-xs text-stone-400 mb-5">Evaluate the service rendered by this therapist.</p>
+
+          <div class="flex items-center justify-between py-3 border-b border-stone-100">
+            <span class="text-sm font-semibold text-stone-700">Overall satisfaction</span>
+            <div class="flex gap-2">
+              @for (n of stars; track n) {
+                <button type="button" (click)="setTherapistOverall(t.therapistId, n)"
+                  [class]="'w-9 h-9 rounded-full border-2 text-sm font-medium transition-colors ' +
+                    ((therapistOverall[t.therapistId] || 0) >= n
+                      ? 'bg-rose-600 text-white border-rose-600'
+                      : 'bg-white text-stone-600 border-stone-300 hover:border-rose-400 hover:text-rose-600')">{{ n }}</button>
+              }
+            </div>
+          </div>
+
+          @for (c of therapistCriteria; track c.key) {
+            <div class="flex items-center justify-between py-3 border-b border-stone-100">
+              <span class="text-sm text-stone-700">{{ c.label }}</span>
+              <div class="flex gap-2">
+                @for (n of stars; track n) {
+                  <button type="button" (click)="setTherapistScore(t.therapistId, c.key, n)"
+                    [class]="'w-9 h-9 rounded-full border-2 text-sm font-medium transition-colors ' +
+                      ((therapistScores[t.therapistId][c.key] || 0) >= n
+                        ? 'bg-teal-700 text-white border-teal-700'
+                        : 'bg-white text-stone-600 border-stone-300 hover:border-teal-500 hover:text-teal-700')">{{ n }}</button>
+                }
+              </div>
+            </div>
+          }
+
+          <textarea [(ngModel)]="therapistComments[t.therapistId]" [name]="'tc_' + t.therapistId" rows="2" maxlength="2000"
+            placeholder="Comments about this therapist (optional)"
+            class="mt-4 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm text-stone-800 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent"></textarea>
+
+          <label class="mt-4 flex items-center justify-between text-sm text-stone-700">
+            <span>Tip for {{ t.nickname }} (PHP, optional)</span>
+            <input type="number" min="0" step="1" [(ngModel)]="tipAmounts[t.therapistId]" [name]="'tip_' + t.therapistId"
+              placeholder="0.00"
+              class="w-28 border border-stone-300 rounded-lg px-3 py-1.5 text-right text-stone-800 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent" />
+          </label>
+        </section>
+      }
+
+      <section class="bg-white rounded-xl shadow-sm p-6 mb-5 border border-stone-100">
+        <h2 class="text-xl font-bold text-stone-800 mb-1">Recommend us</h2>
+        <p class="text-sm text-stone-500 mb-4">How likely are you to recommend New Lasema Spa Jjimjilbang to your friends, colleagues, or family? <span class="text-stone-400">(Optional)</span></p>
+        <div class="flex flex-wrap gap-2 justify-center mb-2">
+          @for (n of [0,1,2,3,4,5,6,7,8,9,10]; track n) {
+            <button type="button" (click)="setNpsScore(n)"
+              [class]="'w-10 h-10 rounded-full border-2 text-sm font-semibold transition-colors ' +
+                (npsScore() === n
+                  ? 'bg-teal-700 text-white border-teal-700'
+                  : 'bg-white text-stone-600 border-stone-300 hover:border-teal-500 hover:text-teal-700')">
+              {{ n }}
+            </button>
+          }
+        </div>
+        <div class="flex justify-between text-xs text-stone-400 px-1">
+          <span>Not at all likely</span>
+          <span>Extremely likely</span>
+        </div>
+      </section>
+
+      <button type="button" (click)="submit()"
+        class="w-full py-3 bg-rose-600 text-white rounded-lg font-semibold hover:bg-rose-700 transition-colors">
+        Submit survey
+      </button>
+    } @else {
+      <div class="text-center py-16 bg-white rounded-xl shadow-sm">
+        <h1 class="text-2xl font-bold text-stone-800">Survey unavailable</h1>
+        <p class="text-stone-500 mt-2">{{ error() || 'This survey link is not valid.' }}</p>
+        <a href="/" class="inline-block mt-6 text-sm text-teal-700 underline-offset-2 hover:underline">Return to the website</a>
+      </div>
+    }
+  </div>
+</div>

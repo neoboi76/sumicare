@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.booking.repository;
 
 import com.sumicare.booking.domain.Session;
@@ -39,4 +46,6 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
 
     long countByOrganizationIdAndStatusAndEndedAtBetween(
             UUID organizationId, String status, OffsetDateTime from, OffsetDateTime to);
+
+    List<Session> findAllByBookingIdIn(Collection<UUID> bookingIds);
 }

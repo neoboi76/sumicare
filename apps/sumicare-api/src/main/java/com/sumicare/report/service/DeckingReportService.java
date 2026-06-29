@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.report.service;
 
 import com.sumicare.booking.domain.Session;
@@ -11,10 +18,11 @@ import com.sumicare.therapist.domain.Therapist;
 import com.sumicare.therapist.repository.TherapistRepository;
 import com.sumicare.transaction.domain.Commission;
 import com.sumicare.transaction.repository.CommissionRepository;
+import com.sumicare.organization.repository.OrganizationRepository;
+import com.sumicare.user.repository.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -36,19 +44,28 @@ public class DeckingReportService {
     private final ShiftRepository shiftRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
     private final ServiceRepository serviceRepository;
+    private final ExcelExportService excelExportService;
+    private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
 
     public DeckingReportService(CommissionRepository commissionRepository,
                                 SessionRepository sessionRepository,
                                 TherapistRepository therapistRepository,
                                 ShiftRepository shiftRepository,
                                 ShiftAssignmentRepository shiftAssignmentRepository,
-                                ServiceRepository serviceRepository) {
+                                ServiceRepository serviceRepository,
+                                ExcelExportService excelExportService,
+                                OrganizationRepository organizationRepository,
+                                UserRepository userRepository) {
         this.commissionRepository = commissionRepository;
         this.sessionRepository = sessionRepository;
         this.therapistRepository = therapistRepository;
         this.shiftRepository = shiftRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
         this.serviceRepository = serviceRepository;
+        this.excelExportService = excelExportService;
+        this.organizationRepository = organizationRepository;
+        this.userRepository = userRepository;
     }
 
     public record DeckingGlyph(String symbol, String serviceType) {}
@@ -97,6 +114,8 @@ public class DeckingReportService {
             BigDecimal total = BigDecimal.ZERO;
             int requested = 0;
 
+            // One glyph per non-extension commission, mirroring the paper tick-tack sheet:
+            // heart = specifically requested, star = scrub service, bar = ordinary turn.
             for (Commission c : tComms) {
                 if (c.isExtension()) continue;
                 boolean isRequested = c.isSpecificallyRequested();
@@ -116,6 +135,8 @@ public class DeckingReportService {
                 total = total.add(c.getAmount());
             }
 
+            // Extensions earn commission but are not a separate turn, so add their amount
+            // to the total without drawing a glyph for them.
             for (Commission c : tComms) {
                 if (c.isExtension()) {
                     total = total.add(c.getAmount());
@@ -143,22 +164,33 @@ public class DeckingReportService {
         return new DeckingDailyReport(date, shiftGroups);
     }
 
-    public byte[] dailyCsv(UUID organizationId, LocalDate date) {
+    public byte[] dailyXlsx(UUID organizationId, UUID preparedByUserId, LocalDate date) {
         DeckingDailyReport report = daily(organizationId, date);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Shift,Name,Tick Tack,Total Commission,Requested Count\n");
+        String preparedBy = preparedByUserId == null ? "Staff"
+                : userRepository.findById(preparedByUserId)
+                    .map(u -> u.getDisplayName() == null ? u.getUsername() : u.getDisplayName())
+                    .orElse("Staff");
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Decking Report",
+                "Decking Report " + date,
+                date.toString(), preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, List.of("Shift", "Name", "Tick Tack", "Total Commission", "Requested Count"));
         for (ShiftGroup group : report.shiftGroups()) {
             for (TherapistDeckingRow row : group.rows()) {
-                sb.append(csvCell(group.shiftLabel())).append(',');
-                sb.append(csvCell(row.nickname())).append(',');
                 StringBuilder glyphStr = new StringBuilder();
                 for (DeckingGlyph g : row.glyphs()) glyphStr.append(g.symbol());
-                sb.append(csvCell(glyphStr.toString())).append(',');
-                sb.append(row.totalCommission().toPlainString()).append(',');
-                sb.append(row.requestedCount()).append('\n');
+                excelExportService.writeDataRow(ctx, List.of(
+                        group.shiftLabel() != null ? group.shiftLabel() : "",
+                        row.nickname() != null ? row.nickname() : "",
+                        glyphStr.toString(),
+                        row.totalCommission() != null ? row.totalCommission() : BigDecimal.ZERO,
+                        row.requestedCount()));
             }
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        excelExportService.writeFooter(ctx, 5);
+        excelExportService.autoSizeColumns(ctx, 5);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
     private boolean isScrub(Long serviceId, Map<Long, Boolean> cache) {
@@ -172,13 +204,5 @@ public class DeckingReportService {
         if (serviceName == null) return false;
         String lower = serviceName.toLowerCase();
         return lower.contains("scrub") || lower.contains("salt") || lower.contains("milk bath") || lower.contains("dae mi di");
-    }
-
-    private String csvCell(String v) {
-        if (v == null || v.isBlank()) return "";
-        if (v.contains(",") || v.contains("\"") || v.contains("\n")) {
-            return "\"" + v.replace("\"", "\"\"") + "\"";
-        }
-        return v;
     }
 }

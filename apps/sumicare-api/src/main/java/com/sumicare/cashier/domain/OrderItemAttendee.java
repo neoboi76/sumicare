@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.cashier.domain;
 
 import jakarta.persistence.*;
@@ -50,6 +57,9 @@ public class OrderItemAttendee {
     @Column(name = "provided_tsn", length = 64)
     private String providedTsn;
 
+    @Column(name = "preferred_therapist", length = 120)
+    private String preferredTherapist;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -79,6 +89,8 @@ public class OrderItemAttendee {
     public void setDiscount(java.math.BigDecimal discount) { this.discount = discount == null ? java.math.BigDecimal.ZERO : discount; }
     public String getProvidedTsn() { return providedTsn; }
     public void setProvidedTsn(String providedTsn) { this.providedTsn = providedTsn; }
+    public String getPreferredTherapist() { return preferredTherapist; }
+    public void setPreferredTherapist(String preferredTherapist) { this.preferredTherapist = preferredTherapist; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

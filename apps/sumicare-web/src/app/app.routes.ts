@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { Routes } from '@angular/router';
 import { authGuard, roleGuard } from './core/auth/auth.guard';
 
@@ -20,12 +27,17 @@ export const APP_ROUTES: Routes = [
       { path: 'feedback', loadComponent: () => import('./features/public/feedback.component').then(m => m.FeedbackComponent) },
       { path: 'contact', loadComponent: () => import('./features/public/contact.component').then(m => m.ContactComponent) },
       { path: 'cancel', loadComponent: () => import('./features/public/cancel.component').then(m => m.CancelComponent) },
-      { path: 'terms', loadComponent: () => import('./features/public/terms.component').then(m => m.TermsComponent) }
+      { path: 'terms', loadComponent: () => import('./features/public/terms.component').then(m => m.TermsComponent) },
+      { path: 'terms-and-conditions', loadComponent: () => import('./features/public/terms-conditions.component').then(m => m.TermsConditionsComponent) }
     ]
   },
   {
     path: 'pay/authorize',
     loadComponent: () => import('./features/public/paymongo-authorize.component').then(m => m.PaymongoAuthorizeComponent)
+  },
+  {
+    path: 'survey',
+    loadComponent: () => import('./features/public/survey.component').then(m => m.SurveyComponent)
   },
   {
     path: 'sumicare',
@@ -53,15 +65,13 @@ export const APP_ROUTES: Routes = [
           { path: 'registered-clients', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/registered-clients/registered-clients.component').then(m => m.RegisteredClientsComponent) },
           { path: 'treatment-slips', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slips.component').then(m => m.TreatmentSlipsComponent) },
           { path: 'treatment-slips/:id', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/treatment-slips/treatment-slip-detail.component').then(m => m.TreatmentSlipDetailComponent) },
+          { path: 'records', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/records/records.component').then(m => m.RecordsComponent) },
           { path: 'reports', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/reports/reports.component').then(m => m.ReportsComponent) },
-          { path: 'attendance', canActivate: [roleGuard(STAFF_ROLES)], loadComponent: () => import('./features/internal/attendance/attendance.component').then(m => m.AttendanceComponent) },
           { path: 'ledger', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/ledger/ledger.component').then(m => m.LedgerComponent) },
-          { path: 'analytics', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/analytics/analytics.component').then(m => m.AnalyticsComponent) },
           { path: 'settings', loadComponent: () => import('./features/internal/settings/settings.component').then(m => m.SettingsComponent) },
           { path: 'users', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/users.component').then(m => m.UsersComponent) },
           { path: 'audit', canActivate: [roleGuard(ADMIN_PLUS)], loadComponent: () => import('./features/internal/admin/audit.component').then(m => m.AuditComponent) },
           { path: 'branding', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/branding.component').then(m => m.BrandingComponent) },
-          { path: 'content', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/content/content.component').then(m => m.ContentComponent) },
           { path: 'admin/therapists', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/therapists.component').then(m => m.TherapistsAdminComponent) },
           { path: 'admin/shifts', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/shifts.component').then(m => m.ShiftsAdminComponent) },
           { path: 'admin/rooms', canActivate: [roleGuard(MANAGER_PLUS)], loadComponent: () => import('./features/internal/admin/rooms.component').then(m => m.RoomsAdminComponent) },

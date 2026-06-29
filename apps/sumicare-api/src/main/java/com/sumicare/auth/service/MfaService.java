@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.auth.service;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -37,6 +44,8 @@ public class MfaService {
         if (userId == null) {
             throw new BadCredentialsException("Your verification session expired. Please sign in again.");
         }
+        // The resend counter keeps its original TTL (it is not refreshed below), so the cap
+        // limits total resends over the challenge's lifetime, not per rolling window.
         Long resends = redis.opsForValue().increment(resendsKey(challengeId));
         if (resends == null || resends > MAX_RESENDS) {
             clear(challengeId);
@@ -53,6 +62,8 @@ public class MfaService {
         if (userId == null) {
             throw new BadCredentialsException("Your verification code expired. Please sign in again.");
         }
+        // Count the attempt before checking the code so a wrong guess still consumes budget;
+        // exceeding the cap clears the whole challenge, forcing a fresh sign-in rather than a retry.
         Long attempts = redis.opsForValue().increment(attemptsKey(challengeId));
         if (attempts == null || attempts > MAX_ATTEMPTS) {
             clear(challengeId);

@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.auth.service;
 
 import com.sumicare.common.config.AppProperties;
@@ -67,6 +74,9 @@ public class JwtService {
         redis.opsForValue().set(revokedKey(jti), "1", ttl);
     }
 
+    // Per-jti revocation only kills one known token. This per-user watermark invalidates
+    // every token issued before "now" in a single write, covering events like a password
+    // reset where the individual jti values are not on hand.
     public void revokeAllForUser(UUID userId) {
         Duration ttl = Duration.ofMillis(appProperties.jwt().refreshExpiryMs());
         redis.opsForValue().set("user:" + userId + ":tokens-since",
@@ -77,6 +87,7 @@ public class JwtService {
         String value = redis.opsForValue().get("user:" + userId + ":tokens-since");
         if (value == null) return false;
         try {
+            // Token claims carry seconds; the watermark is stored in millis, hence the *1000.
             return issuedAtEpochSecond * 1000L < Long.parseLong(value);
         } catch (NumberFormatException e) {
             return false;

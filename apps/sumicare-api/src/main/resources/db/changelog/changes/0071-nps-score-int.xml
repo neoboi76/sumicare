@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0071-1-nps-score-int" author="sumicare">
+        <modifyDataType tableName="feedback" columnName="nps_score" newDataType="INTEGER"/>
+    </changeSet>
+
+</databaseChangeLog>

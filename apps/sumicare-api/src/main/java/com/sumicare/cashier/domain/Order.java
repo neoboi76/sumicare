@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.cashier.domain;
 
 import jakarta.persistence.*;
@@ -56,6 +63,9 @@ public class Order {
 
     @Column(name = "preferred_therapist", length = 120)
     private String preferredTherapist;
+
+    @Column(name = "reservation_type", length = 16)
+    private String reservationType;
 
     @Column(name = "subtotal", nullable = false)
     private BigDecimal subtotal = BigDecimal.ZERO;
@@ -125,6 +135,8 @@ public class Order {
     public void setNotes(String notes) { this.notes = notes; }
     public String getPreferredTherapist() { return preferredTherapist; }
     public void setPreferredTherapist(String preferredTherapist) { this.preferredTherapist = preferredTherapist; }
+    public String getReservationType() { return reservationType; }
+    public void setReservationType(String reservationType) { this.reservationType = reservationType; }
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
     public BigDecimal getDiscount() { return discount; }

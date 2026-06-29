@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.booking.dto;
 
 import com.sumicare.cashier.dto.PaymentDetailsRequest;
@@ -29,5 +36,7 @@ public record CreateBookingRequest(
         List<CreateBookingItemRequest> items,
         String voucherCode,
         @Size(max = 1000) String remarks,
-        @Size(max = 120) String preferredTherapist
+        @Size(max = 120) String preferredTherapist,
+        Boolean termsAccepted,
+        UUID preferredRoomId
 ) {}

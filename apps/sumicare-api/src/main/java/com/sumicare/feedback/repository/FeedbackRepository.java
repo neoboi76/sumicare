@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 package com.sumicare.feedback.repository;
 
 import com.sumicare.feedback.domain.Feedback;
@@ -18,6 +25,16 @@ public interface FeedbackRepository extends JpaRepository<Feedback, UUID> {
     List<Feedback> findAllByOrganizationIdAndSubmittedAtBetweenOrderBySubmittedAtAsc(UUID organizationId, OffsetDateTime from, OffsetDateTime to);
 
     long countByOrganizationIdAndReadAtIsNull(UUID organizationId);
+
+    List<Feedback> findAllByOrganizationIdAndSubmittedAtBetweenOrderByOrderIdAscSubmittedAtAsc(
+            UUID organizationId, OffsetDateTime from, OffsetDateTime to);
+
+    List<Feedback> findAllByOrganizationIdAndFeedbackTypeAndTherapistIdAndSubmittedAtBetween(
+            UUID organizationId, String feedbackType, UUID therapistId,
+            OffsetDateTime from, OffsetDateTime to);
+
+    List<Feedback> findAllByOrganizationIdAndFeedbackTypeAndSubmittedAtBetween(
+            UUID organizationId, String feedbackType, OffsetDateTime from, OffsetDateTime to);
 
     @Modifying
     @Query("update Feedback f set f.readAt = :readAt, f.readByUserId = :userId "

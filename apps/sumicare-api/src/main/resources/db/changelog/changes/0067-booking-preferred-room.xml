@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="0067-1-booking-preferred-room" author="sumicare">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="bookings" columnName="preferred_room_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="bookings">
+            <column name="preferred_room_id" type="uuid"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

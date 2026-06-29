@@ -1,3 +1,10 @@
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
 <div>
   <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3">
     <div>
@@ -31,7 +38,9 @@
             <td class="p-3">{{ c.email || '-' }}</td>
             <td class="p-3">{{ genderLabel(c.gender) }}</td>
             <td class="p-3">{{ c.nationality || '-' }}</td>
-            <td class="p-3 text-right">
+            <td class="p-3 text-right space-x-3">
+              <button (click)="openDetails(c)" class="text-sm text-[var(--sumi-primary)] hover:underline">Details</button>
+              <button (click)="openEdit(c)" class="text-sm text-slate-600 hover:underline">Edit</button>
               <button (click)="remove(c)" class="text-sm text-rose-600 hover:underline">Delete</button>
             </td>
           </tr>
@@ -92,6 +101,103 @@
           {{ saving() ? 'Adding...' : 'Add client' }}
         </button>
       </div>
+    </div>
+  </div>
+  }
+
+  @if (editClient(); as ec) {
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" (click)="closeEdit()">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5 anim-pop" (click)="$event.stopPropagation()">
+      <h3 class="text-lg font-semibold mb-3">Edit client</h3>
+      @if (editError(); as e) {
+        <p class="text-sm text-rose-600 mb-2">{{ e }}</p>
+      }
+      <div class="space-y-3 text-sm">
+        <label class="block">
+          Nickname <span class="text-rose-500">*</span>
+          <input [(ngModel)]="editForm.nickname" name="editNickname" maxlength="64"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+        <label class="block">
+          Email
+          <input [value]="ec.email || ''" name="editEmail" type="email" disabled
+            class="mt-1 w-full border border-slate-200 bg-slate-100 text-slate-500 rounded px-2 py-1.5" />
+          <span class="text-xs text-slate-400">Email is the client identifier and cannot be changed.</span>
+        </label>
+        <label class="block">
+          Sex
+          <select [(ngModel)]="editForm.gender" name="editGender"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5">
+            <option value="F">Female</option>
+            <option value="M">Male</option>
+          </select>
+        </label>
+        <label class="block">
+          Nationality
+          <input [(ngModel)]="editForm.nationality" name="editNationality" maxlength="64"
+            class="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button (click)="closeEdit()" class="px-3 py-1.5 text-sm text-slate-600">Cancel</button>
+        <button (click)="submitEdit()" class="px-3 py-1.5 text-sm bg-[var(--sumi-primary)] text-white rounded">Save</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  @if (detailClient(); as dc) {
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" (click)="closeDetails()">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-5 anim-pop max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+      <div class="flex items-baseline justify-between mb-3">
+        <h3 class="text-lg font-semibold">{{ dc.nickname }}</h3>
+        <button (click)="closeDetails()" class="text-sm text-slate-500">Close</button>
+      </div>
+      @if (usageLoading()) {
+        <p class="text-sm text-slate-500">Loading usage...</p>
+      } @else if (usage(); as u) {
+        <div class="grid grid-cols-2 gap-3 text-sm mb-4">
+          <div class="rounded bg-slate-50 p-3">
+            <div class="text-xs text-slate-500">Total bookings</div>
+            <div class="text-lg font-semibold">{{ u.bookingCount }}</div>
+          </div>
+          <div class="rounded bg-slate-50 p-3">
+            <div class="text-xs text-slate-500">Total spending</div>
+            <div class="text-lg font-semibold">&#8369; {{ u.totalSpending | number:'1.2-2' }}</div>
+          </div>
+        </div>
+        <div class="space-y-4 text-sm">
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Most availed services</h4>
+            @for (s of u.topServices; track s.label) {
+              <div class="flex justify-between border-b border-slate-100 py-1"><span>{{ s.label }}</span><span class="text-slate-500">{{ s.count }}</span></div>
+            } @empty { <p class="text-slate-400">No history yet.</p> }
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Most availed packages</h4>
+            @for (p of u.topPackages; track p.label) {
+              <div class="flex justify-between border-b border-slate-100 py-1"><span>{{ p.label }}</span><span class="text-slate-500">{{ p.count }}</span></div>
+            } @empty { <p class="text-slate-400">No history yet.</p> }
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Most requested therapists</h4>
+            @for (t of u.topTherapists; track t.label) {
+              <div class="flex justify-between border-b border-slate-100 py-1"><span>{{ t.label }}</span><span class="text-slate-500">{{ t.count }}</span></div>
+            } @empty { <p class="text-slate-400">No requests yet.</p> }
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Voucher eligibility</h4>
+            @for (v of u.vouchers; track v.code) {
+              <div class="flex justify-between border-b border-slate-100 py-1">
+                <span>{{ v.name || v.code }}</span>
+                <span [class]="v.eligible ? 'text-emerald-600' : 'text-slate-400'">{{ v.eligible ? 'Eligible' : 'Used' }}</span>
+              </div>
+            } @empty { <p class="text-slate-400">No active vouchers.</p> }
+          </div>
+        </div>
+      } @else {
+        <p class="text-sm text-rose-600">Could not load usage data.</p>
+      }
     </div>
   </div>
   }

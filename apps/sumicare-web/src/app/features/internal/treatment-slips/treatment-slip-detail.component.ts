@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -56,9 +63,16 @@ export class TreatmentSlipDetailComponent implements OnInit {
   slip = signal<TreatmentSlip | null>(null);
   editing = signal(false);
   saveError = signal<string | null>(null);
+  therapists = signal<{ id: string; nickname: string }[]>([]);
+  services = signal<{ id: number; name: string }[]>([]);
 
   edit = {
     tsn: '',
+    clientNickname: '',
+    serviceName: '',
+    primaryTherapistNickname: '',
+    secondaryTherapistNickname: '',
+    requestedTherapistNickname: '',
     lockerNumber: '',
     roomNumber: '',
     othersAddOn: '',
@@ -77,6 +91,16 @@ export class TreatmentSlipDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) return;
     this.load(id);
+    this.loadOptions();
+  }
+
+  private loadOptions(): void {
+    this.http.get<{ id: string; nickname: string }[]>(`${environment.apiBaseUrl}/api/therapists`).subscribe({
+      next: (t) => this.therapists.set(t)
+    });
+    this.http.get<{ id: number; name: string }[]>(`${environment.apiBaseUrl}/api/services`).subscribe({
+      next: (s) => this.services.set(s)
+    });
   }
 
   private load(id: string): void {
@@ -85,6 +109,11 @@ export class TreatmentSlipDetailComponent implements OnInit {
         this.slip.set(s);
         this.edit = {
           tsn: s.tsn || '',
+          clientNickname: s.clientNickname || '',
+          serviceName: s.serviceName || '',
+          primaryTherapistNickname: s.primaryTherapistNickname || '',
+          secondaryTherapistNickname: s.secondaryTherapistNickname || '',
+          requestedTherapistNickname: s.requestedTherapistNickname || '',
           lockerNumber: s.lockerNumber || '',
           roomNumber: s.roomNumber || '',
           othersAddOn: s.othersAddOn || '',
@@ -117,6 +146,11 @@ export class TreatmentSlipDetailComponent implements OnInit {
     if (!s) return;
     this.http.patch<TreatmentSlip>(`${environment.apiBaseUrl}/api/treatment-slips/${s.id}`, {
       tsn: this.edit.tsn || null,
+      clientNickname: this.edit.clientNickname || null,
+      serviceName: this.edit.serviceName || null,
+      primaryTherapistNickname: this.edit.primaryTherapistNickname || null,
+      secondaryTherapistNickname: this.edit.secondaryTherapistNickname || null,
+      requestedTherapistNickname: this.edit.requestedTherapistNickname || null,
       lockerNumber: this.edit.lockerNumber || null,
       roomNumber: this.edit.roomNumber || null,
       othersAddOn: this.edit.othersAddOn || null,

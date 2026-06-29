@@ -1,3 +1,10 @@
+<!--
+  Developed by the following authors:
+      Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+      Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+      Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+-->
+
 <div>
   <header class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3">
     <div>
@@ -11,13 +18,67 @@
         class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-64" />
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate"
         class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
-      <button (click)="exportCsv()"
+      <button (click)="exportXlsx()"
         class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">Export
-        CSV</button>
+        Excel</button>
+      <div class="inline-flex rounded border border-slate-300 overflow-hidden text-sm">
+        <button (click)="setView('list')"
+          [class]="viewMode() === 'list' ? 'bg-[var(--sumi-primary)] text-white px-3 py-1.5' : 'px-3 py-1.5 text-slate-600'">List</button>
+        <button (click)="setView('calendar')"
+          [class]="viewMode() === 'calendar' ? 'bg-[var(--sumi-primary)] text-white px-3 py-1.5' : 'px-3 py-1.5 text-slate-600'">Calendar</button>
+      </div>
     </div>
   </header>
 
-  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+  @if (viewMode() === 'calendar') {
+  <section class="bg-white rounded-xl shadow p-4">
+    <div class="flex items-center justify-between mb-3">
+      <button (click)="prevMonth()" class="px-3 py-1 rounded border border-slate-300 text-sm">&larr;</button>
+      <h2 class="font-semibold text-slate-900">{{ monthLabel() }}</h2>
+      <button (click)="nextMonth()" class="px-3 py-1 rounded border border-slate-300 text-sm">&rarr;</button>
+    </div>
+    <div class="grid grid-cols-7 gap-px text-xs text-center text-slate-500 mb-1">
+      @for (d of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; track d) {
+        <div class="py-1 font-semibold">{{ d }}</div>
+      }
+    </div>
+    <div class="grid grid-cols-7 gap-px bg-slate-200">
+      @for (cell of calendarGrid(); track cell.date) {
+        <button type="button" (click)="openCalendarDay(cell.date)"
+          [class]="'bg-white min-h-[84px] p-1 text-left align-top ' + (cell.inMonth ? '' : 'opacity-40')">
+          <div class="text-xs text-slate-500">{{ cell.day }}</div>
+          <div class="space-y-0.5 mt-0.5">
+            @for (e of cell.entries.slice(0, 3); track e.bookingId) {
+              <div [class]="'flex items-center gap-1 pl-1 ' + calendarTypeBorder(e.reservationType)">
+                <span [class]="'inline-block w-1.5 h-1.5 rounded-full ' + calendarStatusColor(e.schedulingStatus)"></span>
+                <span class="truncate text-[11px] text-slate-700">{{ e.clientNickname }}</span>
+              </div>
+            }
+            @if (cell.entries.length > 3) {
+              <div class="text-[10px] text-slate-400">+{{ cell.entries.length - 3 }} more</div>
+            }
+          </div>
+        </button>
+      }
+    </div>
+    <div class="flex flex-wrap gap-4 mt-3 text-xs text-slate-500">
+      <span class="flex items-center gap-3">
+        <span class="font-medium text-slate-600">Status</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>Scheduled</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>In progress</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>Completed</span>
+      </span>
+      <span class="flex items-center gap-3">
+        <span class="font-medium text-slate-600">Type</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-3 border-l-2 border-slate-400"></span>Walk-in</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-3 border-l-2 border-amber-500"></span>Soft</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-2 h-3 border-l-2 border-emerald-500"></span>Hard</span>
+      </span>
+    </div>
+  </section>
+  }
+
+  <section class="bg-white rounded-xl shadow overflow-hidden overflow-x-auto" [hidden]="viewMode() === 'calendar'">
     <table class="w-full text-sm min-w-[720px]">
       <thead class="bg-slate-100">
         <tr>

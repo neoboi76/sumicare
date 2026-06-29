@@ -1,3 +1,10 @@
+/*
+ * Developed by the following authors:
+ *     Lance Gabriel C. De La Paz (lgcdelapaz@mymail.mapua.edu.ph)
+ *     Franz C. Pereira (fcpereira@mymail.mapua.edu.ph)
+ *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
+ */
+
 export interface OrganizationBranding {
   id: string;
   slug: string;
@@ -7,13 +14,11 @@ export interface OrganizationBranding {
   secondaryColor: string;
   accentColor: string;
   theme: string;
-}
-
-export interface UpdateBrandingRequest {
-  displayName?: string;
-  logoUrl?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  accentColor?: string;
-  theme?: string;
+  fontFamily: string | null;
+  loginBackgroundUrl: string | null;
+  faviconUrl: string | null;
+  instagramUrl: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  footerNote: string | null;
 }
