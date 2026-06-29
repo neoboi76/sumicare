@@ -119,6 +119,11 @@ public class OperationsReportService {
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
     public CutoffServicesReport cutoffServices(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId) {
+        return cutoffServices(organizationId, from, to, shiftId, SalesGroupBy.SERVICE);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
+    public CutoffServicesReport cutoffServices(UUID organizationId, OffsetDateTime from, OffsetDateTime to, Long shiftId, SalesGroupBy groupBy) {
         List<TreatmentSlip> slips = slipRepository.findAllByOrganizationIdAndScheduleBetween(organizationId, from, to)
                 .stream()
                 .filter(s -> !"VOIDED".equals(s.getStatus()))
@@ -159,7 +164,10 @@ public class OperationsReportService {
         for (TreatmentSlip s : slips) {
             String pkg = s.getPackageName() != null ? s.getPackageName() : "(Walk-in)";
             String svc = s.getServiceName() == null ? "Unknown" : s.getServiceName();
-            String key = pkg + " — " + svc;
+            String key = switch (groupBy) {
+                case PACKAGE -> pkg;
+                default -> svc;
+            };
             UUID orderItemId = slipToOrderItemId.get(s.getId());
             ServiceAccumulator acc = bucket.computeIfAbsent(key, k -> new ServiceAccumulator());
             if (orderItemId != null) {

@@ -24,6 +24,7 @@ export interface BookingResponse {
   sessionExtended?: boolean;
   remarks?: string | null;
   preferredTherapist?: string | null;
+  preferredRoomId?: string | null;
 }
 
 export interface SessionResponse {

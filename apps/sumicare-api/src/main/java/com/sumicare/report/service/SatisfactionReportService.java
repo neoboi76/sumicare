@@ -107,8 +107,8 @@ public class SatisfactionReportService {
 
         StringBuilder commentsHtml = new StringBuilder();
         for (String c : stats.recentComments()) {
-            commentsHtml.append("<p style=\"font-style:italic;color:#374151;margin:4px 0;\">&ldquo;")
-                    .append(escape(c)).append("&rdquo;</p>");
+            commentsHtml.append("<p style=\"font-style:italic;color:#374151;margin:4px 0;\">\u201C")
+                    .append(escape(c)).append("\u201D</p>");
         }
 
         return """
@@ -120,22 +120,17 @@ public class SatisfactionReportService {
                   table { width: 100%%; border-collapse: collapse; margin-top: 8px; }
                   th, td { border-bottom: 1px solid #e5e7eb; padding: 5px 8px; }
                   th { background: #f8fafc; text-align: left; font-weight: 700; }
-                  .nps-band { display: flex; gap: 24px; margin: 8px 0; }
-                  .band { padding: 8px 16px; border-radius: 4px; text-align: center; }
-                  .promoters { background: #d1fae5; color: #065f46; }
-                  .passives { background: #fef3c7; color: #92400e; }
-                  .detractors { background: #fee2e2; color: #991b1b; }
                   .narrative { background: #f8fafc; border-left: 3px solid #1e406e; padding: 10px 14px; margin-top: 10px; line-height: 1.6; }
                   .footer { margin-top: 28px; font-size: 9px; color: #9ca3af; text-align: center; }
                 </style></head>
                 <body>
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    %s
-                    <div style="text-align:right;font-size:11px;color:#6b7280;">
+                  <table style="width:100%%;border:none;margin:0 0 8px 0;"><tr>
+                    <td style="border:none;padding:0;">%s</td>
+                    <td style="border:none;padding:0;text-align:right;font-size:11px;color:#6b7280;">
                       <div style="font-size:15px;font-weight:700;color:#1a1a1a;">Overall Lasema Satisfaction Report</div>
                       <div>%s</div>
-                    </div>
-                  </div>
+                    </td>
+                  </tr></table>
                   <h2>Overall Rating Distribution</h2>
                   <p style="font-size:12px;">Average: <strong>%.2f / 5</strong> from <strong>%d</strong> responses.
                   Satisfaction index: <strong>%.1f%%</strong></p>
@@ -143,11 +138,19 @@ public class SatisfactionReportService {
                   <tbody>%s</tbody></table>
                   <h2>Net Promoter Score (NPS)</h2>
                   <p>NPS Score: <strong>%d</strong> (from %d respondents)</p>
-                  <div class="nps-band">
-                    <div class="band promoters"><div style="font-weight:700;font-size:16px;">%d</div><div>Promoters (9-10)</div></div>
-                    <div class="band passives"><div style="font-weight:700;font-size:16px;">%d</div><div>Passives (7-8)</div></div>
-                    <div class="band detractors"><div style="font-weight:700;font-size:16px;">%d</div><div>Detractors (0-6)</div></div>
-                  </div>
+                  <table style="width:auto;margin-top:8px;"><tr>
+                    <td style="background:#d1fae5;color:#065f46;padding:8px 16px;border:none;text-align:center;border-radius:4px;">
+                      <div style="font-weight:700;font-size:16px;">%d</div><div>Promoters (9-10)</div>
+                    </td>
+                    <td style="width:12px;border:none;"></td>
+                    <td style="background:#fef3c7;color:#92400e;padding:8px 16px;border:none;text-align:center;border-radius:4px;">
+                      <div style="font-weight:700;font-size:16px;">%d</div><div>Passives (7-8)</div>
+                    </td>
+                    <td style="width:12px;border:none;"></td>
+                    <td style="background:#fee2e2;color:#991b1b;padding:8px 16px;border:none;text-align:center;border-radius:4px;">
+                      <div style="font-weight:700;font-size:16px;">%d</div><div>Detractors (0-6)</div>
+                    </td>
+                  </tr></table>
                   %s
                   %s
                   <h2>Financial Interpretation</h2>

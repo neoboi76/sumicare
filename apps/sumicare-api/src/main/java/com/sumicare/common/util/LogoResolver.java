@@ -9,6 +9,10 @@ package com.sumicare.common.util;
 
 import org.springframework.stereotype.Component;
 
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.URI;
@@ -17,6 +21,8 @@ import java.util.Base64;
 
 @Component
 public class LogoResolver {
+
+    private static final int MAX_HEIGHT = 100;
 
     public String dataUriOrNull(String logoUrl) {
         if (logoUrl == null || logoUrl.isBlank()) {
@@ -37,17 +43,22 @@ public class LogoResolver {
         }
         try {
             URLConnection connection = uri.toURL().openConnection();
-            connection.setConnectTimeout(3000);
-            connection.setReadTimeout(3000);
-            String contentType = connection.getContentType();
-            try (InputStream in = connection.getInputStream();
-                    ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-                in.transferTo(out);
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
+            try (InputStream in = connection.getInputStream()) {
+                BufferedImage original = ImageIO.read(in);
+                if (original == null) {
+                    return null;
+                }
+                BufferedImage resized = resizeToMaxHeight(original, MAX_HEIGHT);
+                String format = "png";
+                String mime = "image/png";
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ImageIO.write(resized, format, out);
                 byte[] bytes = out.toByteArray();
                 if (bytes.length == 0) {
                     return null;
                 }
-                String mime = contentType != null && contentType.startsWith("image/") ? contentType : guessMime(logoUrl);
                 return "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
             }
         } catch (Exception e) {
@@ -55,13 +66,21 @@ public class LogoResolver {
         }
     }
 
-    private String guessMime(String url) {
-        String lower = url.toLowerCase();
-        if (lower.endsWith(".png")) return "image/png";
-        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-        if (lower.endsWith(".gif")) return "image/gif";
-        if (lower.endsWith(".svg")) return "image/svg+xml";
-        if (lower.endsWith(".webp")) return "image/webp";
-        return "image/png";
+    private BufferedImage resizeToMaxHeight(BufferedImage image, int maxHeight) {
+        int h = image.getHeight();
+        int w = image.getWidth();
+        if (h <= maxHeight) {
+            return image;
+        }
+        double ratio = (double) maxHeight / h;
+        int newW = (int) (w * ratio);
+        int newH = maxHeight;
+        BufferedImage resized = new BufferedImage(newW, newH, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = resized.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.drawImage(image, 0, 0, newW, newH, null);
+        g.dispose();
+        return resized;
     }
 }

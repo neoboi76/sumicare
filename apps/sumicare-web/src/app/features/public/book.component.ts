@@ -5,7 +5,7 @@
  *     Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
  */
 
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -126,6 +126,7 @@ export class BookComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private paymentDetailsService = inject(PaymentDetailsService);
+  private cdr = inject(ChangeDetectorRef);
 
   services = signal<ServiceItem[]>([]);
   packages = signal<PublicPackage[]>([]);
@@ -155,8 +156,8 @@ export class BookComponent implements OnInit {
   preferredTherapist = '';
   reservationType = 'SOFT';
   paymentMethod = signal<PayMethod>('GCASH');
-  scheduledDate = '';
-  scheduledTime = '';
+  scheduledDate = signal('');
+  scheduledTime = signal('');
   showTerms = signal(false);
   termsScrolledToEnd = signal(false);
   termsAccepted = signal(false);
@@ -165,10 +166,28 @@ export class BookComponent implements OnInit {
   selectedRoomId = signal<string | null>(null);
   roomsLoading = signal(false);
 
-  roomPickerApplicable = computed(() => {
+  roomPickerApplicable(): boolean {
     const first = this.bookingItems()[0];
     const pkg = first ? this.packageById(first.packageId) : null;
-    return !!pkg && !pkg.couple && !pkg.requiresVipRoom && !!this.scheduledDate && !!this.scheduledTime;
+    return !!pkg && !pkg.couple && !pkg.requiresVipRoom && !!this.scheduledDate() && !!this.scheduledTime();
+  }
+
+  onDateChange(value: string): void {
+    this.scheduledDate.set(value);
+    this.cdr.markForCheck();
+  }
+
+  onTimeChange(value: string): void {
+    this.scheduledTime.set(value);
+    this.cdr.markForCheck();
+  }
+
+  filteredRooms = computed(() => {
+    const rooms = this.availableRooms();
+    const first = this.bookingItems()[0];
+    const rt = first?.roomType;
+    if (!rt) return rooms;
+    return rooms.filter(r => r.roomType.toUpperCase() === rt.toUpperCase());
   });
 
   voucherCode = '';
@@ -267,7 +286,7 @@ export class BookComponent implements OnInit {
   }
 
   get scheduleMinTime(): string | null {
-    return this.scheduledDate === manilaToday() ? manilaNowTime() : null;
+    return this.scheduledDate() === manilaToday() ? manilaNowTime() : null;
   }
 
   dismissError(): void {
@@ -286,7 +305,7 @@ export class BookComponent implements OnInit {
 
   loadAvailableRooms(): void {
     if (!this.roomPickerApplicable()) return;
-    const iso = toManilaIso(this.scheduledDate, this.scheduledTime);
+    const iso = toManilaIso(this.scheduledDate(), this.scheduledTime());
     if (!iso) return;
     this.roomsLoading.set(true);
     this.selectedRoomId.set(null);
@@ -355,7 +374,8 @@ export class BookComponent implements OnInit {
       const item = next[idx];
       if (!item) return items;
       if (this.packageById(item.packageId)?.requiresVipRoom) return items;
-      item.roomType = rt;
+      for (const other of next) other.roomType = rt;
+      this.selectedRoomId.set(null);
       return next;
     });
   }
@@ -413,8 +433,8 @@ export class BookComponent implements OnInit {
         if (a.packageTierId == null) missing.push(`package ${idx + 1} guest ${gi + 1} massage`);
       });
     });
-    if (!this.scheduledDate) missing.push('date');
-    if (!this.scheduledTime) missing.push('time');
+    if (!this.scheduledDate()) missing.push('date');
+    if (!this.scheduledTime()) missing.push('time');
     if (!this.termsAccepted()) missing.push('accept the Terms and Conditions');
     if (missing.length > 0) {
       this.error.set('Please complete: ' + missing.join(', ') + '.');
@@ -430,7 +450,7 @@ export class BookComponent implements OnInit {
       return;
     }
 
-    const scheduledIso = toManilaIso(this.scheduledDate, this.scheduledTime);
+    const scheduledIso = toManilaIso(this.scheduledDate(), this.scheduledTime());
     if (!scheduledIso) {
       this.error.set('Please enter a valid date and time.');
       return;
@@ -608,7 +628,10 @@ export class BookComponent implements OnInit {
     this.confirmReservationType.set(booking.reservationType);
     this.confirmScheduled.set(booking.scheduledAt);
     this.confirmPackageName.set(this.packageById(this.bookingItems()[0]?.packageId ?? null)?.name ?? null);
-    this.confirmServiceName.set(this.services().find(s => s.id === booking.serviceId)?.name ?? null);
+    const firstItem = this.bookingItems()[0];
+    const firstPkg = firstItem ? this.packageById(firstItem.packageId) : null;
+    const firstTier = firstPkg?.tiers.find(t => t.id === Number(firstItem?.attendees[0]?.packageTierId));
+    this.confirmServiceName.set(firstTier?.serviceName ?? this.services().find(s => s.id === booking.serviceId)?.name ?? null);
   }
 
   private setConfirmationFromResponse(res: PublicPaymentResult): void {
@@ -678,8 +701,8 @@ export class BookComponent implements OnInit {
     this.nationality = '';
     this.remarks = '';
     this.preferredTherapist = '';
-    this.scheduledDate = '';
-    this.scheduledTime = '';
+    this.scheduledDate.set('');
+    this.scheduledTime.set('');
     this.termsAccepted.set(false);
     this.termsScrolledToEnd.set(false);
     this.bookingItems.set([this.blankItem()]);

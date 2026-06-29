@@ -65,7 +65,7 @@ public class ReportPdfService {
                 .map(u -> u.getDisplayName() == null ? u.getUsername() : u.getDisplayName())
                 .orElse("Staff");
 
-        CutoffServicesReport report = operationsReportService.cutoffServices(organizationId, from, to, null);
+        CutoffServicesReport report = operationsReportService.cutoffServices(organizationId, from, to, null, groupBy);
 
         StringBuilder rows = new StringBuilder();
         for (ServiceLine line : report.lines()) {

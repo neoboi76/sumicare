@@ -651,6 +651,16 @@ export class BookingsComponent implements OnInit, OnDestroy {
       next: (o) => this.startRoomType.set(this.roomTypeForAttendee(o, attendeeId)),
       error: () => { }
     });
+    if (b.preferredRoomId) {
+      const preferred = this.rooms().find(r => r.id === b.preferredRoomId);
+      if (preferred) {
+        const availableBed = preferred.beds.find(bed => bed.occupancy['status'] !== 'OCCUPIED');
+        if (availableBed) {
+          this.startRoomId.set(preferred.id);
+          this.startBedId.set(availableBed.id);
+        }
+      }
+    }
     this.refreshLineup();
   }
 

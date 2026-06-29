@@ -14,7 +14,9 @@ import com.sumicare.booking.dto.BookingResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.CreateBookingItemRequest;
 import com.sumicare.booking.dto.PublicAttendeeRequest;
+import com.sumicare.booking.dto.PublicBedResponse;
 import com.sumicare.booking.dto.PublicPaymentResponse;
+import com.sumicare.booking.dto.PublicRoomResponse;
 import com.sumicare.booking.dto.SessionResponse;
 import com.sumicare.booking.dto.StartSessionRequest;
 import com.sumicare.common.util.BookingReference;
@@ -417,6 +419,10 @@ public class BookingService {
     }
 
     public List<AvailableRoomResponse> availableRooms(UUID organizationId, OffsetDateTime at, int durationMinutes) {
+        return availableRooms(organizationId, at, durationMinutes, null);
+    }
+
+    public List<AvailableRoomResponse> availableRooms(UUID organizationId, OffsetDateTime at, int durationMinutes, String roomType) {
         int prepBuffer = 15;
         int blockMinutes = durationMinutes > 0 ? durationMinutes + prepBuffer : 120;
         OffsetDateTime windowStart = at.minusMinutes(prepBuffer);
@@ -437,9 +443,45 @@ public class BookingService {
 
         return roomRepository.findAllByOrganizationIdAndActiveTrue(organizationId).stream()
                 .filter(r -> !occupied.contains(r.getId()))
+                .filter(r -> roomType == null || roomType.isBlank() || roomType.equalsIgnoreCase(r.getRoomType()))
                 .map(r -> new AvailableRoomResponse(r.getId(), r.getRoomNumber(), r.getFloor(),
                         r.getRoomType(), r.isRowSegmented()))
                 .toList();
+    }
+
+    public List<PublicRoomResponse> roomMap(UUID organizationId, OffsetDateTime at, int durationMinutes) {
+        int prepBuffer = 15;
+        int blockMinutes = durationMinutes > 0 ? durationMinutes + prepBuffer : 120;
+        OffsetDateTime windowStart = at.minusMinutes(prepBuffer);
+        OffsetDateTime windowEnd = at.plusMinutes(blockMinutes);
+
+        Set<UUID> bookedRoomIds = new HashSet<>();
+        for (Booking b : bookingRepository.findAllByOrganizationIdAndScheduledAtBetween(
+                organizationId, at.minusHours(4), windowEnd)) {
+            if (b.getPreferredRoomId() == null || "CANCELLED".equals(b.getStatus())) continue;
+            OffsetDateTime bStart = b.getScheduledAt();
+            OffsetDateTime bEnd = bStart.plusMinutes(blockMinutes);
+            if (bStart.isBefore(windowEnd) && bEnd.isAfter(windowStart)) {
+                bookedRoomIds.add(b.getPreferredRoomId());
+            }
+        }
+
+        List<Room> rooms = roomRepository.findAllByOrganizationIdAndActiveTrue(organizationId);
+        return rooms.stream().map(room -> {
+            boolean roomBookedAtSlot = bookedRoomIds.contains(room.getId());
+            List<Bed> beds = bedRepository.findAllByRoomIdAndActiveTrue(room.getId());
+            List<PublicBedResponse> bedViews = beds.stream().map(bed -> {
+                Map<String, String> occupancy = new HashMap<>();
+                occupancyService.read(room.getId(), bed.getId())
+                        .forEach((k, v) -> occupancy.put(String.valueOf(k), String.valueOf(v)));
+                if (roomBookedAtSlot && !"OCCUPIED".equals(occupancy.get("status"))) {
+                    occupancy.put("status", "RESERVED");
+                }
+                return new PublicBedResponse(bed.getId(), bed.getBedLabel(), bed.getRowIndex(), occupancy);
+            }).toList();
+            return new PublicRoomResponse(room.getId(), room.getRoomNumber(), room.getFloor(),
+                    room.getRoomType(), room.isRowSegmented(), bedViews);
+        }).toList();
     }
 
     private String resolveClientEmail(CreateBookingRequest request) {
@@ -572,6 +614,7 @@ public class BookingService {
             booking.setTermsAcceptedAt(OffsetDateTime.now());
         }
         booking.setScheduledAt(request.scheduledAt());
+        booking.setPreferredRoomId(request.preferredRoomId());
         booking.setPax(totalAttendees);
         booking.setClientGender(request.clientGender());
         booking.setNationality(request.nationality());
@@ -1499,7 +1542,7 @@ public class BookingService {
         return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(),
                 b.getLockerNumber(), b.getServiceId(), b.getReservationType(), effectiveStart, projectedEnd,
                 b.getStatus(), orderId, orderStatus, order == null ? null : order.getTreatmentSlipId(),
-                b.getPax(), sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
+                b.getPax(), sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist(), b.getPreferredRoomId());
     }
 
     public List<Session> findExpiredActiveSessions() {
@@ -1610,13 +1653,15 @@ public class BookingService {
             return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                     b.getServiceId(), b.getReservationType(), effectiveStart,
                     projectedEnd, b.getStatus(), orderId, orderStatus, treatmentSlipId, b.getPax(),
-                    sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
+                    sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist(),
+                    b.getPreferredRoomId());
         }
         OffsetDateTime projectedEnd = effectiveStart.plusMinutes(maxDuration);
         return new BookingResponse(b.getId(), b.getReference(), b.getClientNickname(), b.getClientEmail(), b.getLockerNumber(),
                 b.getServiceId(), b.getReservationType(), effectiveStart,
                 projectedEnd, b.getStatus(), orderId, orderStatus, treatmentSlipId, b.getPax(),
-                sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist());
+                sessionExtended, b.getNationality(), b.getRemarks(), b.getPreferredTherapist(),
+                b.getPreferredRoomId());
     }
 
     private SessionResponse toSessionResponse(Session s) {

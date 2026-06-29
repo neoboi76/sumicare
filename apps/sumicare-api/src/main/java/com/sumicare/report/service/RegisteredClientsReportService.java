@@ -20,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -41,6 +42,7 @@ public class RegisteredClientsReportService {
     private final PdfRenderer pdfRenderer;
     private final LogoResolver logoResolver;
     private final ExcelExportService excelExportService;
+    private final GeminiNarrativeService geminiNarrativeService;
 
     public RegisteredClientsReportService(ClientRepository clientRepository,
                                           ClientUsageService clientUsageService,
@@ -48,7 +50,8 @@ public class RegisteredClientsReportService {
                                           UserRepository userRepository,
                                           PdfRenderer pdfRenderer,
                                           LogoResolver logoResolver,
-                                          ExcelExportService excelExportService) {
+                                          ExcelExportService excelExportService,
+                                          GeminiNarrativeService geminiNarrativeService) {
         this.clientRepository = clientRepository;
         this.clientUsageService = clientUsageService;
         this.organizationRepository = organizationRepository;
@@ -56,6 +59,7 @@ public class RegisteredClientsReportService {
         this.pdfRenderer = pdfRenderer;
         this.logoResolver = logoResolver;
         this.excelExportService = excelExportService;
+        this.geminiNarrativeService = geminiNarrativeService;
     }
 
     public record ClientRow(UUID clientId, String nickname, int bookingCount, BigDecimal totalSpending,
@@ -90,6 +94,8 @@ public class RegisteredClientsReportService {
                 : "<div style=\"font-size: 20px; font-weight: 700; color: #c42441;\">" + escape(org.getDisplayName()) + "</div>";
         String generated = OffsetDateTime.now().atZoneSameInstant(MANILA).format(STAMP);
 
+        String narrative = geminiNarrativeService.generateInterpretation(buildContext(report, org.getDisplayName()));
+
         StringBuilder rows = new StringBuilder();
         int rank = 1;
         for (ClientRow c : report.clients()) {
@@ -111,6 +117,7 @@ public class RegisteredClientsReportService {
                   table { width: 100%%; border-collapse: collapse; margin-top: 12px; font-size: 11px; }
                   th, td { border-bottom: 1px solid #e5e7eb; padding: 6px 8px; }
                   th { background: #f8fafc; text-align: left; }
+                  .narrative { background: #f8fafc; border-left: 3px solid #1e406e; padding: 10px 14px; margin-top: 14px; font-size: 11px; line-height: 1.6; }
                   .footer { margin-top: 28px; font-size: 10px; color: #9ca3af; text-align: center; }
                 </style></head>
                 <body>
@@ -127,6 +134,8 @@ public class RegisteredClientsReportService {
                     <tbody>%s</tbody>
                     <tfoot><tr><th></th><th>Total lifetime spend</th><th></th><th style="text-align:right;">%s</th><th></th><th></th></tr></tfoot>
                   </table>
+                  <h2 style="font-size:13px;font-weight:700;color:#1e406e;margin:18px 0 4px 0;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">Financial Interpretation</h2>
+                  <div class="narrative">%s</div>
                   <div style="margin-top: 18px; font-size: 11px; color: #374151;">
                     <div>Prepared By: %s</div>
                     <div>Generated: %s (Manila)</div>
@@ -135,7 +144,9 @@ public class RegisteredClientsReportService {
                 </body>
                 </html>
                 """.formatted(header, report.clients().size(), rows.toString(),
-                        peso(report.totalLifetimeSpend()), escape(preparedBy), generated);
+                        peso(report.totalLifetimeSpend()),
+                        escape(narrative != null ? narrative : ""),
+                        escape(preparedBy), generated);
 
         return pdfRenderer.renderHtml(html);
     }
@@ -170,6 +181,21 @@ public class RegisteredClientsReportService {
         excelExportService.writeFooter(ctx, 6);
         excelExportService.autoSizeColumns(ctx, 6);
         return excelExportService.toBytes(ctx.workbook);
+    }
+
+    private String buildContext(RegisteredClientsReport report, String orgName) {
+        int count = report.clients().size();
+        BigDecimal total = report.totalLifetimeSpend() != null ? report.totalLifetimeSpend() : BigDecimal.ZERO;
+        BigDecimal avg = count > 0 ? total.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        String topClients = report.clients().stream()
+                .limit(5)
+                .map(c -> c.nickname() + " (₱" + c.totalSpending().toPlainString() + ")")
+                .collect(java.util.stream.Collectors.joining(", "));
+        return String.format(
+                "%s registered clients report. Total registered clients: %d. Total lifetime spend: ₱%s. "
+                + "Average spend per client: ₱%s. Top 5 clients by spend: %s.",
+                orgName, count, total.toPlainString(), avg.toPlainString(), topClients
+        );
     }
 
     private String firstLabel(List<ClientUsageResponse.UsageCount> counts) {

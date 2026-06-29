@@ -206,9 +206,21 @@
   </section>
 
   <section class="bg-white rounded-xl shadow p-4 overflow-x-auto">
-    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-1">Therapist performance monitoring</h2>
-    <p class="text-xs text-slate-400 mb-3">Revenue, commissions, tips, requests and favourites for the selected date range.</p>
-    <table class="w-full min-w-[820px] text-sm">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Therapist performance monitoring</h2>
+      <div class="flex flex-wrap gap-2">
+        <button (click)="downloadPerformanceMonitoringPdf()"
+          class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1.5 text-sm hover:bg-rose-50 transition-colors">
+          Download PDF
+        </button>
+        <button (click)="downloadPerformanceMonitoringXlsx()"
+          class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50 transition-colors">
+          Download Excel
+        </button>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mb-3">Revenue, commissions, tips, requests, satisfaction and favourites for the selected date range.</p>
+    <table class="w-full min-w-[1020px] text-sm">
       <thead class="text-slate-500 text-xs uppercase tracking-wide">
         <tr>
           <th class="text-left p-2">Therapist</th>
@@ -217,6 +229,8 @@
           <th class="text-right p-2">Tips</th>
           <th class="text-right p-2">Services</th>
           <th class="text-right p-2">Requests</th>
+          <th class="text-right p-2">Avg Rating</th>
+          <th class="text-right p-2">Satisfaction</th>
           <th class="text-left p-2">Top clients</th>
           <th class="text-left p-2">Top services</th>
         </tr>
@@ -230,6 +244,8 @@
             <td class="p-2 text-right">&#8369; {{ p.tips | number:'1.2-2' }}</td>
             <td class="p-2 text-right">{{ p.servicesRendered }}</td>
             <td class="p-2 text-right">{{ p.specificRequests }}</td>
+            <td class="p-2 text-right">{{ p.averageSatisfactionRating | number:'1.1-2' }} / 5</td>
+            <td class="p-2 text-right">{{ p.satisfactionIndex | number:'1.1-1' }}%</td>
             <td class="p-2 text-xs text-slate-600">
               @for (c of p.topClients; track c.name) { <span class="block">{{ c.name }} ({{ c.count }})</span> }
             </td>
@@ -238,7 +254,7 @@
             </td>
           </tr>
         } @empty {
-          <tr><td colspan="8" class="p-4 text-center text-slate-400">No therapist activity in this range.</td></tr>
+          <tr><td colspan="10" class="p-4 text-center text-slate-400">No therapist activity in this range.</td></tr>
         }
       </tbody>
     </table>

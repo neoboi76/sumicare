@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/reports/top-therapists")
+@RequestMapping("/api/reports")
 public class TopTherapistController {
 
     private static final String XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -43,7 +43,7 @@ public class TopTherapistController {
         this.topTherapistExcelService = topTherapistExcelService;
     }
 
-    @GetMapping
+    @GetMapping("/top-therapists")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public TopTherapistResponse topTherapists(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
@@ -52,7 +52,7 @@ public class TopTherapistController {
                 UUID.fromString(principal.organizationId()), parsePeriod(period));
     }
 
-    @GetMapping(".pdf")
+    @GetMapping("/top-therapists.pdf")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public ResponseEntity<byte[]> topTherapistsPdf(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
@@ -68,7 +68,7 @@ public class TopTherapistController {
                 .body(pdf);
     }
 
-    @GetMapping(".xlsx")
+    @GetMapping("/top-therapists.xlsx")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public ResponseEntity<byte[]> topTherapistsXlsx(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,

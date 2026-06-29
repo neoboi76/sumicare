@@ -91,7 +91,7 @@ public class BookingExportController {
                 "Appointment Date", "Booking ID", "Status", "Reservation Type", "Client Nickname",
                 "Sex", "Pax", "Service ID", "Scheduled At", "Start Time",
                 "End Time (Expected)", "Ended At (Actual)",
-                "Primary Therapist ID", "Secondary Therapist ID", "Room ID", "Bed ID", "Locker"));
+                "Primary Therapist ID", "Secondary Therapist ID", "Preferred Room ID", "Room ID", "Bed ID", "Locker"));
 
         Map<LocalDate, List<Booking>> byDate = new LinkedHashMap<>();
         for (Booking b : bookings) {
@@ -119,6 +119,7 @@ public class BookingExportController {
                         s != null && s.getEndedAt() != null ? s.getEndedAt().atZoneSameInstant(MANILA).format(FMT) : "",
                         s != null && s.getPrimaryTherapistId() != null ? s.getPrimaryTherapistId().toString() : "",
                         s != null && s.getSecondaryTherapistId() != null ? s.getSecondaryTherapistId().toString() : "",
+                        b.getPreferredRoomId() != null ? b.getPreferredRoomId().toString() : "",
                         s != null && s.getRoomId() != null ? s.getRoomId().toString() : "",
                         s != null && s.getBedId() != null ? s.getBedId().toString() : "",
                         b.getLockerNumber() != null ? b.getLockerNumber() : ""));
@@ -127,9 +128,9 @@ public class BookingExportController {
 
         excelExportService.writeTotalRow(ctx, List.of(
                 "Total Bookings: " + bookings.size(),
-                "", "", "", "", "", BigDecimal.ZERO, "", "", "", "", "", "", "", "", "", ""));
-        excelExportService.writeFooter(ctx, 17);
-        excelExportService.autoSizeColumns(ctx, 17);
+                "", "", "", "", "", BigDecimal.ZERO, "", "", "", "", "", "", "", "", "", "", ""));
+        excelExportService.writeFooter(ctx, 18);
+        excelExportService.autoSizeColumns(ctx, 18);
         byte[] data = excelExportService.toBytes(ctx.workbook);
 
         String filename = "bookings-" + fromDate + "-to-" + toDate + ".xlsx";

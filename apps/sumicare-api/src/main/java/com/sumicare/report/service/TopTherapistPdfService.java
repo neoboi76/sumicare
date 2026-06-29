@@ -95,13 +95,13 @@ public class TopTherapistPdfService {
                   .footer { margin-top: 28px; font-size: 9px; color: #9ca3af; text-align: center; }
                 </style></head>
                 <body>
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    %s
-                    <div style="text-align:right;font-size:11px;color:#6b7280;">
+                  <table style="width:100%%;border:none;margin:0 0 8px 0;"><tr>
+                    <td style="border:none;padding:0;">%s</td>
+                    <td style="border:none;padding:0;text-align:right;font-size:11px;color:#6b7280;">
                       <div style="font-size:15px;font-weight:700;color:#1a1a1a;">Top 10 Therapists Report</div>
                       <div>Period: %s</div>
-                    </div>
-                  </div>
+                    </td>
+                  </tr></table>
                   <p class="note">Composite score = 50%% average client rating + 25%% specific request rate + 25%% services rendered rate.</p>
                   <table>
                     <thead><tr>

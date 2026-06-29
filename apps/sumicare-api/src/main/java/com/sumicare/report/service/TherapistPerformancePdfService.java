@@ -109,8 +109,8 @@ public class TherapistPerformancePdfService {
 
         StringBuilder commentsHtml = new StringBuilder();
         for (String comment : perf.recentComments()) {
-            commentsHtml.append("<p style=\"font-style:italic;color:#374151;margin:4px 0;\">&ldquo;")
-                    .append(escape(comment)).append("&rdquo;</p>");
+            commentsHtml.append("<p style=\"font-style:italic;color:#374151;margin:4px 0;\">\u201C")
+                    .append(escape(comment)).append("\u201D</p>");
         }
 
         return """
@@ -122,31 +122,29 @@ public class TherapistPerformancePdfService {
                   table { width: 100%%; border-collapse: collapse; margin-top: 8px; }
                   th, td { border-bottom: 1px solid #e5e7eb; padding: 5px 7px; }
                   th { background: #f8fafc; text-align: left; font-weight: 700; }
-                  .kv { display: flex; gap: 24px; flex-wrap: wrap; margin: 8px 0; }
-                  .kv-item { min-width: 120px; }
                   .kv-label { font-size: 9px; text-transform: uppercase; color: #6b7280; letter-spacing: .05em; }
                   .kv-value { font-size: 14px; font-weight: 700; color: #1a1a1a; }
                   .narrative { background: #f8fafc; border-left: 3px solid #1e406e; padding: 10px 14px; margin-top: 10px; line-height: 1.6; }
                   .footer { margin-top: 28px; font-size: 9px; color: #9ca3af; text-align: center; }
                 </style></head>
                 <body>
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    %s
-                    <div style="text-align:right;font-size:11px;color:#6b7280;">
+                  <table style="width:100%%;border:none;margin:0 0 8px 0;"><tr>
+                    <td style="border:none;padding:0;">%s</td>
+                    <td style="border:none;padding:0;text-align:right;font-size:11px;color:#6b7280;">
                       <div style="font-size:15px;font-weight:700;color:#1a1a1a;">Therapist Performance Report</div>
                       <div>%s &mdash; %s</div>
-                    </div>
-                  </div>
+                    </td>
+                  </tr></table>
                   <h2>%s</h2>
-                  <div class="kv">
-                    <div class="kv-item"><div class="kv-label">Revenue</div><div class="kv-value">%s</div></div>
-                    <div class="kv-item"><div class="kv-label">Commissions</div><div class="kv-value">%s</div></div>
-                    <div class="kv-item"><div class="kv-label">Tips</div><div class="kv-value">%s</div></div>
-                    <div class="kv-item"><div class="kv-label">Services</div><div class="kv-value">%d</div></div>
-                    <div class="kv-item"><div class="kv-label">Requests</div><div class="kv-value">%d</div></div>
-                    <div class="kv-item"><div class="kv-label">Avg Rating</div><div class="kv-value">%.2f / 5</div></div>
-                    <div class="kv-item"><div class="kv-label">Satisfaction Index</div><div class="kv-value">%.1f%%</div></div>
-                  </div>
+                  <table style="width:100%%;border:none;margin:8px 0;"><tr>
+                    <td style="border:none;padding:4px 12px 4px 0;vertical-align:top;"><div class="kv-label">Revenue</div><div class="kv-value">%s</div></td>
+                    <td style="border:none;padding:4px 12px 4px 0;vertical-align:top;"><div class="kv-label">Commissions</div><div class="kv-value">%s</div></td>
+                    <td style="border:none;padding:4px 12px 4px 0;vertical-align:top;"><div class="kv-label">Tips</div><div class="kv-value">%s</div></td>
+                    <td style="border:none;padding:4px 12px 4px 0;vertical-align:top;"><div class="kv-label">Services</div><div class="kv-value">%d</div></td>
+                    <td style="border:none;padding:4px 12px 4px 0;vertical-align:top;"><div class="kv-label">Requests</div><div class="kv-value">%d</div></td>
+                    <td style="border:none;padding:4px 12px 4px 0;vertical-align:top;"><div class="kv-label">Avg Rating</div><div class="kv-value">%.2f / 5</div></td>
+                    <td style="border:none;padding:4px 0;vertical-align:top;"><div class="kv-label">Satisfaction Index</div><div class="kv-value">%.1f%%</div></td>
+                  </tr></table>
                   %s
                   %s
                   %s

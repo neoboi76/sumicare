@@ -9,6 +9,8 @@ package com.sumicare.report.controller;
 
 import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.feedback.service.SurveyAnalyticsService.LasemaSatisfactionStats;
+import com.sumicare.report.service.PerformanceMonitoringExcelService;
+import com.sumicare.report.service.PerformanceMonitoringPdfService;
 import com.sumicare.report.service.RegisteredClientsReportService;
 import com.sumicare.report.service.ReportPdfService;
 import com.sumicare.report.service.SalesGroupBy;
@@ -43,17 +45,23 @@ public class ReportsController {
     private final TherapistPerformancePdfService therapistPerformancePdfService;
     private final RegisteredClientsReportService registeredClientsReportService;
     private final SatisfactionReportService satisfactionReportService;
+    private final PerformanceMonitoringPdfService performanceMonitoringPdfService;
+    private final PerformanceMonitoringExcelService performanceMonitoringExcelService;
 
     public ReportsController(ReportPdfService reportPdfService,
                              TherapistPerformanceService therapistPerformanceService,
                              TherapistPerformancePdfService therapistPerformancePdfService,
                              RegisteredClientsReportService registeredClientsReportService,
-                             SatisfactionReportService satisfactionReportService) {
+                             SatisfactionReportService satisfactionReportService,
+                             PerformanceMonitoringPdfService performanceMonitoringPdfService,
+                             PerformanceMonitoringExcelService performanceMonitoringExcelService) {
         this.reportPdfService = reportPdfService;
         this.therapistPerformanceService = therapistPerformanceService;
         this.therapistPerformancePdfService = therapistPerformancePdfService;
         this.registeredClientsReportService = registeredClientsReportService;
         this.satisfactionReportService = satisfactionReportService;
+        this.performanceMonitoringPdfService = performanceMonitoringPdfService;
+        this.performanceMonitoringExcelService = performanceMonitoringExcelService;
     }
 
     @GetMapping("/therapist-performance")
@@ -163,5 +171,37 @@ public class ReportsController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"satisfaction-report.pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
+    }
+
+    @GetMapping(value = "/performance-monitoring.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public ResponseEntity<byte[]> performanceMonitoringPdf(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @RequestParam String from,
+            @RequestParam String to) {
+        byte[] pdf = performanceMonitoringPdfService.generate(
+                UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()),
+                LocalDate.parse(from), LocalDate.parse(to));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"performance-monitoring.pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    @GetMapping("/performance-monitoring.xlsx")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public ResponseEntity<byte[]> performanceMonitoringXlsx(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @RequestParam String from,
+            @RequestParam String to) {
+        byte[] data = performanceMonitoringExcelService.generate(
+                UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()),
+                LocalDate.parse(from), LocalDate.parse(to));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"performance-monitoring.xlsx\"")
+                .contentType(MediaType.parseMediaType(XLSX_MIME))
+                .body(data);
     }
 }

@@ -11,6 +11,7 @@ import com.sumicare.auth.filter.JwtAuthenticationFilter.AuthenticatedPrincipal;
 import com.sumicare.booking.domain.Booking;
 import com.sumicare.booking.dto.AvailableRoomResponse;
 import com.sumicare.booking.dto.BookingResponse;
+import com.sumicare.booking.dto.PublicRoomResponse;
 import com.sumicare.booking.dto.CreateBookingRequest;
 import com.sumicare.booking.dto.CreateWalkInRequest;
 import com.sumicare.booking.dto.PublicHoldConfirmRequest;
@@ -80,16 +81,26 @@ public class BookingController {
     @GetMapping("/api/rooms/available")
     public List<AvailableRoomResponse> availableRooms(@AuthenticationPrincipal AuthenticatedPrincipal principal,
                                                       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime at,
-                                                      @RequestParam(defaultValue = "0") int durationMinutes) {
-        return bookingService.availableRooms(UUID.fromString(principal.organizationId()), at, durationMinutes);
+                                                      @RequestParam(defaultValue = "0") int durationMinutes,
+                                                      @RequestParam(required = false) String roomType) {
+        return bookingService.availableRooms(UUID.fromString(principal.organizationId()), at, durationMinutes, roomType);
     }
 
     @GetMapping("/api/public/rooms/available/{slug}")
     public List<AvailableRoomResponse> publicAvailableRooms(@PathVariable String slug,
                                                             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime at,
-                                                            @RequestParam(defaultValue = "0") int durationMinutes) {
+                                                            @RequestParam(defaultValue = "0") int durationMinutes,
+                                                            @RequestParam(required = false) String roomType) {
         UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
-        return bookingService.availableRooms(organizationId, at, durationMinutes);
+        return bookingService.availableRooms(organizationId, at, durationMinutes, roomType);
+    }
+
+    @GetMapping("/api/public/rooms/map/{slug}")
+    public List<PublicRoomResponse> publicRoomMap(@PathVariable String slug,
+                                                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime at,
+                                                  @RequestParam(defaultValue = "0") int durationMinutes) {
+        UUID organizationId = organizationRepository.findBySlug(slug).orElseThrow().getId();
+        return bookingService.roomMap(organizationId, at, durationMinutes);
     }
 
     @PostMapping("/api/bookings")

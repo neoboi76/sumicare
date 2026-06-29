@@ -272,12 +272,12 @@
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-sm text-gray-700">
             Date <span class="text-red-500">*</span>
-            <input [(ngModel)]="scheduledDate" name="scheduledDate" type="date" required [min]="scheduleMinDate"
+            <input [ngModel]="scheduledDate()" (ngModelChange)="onDateChange($event)" name="scheduledDate" type="date" required [min]="scheduleMinDate"
                    class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
           </label>
           <label class="block text-sm text-gray-700">
             Time <span class="text-red-500">*</span>
-            <input [(ngModel)]="scheduledTime" name="scheduledTime" type="time" required [min]="scheduleMinTime"
+            <input [ngModel]="scheduledTime()" (ngModelChange)="onTimeChange($event)" name="scheduledTime" type="time" required [min]="scheduleMinTime"
                    class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
           </label>
         </div>
@@ -292,9 +292,9 @@
               {{ roomsLoading() ? 'Checking...' : 'Show available rooms' }}
             </button>
           </div>
-          @if (availableRooms().length) {
+          @if (filteredRooms().length) {
           <div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
-            @for (r of availableRooms(); track r.id) {
+            @for (r of filteredRooms(); track r.id) {
             <button type="button" (click)="selectedRoomId.set(r.id)"
               [class]="'rounded border px-3 py-2 text-sm text-left ' + (selectedRoomId() === r.id ? 'border-[var(--sumi-primary)] bg-[var(--sumi-primary)]/10 text-[var(--sumi-primary)]' : 'border-gray-300 text-gray-600')">
               <span class="block font-medium">Room {{ r.roomNumber }}</span>

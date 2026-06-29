@@ -53,6 +53,8 @@ interface TherapistPerformance {
   tips: number;
   servicesRendered: number;
   specificRequests: number;
+  averageSatisfactionRating: number;
+  satisfactionIndex: number;
   topClients: NameCount[];
   topServices: NameCount[];
 }
@@ -204,6 +206,18 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
     const url = `${environment.apiBaseUrl}/api/reports/satisfaction.pdf?from=${this.from()}&to=${this.to()}`;
     this.http.get(url, { responseType: 'blob' })
       .subscribe((blob) => this.saveBlob(blob, `satisfaction-${this.from()}-to-${this.to()}.pdf`));
+  }
+
+  downloadPerformanceMonitoringPdf(): void {
+    const url = `${environment.apiBaseUrl}/api/reports/performance-monitoring.pdf?from=${this.from()}&to=${this.to()}`;
+    this.http.get(url, { responseType: 'blob' })
+      .subscribe((blob) => this.saveBlob(blob, `performance-monitoring-${this.from()}-to-${this.to()}.pdf`));
+  }
+
+  downloadPerformanceMonitoringXlsx(): void {
+    const url = `${environment.apiBaseUrl}/api/reports/performance-monitoring.xlsx?from=${this.from()}&to=${this.to()}`;
+    this.http.get(url, { responseType: 'blob' })
+      .subscribe((blob) => this.saveBlob(blob, `performance-monitoring-${this.from()}-to-${this.to()}.xlsx`));
   }
 
   private saveBlob(blob: Blob, filename: string): void {

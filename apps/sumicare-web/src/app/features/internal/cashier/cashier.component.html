@@ -44,12 +44,66 @@
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule <span class="text-red-500">*</span></div>
           <p class="text-xs text-slate-500">Defaults to now for walk-ins. Set a future date and time to record a reservation.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input [(ngModel)]="scheduleDate" name="scheduleDate" type="date" required [min]="scheduleMinDate"
+            <input [(ngModel)]="scheduleDate" (change)="onScheduleChange()" name="scheduleDate" type="date" required [min]="scheduleMinDate"
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
-            <input [(ngModel)]="scheduleTime" name="scheduleTime" type="time" required [min]="scheduleMinTime"
+            <input [(ngModel)]="scheduleTime" (change)="onScheduleChange()" name="scheduleTime" type="time" required [min]="scheduleMinTime"
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sumi-primary)]" />
           </div>
         </div>
+
+        <div class="space-y-1">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Reservation type</div>
+          <div class="flex gap-3 flex-wrap">
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="reservationType" value="WALK_IN"
+                [checked]="reservationType() === 'WALK_IN'"
+                (change)="reservationType.set('WALK_IN'); onReservationTypeChange()" />
+              Walk-in
+            </label>
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="reservationType" value="HARD"
+                [checked]="reservationType() === 'HARD'"
+                (change)="reservationType.set('HARD'); onReservationTypeChange(); loadAvailableRoomsForReservation()" />
+              Hard reservation
+            </label>
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="reservationType" value="SOFT"
+                [checked]="reservationType() === 'SOFT'"
+                (change)="reservationType.set('SOFT'); onReservationTypeChange()" />
+              Soft reservation
+            </label>
+          </div>
+        </div>
+
+        @if (reservationType() === 'HARD') {
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Select a room</span>
+            <button type="button" (click)="loadAvailableRoomsForReservation()"
+              class="text-xs text-[var(--sumi-primary)] underline-offset-2 hover:underline">
+              {{ roomsLoading() ? 'Checking…' : 'Refresh' }}
+            </button>
+          </div>
+          @if (availableRoomsForReservation().length) {
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            @for (r of availableRoomsForReservation(); track r.id) {
+            <button type="button" (click)="preferredRoomId.set(r.id)"
+              [class]="'rounded border px-3 py-2 text-sm text-left ' + (preferredRoomId() === r.id ? 'border-[var(--sumi-primary)] bg-white text-[var(--sumi-primary)] font-semibold' : 'border-slate-300 bg-white text-slate-700')">
+              <span class="block font-medium">Room {{ r.roomNumber }}</span>
+              <span class="block text-xs text-slate-400">{{ r.roomType }}{{ r.floor ? ' · Floor ' + r.floor : '' }}</span>
+            </button>
+            }
+          </div>
+          } @else if (roomsLoading()) {
+          <p class="text-xs text-slate-400">Checking availability…</p>
+          } @else {
+          <p class="text-xs text-slate-400">No rooms available for this time slot. Try a different schedule.</p>
+          }
+          @if (preferredRoomId()) {
+          <p class="text-xs text-emerald-600">Room selected. This room will be held for this hard reservation.</p>
+          }
+        </div>
+        }
 
         @if (selectedClient(); as c) {
         <div class="flex items-start justify-between border border-slate-200 rounded-lg p-3 bg-slate-50">
