@@ -72,6 +72,9 @@ public class Feedback {
     @Column(name = "criteria", columnDefinition = "text")
     private String criteria;
 
+    @Column(name = "nps_score")
+    private Integer npsScore;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrganizationId() { return organizationId; }
@@ -108,4 +111,6 @@ public class Feedback {
     public void setRespondedAt(OffsetDateTime respondedAt) { this.respondedAt = respondedAt; }
     public String getCriteria() { return criteria; }
     public void setCriteria(String criteria) { this.criteria = criteria; }
+    public Integer getNpsScore() { return npsScore; }
+    public void setNpsScore(Integer npsScore) { this.npsScore = npsScore; }
 }

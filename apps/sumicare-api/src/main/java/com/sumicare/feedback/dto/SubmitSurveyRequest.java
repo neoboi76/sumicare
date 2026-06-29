@@ -20,6 +20,7 @@ public record SubmitSurveyRequest(
         @Min(1) @Max(5) int lasemaRating,
         @Size(max = 2000) String lasemaComment,
         Map<String, Integer> lasemaCriteria,
+        @Min(0) @Max(10) Integer npsScore,
         List<TherapistRating> therapists,
         List<TherapistTipEntry> tips
 ) {

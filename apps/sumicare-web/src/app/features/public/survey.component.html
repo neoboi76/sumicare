@@ -111,6 +111,26 @@
         </section>
       }
 
+      <section class="bg-white rounded-xl shadow-sm p-6 mb-5 border border-stone-100">
+        <h2 class="text-xl font-bold text-stone-800 mb-1">Recommend us</h2>
+        <p class="text-sm text-stone-500 mb-4">How likely are you to recommend New Lasema Spa Jjimjilbang to your friends, colleagues, or family? <span class="text-stone-400">(Optional)</span></p>
+        <div class="flex flex-wrap gap-2 justify-center mb-2">
+          @for (n of [0,1,2,3,4,5,6,7,8,9,10]; track n) {
+            <button type="button" (click)="setNpsScore(n)"
+              [class]="'w-10 h-10 rounded-full border-2 text-sm font-semibold transition-colors ' +
+                (npsScore() === n
+                  ? 'bg-teal-700 text-white border-teal-700'
+                  : 'bg-white text-stone-600 border-stone-300 hover:border-teal-500 hover:text-teal-700')">
+              {{ n }}
+            </button>
+          }
+        </div>
+        <div class="flex justify-between text-xs text-stone-400 px-1">
+          <span>Not at all likely</span>
+          <span>Extremely likely</span>
+        </div>
+      </section>
+
       <button type="button" (click)="submit()"
         class="w-full py-3 bg-rose-600 text-white rounded-lg font-semibold hover:bg-rose-700 transition-colors">
         Submit survey

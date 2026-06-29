@@ -9,6 +9,7 @@ package com.sumicare.report.service;
 
 import com.sumicare.booking.domain.Session;
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.organization.repository.OrganizationRepository;
 import com.sumicare.shift.domain.Shift;
 import com.sumicare.shift.domain.ShiftAssignment;
 import com.sumicare.shift.repository.ShiftAssignmentRepository;
@@ -19,10 +20,10 @@ import com.sumicare.transaction.domain.Commission;
 import com.sumicare.transaction.domain.TherapistTip;
 import com.sumicare.transaction.repository.CommissionRepository;
 import com.sumicare.transaction.repository.TherapistTipRepository;
+import com.sumicare.user.repository.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
@@ -46,19 +47,28 @@ public class CommissionReportService {
     private final ShiftRepository shiftRepository;
     private final ShiftAssignmentRepository shiftAssignmentRepository;
     private final TherapistTipRepository tipRepository;
+    private final ExcelExportService excelExportService;
+    private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
 
     public CommissionReportService(CommissionRepository commissionRepository,
                                    SessionRepository sessionRepository,
                                    TherapistRepository therapistRepository,
                                    ShiftRepository shiftRepository,
                                    ShiftAssignmentRepository shiftAssignmentRepository,
-                                   TherapistTipRepository tipRepository) {
+                                   TherapistTipRepository tipRepository,
+                                   ExcelExportService excelExportService,
+                                   OrganizationRepository organizationRepository,
+                                   UserRepository userRepository) {
         this.commissionRepository = commissionRepository;
         this.sessionRepository = sessionRepository;
         this.therapistRepository = therapistRepository;
         this.shiftRepository = shiftRepository;
         this.shiftAssignmentRepository = shiftAssignmentRepository;
         this.tipRepository = tipRepository;
+        this.excelExportService = excelExportService;
+        this.organizationRepository = organizationRepository;
+        this.userRepository = userRepository;
     }
 
     public record TherapistRow(UUID therapistId, String nickname, BigDecimal total, BigDecimal tip) {}
@@ -94,18 +104,22 @@ public class CommissionReportService {
         return new ShiftReport(shiftId, shift.getLabel(), date, rows, grand, grandTip);
     }
 
-    public byte[] shiftCsv(UUID organizationId, Long shiftId, LocalDate date) {
+    public byte[] shiftXlsx(UUID organizationId, UUID preparedByUserId, Long shiftId, LocalDate date) {
         ShiftReport r = shift(organizationId, shiftId, date);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Therapist,Commission,Tips\n");
+        String preparedBy = resolveDisplayName(preparedByUserId);
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Shift Commissions",
+                "Shift Commission Report — " + r.shiftLabel() + " (" + date + ")",
+                date.toString(), preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, List.of("Therapist", "Commission", "Tips"));
         for (TherapistRow row : r.rows()) {
-            sb.append(csvCell(row.nickname())).append(',')
-              .append(row.total().toPlainString()).append(',')
-              .append(row.tip().toPlainString()).append('\n');
+            excelExportService.writeDataRow(ctx, List.of(row.nickname(), row.total(), row.tip()));
         }
-        sb.append("\nTOTAL,").append(r.grandTotal().toPlainString()).append(',')
-          .append(r.grandTip().toPlainString()).append('\n');
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        excelExportService.writeTotalRow(ctx, List.of("TOTAL", r.grandTotal(), r.grandTip()));
+        excelExportService.writeFooter(ctx, 3);
+        excelExportService.autoSizeColumns(ctx, 3);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
@@ -120,18 +134,22 @@ public class CommissionReportService {
         return new DailyReport(date, rows, grand, grandTip);
     }
 
-    public byte[] dailyCsv(UUID organizationId, LocalDate date) {
+    public byte[] dailyXlsx(UUID organizationId, UUID preparedByUserId, LocalDate date) {
         DailyReport r = daily(organizationId, date);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Therapist,Commission,Tips\n");
+        String preparedBy = resolveDisplayName(preparedByUserId);
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Daily Commissions",
+                "Daily Commission Report — " + date,
+                date.toString(), preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, List.of("Therapist", "Commission", "Tips"));
         for (TherapistRow row : r.rows()) {
-            sb.append(csvCell(row.nickname())).append(',')
-              .append(row.total().toPlainString()).append(',')
-              .append(row.tip().toPlainString()).append('\n');
+            excelExportService.writeDataRow(ctx, List.of(row.nickname(), row.total(), row.tip()));
         }
-        sb.append("\nTOTAL,").append(r.grandTotal().toPlainString()).append(',')
-          .append(r.grandTip().toPlainString()).append('\n');
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        excelExportService.writeTotalRow(ctx, List.of("TOTAL", r.grandTotal(), r.grandTip()));
+        excelExportService.writeFooter(ctx, 3);
+        excelExportService.autoSizeColumns(ctx, 3);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
@@ -159,17 +177,22 @@ public class CommissionReportService {
         return new TipReport(from, to, rows, grand);
     }
 
-    public byte[] tipsCsv(UUID organizationId, LocalDate from, LocalDate to, UUID therapistId) {
+    public byte[] tipsXlsx(UUID organizationId, UUID preparedByUserId, LocalDate from, LocalDate to, UUID therapistId) {
         TipReport r = tips(organizationId, from, to, therapistId);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Therapist,Tips Count,Tips Total\n");
+        String preparedBy = resolveDisplayName(preparedByUserId);
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Tips Report",
+                "Tips Report — " + from + " to " + to,
+                from + " to " + to, preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, List.of("Therapist", "Count", "Total Tips"));
         for (TipRow row : r.rows()) {
-            sb.append(csvCell(row.nickname())).append(',')
-              .append(row.count()).append(',')
-              .append(row.total().toPlainString()).append('\n');
+            excelExportService.writeDataRow(ctx, List.of(row.nickname(), row.count(), row.total()));
         }
-        sb.append("\nTOTAL,,").append(r.grandTotal().toPlainString()).append('\n');
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        excelExportService.writeTotalRow(ctx, List.of("TOTAL", "", r.grandTotal()));
+        excelExportService.writeFooter(ctx, 3);
+        excelExportService.autoSizeColumns(ctx, 3);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
@@ -180,8 +203,10 @@ public class CommissionReportService {
         return matrix(organizationId, start, end);
     }
 
-    public byte[] cutoffCsv(UUID organizationId, int year, int month, int half) {
-        return matrixCsv(cutoff(organizationId, year, month, half));
+    public byte[] cutoffXlsx(UUID organizationId, UUID preparedByUserId, int year, int month, int half) {
+        return matrixXlsx(organizationId, preparedByUserId, cutoff(organizationId, year, month, half),
+                "Cutoff Commissions",
+                "Commission Cutoff — " + year + "-" + String.format("%02d", month) + " H" + half);
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
@@ -190,8 +215,10 @@ public class CommissionReportService {
         return matrix(organizationId, ym.atDay(1), ym.atEndOfMonth());
     }
 
-    public byte[] monthlyCsv(UUID organizationId, int year, int month) {
-        return matrixCsv(monthly(organizationId, year, month));
+    public byte[] monthlyXlsx(UUID organizationId, UUID preparedByUserId, int year, int month) {
+        return matrixXlsx(organizationId, preparedByUserId, monthly(organizationId, year, month),
+                "Monthly Commissions",
+                "Monthly Commission — " + year + "-" + String.format("%02d", month));
     }
 
     private MatrixReport matrix(UUID organizationId, LocalDate start, LocalDate end) {
@@ -258,22 +285,40 @@ public class CommissionReportService {
         return new MatrixReport(dayLabels, rows, columnTotals, grand);
     }
 
-    private byte[] matrixCsv(MatrixReport report) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Name");
-        for (String label : report.columnLabels()) sb.append(',').append(label);
-        sb.append(",TOTAL\n");
+    private byte[] matrixXlsx(UUID organizationId, UUID preparedByUserId, MatrixReport report,
+                               String sheetName, String title) {
+        String preparedBy = resolveDisplayName(preparedByUserId);
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        List<String> headers = new ArrayList<>();
+        headers.add("Therapist");
+        headers.addAll(report.columnLabels());
+        headers.add("Total");
+        int colCount = headers.size();
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                sheetName, title, "", preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, headers);
         for (MatrixRow row : report.rows()) {
-            sb.append(csvCell(row.nickname()));
-            for (BigDecimal amt : row.amounts()) {
-                sb.append(',').append(amt == null ? "0" : amt.toPlainString());
-            }
-            sb.append(',').append(row.total().toPlainString()).append('\n');
+            List<Object> values = new ArrayList<>();
+            values.add(row.nickname());
+            for (BigDecimal amt : row.amounts()) values.add(amt == null ? BigDecimal.ZERO : amt);
+            values.add(row.total());
+            excelExportService.writeDataRow(ctx, values);
         }
-        sb.append("TOTAL");
-        for (BigDecimal t : report.columnTotals()) sb.append(',').append(t.toPlainString());
-        sb.append(',').append(report.grandTotal().toPlainString()).append('\n');
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        List<Object> totals = new ArrayList<>();
+        totals.add("TOTAL");
+        for (BigDecimal t : report.columnTotals()) totals.add(t);
+        totals.add(report.grandTotal());
+        excelExportService.writeTotalRow(ctx, totals);
+        excelExportService.writeFooter(ctx, colCount);
+        excelExportService.autoSizeColumns(ctx, colCount);
+        return excelExportService.toBytes(ctx.workbook);
+    }
+
+    private String resolveDisplayName(UUID userId) {
+        if (userId == null) return "Staff";
+        return userRepository.findById(userId)
+                .map(u -> u.getDisplayName() == null ? u.getUsername() : u.getDisplayName())
+                .orElse("Staff");
     }
 
     private Map<UUID, BigDecimal> totalsByTherapistInWindow(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
@@ -311,11 +356,4 @@ public class CommissionReportService {
         return rows;
     }
 
-    private String csvCell(String v) {
-        if (v == null || v.isBlank()) return "";
-        if (v.contains(",") || v.contains("\"") || v.contains("\n")) {
-            return "\"" + v.replace("\"", "\"\"") + "\"";
-        }
-        return v;
-    }
 }

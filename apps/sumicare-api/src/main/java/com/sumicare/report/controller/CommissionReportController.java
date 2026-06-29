@@ -23,6 +23,8 @@ import java.util.UUID;
 @RequestMapping("/api/records/commissions")
 public class CommissionReportController {
 
+    private static final String XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
     private final CommissionReportService service;
 
     public CommissionReportController(CommissionReportService service) {
@@ -37,14 +39,15 @@ public class CommissionReportController {
         return service.shift(UUID.fromString(principal.organizationId()), shiftId, date);
     }
 
-    @GetMapping("/shift/export.csv")
+    @GetMapping("/shift/export.xlsx")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
-    public ResponseEntity<byte[]> shiftCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                            @RequestParam Long shiftId,
-                                            @RequestParam LocalDate date) {
-        byte[] data = service.shiftCsv(UUID.fromString(principal.organizationId()), shiftId, date);
-        String filename = "commissions-shift-" + shiftId + "-" + date + ".csv";
-        return csvResponse(filename, data);
+    public ResponseEntity<byte[]> shiftXlsx(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                             @RequestParam Long shiftId,
+                                             @RequestParam LocalDate date) {
+        byte[] data = service.shiftXlsx(UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), shiftId, date);
+        String filename = "commissions-shift-" + shiftId + "-" + date + ".xlsx";
+        return xlsxResponse(filename, data);
     }
 
     @GetMapping("/daily")
@@ -54,12 +57,13 @@ public class CommissionReportController {
         return service.daily(UUID.fromString(principal.organizationId()), date);
     }
 
-    @GetMapping("/daily/export.csv")
+    @GetMapping("/daily/export.xlsx")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
-    public ResponseEntity<byte[]> dailyCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                            @RequestParam LocalDate date) {
-        byte[] data = service.dailyCsv(UUID.fromString(principal.organizationId()), date);
-        return csvResponse("commissions-daily-" + date + ".csv", data);
+    public ResponseEntity<byte[]> dailyXlsx(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                             @RequestParam LocalDate date) {
+        byte[] data = service.dailyXlsx(UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), date);
+        return xlsxResponse("commissions-daily-" + date + ".xlsx", data);
     }
 
     @GetMapping("/cutoff")
@@ -71,15 +75,16 @@ public class CommissionReportController {
         return service.cutoff(UUID.fromString(principal.organizationId()), year, month, half);
     }
 
-    @GetMapping("/cutoff/export.csv")
+    @GetMapping("/cutoff/export.xlsx")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
-    public ResponseEntity<byte[]> cutoffCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                             @RequestParam int year,
-                                             @RequestParam int month,
-                                             @RequestParam(defaultValue = "1") int half) {
-        byte[] data = service.cutoffCsv(UUID.fromString(principal.organizationId()), year, month, half);
-        String filename = "commissions-cutoff-" + year + "-" + String.format("%02d", month) + "-h" + half + ".csv";
-        return csvResponse(filename, data);
+    public ResponseEntity<byte[]> cutoffXlsx(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                              @RequestParam int year,
+                                              @RequestParam int month,
+                                              @RequestParam(defaultValue = "1") int half) {
+        byte[] data = service.cutoffXlsx(UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), year, month, half);
+        String filename = "commissions-cutoff-" + year + "-" + String.format("%02d", month) + "-h" + half + ".xlsx";
+        return xlsxResponse(filename, data);
     }
 
     @GetMapping("/monthly")
@@ -90,39 +95,41 @@ public class CommissionReportController {
         return service.monthly(UUID.fromString(principal.organizationId()), year, month);
     }
 
-    @GetMapping("/monthly/export.csv")
+    @GetMapping("/monthly/export.xlsx")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
-    public ResponseEntity<byte[]> monthlyCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                              @RequestParam int year,
-                                              @RequestParam int month) {
-        byte[] data = service.monthlyCsv(UUID.fromString(principal.organizationId()), year, month);
-        String filename = "commissions-monthly-" + year + "-" + String.format("%02d", month) + ".csv";
-        return csvResponse(filename, data);
+    public ResponseEntity<byte[]> monthlyXlsx(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                               @RequestParam int year,
+                                               @RequestParam int month) {
+        byte[] data = service.monthlyXlsx(UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), year, month);
+        String filename = "commissions-monthly-" + year + "-" + String.format("%02d", month) + ".xlsx";
+        return xlsxResponse(filename, data);
     }
 
     @GetMapping("/tips")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
     public CommissionReportService.TipReport tips(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                                  @RequestParam LocalDate from,
-                                                  @RequestParam LocalDate to,
-                                                  @RequestParam(required = false) UUID therapistId) {
+                                                   @RequestParam LocalDate from,
+                                                   @RequestParam LocalDate to,
+                                                   @RequestParam(required = false) UUID therapistId) {
         return service.tips(UUID.fromString(principal.organizationId()), from, to, therapistId);
     }
 
-    @GetMapping("/tips/export.csv")
+    @GetMapping("/tips/export.xlsx")
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
-    public ResponseEntity<byte[]> tipsCsv(@AuthenticationPrincipal AuthenticatedPrincipal principal,
-                                          @RequestParam LocalDate from,
-                                          @RequestParam LocalDate to,
-                                          @RequestParam(required = false) UUID therapistId) {
-        byte[] data = service.tipsCsv(UUID.fromString(principal.organizationId()), from, to, therapistId);
-        return csvResponse("tips-" + from + "-to-" + to + ".csv", data);
+    public ResponseEntity<byte[]> tipsXlsx(@AuthenticationPrincipal AuthenticatedPrincipal principal,
+                                           @RequestParam LocalDate from,
+                                           @RequestParam LocalDate to,
+                                           @RequestParam(required = false) UUID therapistId) {
+        byte[] data = service.tipsXlsx(UUID.fromString(principal.organizationId()),
+                UUID.fromString(principal.userId()), from, to, therapistId);
+        return xlsxResponse("tips-" + from + "-to-" + to + ".xlsx", data);
     }
 
-    private ResponseEntity<byte[]> csvResponse(String filename, byte[] data) {
+    private ResponseEntity<byte[]> xlsxResponse(String filename, byte[] data) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .contentType(MediaType.parseMediaType(XLSX_MIME))
                 .body(data);
     }
 }

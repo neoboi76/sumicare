@@ -8,14 +8,17 @@
 package com.sumicare.report.service;
 
 import com.sumicare.booking.repository.SessionRepository;
+import com.sumicare.organization.repository.OrganizationRepository;
 import com.sumicare.transaction.repository.CommissionRepository;
+import com.sumicare.user.repository.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,10 +27,20 @@ public class ReportService {
 
     private final SessionRepository sessionRepository;
     private final CommissionRepository commissionRepository;
+    private final ExcelExportService excelExportService;
+    private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
 
-    public ReportService(SessionRepository sessionRepository, CommissionRepository commissionRepository) {
+    public ReportService(SessionRepository sessionRepository,
+                         CommissionRepository commissionRepository,
+                         ExcelExportService excelExportService,
+                         OrganizationRepository organizationRepository,
+                         UserRepository userRepository) {
         this.sessionRepository = sessionRepository;
         this.commissionRepository = commissionRepository;
+        this.excelExportService = excelExportService;
+        this.organizationRepository = organizationRepository;
+        this.userRepository = userRepository;
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
@@ -56,21 +69,32 @@ public class ReportService {
     }
 
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER','RECEPTIONIST')")
-    public byte[] exportCutoffToCsv(UUID organizationId, OffsetDateTime from, OffsetDateTime to) {
+    public byte[] exportCutoffToXlsx(UUID organizationId, UUID preparedByUserId,
+                                      OffsetDateTime from, OffsetDateTime to) {
         ReportSummary summary = buildCutoffReport(organizationId, from, to);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Therapist ID,Sessions,Specifically Requested,Total Commission\n");
-        for (var entry : summary.sessionCountByTherapist().entrySet()) {
+        String preparedBy = preparedByUserId == null ? "Staff"
+                : userRepository.findById(preparedByUserId)
+                    .map(u -> u.getDisplayName() == null ? u.getUsername() : u.getDisplayName())
+                    .orElse("Staff");
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Cutoff Report",
+                "Cutoff Report",
+                from.toLocalDate() + " to " + to.toLocalDate(),
+                preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, List.of(
+                "Therapist ID", "Sessions", "Specifically Requested", "Total Commission"));
+        for (Map.Entry<UUID, Integer> entry : summary.sessionCountByTherapist().entrySet()) {
             UUID therapistId = entry.getKey();
             int sessions = entry.getValue();
             int requested = summary.requestedCountByTherapist().getOrDefault(therapistId, 0);
             BigDecimal commission = summary.commissionsByTherapist().getOrDefault(therapistId, BigDecimal.ZERO);
-            sb.append(therapistId).append(',')
-              .append(sessions).append(',')
-              .append(requested).append(',')
-              .append(commission.toPlainString()).append('\n');
+            excelExportService.writeDataRow(ctx, List.of(
+                    therapistId.toString(), sessions, requested, commission));
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        excelExportService.writeFooter(ctx, 4);
+        excelExportService.autoSizeColumns(ctx, 4);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
     public record ReportSummary(

@@ -40,19 +40,22 @@ public class RegisteredClientsReportService {
     private final UserRepository userRepository;
     private final PdfRenderer pdfRenderer;
     private final LogoResolver logoResolver;
+    private final ExcelExportService excelExportService;
 
     public RegisteredClientsReportService(ClientRepository clientRepository,
                                           ClientUsageService clientUsageService,
                                           OrganizationRepository organizationRepository,
                                           UserRepository userRepository,
                                           PdfRenderer pdfRenderer,
-                                          LogoResolver logoResolver) {
+                                          LogoResolver logoResolver,
+                                          ExcelExportService excelExportService) {
         this.clientRepository = clientRepository;
         this.clientUsageService = clientUsageService;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.pdfRenderer = pdfRenderer;
         this.logoResolver = logoResolver;
+        this.excelExportService = excelExportService;
     }
 
     public record ClientRow(UUID clientId, String nickname, int bookingCount, BigDecimal totalSpending,
@@ -135,6 +138,38 @@ public class RegisteredClientsReportService {
                         peso(report.totalLifetimeSpend()), escape(preparedBy), generated);
 
         return pdfRenderer.renderHtml(html);
+    }
+
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
+    public byte[] xlsx(UUID organizationId, UUID preparedByUserId) {
+        RegisteredClientsReport report = report(organizationId);
+        String preparedBy = preparedByUserId == null ? "Staff"
+                : userRepository.findById(preparedByUserId)
+                    .map(u -> u.getDisplayName() == null ? u.getUsername() : u.getDisplayName())
+                    .orElse("Staff");
+        String logoUrl = organizationRepository.findById(organizationId).map(o -> o.getLogoUrl()).orElse(null);
+        ExcelExportService.WorkbookContext ctx = excelExportService.createWorkbook(
+                "Registered Clients",
+                "Registered Clients Report",
+                OffsetDateTime.now().atZoneSameInstant(MANILA).format(STAMP),
+                preparedBy, logoUrl);
+        excelExportService.writeHeaderRow(ctx, java.util.List.of(
+                "#", "Client", "Bookings", "Lifetime Spend", "Favourite Service", "Favourite Package"));
+        int rank = 1;
+        for (ClientRow c : report.clients()) {
+            excelExportService.writeDataRow(ctx, java.util.List.of(
+                    rank++, c.nickname() != null ? c.nickname() : "",
+                    c.bookingCount(), c.totalSpending() != null ? c.totalSpending() : java.math.BigDecimal.ZERO,
+                    c.topService() != null ? c.topService() : "",
+                    c.topPackage() != null ? c.topPackage() : ""));
+        }
+        excelExportService.writeTotalRow(ctx, java.util.List.of(
+                "", "Total Lifetime Spend", "",
+                report.totalLifetimeSpend() != null ? report.totalLifetimeSpend() : java.math.BigDecimal.ZERO,
+                "", ""));
+        excelExportService.writeFooter(ctx, 6);
+        excelExportService.autoSizeColumns(ctx, 6);
+        return excelExportService.toBytes(ctx.workbook);
     }
 
     private String firstLabel(List<ClientUsageResponse.UsageCount> counts) {

@@ -831,11 +831,11 @@ export class BookingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  exportCsv(): void {
+  exportXlsx(): void {
     const d = this.selectedDate();
     const from = encodeURIComponent(`${d}T00:00:00.000+08:00`);
     const to = encodeURIComponent(`${d}T23:59:59.999+08:00`);
-    this.http.get(`${environment.apiBaseUrl}/api/bookings/export.csv?from=${from}&to=${to}`,
+    this.http.get(`${environment.apiBaseUrl}/api/bookings/export.xlsx?from=${from}&to=${to}`,
       { responseType: 'blob' as const, observe: 'response' as const }
     ).subscribe({
       next: (response) => {
@@ -844,7 +844,7 @@ export class BookingsComponent implements OnInit, OnDestroy {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `bookings-${d}.csv`;
+        a.download = `bookings-${d}.xlsx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

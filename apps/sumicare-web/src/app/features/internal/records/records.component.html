@@ -40,8 +40,8 @@
       </label>
       <button (click)="loadServices()"
         class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
-      <button (click)="exportServicesCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
-        CSV</button>
+      <button (click)="exportServicesXlsx()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
+        Excel</button>
     </div>
     @if (servicesReport(); as r) {
     <div class="text-xs text-slate-500 mb-1">Shift: {{ selectedShiftLabel() }}</div>
@@ -82,7 +82,7 @@
       <label class="flex flex-col text-xs">Date <input type="date" [(ngModel)]="dailyDate" name="dd"
           class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
       <button (click)="loadDaily()" class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
-      <button (click)="exportDailyCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+      <button (click)="exportDailyXlsx()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export Excel</button>
     </div>
     @if (dailyReport(); as r) {
     <div class="overflow-x-auto">
@@ -165,13 +165,13 @@
           name="mm" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm" /></label>
       <button (click)="loadMonthly()"
         class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
-      <button (click)="exportMonthlyCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
-        CSV</button>
+      <button (click)="exportMonthlyXlsx()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
+        Excel</button>
     </div>
     @if (monthlyReport(); as r) {
     <p class="text-xs text-slate-500">{{ r.rows.length }} rows · Grand total &#8369; {{ r.grandTotal | number:'1.2-2' }}
     </p>
-    <p class="text-xs text-slate-500">Use the CSV export for the detailed table.</p>
+    <p class="text-xs text-slate-500">Use the Excel export for the detailed table.</p>
     }
   </div>
   }
@@ -204,8 +204,8 @@
             class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
         <button (click)="loadCommissionShift()"
           class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
-        <button (click)="exportCommissionShiftCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
-          CSV</button>
+        <button (click)="exportCommissionShiftXlsx()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
+          Excel</button>
       </div>
       @if (commissionShiftReport(); as r) {
       <div class="overflow-x-auto">
@@ -246,8 +246,8 @@
             class="border border-slate-300 rounded px-2 py-1 text-sm" /></label>
         <button (click)="loadCommissionDaily()"
           class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
-        <button (click)="exportCommissionDailyCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
-          CSV</button>
+        <button (click)="exportCommissionDailyXlsx()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
+          Excel</button>
       </div>
       @if (commissionDailyReport(); as r) {
       <div class="overflow-x-auto">
@@ -298,8 +298,8 @@
         </label>
         <button (click)="loadCommissionCutoff()"
           class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
-        <button (click)="exportCommissionCutoffCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
-          CSV</button>
+        <button (click)="exportCommissionCutoffXlsx()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export
+          Excel</button>
       </div>
       @if (commissionCutoffReport(); as r) {
       <div class="overflow-x-auto">
@@ -345,13 +345,13 @@
             class="w-20 border border-slate-300 rounded px-2 py-1 text-sm" /></label>
         <button (click)="loadCommissionMonthly()"
           class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
-        <button (click)="exportCommissionMonthlyCsv()"
-          class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+        <button (click)="exportCommissionMonthlyXlsx()"
+          class="rounded border border-slate-300 text-sm px-3 py-1.5">Export Excel</button>
       </div>
       @if (commissionMonthlyReport(); as r) {
       <p class="text-xs text-slate-500">{{ r.rows.length }} therapists · Grand total &#8369; {{ r.grandTotal |
         number:'1.2-2' }}</p>
-      <p class="text-xs text-slate-500">Use the CSV export for the matrix.</p>
+      <p class="text-xs text-slate-500">Use the Excel export for the matrix.</p>
       }
     </div>
     }
@@ -379,7 +379,7 @@
       </label>
       <button (click)="loadTips()"
         class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5">Run</button>
-      <button (click)="exportTipsCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export CSV</button>
+      <button (click)="exportTipsXlsx()" class="rounded border border-slate-300 text-sm px-3 py-1.5">Export Excel</button>
     </div>
     @if (tipsReport(); as r) {
     <div class="overflow-x-auto">
@@ -426,8 +426,8 @@
       </label>
       <button (click)="loadDecking()"
         class="rounded bg-[var(--sumi-primary)] text-white text-sm px-3 py-1.5 h-full">Run</button>
-      <button (click)="exportDeckingCsv()" class="rounded border border-slate-300 text-sm px-3 py-1.5 h-full">Export
-        CSV</button>
+      <button (click)="exportDeckingXlsx()" class="rounded border border-slate-300 text-sm px-3 py-1.5 h-full">Export
+        Excel</button>
     </div>
 
     @if (loading()) {

@@ -115,9 +115,11 @@ public class SurveyService {
         String orNumber = order.getOrNumber() != null && !order.getOrNumber().isBlank()
                 ? order.getOrNumber() : order.getReferenceNumber();
 
-        feedbackRepository.save(buildFeedback(invitation.getOrganizationId(), order.getId(), nickname,
+        Feedback lasemaFeedback = buildFeedback(invitation.getOrganizationId(), order.getId(), nickname,
                 "LASEMA", null, request.lasemaRating(), request.lasemaComment(),
-                toCriteriaJson(request.lasemaCriteria()), orNumber));
+                toCriteriaJson(request.lasemaCriteria()), orNumber);
+        lasemaFeedback.setNpsScore(request.npsScore());
+        feedbackRepository.save(lasemaFeedback);
 
         if (request.therapists() != null) {
             for (SubmitSurveyRequest.TherapistRating tr : request.therapists()) {

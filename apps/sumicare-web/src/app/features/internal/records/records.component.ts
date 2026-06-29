@@ -145,12 +145,12 @@ export class RecordsComponent implements OnInit {
     });
   }
 
-  exportServicesCsv(): void {
+  exportServicesXlsx(): void {
     const from = `${this.cutoffFrom}T00:00:00.000+08:00`;
     const to = `${this.cutoffTo}T23:59:59.999+08:00`;
-    let url = `${environment.apiBaseUrl}/api/records/cutoff/services/export.csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    let url = `${environment.apiBaseUrl}/api/records/cutoff/services/export.xlsx?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     if (this.cutoffShiftId) url += `&shiftId=${this.cutoffShiftId}`;
-    this.downloadBlob(url, `cutoff-services-${this.cutoffFrom}-to-${this.cutoffTo}.csv`);
+    this.downloadBlob(url, `cutoff-services-${this.cutoffFrom}-to-${this.cutoffTo}.xlsx`);
   }
 
   loadDaily(): void {
@@ -160,10 +160,10 @@ export class RecordsComponent implements OnInit {
       error: () => { this.dailyReport.set(null); this.loading.set(false); }
     });
   }
-  exportDailyCsv(): void {
+  exportDailyXlsx(): void {
     this.downloadBlob(
-      `${environment.apiBaseUrl}/api/records/daily/export.csv?date=${this.dailyDate}`,
-      `daily-${this.dailyDate}.csv`
+      `${environment.apiBaseUrl}/api/records/daily/export.xlsx?date=${this.dailyDate}`,
+      `daily-${this.dailyDate}.xlsx`
     );
   }
 
@@ -176,10 +176,10 @@ export class RecordsComponent implements OnInit {
       error: () => { this.monthlyReport.set(null); this.loading.set(false); }
     });
   }
-  exportMonthlyCsv(): void {
+  exportMonthlyXlsx(): void {
     this.downloadBlob(
-      `${environment.apiBaseUrl}/api/records/monthly-detailed/export.csv?year=${this.monthlyYear}&month=${this.monthlyMonth}`,
-      `monthly-${this.monthlyYear}-${String(this.monthlyMonth).padStart(2, '0')}.csv`
+      `${environment.apiBaseUrl}/api/records/monthly-detailed/export.xlsx?year=${this.monthlyYear}&month=${this.monthlyMonth}`,
+      `monthly-${this.monthlyYear}-${String(this.monthlyMonth).padStart(2, '0')}.xlsx`
     );
   }
 
@@ -193,11 +193,11 @@ export class RecordsComponent implements OnInit {
       error: () => { this.commissionShiftReport.set(null); this.loading.set(false); }
     });
   }
-  exportCommissionShiftCsv(): void {
+  exportCommissionShiftXlsx(): void {
     if (!this.commissionShiftId) return;
     this.downloadBlob(
-      `${environment.apiBaseUrl}/api/records/commissions/shift/export.csv?shiftId=${this.commissionShiftId}&date=${this.commissionShiftDate}`,
-      `commissions-shift-${this.commissionShiftId}-${this.commissionShiftDate}.csv`
+      `${environment.apiBaseUrl}/api/records/commissions/shift/export.xlsx?shiftId=${this.commissionShiftId}&date=${this.commissionShiftDate}`,
+      `commissions-shift-${this.commissionShiftId}-${this.commissionShiftDate}.xlsx`
     );
   }
 
@@ -210,10 +210,10 @@ export class RecordsComponent implements OnInit {
       error: () => { this.commissionDailyReport.set(null); this.loading.set(false); }
     });
   }
-  exportCommissionDailyCsv(): void {
+  exportCommissionDailyXlsx(): void {
     this.downloadBlob(
-      `${environment.apiBaseUrl}/api/records/commissions/daily/export.csv?date=${this.commissionDailyDate}`,
-      `commissions-daily-${this.commissionDailyDate}.csv`
+      `${environment.apiBaseUrl}/api/records/commissions/daily/export.xlsx?date=${this.commissionDailyDate}`,
+      `commissions-daily-${this.commissionDailyDate}.xlsx`
     );
   }
 
@@ -226,10 +226,10 @@ export class RecordsComponent implements OnInit {
       error: () => { this.commissionCutoffReport.set(null); this.loading.set(false); }
     });
   }
-  exportCommissionCutoffCsv(): void {
+  exportCommissionCutoffXlsx(): void {
     this.downloadBlob(
-      `${environment.apiBaseUrl}/api/records/commissions/cutoff/export.csv?year=${this.commissionCutoffYear}&month=${this.commissionCutoffMonth}&half=${this.commissionCutoffHalf}`,
-      `commissions-cutoff-${this.commissionCutoffYear}-${String(this.commissionCutoffMonth).padStart(2, '0')}-h${this.commissionCutoffHalf}.csv`
+      `${environment.apiBaseUrl}/api/records/commissions/cutoff/export.xlsx?year=${this.commissionCutoffYear}&month=${this.commissionCutoffMonth}&half=${this.commissionCutoffHalf}`,
+      `commissions-cutoff-${this.commissionCutoffYear}-${String(this.commissionCutoffMonth).padStart(2, '0')}-h${this.commissionCutoffHalf}.xlsx`
     );
   }
 
@@ -242,10 +242,10 @@ export class RecordsComponent implements OnInit {
       error: () => { this.commissionMonthlyReport.set(null); this.loading.set(false); }
     });
   }
-  exportCommissionMonthlyCsv(): void {
+  exportCommissionMonthlyXlsx(): void {
     this.downloadBlob(
-      `${environment.apiBaseUrl}/api/records/commissions/monthly/export.csv?year=${this.commissionMonthlyYear}&month=${this.commissionMonthlyMonth}`,
-      `commissions-monthly-${this.commissionMonthlyYear}-${String(this.commissionMonthlyMonth).padStart(2, '0')}.csv`
+      `${environment.apiBaseUrl}/api/records/commissions/monthly/export.xlsx?year=${this.commissionMonthlyYear}&month=${this.commissionMonthlyMonth}`,
+      `commissions-monthly-${this.commissionMonthlyYear}-${String(this.commissionMonthlyMonth).padStart(2, '0')}.xlsx`
     );
   }
 
@@ -258,10 +258,10 @@ export class RecordsComponent implements OnInit {
       error: () => { this.deckingReport.set(null); this.loading.set(false); }
     });
   }
-  exportDeckingCsv(): void {
+  exportDeckingXlsx(): void {
     this.downloadBlob(
-      `${environment.apiBaseUrl}/api/records/decking/daily/export.csv?date=${this.deckingDate}`,
-      `decking-${this.deckingDate}.csv`
+      `${environment.apiBaseUrl}/api/records/decking/daily/export.xlsx?date=${this.deckingDate}`,
+      `decking-${this.deckingDate}.xlsx`
     );
   }
 
@@ -280,10 +280,10 @@ export class RecordsComponent implements OnInit {
       error: () => { this.tipsReport.set(null); this.loading.set(false); }
     });
   }
-  exportTipsCsv(): void {
+  exportTipsXlsx(): void {
     this.downloadBlob(
-      `${environment.apiBaseUrl}/api/records/commissions/tips/export.csv?${this.tipsQuery()}`,
-      `tips-${this.tipsFrom}-to-${this.tipsTo}.csv`
+      `${environment.apiBaseUrl}/api/records/commissions/tips/export.xlsx?${this.tipsQuery()}`,
+      `tips-${this.tipsFrom}-to-${this.tipsTo}.xlsx`
     );
   }
 

@@ -65,7 +65,17 @@ interface RegisteredClientRow {
   topPackage: string;
 }
 
+interface SatisfactionStats {
+  overallDistribution: { counts: Record<number, number>; average: number; total: number };
+  perCriterionAverages: Record<string, number>;
+  satisfactionIndex: number;
+  nps: { score: number; promoters: number; passives: number; detractors: number; respondents: number };
+  recentComments: string[];
+}
+
 const PAYMENT_METHODS = ['CASH', 'GCASH', 'CREDIT', 'DEBIT'];
+const TOP_THERAPIST_PERIODS = ['ALL', 'MONTHLY', 'WEEKLY', 'PAYROLL'] as const;
+type TopTherapistPeriod = typeof TOP_THERAPIST_PERIODS[number];
 
 @Component({
   selector: 'sumi-reports',
@@ -85,14 +95,22 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
   from = signal(this.dayOffset(-13));
   to = signal(this.dayOffset(0));
   method = signal('ALL');
+  groupBy = signal<'SERVICE' | 'PACKAGE'>('SERVICE');
+  topTherapistPeriod = signal<TopTherapistPeriod>('ALL');
   loading = signal(false);
   points = signal<RevenuePoint[]>([]);
   methodSlices = signal<MethodSlice[]>([]);
   topTherapists = signal<TopTherapist[]>([]);
   performance = signal<TherapistPerformance[]>([]);
   registeredClients = signal<RegisteredClientRow[]>([]);
+  satisfaction = signal<SatisfactionStats | null>(null);
 
   readonly methodOptions = ['ALL', ...PAYMENT_METHODS];
+  readonly groupByOptions: { value: 'SERVICE' | 'PACKAGE'; label: string }[] = [
+    { value: 'SERVICE', label: 'Service' },
+    { value: 'PACKAGE', label: 'Package' }
+  ];
+  readonly topTherapistPeriods = TOP_THERAPIST_PERIODS;
 
   narrative = computed(() => {
     const count = this.totalCount();
@@ -117,12 +135,27 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
     return rows.reduce((best, p) => (p.net > best.net ? p : best), rows[0]);
   });
 
+  satisfactionCriteria = computed(() => {
+    const s = this.satisfaction();
+    if (!s || !s.perCriterionAverages) return [];
+    return Object.entries(s.perCriterionAverages).map(([key, avg]) => ({
+      label: this.humanizeKey(key),
+      avg
+    }));
+  });
+
   ngAfterViewInit(): void {
     this.load();
-    this.http.get<{ therapists: TopTherapist[] }>(`${environment.apiBaseUrl}/api/reports/top-therapists`)
-      .pipe(catchError(() => of({ therapists: [] as TopTherapist[] })))
-      .subscribe((res) => this.topTherapists.set(res.therapists));
+    this.loadTopTherapists();
     this.loadRegisteredClients();
+    this.loadSatisfaction();
+  }
+
+  loadTopTherapists(): void {
+    this.http.get<{ therapists: TopTherapist[] }>(
+      `${environment.apiBaseUrl}/api/reports/top-therapists?period=${this.topTherapistPeriod()}`
+    ).pipe(catchError(() => of({ therapists: [] as TopTherapist[] })))
+      .subscribe((res) => this.topTherapists.set(res.therapists));
   }
 
   loadPerformance(): void {
@@ -138,9 +171,39 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
       .subscribe((res) => this.registeredClients.set(res.clients));
   }
 
+  loadSatisfaction(): void {
+    this.http.get<SatisfactionStats>(
+      `${environment.apiBaseUrl}/api/reports/satisfaction?from=${this.from()}&to=${this.to()}`
+    ).pipe(catchError(() => of(null)))
+      .subscribe((res) => this.satisfaction.set(res));
+  }
+
   downloadRegisteredClientsPdf(): void {
     this.http.get(`${environment.apiBaseUrl}/api/reports/registered-clients.pdf`, { responseType: 'blob' })
       .subscribe((blob) => this.saveBlob(blob, 'registered-clients.pdf'));
+  }
+
+  downloadRegisteredClientsXlsx(): void {
+    this.http.get(`${environment.apiBaseUrl}/api/reports/registered-clients.xlsx`, { responseType: 'blob' })
+      .subscribe((blob) => this.saveBlob(blob, 'registered-clients.xlsx'));
+  }
+
+  downloadTopTherapistsPdf(): void {
+    const period = this.topTherapistPeriod();
+    this.http.get(`${environment.apiBaseUrl}/api/reports/top-therapists.pdf?period=${period}`, { responseType: 'blob' })
+      .subscribe((blob) => this.saveBlob(blob, `top-therapists-${period.toLowerCase()}.pdf`));
+  }
+
+  downloadTopTherapistsXlsx(): void {
+    const period = this.topTherapistPeriod();
+    this.http.get(`${environment.apiBaseUrl}/api/reports/top-therapists.xlsx?period=${period}`, { responseType: 'blob' })
+      .subscribe((blob) => this.saveBlob(blob, `top-therapists-${period.toLowerCase()}.xlsx`));
+  }
+
+  downloadSatisfactionPdf(): void {
+    const url = `${environment.apiBaseUrl}/api/reports/satisfaction.pdf?from=${this.from()}&to=${this.to()}`;
+    this.http.get(url, { responseType: 'blob' })
+      .subscribe((blob) => this.saveBlob(blob, `satisfaction-${this.from()}-to-${this.to()}.pdf`));
   }
 
   private saveBlob(blob: Blob, filename: string): void {
@@ -160,22 +223,16 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
   }
 
   downloadSalesPdf(): void {
-    const url = `${environment.apiBaseUrl}/api/reports/sales-summary.pdf?from=${this.from()}&to=${this.to()}`;
+    const url = `${environment.apiBaseUrl}/api/reports/sales-summary.pdf?from=${this.from()}&to=${this.to()}&groupBy=${this.groupBy()}`;
     this.http.get(url, { responseType: 'blob' }).subscribe((blob) => {
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = `sales-report-${this.from()}-to-${this.to()}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(objectUrl);
+      this.saveBlob(blob, `sales-report-${this.from()}-to-${this.to()}.pdf`);
     });
   }
 
   load(): void {
     this.loading.set(true);
     this.loadPerformance();
+    this.loadSatisfaction();
     const from = this.from();
     const to = this.to();
     const method = this.method();
@@ -296,5 +353,10 @@ export class ReportsComponent implements AfterViewInit, OnDestroy {
     const d = new Date();
     d.setDate(d.getDate() + days);
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
+  }
+
+  private humanizeKey(key: string): string {
+    const spaced = key.replace(/([A-Z])/g, ' $1');
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
   }
 }

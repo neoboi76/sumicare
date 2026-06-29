@@ -35,10 +35,6 @@
         class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 hover:opacity-90 transition-opacity disabled:opacity-50">
         {{ loading() ? 'Loading...' : 'Apply' }}
       </button>
-      <button (click)="downloadSalesPdf()"
-        class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1.5 hover:bg-rose-50 transition-colors">
-        Sales PDF
-      </button>
     </div>
   </header>
 
@@ -67,8 +63,26 @@
   </section>
 
   <section class="bg-white rounded-xl shadow p-4">
-    <div class="flex items-baseline justify-between mb-3">
-      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Daily net revenue</h2>
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Sales report</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="flex items-center gap-1 text-xs text-slate-500">
+          Group by
+          <select [ngModel]="groupBy()" (ngModelChange)="groupBy.set($event)"
+            class="border border-slate-300 rounded px-2 py-1 text-sm text-slate-700">
+            @for (opt of groupByOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </label>
+        <button (click)="downloadSalesPdf()"
+          class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1.5 text-sm hover:bg-rose-50 transition-colors">
+          Sales PDF
+        </button>
+      </div>
+    </div>
+    <div class="flex items-baseline justify-between mb-2">
+      <span class="text-xs text-slate-400">Daily net revenue trend</span>
       @if (bestDay(); as best) {
         <span class="text-xs text-slate-500">Peak {{ best.date }} &middot; &#8369; {{ best.net | number:'1.2-2' }}</span>
       }
@@ -88,8 +102,80 @@
     </div>
   </section>
 
+  @if (satisfaction(); as s) {
+    <section class="bg-white rounded-xl shadow p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div>
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Client satisfaction</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Based on {{ s.overallDistribution.total }} survey responses in the selected range.</p>
+        </div>
+        <button (click)="downloadSatisfactionPdf()"
+          class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1.5 text-sm hover:bg-rose-50 transition-colors">
+          Satisfaction PDF
+        </button>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="bg-slate-50 rounded-lg p-3">
+          <div class="text-xs text-slate-500 mb-1">Avg overall rating</div>
+          <div class="text-2xl font-semibold text-slate-800">{{ s.overallDistribution.average | number:'1.1-2' }} / 5</div>
+        </div>
+        @if (s.nps && s.nps.respondents > 0) {
+          <div class="bg-slate-50 rounded-lg p-3">
+            <div class="text-xs text-slate-500 mb-1">NPS score</div>
+            <div [class]="'text-2xl font-semibold ' + (s.nps.score >= 50 ? 'text-emerald-700' : s.nps.score >= 0 ? 'text-amber-600' : 'text-rose-700')">
+              {{ s.nps.score | number:'1.0-0' }}
+            </div>
+          </div>
+        }
+        <div class="bg-emerald-50 rounded-lg p-3">
+          <div class="text-xs text-emerald-700 mb-1">Promoters (9–10)</div>
+          <div class="text-2xl font-semibold text-emerald-700">{{ s.nps?.promoters ?? 0 }}</div>
+        </div>
+        <div class="bg-slate-50 rounded-lg p-3">
+          <div class="text-xs text-slate-500 mb-1">Detractors (0–6)</div>
+          <div class="text-2xl font-semibold text-rose-700">{{ s.nps?.detractors ?? 0 }}</div>
+        </div>
+      </div>
+      @if (satisfactionCriteria().length > 0) {
+        <div class="space-y-2">
+          <p class="text-xs text-slate-400 font-medium uppercase tracking-wide">Criteria averages</p>
+          @for (c of satisfactionCriteria(); track c.label) {
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-44 shrink-0">{{ c.label }}</span>
+              <div class="flex-1 bg-slate-100 rounded-full h-2">
+                <div class="bg-[var(--sumi-primary)] h-2 rounded-full" [style.width.%]="(c.avg / 5) * 100"></div>
+              </div>
+              <span class="text-sm font-medium text-slate-700 w-12 text-right">{{ c.avg | number:'1.1-2' }}</span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  }
+
   <section class="bg-white rounded-xl shadow p-4 overflow-x-auto">
-    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-1">Top 10 Therapists of All Time</h2>
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Top 10 Therapists</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="flex items-center gap-1 text-xs text-slate-500">
+          Period
+          <select [ngModel]="topTherapistPeriod()" (ngModelChange)="topTherapistPeriod.set($event); loadTopTherapists()"
+            class="border border-slate-300 rounded px-2 py-1 text-sm text-slate-700">
+            @for (p of topTherapistPeriods; track p) {
+              <option [value]="p">{{ p }}</option>
+            }
+          </select>
+        </label>
+        <button (click)="downloadTopTherapistsPdf()"
+          class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1.5 text-sm hover:bg-rose-50 transition-colors">
+          PDF
+        </button>
+        <button (click)="downloadTopTherapistsXlsx()"
+          class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50 transition-colors">
+          Excel
+        </button>
+      </div>
+    </div>
     <p class="text-xs text-slate-400 mb-3">Weighted score = 50% average rating + 25% specific requests + 25% services rendered.</p>
     <table class="w-full min-w-[560px] text-sm">
       <thead class="text-slate-500 text-xs uppercase tracking-wide">
@@ -161,10 +247,16 @@
   <section class="bg-white rounded-xl shadow p-4 overflow-x-auto">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Registered clients</h2>
-      <button (click)="downloadRegisteredClientsPdf()"
-        class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1.5 text-sm hover:bg-rose-50 transition-colors">
-        Download PDF
-      </button>
+      <div class="flex flex-wrap gap-2">
+        <button (click)="downloadRegisteredClientsPdf()"
+          class="rounded border border-[var(--sumi-primary)] text-[var(--sumi-primary)] px-3 py-1.5 text-sm hover:bg-rose-50 transition-colors">
+          Download PDF
+        </button>
+        <button (click)="downloadRegisteredClientsXlsx()"
+          class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50 transition-colors">
+          Download Excel
+        </button>
+      </div>
     </div>
     <p class="text-xs text-slate-400 mb-3">Top customers by lifetime spend, with favourite service and package.
       Total lifetime spend &#8369; {{ totalClientSpend() | number:'1.2-2' }}.</p>

@@ -18,7 +18,11 @@ import com.sumicare.therapist.repository.TherapistRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -29,6 +33,7 @@ import java.util.UUID;
 @Service
 public class TopTherapistService {
 
+    private static final ZoneId MANILA = ZoneId.of("Asia/Manila");
     private static final OffsetDateTime EPOCH = OffsetDateTime.parse("2000-01-01T00:00:00Z");
 
     private final TherapistRepository therapistRepository;
@@ -43,13 +48,16 @@ public class TopTherapistService {
         this.feedbackRepository = feedbackRepository;
     }
 
+    public enum Period { WEEKLY, MONTHLY, PAYROLL, ALL }
+
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MANAGER')")
-    public TopTherapistResponse topTherapists(UUID organizationId) {
+    public TopTherapistResponse topTherapists(UUID organizationId, Period period) {
         OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime from = resolveFrom(period, now);
 
         Map<UUID, Long> serviceCounts = new HashMap<>();
         Map<UUID, Long> requestCounts = new HashMap<>();
-        for (Session session : sessionRepository.findAllByOrganizationIdAndStartedAtBetween(organizationId, EPOCH, now)) {
+        for (Session session : sessionRepository.findAllByOrganizationIdAndStartedAtBetween(organizationId, from, now)) {
             UUID therapistId = session.getPrimaryTherapistId();
             if (therapistId == null || "CANCELLED".equals(session.getStatus())) continue;
             serviceCounts.merge(therapistId, 1L, Long::sum);
@@ -59,7 +67,7 @@ public class TopTherapistService {
         }
 
         Map<UUID, long[]> ratingTotals = new HashMap<>();
-        for (Feedback feedback : feedbackRepository.findAllByOrganizationIdAndSubmittedAtBetweenOrderBySubmittedAtAsc(organizationId, EPOCH, now)) {
+        for (Feedback feedback : feedbackRepository.findAllByOrganizationIdAndSubmittedAtBetweenOrderBySubmittedAtAsc(organizationId, from, now)) {
             if (!"THERAPIST".equals(feedback.getFeedbackType()) || feedback.getTherapistId() == null) continue;
             long[] acc = ratingTotals.computeIfAbsent(feedback.getTherapistId(), k -> new long[2]);
             acc[0] += feedback.getRatingStars();
@@ -88,6 +96,22 @@ public class TopTherapistService {
 
         entries.sort(Comparator.comparingDouble(Entry::score).reversed());
         return new TopTherapistResponse(entries.stream().limit(10).toList());
+    }
+
+    private OffsetDateTime resolveFrom(Period period, OffsetDateTime now) {
+        LocalDate today = now.atZoneSameInstant(MANILA).toLocalDate();
+        return switch (period) {
+            case WEEKLY -> today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                    .atStartOfDay(MANILA).toOffsetDateTime();
+            case MONTHLY -> today.withDayOfMonth(1).atStartOfDay(MANILA).toOffsetDateTime();
+            case PAYROLL -> {
+                int dayOfMonth = today.getDayOfMonth();
+                yield dayOfMonth <= 15
+                        ? today.withDayOfMonth(1).atStartOfDay(MANILA).toOffsetDateTime()
+                        : today.withDayOfMonth(16).atStartOfDay(MANILA).toOffsetDateTime();
+            }
+            case ALL -> EPOCH;
+        };
     }
 
     private double round(double value) {

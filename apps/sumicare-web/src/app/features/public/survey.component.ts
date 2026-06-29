@@ -68,6 +68,7 @@ export class SurveyComponent implements OnInit {
   therapistComments: Record<string, string> = {};
   therapistScores: Record<string, Record<string, number>> = {};
   tipAmounts: Record<string, number | null> = {};
+  npsScore = signal<number | null>(null);
 
   ngOnInit(): void {
     this.token = this.route.snapshot.queryParamMap.get('token') || '';
@@ -108,6 +109,10 @@ export class SurveyComponent implements OnInit {
     this.therapistScores[therapistId][key] = rating;
   }
 
+  setNpsScore(score: number): void {
+    this.npsScore.set(this.npsScore() === score ? null : score);
+  }
+
   submit(): void {
     const d = this.detail();
     if (!d) return;
@@ -132,6 +137,7 @@ export class SurveyComponent implements OnInit {
       lasemaRating: this.lasemaOverall(),
       lasemaComment: this.lasemaComment.trim() || null,
       lasemaCriteria: this.lasemaScores,
+      npsScore: this.npsScore(),
       therapists,
       tips
     }).subscribe({

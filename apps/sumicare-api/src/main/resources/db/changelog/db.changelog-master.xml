@@ -79,4 +79,6 @@
     <include file="changes/0067-booking-preferred-room.xml" relativeToChangelogFile="true"/>
     <include file="changes/0068-feedback-criteria.xml" relativeToChangelogFile="true"/>
     <include file="changes/0069-voucher-applicability.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0070-nps-and-survey-stats.xml" relativeToChangelogFile="true"/>
+    <include file="changes/0071-nps-score-int.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

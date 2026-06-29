@@ -18,9 +18,9 @@
         class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-64" />
       <input type="date" [ngModel]="selectedDate()" (ngModelChange)="onDateChange($event)" name="selectedDate"
         class="rounded border border-slate-300 px-3 py-1.5 text-sm" />
-      <button (click)="exportCsv()"
+      <button (click)="exportXlsx()"
         class="rounded border border-emerald-600 text-emerald-700 px-3 py-1.5 text-sm hover:bg-emerald-50">Export
-        CSV</button>
+        Excel</button>
       <div class="inline-flex rounded border border-slate-300 overflow-hidden text-sm">
         <button (click)="setView('list')"
           [class]="viewMode() === 'list' ? 'bg-[var(--sumi-primary)] text-white px-3 py-1.5' : 'px-3 py-1.5 text-slate-600'">List</button>

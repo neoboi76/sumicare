@@ -5,90 +5,100 @@
       Dino Alfred T. Timbol (dattimbol@mymail.mapua.edu.ph)
 -->
 
-<div class="space-y-6">
-  <header class="flex items-start justify-between gap-4 flex-wrap">
-    <div>
-      <h1 class="text-2xl font-semibold text-slate-900">Customer feedback</h1>
-      <p class="text-slate-500">Recent ratings and comments from the public booking site.</p>
-    </div>
-    <div class="flex items-center gap-2 flex-wrap">
-      <label class="text-xs text-slate-500">From</label>
-      <input type="date" [(ngModel)]="exportFrom" class="text-sm border border-slate-300 rounded px-2 py-1" />
-      <label class="text-xs text-slate-500">To</label>
-      <input type="date" [(ngModel)]="exportTo" class="text-sm border border-slate-300 rounded px-2 py-1" />
-      <button (click)="exportCsv()" [disabled]="exporting()"
-        class="rounded bg-[var(--sumi-primary)] text-white px-3 py-1.5 text-sm disabled:opacity-50">
-        {{ exporting() ? 'Exporting...' : 'Export CSV' }}
+<div class="p-6 space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold text-stone-800">Client Feedback</h1>
+    <div class="flex flex-wrap gap-2 items-center">
+      <input type="date" [(ngModel)]="exportFrom" name="exportFrom"
+        class="border border-stone-300 rounded-lg px-3 py-1.5 text-sm text-stone-700 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600" />
+      <input type="date" [(ngModel)]="exportTo" name="exportTo"
+        class="border border-stone-300 rounded-lg px-3 py-1.5 text-sm text-stone-700 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600" />
+      <button type="button" (click)="exportXlsx()" [disabled]="exporting()"
+        class="rounded-lg border border-emerald-600 text-emerald-700 px-4 py-1.5 text-sm hover:bg-emerald-50 disabled:opacity-50">
+        Export Excel
       </button>
     </div>
-  </header>
+  </div>
 
-  <input type="search" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" name="feedbackSearch"
-    placeholder="Search OR#, nickname, comment"
-    class="rounded border border-slate-300 px-3 py-1.5 text-sm w-full sm:w-80" />
+  <input type="search" placeholder="Search by reference, therapist, or comment…"
+    [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" name="search"
+    class="w-full border border-stone-300 rounded-lg px-4 py-2 text-sm text-stone-700 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600" />
 
-  <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    @for (f of filteredFeedback(); track f.id) {
-      <article class="bg-white rounded-xl shadow transition-shadow duration-200 hover:shadow-md">
-        <button type="button" (click)="toggle(f.id)"
-          class="w-full text-left p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sumi-primary)] rounded-xl">
-          <div class="flex items-center gap-2 mb-1 flex-wrap">
-            <span class="text-amber-500">{{ stars(f.ratingStars) }}</span>
-            <span class="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5"
-              [class.bg-rose-100]="isSurvey(f.feedbackType)" [class.text-rose-700]="isSurvey(f.feedbackType)"
-              [class.bg-slate-100]="!isSurvey(f.feedbackType)" [class.text-slate-600]="!isSurvey(f.feedbackType)">{{ typeLabel(f.feedbackType) }}</span>
-            <span class="text-xs text-slate-500">{{ formatDate(f.submittedAt) }}</span>
-            @if (f.orNumber) {
-              <span class="text-xs font-mono text-slate-600 bg-slate-100 rounded px-1.5 py-0.5">OR# {{ f.orNumber }}</span>
-            }
-            <span class="ml-auto text-slate-400 text-xs">{{ expandedId() === f.id ? 'Hide' : 'Details' }}</span>
-          </div>
-          <p class="text-sm text-slate-700" [class.line-clamp-2]="expandedId() !== f.id">{{ f.comment || '(no comment)' }}</p>
-        </button>
-        @if (expandedId() === f.id) {
-          <div class="px-4 pb-4 anim-slide-down border-t border-slate-100 pt-3 space-y-2 text-sm">
-            @if (f.orNumber) {
-              <div class="flex items-center gap-2">
-                <span class="text-xs uppercase tracking-wide text-slate-400">OR number</span>
-                <span class="font-mono font-semibold text-slate-800 bg-slate-100 rounded px-2 py-0.5">{{ f.orNumber }}</span>
-              </div>
-            } @else {
-              <div class="text-xs text-slate-400">No OR number was attached to this feedback.</div>
-            }
-            <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-              <div><span class="block uppercase tracking-wide text-slate-400">Nickname</span>{{ f.nickname || '—' }}</div>
-              <div><span class="block uppercase tracking-wide text-slate-400">Submitted</span>{{ formatDate(f.submittedAt) }}</div>
-              <div class="col-span-2 break-all"><span class="block uppercase tracking-wide text-slate-400">Session</span>{{ f.sessionId || '—' }}</div>
-            </div>
-            @if (isSurvey(f.feedbackType) && parsedCriteria(f.criteria).length) {
-              <div class="rounded-lg border border-slate-200 p-3">
-                <div class="text-xs uppercase tracking-wide text-slate-400 mb-2">Survey scores</div>
-                <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <div class="flex items-center justify-between col-span-2 border-b border-slate-100 pb-1">
-                    <span class="text-slate-600">Overall</span>
-                    <span class="text-amber-500">{{ stars(f.ratingStars) }}</span>
-                  </div>
-                  @for (c of parsedCriteria(f.criteria); track c.label) {
-                    <div class="flex items-center justify-between">
-                      <span class="text-slate-600">{{ c.label }}</span>
-                      <span class="text-amber-500 text-xs">{{ stars(c.score) }}</span>
-                    </div>
+  @if (filteredGroups().length === 0) {
+    <p class="text-stone-400 text-sm py-10 text-center">No feedback entries found.</p>
+  }
+
+  @for (group of filteredGroups(); track groupKey(group)) {
+    <div class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
+      <button type="button"
+        class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-stone-50 transition-colors"
+        (click)="toggle(groupKey(group))">
+        <div class="flex flex-wrap items-center gap-3">
+          @if (group.orderReference) {
+            <span class="font-semibold text-stone-800 text-sm">OR {{ group.orderReference }}</span>
+          } @else {
+            <span class="font-semibold text-stone-500 text-sm italic">No order reference</span>
+          }
+          <span class="text-xs text-stone-400">{{ group.firstSubmittedAt }}</span>
+          @if (group.hasSurvey) {
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700">Survey</span>
+          } @else {
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-500">General</span>
+          }
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-stone-400">{{ group.entries.length }} {{ group.entries.length === 1 ? 'entry' : 'entries' }}</span>
+          <svg [class]="'w-4 h-4 text-stone-400 transition-transform ' + (expandedOrderId() === groupKey(group) ? 'rotate-180' : '')"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      @if (expandedOrderId() === groupKey(group)) {
+        <div class="border-t border-stone-100 divide-y divide-stone-100">
+          @for (entry of group.entries; track entry.id) {
+            <div class="px-5 py-4 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span [class]="'inline-block px-2 py-0.5 rounded-full text-xs font-medium ' +
+                    (entry.feedbackType === 'LASEMA' ? 'bg-rose-100 text-rose-700' :
+                     entry.feedbackType === 'THERAPIST' ? 'bg-indigo-100 text-indigo-700' :
+                     'bg-stone-100 text-stone-500')">
+                    {{ typeLabel(entry.feedbackType) }}
+                  </span>
+                  @if (entry.therapistNickname) {
+                    <span class="text-sm text-stone-600">{{ entry.therapistNickname }}</span>
                   }
                 </div>
+                <span class="text-yellow-500 font-bold text-sm">{{ stars(entry.ratingStars) }}</span>
               </div>
-            }
-            <p class="text-slate-700 whitespace-pre-line">{{ f.comment || '(no comment)' }}</p>
-            @if (f.staffResponse) {
-              <div class="rounded-lg bg-emerald-50 border border-emerald-100 p-3 text-emerald-800">
-                <div class="text-xs uppercase tracking-wide text-emerald-600 mb-1">Staff response</div>
-                {{ f.staffResponse }}
-              </div>
-            }
-          </div>
-        }
-      </article>
-    } @empty {
-      <p class="text-slate-500 text-center col-span-full">No feedback yet.</p>
-    }
-  </section>
+
+              @if (entry.feedbackType === 'LASEMA' && entry.npsScore !== null) {
+                <p class="text-xs text-stone-500">
+                  NPS Score: <span class="font-semibold text-teal-700">{{ entry.npsScore }}/10</span>
+                </p>
+              }
+
+              @if (parsedCriteria(entry.criteria).length > 0) {
+                <div class="flex flex-wrap gap-x-4 gap-y-1">
+                  @for (c of parsedCriteria(entry.criteria); track c.label) {
+                    <span class="text-xs text-stone-500">{{ c.label }}: <span class="font-medium text-stone-700">{{ c.score }}/5</span></span>
+                  }
+                </div>
+              }
+
+              @if (entry.comment) {
+                <p class="text-sm text-stone-700 italic">"{{ entry.comment }}"</p>
+              }
+
+              @if (entry.staffResponse) {
+                <p class="text-xs text-stone-400">Staff response: {{ entry.staffResponse }}</p>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
 </div>
