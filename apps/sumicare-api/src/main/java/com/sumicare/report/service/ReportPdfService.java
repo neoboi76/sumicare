@@ -150,7 +150,7 @@ public class ReportPdfService {
     }
 
     private String peso(BigDecimal value) {
-        return "&#8369; " + (value == null ? BigDecimal.ZERO : value).toPlainString();
+        return "₱ " + (value == null ? BigDecimal.ZERO : value).toPlainString();
     }
 
     private String escape(String value) {

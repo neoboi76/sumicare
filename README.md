@@ -49,6 +49,10 @@ paper and cannot justify enterprise software. It keeps the walk-in-first reality
 (client accounts are optional and sessions never require one) while adding online booking,
 recommendations, immutable audit logging, and remotely accessible CSV-exportable reports.
 
+> **Project status — completed.** SumiCare was developed, deployed, and accepted as fully operational
+> at New Lasema Spa Jjimjilbang. It fulfils all 11 functional and 7 non-functional requirements and was
+> evaluated in June 2026 (see [Evaluation and Results](#evaluation-and-results)).
+
 ## Features
 
 ### Internal Operations System
@@ -267,6 +271,23 @@ the multi-stage `apps/sumicare-api/Dockerfile`, used for both local development 
 Production requires, at minimum, `APP_PUBLIC_BASE_URL` (the public site used for all generated
 links), `CORS_ALLOWED_ORIGINS`, `JWT_SECRET`, the `DB_*` and `REDIS_URL` connection settings, and the
 `PAYMONGO_*` keys (webhook signature verification is mandatory).
+
+## Evaluation and Results
+
+SumiCare was evaluated with 30 respondents (staff and clients) at New Lasema Spa Jjimjilbang across
+usability, user experience, functionality, and security.
+
+| Measure | Result | Interpretation |
+|---|---|---|
+| System Usability Scale (SUS) | **71.21** | Above the 68 benchmark — "Good" |
+| SUPR-Q (overall) | **4.41 / 5** | "Strongly agree" (Trust and Appearance 4.47, Usability 4.44, Loyalty 4.28) |
+| Net Promoter Score | **+56.2** | 68.8% promoters, 12.5% detractors |
+| Functionality testing | **23 / 30 items at 100%** | Remaining items 86.67–93.33% |
+| Security posture | **Grade C (Moderate)** | No critical vulnerabilities; full HTTPS; PCI-DSS 6.3 |
+
+The results confirmed SumiCare's readiness for operational use and its effectiveness in replacing
+fragmented, paper-based processes with an integrated digital platform, in line with UN Sustainable
+Development Goal 8 (decent work and economic growth).
 
 ## Commit Convention
 
