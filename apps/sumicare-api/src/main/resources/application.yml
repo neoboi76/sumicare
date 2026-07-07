@@ -61,8 +61,6 @@ sumicare:
     refreshExpiryMs: ${JWT_REFRESH_EXPIRY_MS:604800000}
   cors:
     allowedOrigins: ${CORS_ALLOWED_ORIGINS:*}
-  anthropic:
-    apiKey: ${ANTHROPIC_API_KEY:}
   gemini:
     apiKey: ${GEMINI_API_KEY:}
     model: gemini-2.5-flash

@@ -13,7 +13,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AppProperties(
         Jwt jwt,
         Cors cors,
-        Anthropic anthropic,
         Bcrypt bcrypt,
         RateLimit rateLimit,
         App app,
@@ -22,7 +21,6 @@ public record AppProperties(
 ) {
     public record Jwt(String secret, long accessExpiryMs, long refreshExpiryMs) {}
     public record Cors(String allowedOrigins) {}
-    public record Anthropic(String apiKey) {}
     public record Bcrypt(int cost) {}
     public record RateLimit(int loginPerMinute) {}
     public record App(String publicBaseUrl, String emailFrom) {}

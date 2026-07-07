@@ -7,11 +7,8 @@ reference/
 Reference/
 docs/
 
-CLAUDE.md
-.claude/
 test-api.ps1
 start-api.ps1
-.claude/**
 
 node_modules/
 dist/

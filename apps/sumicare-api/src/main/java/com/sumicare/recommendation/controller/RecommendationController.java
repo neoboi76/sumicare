@@ -11,7 +11,6 @@ import com.sumicare.organization.repository.OrganizationRepository;
 import com.sumicare.recommendation.dto.RecommendationRequest;
 import com.sumicare.recommendation.dto.RecommendationResponse;
 import com.sumicare.recommendation.service.RecommendationEngine;
-import com.sumicare.recommendation.service.RecommendationExplainerService;
 import com.sumicare.service_catalogue.domain.Service;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -22,15 +21,15 @@ import java.util.UUID;
 @RestController
 public class RecommendationController {
 
+    private static final String DEFAULT_DISCLAIMER =
+            "SumiCare's recommendations are for relaxation purposes only and do not constitute medical advice.";
+
     private final RecommendationEngine engine;
-    private final RecommendationExplainerService explainer;
     private final OrganizationRepository organizationRepository;
 
     public RecommendationController(RecommendationEngine engine,
-                                    RecommendationExplainerService explainer,
                                     OrganizationRepository organizationRepository) {
         this.engine = engine;
-        this.explainer = explainer;
         this.organizationRepository = organizationRepository;
     }
 
@@ -40,8 +39,6 @@ public class RecommendationController {
         List<Service> ranked = engine.score(organizationId, request.answers());
         Service primary = ranked.isEmpty() ? null : ranked.get(0);
         List<Service> alternatives = ranked.size() > 1 ? ranked.subList(1, Math.min(ranked.size(), 3)) : List.of();
-        String rationale = explainer.generateRationale(primary, request.answers());
-        return new RecommendationResponse(primary, alternatives, rationale,
-                rationale != null, explainer.disclaimer());
+        return new RecommendationResponse(primary, alternatives, null, false, DEFAULT_DISCLAIMER);
     }
 }
