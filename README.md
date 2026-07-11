@@ -205,18 +205,22 @@ sumicare/
 │   │       ├── app/features/          Public, auth, and internal feature modules (lazy-loaded)
 │   │       ├── app/core/              Guards, interceptors, auth, loading
 │   │       ├── app/shared/            Shared components and directives
-│   │       ├── assets/logos/          Brand assets (SumiCare and partner logos)
+│   │       ├── assets/                Brand assets and logos
 │   │       └── environments/          Build-time configuration
 │   └── sumicare-api/                  Spring Boot 3.2 (Java 21) backend
 │       └── src/main/
 │           ├── java/com/sumicare/     Bounded-context modules (controller/service/repository/domain)
-│           └── resources/db/changelog/  Liquibase changelogs
+│           └── resources/             application.yml, Liquibase changelogs (db/changelog/), fonts
 ├── libs/
-│   ├── shared-types/                  TypeScript DTOs/types shared with the web app
-│   └── ui/                            Reusable Angular UI primitives
+│   └── shared-types/                  TypeScript DTOs/types shared with the web app
+├── scripts/                           Node helper scripts (env injection, static server)
 ├── docker-compose.yml                 Local dev: Redis only (provide Postgres and run the API separately)
-├── nx.json                            NX workspace configuration
-└── .env.example                       Canonical environment variable list
+├── nx.json / package.json             NX workspace config and dependency manifests
+├── tsconfig.base.json                 Shared TypeScript configuration
+├── schema-init.sql                    Initial database schema bootstrap
+├── nixpacks.toml                      Railway / Nixpacks build configuration
+├── LICENSE                            MIT license
+└── README.md
 ```
 
 ## Module Overview
