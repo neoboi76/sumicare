@@ -27,6 +27,13 @@ Group leader: Dino Alfred T. Timbol — [LinkedIn](https://www.linkedin.com/in/d
 The platform was designed and implemented against the operational reality of the partner
 organization, **New Lasema Spa Jjimjilbang**.
 
+## Project Documents
+
+All project-related documents — the thesis manuscript, defense materials, user manual, research poster,
+and supporting files — are available in the shared Google Drive folder:
+
+[Project documents (Google Drive)](https://drive.google.com/drive/folders/1s8MOB-TwrgD_QGGBF71-M1pRNCuTKwe4?usp=sharing)
+
 ## Project Overview
 
 SumiCare is a web-based spa operations management platform that **computerizes** the previously
@@ -300,6 +307,7 @@ feat(booking): add email-verified public booking cancellation
 
 ## License
 
-No open-source license is currently distributed with this repository. SumiCare is an academic thesis
-project; all rights are reserved by the authors unless and until a `LICENSE` file is added to the
-repository root.
+This project is licensed under the **MIT License** — see the [`LICENSE`](LICENSE) file for the full
+text.
+
+Copyright (c) 2026 Lance Gabriel C. De La Paz, Franz C. Pereira, and Dino Alfred T. Timbol.
