@@ -128,8 +128,9 @@ Install the following before running the project locally:
 git clone <repository-url> sumicare
 cd sumicare
 
-# 2. Create your local environment file
-cp .env.example .env        # then fill in the required values
+# 2. Create your own .env file in the repository root
+#    Add the variables listed under "Environment Variables" below and fill in your own values.
+#    The .env file is git-ignored and must never be committed.
 
 # 3. Start Redis (the only service the compose file defines)
 docker compose up
@@ -163,37 +164,35 @@ Change this password immediately in any shared or deployed environment.
 
 ## Environment Variables
 
-All variables are defined in `.env.example` (copy it to `.env`). Never commit real values.
+Create a `.env` file in the repository root and set the variables below with your own values. The
+`.env` file is **git-ignored** — never commit real keys or secrets. The variables the application reads
+are:
 
 | Variable | Description |
 |---|---|
-| `SERVER_PORT` | Internal port the Spring Boot app binds to. |
-| `API_PORT` | Host port mapped to the API container (default 8080). |
 | `DB_URL` | JDBC URL of the PostgreSQL database. |
-| `DB_USERNAME` | Database username. |
-| `DB_PASSWORD` | Database password. |
-| `HIBERNATE_TIME_ZONE` | JDBC time zone (e.g. `Asia/Manila`). |
+| `DB_USERNAME` | Database username used by the API. |
+| `DB_PASSWORD` | Database password used by the API. |
 | `POSTGRES_DB` | Database name for the local Docker Postgres. |
 | `POSTGRES_USER` | Username for the local Docker Postgres. |
 | `POSTGRES_PASSWORD` | Password for the local Docker Postgres. |
-| `REDIS_URL` | Redis connection URL. |
-| `JWT_SECRET` | Signing secret for JWT access/refresh tokens. |
+| `REDIS_URL` | Redis connection URL (e.g. `redis://localhost:6379`). |
+| `JWT_SECRET` | Signing secret for JWT access/refresh tokens (use a long random string). |
 | `JWT_EXPIRY_MS` | Access-token lifetime in milliseconds. |
 | `JWT_REFRESH_EXPIRY_MS` | Refresh-token lifetime in milliseconds. |
 | `CORS_ALLOWED_ORIGINS` | Allowed CORS origins (`*` in development). |
+| `API_PORT` | Host port mapped to the API (default 8080). |
 | `EMAIL_PROVIDER` | Email transport to use (`smtp` or Brevo). |
 | `EMAIL_FROM` | From address for outbound email. |
 | `EMAIL_FROM_NAME` | Display name for outbound email. |
-| `BREVO_API_KEY` | Brevo API key (optional email provider). |
-| `SMTP_HOST` | SMTP host (optional). |
-| `SMTP_PORT` | SMTP port (optional). |
-| `SMTP_USERNAME` | SMTP username (optional). |
-| `SMTP_PASSWORD` | SMTP password (optional). |
-| `APP_PUBLIC_BASE_URL` | Public website base URL used for all email and QR links. |
+| `BREVO_API_KEY` | Brevo API key (email provider). |
 | `PAYMONGO_SECRET_KEY` | PayMongo secret key. |
 | `PAYMONGO_PUBLIC_KEY` | PayMongo public key. |
-| `PAYMONGO_WEBHOOK_SECRET` | Secret used to verify PayMongo webhook signatures (required). |
+| `PAYMONGO_WEBHOOK_SECRET` | Secret used to verify PayMongo webhook signatures. |
 | `PAYMONGO_MOCK_MODE` | When `true`, payments are mocked for local development. |
+| `APP_PUBLIC_BASE_URL` | Public website base URL used for all email and QR links. |
+| `API_BASE_URL` | Base URL of the API for the frontend build (leave empty to use the same-origin proxy). |
+| `GEMINI_API_KEY` | Google Gemini API key (optional; enables AI-generated report narratives). |
 
 ## Project Structure
 
