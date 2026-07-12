@@ -27,12 +27,11 @@ Group leader: Dino Alfred T. Timbol — [LinkedIn](https://www.linkedin.com/in/d
 The platform was designed and implemented against the operational reality of the partner
 organization, **New Lasema Spa Jjimjilbang**.
 
-## Project Documents
+## Documentation and Project Documents
 
-All project-related documents — the thesis manuscript, defense materials, user manual, research poster,
-and supporting files — are available in the shared Google Drive folder:
-
-[Project documents (Google Drive)](https://drive.google.com/drive/folders/1s8MOB-TwrgD_QGGBF71-M1pRNCuTKwe4?usp=sharing)
+- **Documentation / blog:** [neoboi76.github.io/sumicare-docs](https://neoboi76.github.io/sumicare-docs/)
+- **Project documents** — thesis manuscript, defense materials, user manual, research poster, and
+  supporting files: [Google Drive folder](https://drive.google.com/drive/folders/1s8MOB-TwrgD_QGGBF71-M1pRNCuTKwe4?usp=sharing)
 
 ## Project Overview
 
