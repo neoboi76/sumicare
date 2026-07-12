@@ -80,6 +80,20 @@ recommendations, immutable audit logging, and remotely accessible CSV-exportable
 - Email-verified booking lookup and self-service cancellation.
 - Feedback submission and a public contact form.
 
+## Screenshots
+
+**Public booking website**
+
+![Public booking website](screenshots/public-landing.png)
+
+**Internal sign-in**
+
+![Internal sign-in](screenshots/internal-login.png)
+
+**Operations dashboard**
+
+![Operations dashboard](screenshots/internal-dashboard.png)
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -212,6 +226,7 @@ sumicare/
 ├── libs/
 │   └── shared-types/                  TypeScript DTOs/types shared with the web app
 ├── scripts/                           Node helper scripts (env injection, static server)
+├── screenshots/                       Screenshots used in this README
 ├── docker-compose.yml                 Local dev: Redis only (provide Postgres and run the API separately)
 ├── nx.json / package.json             NX workspace config and dependency manifests
 ├── tsconfig.base.json                 Shared TypeScript configuration
